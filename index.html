@@ -923,7 +923,7 @@ function renderInventory(query='', catFilter='', statusFilter='') {
     const stock = i.CurrentStock||0, par = i.ParLevel||0;
     const cls = stock===0?'stock-low':stock<=par?'stock-warn':'stock-ok';
     const badge = stock===0?'badge-red':stock<=par?'badge-orange':'badge-green';
-    const status = stock===0?'Out':'Low':'In Stock';
+    const status = stock===0?'Out':stock<=par?'Low':'In Stock';
     const lastCount = i.LastCount ? new Date(i.LastCount).toLocaleDateString() : '—';
     return `<tr>
       <td class="fw">${i.ItemName||'—'}</td>
