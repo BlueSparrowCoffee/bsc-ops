@@ -924,6 +924,7 @@ async function loadAllData() {
   cache.checklists=cls; cache.roles=roles; cache.vendors=vendors; cache.recipes=recipes;
   if (cache.checklists.length===0) await seedChecklists();
   if (cache.roles.length===0) await seedRoles();
+  if (cache.recipes.length===0) await seedRecipes();
   renderAll();
 }
 
@@ -1807,6 +1808,87 @@ async function deleteRecipe() {
 // ════════════════════════════════════════════════════════════════════════════
 // ROLES & PERMISSIONS
 // ════════════════════════════════════════════════════════════════════════════
+async function seedRecipes() {
+  const recipes = [
+    {
+      Title: 'Cold Brew Coffee',
+      Category: 'Cold Brew',
+      Content: `- Fill brew barrel with water to the bottom line (~5 gallons)\n- 4lbs of BSC Broad Strokes\n- Grinder setting labeled on whiteboard\n- 22 hours @ room temperature`,
+      Notes: ''
+    },
+    {
+      Title: 'CBD Iced Coffee',
+      Category: 'Cold Brew',
+      Content: `- 750g of ice in a Cambro\n- Dose out 180g of Strava CBD\n- Grinder setting on whiteboard\n- Brew using the ICED button on the Fetco into the cambros of ice\n- Pour into a keg suitable for CBD`,
+      Notes: ''
+    },
+    {
+      Title: 'Japanese Iced Coffee',
+      Category: 'Cold Brew',
+      Content: `- 750g of ice in a Cambro\n- Refer to whiteboard for dosage and grind setting\n- Brew using ICED button on Fetco into the cambros of ice\n- Pour into a keg suitable for Japanese`,
+      Notes: ''
+    },
+    {
+      Title: 'Made For Milk',
+      Category: 'Batch Brew',
+      Content: `- This will be repurposed filter coffee\n- After our filter coffee has been sitting for 2.5 hours, dump that into a Cambro\n- At the end of the day pour that into our MFM keg\n- We will only be keeping MFM for 3 days (if it lasts that long)\n- Clean keg thoroughly every 3 days`,
+      Notes: ''
+    },
+    {
+      Title: 'Iced Tea',
+      Category: 'Other',
+      Content: `- Boil 4 quarts of water on the hot plate\n- After water is boiling, add 4 Tea w Tae + BSC iced tea bags (keep water boiling)\n- Let steep for 3.5 minutes while water continues to boil\n- Pour tea over 4 quarts of ice`,
+      Notes: ''
+    },
+    {
+      Title: 'Chai',
+      Category: 'Other',
+      Content: `Add 8 quarts hot water (from sink) to pot, heat on high until boiling (lid on)\n\nFirst Batch:\n- Shake BSC spice blend before weighing out 225g\n- Grind the 225g of chai in the spice grinder until nicely ground (big and small pieces)\n- After the water is boiling reduce heat to 250 degrees\n- Add the ground BSC spice blend to boiling water, set timer for 40 minutes (lid off)\n- After 40 minutes, turn the heat off and strain chai into a big cambro (10–12qt) — SAVE CHAI SPICES!\n- Add 900g sugar into the strained chai and mix while hot\n\nSecond Batch:\n- Add 4 quarts of hot water into pot and bring to a boil\n- Once boiling, add used chai spices saved from first batch\n- Steep for 20 minutes\n- Strain chai into the first batch (in the large cambro)\n- Add 90g black tea to large cambro and steep for 5 minutes\n- Strain evenly into smaller cambros for storage`,
+      Notes: ''
+    },
+    {
+      Title: 'Matcha',
+      Category: 'Other',
+      Content: `- 100g Matcha\n- 640g cold water\n\nBlend on low until matcha is fully incorporated.`,
+      Notes: ''
+    },
+    {
+      Title: 'Vanilla Syrup',
+      Category: 'Syrups',
+      Content: `- 485g sugar\n- 30g vanilla extract\n- 250g hot water from Fetco\n\nStir until sugar is fully dissolved.`,
+      Notes: ''
+    },
+    {
+      Title: 'Honey Syrup',
+      Category: 'Syrups',
+      Content: `- Pour honey into squeeze bottle`,
+      Notes: ''
+    },
+    {
+      Title: 'Simple Syrup',
+      Category: 'Syrups',
+      Content: `- 600g sugar\n- 300g water\n\nStir until sugar is dissolved.\n\nWorks for: Granulated, Raw, and Alt sugars.`,
+      Notes: ''
+    },
+    {
+      Title: 'Chocolate Sauce',
+      Category: 'Syrups',
+      Content: `- 250g chocolate\n- 150g granular sugar\n- 200g water\n- 25g vanilla extract\n\nMix chocolate, water, and vanilla extract first, then gradually add sugar until smooth.\n\nCan be done in a pitcher or on hot plate at 140°F for a faster mix.`,
+      Notes: ''
+    },
+    {
+      Title: 'Miso Caramel Sauce',
+      Category: 'Syrups',
+      Content: `Prep:\n- Weigh out 30g butter, 250g hot water, and 800g sugar\n- Separately weigh out 200g butter and 300g half & half (used later)\n\nCooking:\n- Combine 30g butter, 250g water, and 800g sugar — stir until butter is fully melted\n- Turn heat to 500°F and set timer for 20 minutes (lid on)\n- After 20 minutes, just before it burns (darkest part should be very dark, almost burnt smelling), reduce heat to 210°F and add 200g butter\n- Whisk vigorously until butter is fully incorporated\n- Once incorporated, pour in 150g half & half in three parts, stirring vigorously each time\n\nFinishing:\n- Let caramel cool for 20 minutes\n- Add 20g miso paste, stir until fully incorporated\n- Pour into squeeze bottles, label and date`,
+      Notes: ''
+    }
+  ];
+  for (const r of recipes) {
+    const item = await addListItem(LISTS.recipes, r);
+    cache.recipes.push(item);
+  }
+}
+
 async function seedRoles() {
   const defaults = [
     {RoleName:'Owner',Permissions:MODULES.join(','),LocationAccess:'all'},
