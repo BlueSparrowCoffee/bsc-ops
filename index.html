@@ -718,8 +718,6 @@ async function graph(method, path, body = null) {
 // ════════════════════════════════════════════════════════════════════════════
 async function getSiteId() {
   if (CFG.siteId) return CFG.siteId;
-  const res = await graph('GET','/me/followedSites?$select=id,displayName');
-  // fallback: use root site
   const root = await graph('GET','/sites/root?$select=id');
   CFG.siteId = root.id;
   return CFG.siteId;
@@ -731,7 +729,6 @@ async function ensureList(listName, columns) {
     const r = await graph('GET',`/sites/${siteId}/lists/${listName}?$select=id`);
     return r.id;
   } catch {
-    // list doesn't exist — create it
     const r = await graph('POST',`/sites/${siteId}/lists`, {
       displayName: listName,
       columns: columns,
