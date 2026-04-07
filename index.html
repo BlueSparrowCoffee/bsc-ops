@@ -421,8 +421,14 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
         <option value="active">Active Vendors</option>
         <option value="ap">Accounts Payable</option>
         <option value="archived">Archived</option>
+        <option value="all">All</option>
       </select>
-      <span id="vendor-count" class="ml-auto" style="font-size:13px;color:var(--muted);"></span>
+      <button class="btn btn-outline" onclick="openVendorForm(null)" style="font-size:12px;padding:5px 12px;">+ Add Vendor</button>
+      <div style="position:relative;display:inline-block;">
+        <button class="btn btn-outline" onclick="toggleColPanel()" style="font-size:12px;padding:5px 12px;">⚙ Columns</button>
+        <div id="col-panel" style="display:none;position:absolute;right:0;top:32px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:12px;min-width:200px;z-index:200;box-shadow:var(--shadow);max-height:320px;overflow-y:auto;font-size:13px;"></div>
+      </div>
+      <span id="vendor-count" style="font-size:13px;color:var(--muted);margin-left:auto;"></span>
     </div>
     <div class="table-wrap">
       <table>
@@ -485,6 +491,21 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
 </div><!-- /app -->
 
 <!-- ── MODALS ─────────────────────────────────────────────────────────────── -->
+
+<!-- Vendor Add/Edit -->
+<div class="modal-overlay" id="modal-vendor">
+  <div class="modal" style="max-width:640px;">
+    <div class="modal-header">
+      <div class="modal-title" id="vendor-modal-title">Add Vendor</div>
+      <button class="modal-close" onclick="closeModal('modal-vendor')">×</button>
+    </div>
+    <div id="vendor-form-fields" class="form-grid"></div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="saveVendorForm()">Save</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-vendor')">Cancel</button>
+    </div>
+  </div>
+</div>
 
 <!-- Add Inventory Item -->
 <div class="modal-overlay" id="modal-add-item">
@@ -828,6 +849,10 @@ async function addListItem(listName, fields) {
 async function updateListItem(listName, itemId, fields) {
   const siteId = await getSiteId();
   await graph('PATCH',`/sites/${siteId}/lists/${listName}/items/${itemId}/fields`,fields);
+}
+async function deleteListItem(listName, itemId) {
+  const siteId = await getSiteId();
+  await graph('DELETE',`/sites/${siteId}/lists/${listName}/items/${itemId}`);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1253,7 +1278,12 @@ const SP_SYSTEM_FIELDS = new Set([
 ]);
 
 function spFieldLabel(key) {
-  return key.replace(/_x[0-9a-f]{4}_/gi,' ').replace(/_/g,' ').trim();
+  return key
+    .replace(/_x[0-9a-f]{4}_/gi, ' ')  // decode SharePoint hex-encoded chars (_x0020_ = space)
+    .replace(/([a-z])([A-Z])/g, '$1 $2') // split camelCase
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function spCellValue(key, val) {
@@ -1273,6 +1303,16 @@ function renderDynamicTable(rows, thead, tbody, countEl) {
   if (countEl) countEl.textContent = rows.length+' records';
 }
 
+// hidden columns stored per-list in localStorage
+function getHiddenCols(listKey) {
+  try { return new Set(JSON.parse(localStorage.getItem('hiddenCols_'+listKey)||'[]')); } catch { return new Set(); }
+}
+function setHiddenCols(listKey, set) {
+  localStorage.setItem('hiddenCols_'+listKey, JSON.stringify([...set]));
+}
+
+let _vendorEditId = null;
+
 function renderVendors(query='') {
   const tab = document.getElementById('vendor-tab').value;
   const thead = document.getElementById('vendor-thead');
@@ -1288,19 +1328,102 @@ function renderVendors(query='') {
   }
   document.getElementById('vendor-empty').style.display='none';
 
-  // Auto-detect the Active field (any field whose name contains "active")
   const sample = cache.vendors[0];
   const activeField = Object.keys(sample).find(k=>k.toLowerCase().includes('active'));
+  const hiddenCols = getHiddenCols('vendors');
 
   let rows = cache.vendors.filter(v=>!q||JSON.stringify(v).toLowerCase().includes(q));
+  if (tab==='active' && activeField) rows = rows.filter(v=>{const val=(v[activeField]||'').toString().toLowerCase();return val==='yes'||val==='true'||val==='1';});
+  else if (tab==='archived' && activeField) rows = rows.filter(v=>{const val=(v[activeField]||'').toString().toLowerCase();return val==='no'||val==='false'||val==='0';});
 
-  if (tab==='active' && activeField) {
-    rows = rows.filter(v=>{ const val=(v[activeField]||'').toString().toLowerCase(); return val==='yes'||val==='true'||val==='1'; });
-  } else if (tab==='archived' && activeField) {
-    rows = rows.filter(v=>{ const val=(v[activeField]||'').toString().toLowerCase(); return val==='no'||val==='false'||val==='0'; });
-  }
+  const fields = Object.keys(sample).filter(k=>!SP_SYSTEM_FIELDS.has(k)&&!hiddenCols.has(k)&&rows.some(r=>r[k]!==undefined));
 
-  renderDynamicTable(rows, thead, tbody, countEl);
+  thead.innerHTML = `<tr>${fields.map(f=>`<th>${spFieldLabel(f)}</th>`).join('')}<th style="width:80px"></th></tr>`;
+  tbody.innerHTML = rows.map(r=>`<tr>
+    ${fields.map(f=>`<td>${spCellValue(f,r[f]??'')}</td>`).join('')}
+    <td style="white-space:nowrap">
+      <button onclick="openVendorForm('${r.id}')" style="background:none;border:none;cursor:pointer;color:var(--gold);font-size:13px;padding:2px 6px;" title="Edit">✏️</button>
+      <button onclick="deleteVendor('${r.id}')" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:13px;padding:2px 6px;" title="Delete">🗑</button>
+    </td>
+  </tr>`).join('');
+
+  countEl.textContent = rows.length+' records';
+  buildColPanel('vendors', Object.keys(sample).filter(k=>!SP_SYSTEM_FIELDS.has(k)));
+}
+
+function buildColPanel(listKey, allFields) {
+  const panel = document.getElementById('col-panel');
+  if (!panel) return;
+  const hidden = getHiddenCols(listKey);
+  panel.innerHTML = `<div style="font-weight:600;margin-bottom:8px;font-size:12px;color:var(--muted)">SHOW / HIDE COLUMNS</div>`
+    + allFields.map(f=>`
+    <label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer;">
+      <input type="checkbox" ${hidden.has(f)?'':'checked'} onchange="toggleCol('${listKey}','${f}',this.checked)" style="accent-color:var(--gold)">
+      ${spFieldLabel(f)}
+    </label>`).join('');
+}
+
+function toggleColPanel() {
+  const p = document.getElementById('col-panel');
+  p.style.display = p.style.display==='none' ? 'block' : 'none';
+}
+document.addEventListener('click', e=>{ const p=document.getElementById('col-panel'); if(p&&!p.contains(e.target)&&!e.target.closest('[onclick="toggleColPanel()"]')) p.style.display='none'; });
+
+function toggleCol(listKey, field, visible) {
+  const hidden = getHiddenCols(listKey);
+  visible ? hidden.delete(field) : hidden.add(field);
+  setHiddenCols(listKey, hidden);
+  renderVendors(document.querySelector('#page-vendors .search-input')?.value||'');
+}
+
+function openVendorForm(id) {
+  _vendorEditId = id;
+  const item = id ? cache.vendors.find(v=>v.id===id) : null;
+  document.getElementById('vendor-modal-title').textContent = item ? 'Edit Vendor' : 'Add Vendor';
+  const fields = cache.vendors.length
+    ? Object.keys(cache.vendors[0]).filter(k=>!SP_SYSTEM_FIELDS.has(k))
+    : ['Title'];
+  document.getElementById('vendor-form-fields').innerHTML = fields.map(f=>`
+    <div class="form-group">
+      <label>${spFieldLabel(f)}</label>
+      <input id="vf_${f}" value="${item?(item[f]||''):''}" placeholder="${spFieldLabel(f)}">
+    </div>`).join('');
+  openModal('modal-vendor');
+}
+
+async function saveVendorForm() {
+  const fields = cache.vendors.length
+    ? Object.keys(cache.vendors[0]).filter(k=>!SP_SYSTEM_FIELDS.has(k))
+    : ['Title'];
+  const data = {};
+  fields.forEach(f=>{ const el=document.getElementById('vf_'+f); if(el) data[f]=el.value; });
+  setLoading(true,'Saving vendor…');
+  try {
+    if (_vendorEditId) {
+      await updateListItem(LISTS.vendors, _vendorEditId, data);
+      const i = cache.vendors.findIndex(v=>v.id===_vendorEditId);
+      if (i!==-1) cache.vendors[i]={...cache.vendors[i],...data};
+      toast('ok','✓ Vendor updated');
+    } else {
+      const item = await addListItem(LISTS.vendors, data);
+      cache.vendors.push(item);
+      toast('ok','✓ Vendor added');
+    }
+    renderVendors(); populateSelects(); closeModal('modal-vendor');
+  } catch(e) { toast('err','Save failed: '+e.message); }
+  finally { setLoading(false); }
+}
+
+async function deleteVendor(id) {
+  if (!confirm('Delete this vendor?')) return;
+  setLoading(true,'Deleting…');
+  try {
+    await deleteListItem(LISTS.vendors, id);
+    cache.vendors = cache.vendors.filter(v=>v.id!==id);
+    renderVendors(); populateSelects();
+    toast('ok','✓ Vendor deleted');
+  } catch(e) { toast('err','Delete failed: '+e.message); }
+  finally { setLoading(false); }
 }
 
 function filterVendors(q) { renderVendors(q); }
