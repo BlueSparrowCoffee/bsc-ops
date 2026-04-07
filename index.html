@@ -631,7 +631,7 @@ const LISTS = {
 // ════════════════════════════════════════════════════════════════════════════
 // MSAL
 // ════════════════════════════════════════════════════════════════════════════
-const msal = new msal.PublicClientApplication({
+const msal = new window.msal.PublicClientApplication({
   auth: {
     clientId: CFG.clientId,
     authority: `https://login.microsoftonline.com/${CFG.tenantId}`,
