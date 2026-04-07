@@ -463,18 +463,8 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
     <div class="toolbar">
       <div class="search-wrap">
         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        <input class="search-input" placeholder="Search recipes…" oninput="filterRecipes(this.value)">
+        <input class="search-input" id="recipe-search" placeholder="Search recipes…" oninput="filterRecipes(this.value)">
       </div>
-      <select class="filter" id="recipe-category-filter" onchange="renderRecipes()">
-        <option value="">All Categories</option>
-        <option value="Espresso">Espresso</option>
-        <option value="Batch Brew">Batch Brew</option>
-        <option value="Cold Brew">Cold Brew</option>
-        <option value="Seasonal">Seasonal</option>
-        <option value="Syrups">Syrups</option>
-        <option value="Food">Food</option>
-        <option value="Other">Other</option>
-      </select>
       <button class="btn btn-primary ml-auto" onclick="openRecipeForm(null)">+ Add Recipe</button>
       <span id="recipe-count" style="font-size:13px;color:var(--muted);align-self:center;"></span>
     </div>
@@ -495,22 +485,9 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
           <input id="rf-title" placeholder="e.g. Iced Lavender Latte" style="font-size:16px;font-weight:600;">
         </div>
         <div class="form-group">
-          <label>Category</label>
-          <select id="rf-category" class="filter" style="width:100%;padding:8px 12px;">
-            <option value="">Select category…</option>
-            <option value="Espresso">Espresso</option>
-            <option value="Batch Brew">Batch Brew</option>
-            <option value="Cold Brew">Cold Brew</option>
-            <option value="Seasonal">Seasonal</option>
-            <option value="Syrups">Syrups</option>
-            <option value="Food">Food</option>
-            <option value="Other">Other</option>
-          </select>
-        </div>
-        <div class="form-group">
           <label>Recipe Content</label>
           <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Write paragraphs normally. Start a line with <code>-</code> for a bullet point.</div>
-          <textarea id="rf-content" rows="12" placeholder="e.g.&#10;2oz espresso, pulled at 200°F&#10;&#10;Ingredients:&#10;- 2 pumps lavender syrup&#10;- 4oz oat milk&#10;- Ice" style="width:100%;font-family:inherit;font-size:13px;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;resize:vertical;line-height:1.6;"></textarea>
+          <textarea id="rf-content" rows="14" placeholder="e.g.&#10;2oz espresso, pulled at 200°F&#10;&#10;Ingredients:&#10;- 2 pumps lavender syrup&#10;- 4oz oat milk&#10;- Ice" style="width:100%;font-family:inherit;font-size:13px;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;resize:vertical;line-height:1.6;"></textarea>
         </div>
         <div class="form-group">
           <label>Notes <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
@@ -520,7 +497,23 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
       <div class="form-actions">
         <button class="btn btn-primary" onclick="saveRecipeForm()">Save Recipe</button>
         <button class="btn btn-outline" onclick="closeModal('modal-recipe')">Cancel</button>
-        <button id="recipe-delete-btn" class="btn" style="margin-left:auto;color:var(--red);border-color:var(--red);display:none;" onclick="deleteRecipe()">Delete Recipe</button>
+        <button id="recipe-history-btn" class="btn btn-outline" style="display:none;" onclick="loadRecipeHistory(_recipeEditId)">📋 History</button>
+        <button id="recipe-delete-btn" class="btn" style="margin-left:auto;color:var(--red);border-color:var(--red);display:none;" onclick="deleteRecipe()">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RECIPE HISTORY MODAL -->
+  <div class="modal-overlay" id="modal-recipe-history">
+    <div class="modal" style="max-width:600px;">
+      <div class="modal-header">
+        <div class="modal-title" id="recipe-history-title">Edit History</div>
+        <button class="modal-close" onclick="closeModal('modal-recipe-history')">×</button>
+      </div>
+      <div id="recipe-history-list" style="max-height:480px;overflow-y:auto;padding:4px 0;"></div>
+      <div class="form-actions">
+        <button class="btn btn-outline" onclick="closeModal('modal-recipe-history');openRecipeForm(_recipeEditId)">← Back to Edit</button>
+        <button class="btn btn-outline" onclick="closeModal('modal-recipe-history')">Close</button>
       </div>
     </div>
   </div>
@@ -918,7 +911,7 @@ async function loadAllData() {
     getListItems(siteId, LISTS.roles),
     getListItems(siteId, LISTS.vendors),
     loadListColNames(siteId, LISTS.vendors),
-    getListItems(siteId, LISTS.recipes)
+    getRecipeItems(siteId)
   ]);
   cache.inventory=inv; cache.transfers=xfers; cache.orders=orders;
   cache.checklists=cls; cache.roles=roles; cache.vendors=vendors; cache.recipes=recipes;
@@ -932,6 +925,18 @@ async function getListItems(siteId, listName) {
   try {
     const res = await graph('GET',`/sites/${siteId}/lists/${listName}/items?expand=fields&$top=500`);
     return (res.value||[]).map(i=>({id:i.id,...i.fields}));
+  } catch { return []; }
+}
+
+async function getRecipeItems(siteId) {
+  try {
+    const res = await graph('GET',`/sites/${siteId}/lists/${LISTS.recipes}/items?expand=fields,lastModifiedBy&$top=500`);
+    return (res.value||[]).map(i=>({
+      id: i.id,
+      ...i.fields,
+      _modifiedBy: i.lastModifiedBy?.user?.displayName || '',
+      _modifiedAt: i.lastModifiedDateTime || i.fields?.Modified || ''
+    }));
   } catch { return []; }
 }
 
@@ -1701,23 +1706,27 @@ function timeAgo(dateStr) {
   return `Updated ${months} month${months>1?'s':''} ago`;
 }
 
-const CATEGORY_ICONS = {
-  'Espresso':'☕', 'Batch Brew':'🫗', 'Cold Brew':'🧊',
-  'Seasonal':'🌸', 'Syrups':'🍯', 'Food':'🥐', 'Other':'📝'
-};
-
 let _recipeEditId = null;
+
+function recipeMetaLine(r) {
+  const dateStr = r._modifiedAt || r.Modified || '';
+  const name = r._modifiedBy || '';
+  if (!dateStr) return name ? `By ${name}` : '';
+  const d = new Date(dateStr);
+  const formatted = d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  const diff = Math.floor((Date.now()-d)/86400000);
+  const ago = diff===0?'Today':diff===1?'Yesterday':`${diff}d ago`;
+  return name ? `${ago} · ${formatted} · ${name}` : `${ago} · ${formatted}`;
+}
 
 function renderRecipes(query='') {
   const grid = document.getElementById('recipe-grid');
   const empty = document.getElementById('recipe-empty');
   const countEl = document.getElementById('recipe-count');
-  const catFilter = document.getElementById('recipe-category-filter').value;
-  const q = query.toLowerCase();
+  const q = (query||document.getElementById('recipe-search')?.value||'').toLowerCase();
 
   let rows = cache.recipes;
-  if (catFilter) rows = rows.filter(r=>(r.Category||'')=== catFilter);
-  if (q) rows = rows.filter(r=>(r.Title+r.Category+r.Content+r.Notes||'').toLowerCase().includes(q));
+  if (q) rows = rows.filter(r=>[r.Title,r.Content,r.Notes].filter(Boolean).join(' ').toLowerCase().includes(q));
 
   if (!rows.length) {
     grid.innerHTML=''; empty.style.display='block';
@@ -1728,17 +1737,12 @@ function renderRecipes(query='') {
   countEl.textContent = rows.length + ' recipe' + (rows.length!==1?'s':'');
 
   grid.innerHTML = rows.map(r=>{
-    const icon = CATEGORY_ICONS[r.Category] || '📝';
-    const badge = r.Category ? `<span class="recipe-badge">${icon} ${r.Category}</span>` : '';
-    const updated = timeAgo(r.Modified);
+    const meta = recipeMetaLine(r);
     const bodyHtml = recipeContentToHtml(r.Content||'');
     const notesHtml = r.Notes ? `<div style="margin-top:8px;padding:8px 10px;background:var(--cream);border-radius:6px;font-size:11px;color:var(--muted)">${r.Notes}</div>` : '';
     return `<div class="recipe-card" onclick="openRecipeForm('${r.id}')">
-      <div class="recipe-card-header">
-        <div class="recipe-card-title">${r.Title||'Untitled Recipe'}</div>
-        ${badge}
-      </div>
-      <div class="recipe-meta">${updated}</div>
+      <div class="recipe-card-title">${r.Title||'Untitled Recipe'}</div>
+      ${meta ? `<div class="recipe-meta">${meta}</div>` : ''}
       <div class="recipe-body">${bodyHtml}</div>
       ${notesHtml}
       <button class="recipe-edit-btn" onclick="event.stopPropagation();openRecipeForm('${r.id}')">✏️ Edit</button>
@@ -1747,19 +1751,17 @@ function renderRecipes(query='') {
 }
 
 function filterRecipes(q) { renderRecipes(q); }
-document.addEventListener('DOMContentLoaded', ()=>{
-  document.getElementById('recipe-category-filter')?.addEventListener('change',()=>renderRecipes());
-});
 
 function openRecipeForm(id) {
   _recipeEditId = id || null;
   const item = id ? cache.recipes.find(r=>r.id===id) : null;
   document.getElementById('recipe-modal-title').textContent = item ? 'Edit Recipe' : 'Add Recipe';
   document.getElementById('rf-title').value = item ? (item.Title||'') : '';
-  document.getElementById('rf-category').value = item ? (item.Category||'') : '';
   document.getElementById('rf-content').value = item ? (item.Content||'') : '';
   document.getElementById('rf-notes').value = item ? (item.Notes||'') : '';
-  document.getElementById('recipe-delete-btn').style.display = item ? 'inline-flex' : 'none';
+  const isEdit = !!item;
+  document.getElementById('recipe-delete-btn').style.display = isEdit ? 'inline-flex' : 'none';
+  document.getElementById('recipe-history-btn').style.display = isEdit ? 'inline-flex' : 'none';
   openModal('modal-recipe');
   setTimeout(()=>document.getElementById('rf-title').focus(),100);
 }
@@ -1768,24 +1770,23 @@ async function saveRecipeForm() {
   const title = document.getElementById('rf-title').value.trim();
   if (!title) { toast('err','Recipe name is required'); return; }
   const data = {
-    Title:    title,
-    Category: document.getElementById('rf-category').value,
-    Content:  document.getElementById('rf-content').value,
-    Notes:    document.getElementById('rf-notes').value
+    Title:   title,
+    Content: document.getElementById('rf-content').value,
+    Notes:   document.getElementById('rf-notes').value
   };
   setLoading(true,'Saving recipe…');
   try {
     if (_recipeEditId) {
       await updateListItem(LISTS.recipes, _recipeEditId, data);
       const i = cache.recipes.findIndex(r=>r.id===_recipeEditId);
-      if (i!==-1) cache.recipes[i] = {...cache.recipes[i], ...data, Modified: new Date().toISOString()};
+      if (i!==-1) cache.recipes[i] = {...cache.recipes[i], ...data, _modifiedBy: currentUser?.name||'', _modifiedAt: new Date().toISOString()};
       toast('ok','✓ Recipe updated');
     } else {
       const item = await addListItem(LISTS.recipes, data);
-      cache.recipes.push(item);
+      cache.recipes.push({...item, _modifiedBy: currentUser?.name||'', _modifiedAt: new Date().toISOString()});
       toast('ok','✓ Recipe added');
     }
-    renderRecipes(document.querySelector('#page-recipes .search-input')?.value||'');
+    renderRecipes();
     closeModal('modal-recipe');
   } catch(e) { toast('err','Save failed: '+e.message); }
   finally { setLoading(false); }
@@ -1802,6 +1803,65 @@ async function deleteRecipe() {
     closeModal('modal-recipe');
     toast('ok','✓ Recipe deleted');
   } catch(e) { toast('err','Delete failed: '+e.message); }
+  finally { setLoading(false); }
+}
+
+async function loadRecipeHistory(id) {
+  if (!id) return;
+  const recipe = cache.recipes.find(r=>r.id===id);
+  document.getElementById('recipe-history-title').textContent = `History — ${recipe?.Title||'Recipe'}`;
+  setLoading(true,'Loading history…');
+  try {
+    const siteId = await getSiteId();
+    const res = await graph('GET',`/sites/${siteId}/lists/${LISTS.recipes}/items/${id}/versions`);
+    const versions = res.value || [];
+    const el = document.getElementById('recipe-history-list');
+    if (!versions.length) {
+      el.innerHTML = '<div style="padding:20px;color:var(--muted);font-size:13px;text-align:center;">No edit history found.<br><span style="font-size:11px;">History saves after each edit.</span></div>';
+    } else {
+      el.innerHTML = versions.map((v,i)=>{
+        const d = new Date(v.lastModifiedDateTime);
+        const date = d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+        const time = d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+        const by = v.lastModifiedBy?.user?.displayName || 'Unknown';
+        const content = v.fields?.Content || '';
+        const isCurrent = i===0;
+        return `<div style="padding:16px 0;border-bottom:1px solid var(--border);">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <div>
+              <span style="font-weight:600;font-size:13px;">${by}</span>
+              <span style="font-size:11px;color:var(--muted);margin-left:8px;">${date} at ${time}</span>
+            </div>
+            ${isCurrent
+              ? '<span style="font-size:10px;padding:2px 8px;background:rgba(183,139,64,.15);color:var(--gold);border-radius:10px;font-weight:700;letter-spacing:.04em;">CURRENT</span>'
+              : `<button onclick="restoreRecipeVersion('${id}','${v.id}')" style="font-size:11px;color:var(--gold);border:1.5px solid var(--gold);border-radius:6px;padding:3px 10px;background:none;cursor:pointer;font-weight:600;">↩ Restore</button>`
+            }
+          </div>
+          ${content ? `<div style="font-size:12px;color:var(--ink);background:var(--cream);border-radius:6px;padding:10px 12px;max-height:120px;overflow:hidden;white-space:pre-wrap;line-height:1.5;">${content.slice(0,300)}${content.length>300?'\n…':''}</div>` : '<div style="font-size:11px;color:var(--muted);font-style:italic;">No content</div>'}
+        </div>`;
+      }).join('');
+    }
+    closeModal('modal-recipe');
+    openModal('modal-recipe-history');
+  } catch(e) { toast('err','Could not load history: '+e.message); }
+  finally { setLoading(false); }
+}
+
+async function restoreRecipeVersion(itemId, versionId) {
+  if (!confirm('Restore this version? The current content will be overwritten.')) return;
+  setLoading(true,'Restoring version…');
+  try {
+    const siteId = await getSiteId();
+    const ver = await graph('GET',`/sites/${siteId}/lists/${LISTS.recipes}/items/${itemId}/versions/${versionId}`);
+    const f = ver.fields || {};
+    const data = { Title: f.Title||'', Content: f.Content||'', Notes: f.Notes||'' };
+    await updateListItem(LISTS.recipes, itemId, data);
+    const i = cache.recipes.findIndex(r=>r.id===itemId);
+    if (i!==-1) cache.recipes[i] = {...cache.recipes[i], ...data, _modifiedBy: currentUser?.name||'', _modifiedAt: new Date().toISOString()};
+    renderRecipes();
+    closeModal('modal-recipe-history');
+    toast('ok','✓ Version restored');
+  } catch(e) { toast('err','Restore failed: '+e.message); }
   finally { setLoading(false); }
 }
 
