@@ -541,27 +541,25 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
       <div class="page-sub">Manage roles, permissions and app preferences</div>
     </div>
     <div class="cards-grid">
-      <div class="card">
+      <div class="card" style="grid-column:span 2;">
         <div class="card-title">👥 Roles &amp; Permissions</div>
-        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Customize what each role can access</p>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Click a role to edit its name and module access</p>
         <div id="roles-list"></div>
-        <button class="btn btn-outline" style="margin-top:12px;" onclick="openModal('modal-role')">+ Add Role</button>
+        <button class="btn btn-outline" style="margin-top:14px;" onclick="openRoleForm(null)">+ Add Role</button>
       </div>
       <div class="card">
         <div class="card-title">📍 Locations</div>
-        <div id="locations-list" style="font-size:13px;line-height:2;">
-          <div>Blake St</div><div>Platte St</div><div>Sherman St</div><div>17th St</div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">Locations appear in filters and inventory tracking</p>
+        <div id="locations-list"></div>
+        <div style="display:flex;gap:8px;margin-top:12px;">
+          <input id="new-location-input" placeholder="New location name…" style="flex:1;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;">
+          <button class="btn btn-primary" onclick="addLocation()">Add</button>
         </div>
       </div>
       <div class="card">
         <div class="card-title">🔔 Slack Notifications</div>
         <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Alerts are sent to your configured Slack channel</p>
         <span class="badge badge-green">✓ Connected</span>
-      </div>
-      <div class="card">
-        <div class="card-title">📥 Data Import</div>
-        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">One-time import from your OneDrive spreadsheets into SharePoint. Safe to re-run — clears and re-imports each time.</p>
-        <button class="btn btn-primary" onclick="importVendorsFromExcel()">Import Vendors from OneDrive</button>
       </div>
     </div>
   </div>
@@ -694,14 +692,21 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
 
 <!-- Add Role -->
 <div class="modal-overlay" id="modal-role">
-  <div class="modal">
-    <div class="modal-header"><div class="modal-title">Add / Edit Role</div><button class="modal-close" onclick="closeModal('modal-role')">×</button></div>
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-header">
+      <div class="modal-title" id="role-modal-title">Add Role</div>
+      <button class="modal-close" onclick="closeModal('modal-role')">×</button>
+    </div>
     <div class="form-grid">
       <div class="form-group"><label>Role Name *</label><input id="role-name" placeholder="e.g. Assistant Manager"></div>
     </div>
-    <div style="margin:12px 0 8px;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Module Access</div>
-    <div id="role-perms" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;margin-bottom:16px;"></div>
-    <div class="form-actions"><button class="btn btn-primary" onclick="saveRole()">Save Role</button><button class="btn btn-outline" onclick="closeModal('modal-role')">Cancel</button></div>
+    <div style="margin:16px 0 10px;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Module Access</div>
+    <div id="role-perms" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;margin-bottom:20px;"></div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="saveRole()">Save Role</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-role')">Cancel</button>
+      <button id="role-delete-btn" class="btn" style="margin-left:auto;color:var(--red);border-color:var(--red);display:none;" onclick="deleteRole()">Delete Role</button>
+    </div>
   </div>
 </div>
 
@@ -968,6 +973,7 @@ function renderAll() {
   renderRecipes();
   renderMaintenance();
   renderRoles();
+  renderLocations();
   populateSelects();
 }
 
@@ -1964,21 +1970,38 @@ async function seedRoles() {
 
 function renderRoles() {
   const el = document.getElementById('roles-list');
-  if (!cache.roles.length) { el.innerHTML='<div style="font-size:13px;color:var(--muted)">Loading…</div>'; return; }
-  el.innerHTML = cache.roles.map(r=>`
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--opal);font-size:13px;">
-      <span style="font-weight:600">${r.RoleName}</span>
-      <span style="color:var(--muted);font-size:11px">${(r.Permissions||'').split(',').length} modules</span>
-    </div>`).join('');
+  if (!cache.roles.length) { el.innerHTML='<div style="font-size:13px;color:var(--muted)">No roles yet.</div>'; return; }
+  el.innerHTML = cache.roles.map(r=>{
+    const perms = (r.Permissions||'').split(',').filter(Boolean);
+    const chips = perms.map(p=>`<span style="display:inline-block;font-size:10px;padding:2px 7px;border-radius:10px;background:rgba(183,139,64,.1);color:var(--gold);margin:2px;">${p}</span>`).join('');
+    return `<div onclick="openRoleForm('${r.id}')" style="display:flex;align-items:center;justify-content:space-between;padding:10px 10px;border-bottom:1px solid var(--opal);font-size:13px;cursor:pointer;border-radius:8px;transition:background .12s;" onmouseover="this.style.background='var(--milk)'" onmouseout="this.style.background=''">
+      <div>
+        <div style="font-weight:600;margin-bottom:4px;">${r.RoleName}</div>
+        <div>${chips}</div>
+      </div>
+      <span style="color:var(--muted);font-size:12px;flex-shrink:0;margin-left:12px;">✏️</span>
+    </div>`;
+  }).join('');
 }
 
-function renderRolePerms() {
-  const el = document.getElementById('role-perms');
-  el.innerHTML = MODULES.map(m=>`
-    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-      <input type="checkbox" name="perm-${m}" style="accent-color:var(--gold)"> ${m}
+let _roleEditId = null;
+
+function openRoleForm(id) {
+  _roleEditId = id || null;
+  const role = id ? cache.roles.find(r=>r.id===id) : null;
+  document.getElementById('role-modal-title').textContent = role ? 'Edit Role' : 'Add Role';
+  document.getElementById('role-name').value = role ? (role.RoleName||'') : '';
+  document.getElementById('role-delete-btn').style.display = role ? 'inline-flex' : 'none';
+  const currentPerms = new Set((role?.Permissions||'').split(',').filter(Boolean));
+  document.getElementById('role-perms').innerHTML = MODULES.map(m=>`
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 8px;border-radius:6px;transition:background .1s;" onmouseover="this.style.background='var(--milk)'" onmouseout="this.style.background=''">
+      <input type="checkbox" name="perm-${m}" ${currentPerms.has(m)?'checked':''} style="accent-color:var(--gold);width:15px;height:15px;"> ${m}
     </label>`).join('');
+  openModal('modal-role');
+  setTimeout(()=>document.getElementById('role-name').focus(),100);
 }
+
+function renderRolePerms() {} // kept for nav() compatibility
 
 async function saveRole() {
   const name = document.getElementById('role-name').value.trim();
@@ -1986,13 +2009,83 @@ async function saveRole() {
   const perms = MODULES.filter(m=>document.querySelector(`input[name="perm-${m}"]`)?.checked).join(',');
   setLoading(true,'Saving role…');
   try {
-    const item = await addListItem(LISTS.roles,{RoleName:name,Permissions:perms,LocationAccess:'own'});
-    cache.roles.push(item);
+    if (_roleEditId) {
+      await updateListItem(LISTS.roles, _roleEditId, {RoleName:name, Permissions:perms});
+      const i = cache.roles.findIndex(r=>r.id===_roleEditId);
+      if (i!==-1) cache.roles[i] = {...cache.roles[i], RoleName:name, Permissions:perms};
+      toast('ok','✓ Role updated');
+    } else {
+      const item = await addListItem(LISTS.roles,{RoleName:name,Permissions:perms,LocationAccess:'own'});
+      cache.roles.push(item);
+      toast('ok','✓ Role added');
+    }
     renderRoles();
     closeModal('modal-role');
-    toast('ok','✓ Role saved');
   } catch(e) { toast('err','Save failed: '+e.message); }
   finally { setLoading(false); }
+}
+
+async function deleteRole() {
+  if (!_roleEditId) return;
+  const role = cache.roles.find(r=>r.id===_roleEditId);
+  if (!confirm(`Delete the "${role?.RoleName}" role?`)) return;
+  setLoading(true,'Deleting…');
+  try {
+    await deleteListItem(LISTS.roles, _roleEditId);
+    cache.roles = cache.roles.filter(r=>r.id!==_roleEditId);
+    renderRoles();
+    closeModal('modal-role');
+    toast('ok','✓ Role deleted');
+  } catch(e) { toast('err','Delete failed: '+e.message); }
+  finally { setLoading(false); }
+}
+
+// ── LOCATIONS ──
+function getLocations() {
+  try {
+    const stored = localStorage.getItem('bsc_locations');
+    return stored ? JSON.parse(stored) : [...CFG.locations];
+  } catch { return [...CFG.locations]; }
+}
+function saveLocations(locs) {
+  localStorage.setItem('bsc_locations', JSON.stringify(locs));
+}
+function renderLocations() {
+  const locs = getLocations();
+  // Settings card list
+  const el = document.getElementById('locations-list');
+  if (el) {
+    el.innerHTML = locs.map(l=>`
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--opal);font-size:13px;">
+        <span>${l}</span>
+        <button onclick="removeLocation('${l}')" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;padding:0 4px;line-height:1;" title="Remove">×</button>
+      </div>`).join('');
+  }
+  // Topbar location buttons
+  const switcher = document.getElementById('loc-switcher');
+  if (switcher) {
+    switcher.innerHTML = `<button class="loc-btn active" onclick="setLocation('all',this)">All</button>`
+      + locs.map(l=>`<button class="loc-btn" onclick="setLocation('${l}',this)">${l}</button>`).join('');
+  }
+}
+function addLocation() {
+  const input = document.getElementById('new-location-input');
+  const name = input.value.trim();
+  if (!name) { toast('err','Enter a location name'); return; }
+  const locs = getLocations();
+  if (locs.includes(name)) { toast('err','Location already exists'); return; }
+  locs.push(name);
+  saveLocations(locs);
+  input.value = '';
+  renderLocations();
+  toast('ok',`✓ ${name} added`);
+}
+function removeLocation(name) {
+  if (!confirm(`Remove "${name}" from locations?`)) return;
+  const locs = getLocations().filter(l=>l!==name);
+  saveLocations(locs);
+  renderLocations();
+  toast('ok',`✓ ${name} removed`);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -2038,7 +2131,7 @@ function nav(page) {
   document.getElementById('page-'+page)?.classList.add('active');
   document.querySelector(`.nav-item[onclick="nav('${page}')"]`)?.classList.add('active');
   if (page==='checklists') renderChecklists();
-  if (page==='settings') { renderRolePerms(); renderRoles(); }
+  if (page==='settings') { renderRoles(); renderLocations(); }
 }
 
 // ════════════════════════════════════════════════════════════════════════════
