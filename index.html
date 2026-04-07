@@ -1312,7 +1312,10 @@ async function importVendorsFromExcel() {
   try {
     const enc = s => s.split('/').map(encodeURIComponent).join('/');
     const filePath = enc('MS Coffee/Ordering/Managers List BSC.xlsx');
-    const base = `/me/drive/root:/${filePath}:/workbook/worksheets`;
+
+    // Get file item ID first, then use it for workbook access
+    const fileItem = await graph('GET', `/me/drive/root:/${filePath}`);
+    const base = `/me/drive/items/${fileItem.id}/workbook/worksheets`;
 
     // Read Vendor List sheet
     const vlRes = await graph('GET',`${base}/${encodeURIComponent('Vendor List')}/usedRange`);
