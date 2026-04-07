@@ -611,7 +611,6 @@ const CFG = {
   clientId:  'a466e07b-68f4-4881-bdcc-d3adeb356799',
   tenantId:  'b808062f-1ca4-4f25-a2eb-8998fac8dc52',
   slack:     'SLACK_WEBHOOK_PLACEHOLDER',
-  siteId:    null,   // auto-discovered on first load
   locations: ['Blake','Platte','Sherman','17th']
 };
 
@@ -718,8 +717,8 @@ async function graph(method, path, body = null) {
 // ════════════════════════════════════════════════════════════════════════════
 async function getSiteId() {
   if (CFG.siteId) return CFG.siteId;
-  const root = await graph('GET','/sites/root?$select=id');
-  CFG.siteId = root.id;
+  const res = await graph('GET','/sites/mainspringdevelopers.sharepoint.com:/sites/BlueSparrowCoffeeOps?$select=id');
+  CFG.siteId = res.id;
   return CFG.siteId;
 }
 
@@ -730,9 +729,7 @@ async function ensureList(listName, columns) {
     return r.id;
   } catch {
     const r = await graph('POST',`/sites/${siteId}/lists`, {
-      displayName: listName,
-      columns: columns,
-      list: { template: 'genericList' }
+      displayName: listName, columns, list: { template: 'genericList' }
     });
     return r.id;
   }
@@ -794,46 +791,29 @@ async function loadAllData() {
     getListItems(siteId, LISTS.checklists),
     getListItems(siteId, LISTS.roles)
   ]);
-
-  cache.inventory  = inv;
-  cache.transfers  = xfers;
-  cache.orders     = orders;
-  cache.checklists = cls;
-  cache.roles      = roles;
-
-  // seed default checklists if empty
-  if (cache.checklists.length === 0) await seedChecklists();
-
-  // seed default roles if empty
-  if (cache.roles.length === 0) await seedRoles();
-
+  cache.inventory=inv; cache.transfers=xfers; cache.orders=orders;
+  cache.checklists=cls; cache.roles=roles;
+  if (cache.checklists.length===0) await seedChecklists();
+  if (cache.roles.length===0) await seedRoles();
   renderAll();
 }
 
 async function getListItems(siteId, listName) {
   try {
-    const res = await graph('GET',
-      `/sites/${siteId}/lists/${listName}/items?expand=fields&$top=500`
-    );
-    return (res.value || []).map(i => ({id:i.id, ...i.fields}));
+    const res = await graph('GET',`/sites/${siteId}/lists/${listName}/items?expand=fields&$top=500`);
+    return (res.value||[]).map(i=>({id:i.id,...i.fields}));
   } catch { return []; }
 }
 
 async function addListItem(listName, fields) {
   const siteId = await getSiteId();
-  const res = await graph('POST',
-    `/sites/${siteId}/lists/${listName}/items`,
-    { fields }
-  );
-  return {id:res.id, ...res.fields};
+  const res = await graph('POST',`/sites/${siteId}/lists/${listName}/items`,{fields});
+  return {id:res.id,...res.fields};
 }
 
 async function updateListItem(listName, itemId, fields) {
   const siteId = await getSiteId();
-  await graph('PATCH',
-    `/sites/${siteId}/lists/${listName}/items/${itemId}/fields`,
-    fields
-  );
+  await graph('PATCH',`/sites/${siteId}/lists/${listName}/items/${itemId}/fields`,fields);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
