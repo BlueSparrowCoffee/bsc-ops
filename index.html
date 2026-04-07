@@ -824,7 +824,8 @@ async function loadAllData() {
     getListItems(siteId, LISTS.orders),
     getListItems(siteId, LISTS.checklists),
     getListItems(siteId, LISTS.roles),
-    getListItems(siteId, LISTS.vendors)
+    getListItems(siteId, LISTS.vendors),
+    loadListColNames(siteId, LISTS.vendors)
   ]);
   cache.inventory=inv; cache.transfers=xfers; cache.orders=orders;
   cache.checklists=cls; cache.roles=roles; cache.vendors=vendors;
@@ -1274,12 +1275,31 @@ async function seedChecklists() {
 const SP_SYSTEM_FIELDS = new Set([
   'id','Created','Modified','AuthorLookupId','EditorLookupId','AppAuthorLookupId',
   'AppEditorLookupId','_UIVersionString','_ComplianceFlags','_ComplianceTag',
-  'Attachments','ContentType','ContentTypeId','FolderChildCount','ItemChildCount'
+  'Attachments','ContentType','ContentTypeId','FolderChildCount','ItemChildCount',
+  '@odata.etag','LinkTitle','LinkTitleNoMenu','_ColorTag','Edit','DocIcon',
+  'FileSystemObjectType','ServerRedirectedEmbedUri','ServerRedirectedEmbedUrl',
+  'FileDirRef','FileRef','FileLeafRef','UniqueId','ScopeId','_Level','_IsCurrentVersion'
 ]);
 
-function spFieldLabel(key) {
+// Map: listName -> { internalName: displayName }
+const _colDisplayNames = {};
+
+async function loadListColNames(siteId, listName) {
+  try {
+    const res = await graph('GET',`/sites/${siteId}/lists/${listName}/columns?$select=name,displayName&$top=200`);
+    const map = {};
+    (res.value||[]).forEach(c=>{ if(c.name && c.displayName) map[c.name]=c.displayName; });
+    _colDisplayNames[listName] = map;
+  } catch { _colDisplayNames[listName] = {}; }
+}
+
+function spFieldLabel(key, listName) {
+  // Use SharePoint display name if available
+  if (listName && _colDisplayNames[listName] && _colDisplayNames[listName][key]) {
+    return _colDisplayNames[listName][key];
+  }
   return key
-    .replace(/_x[0-9a-f]{4}_/gi, ' ')  // decode SharePoint hex-encoded chars (_x0020_ = space)
+    .replace(/_x([0-9a-f]{4})_/gi, (_,h)=>String.fromCharCode(parseInt(h,16))) // decode hex chars
     .replace(/([a-z])([A-Z])/g, '$1 $2') // split camelCase
     .replace(/_/g, ' ')
     .replace(/\s+/g, ' ')
@@ -1338,7 +1358,7 @@ function renderVendors(query='') {
 
   const fields = Object.keys(sample).filter(k=>!SP_SYSTEM_FIELDS.has(k)&&!hiddenCols.has(k)&&rows.some(r=>r[k]!==undefined));
 
-  thead.innerHTML = `<tr>${fields.map(f=>`<th>${spFieldLabel(f)}</th>`).join('')}<th style="width:80px"></th></tr>`;
+  thead.innerHTML = `<tr>${fields.map(f=>`<th>${spFieldLabel(f,LISTS.vendors)}</th>`).join('')}<th style="width:80px"></th></tr>`;
   tbody.innerHTML = rows.map(r=>`<tr>
     ${fields.map(f=>`<td>${spCellValue(f,r[f]??'')}</td>`).join('')}
     <td style="white-space:nowrap">
@@ -1359,7 +1379,7 @@ function buildColPanel(listKey, allFields) {
     + allFields.map(f=>`
     <label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer;">
       <input type="checkbox" ${hidden.has(f)?'':'checked'} onchange="toggleCol('${listKey}','${f}',this.checked)" style="accent-color:var(--gold)">
-      ${spFieldLabel(f)}
+      ${spFieldLabel(f, listKey === 'vendors' ? LISTS.vendors : null)}
     </label>`).join('');
 }
 
@@ -1385,8 +1405,8 @@ function openVendorForm(id) {
     : ['Title'];
   document.getElementById('vendor-form-fields').innerHTML = fields.map(f=>`
     <div class="form-group">
-      <label>${spFieldLabel(f)}</label>
-      <input id="vf_${f}" value="${item?(item[f]||''):''}" placeholder="${spFieldLabel(f)}">
+      <label>${spFieldLabel(f,LISTS.vendors)}</label>
+      <input id="vf_${f}" value="${item?(item[f]||''):''}" placeholder="${spFieldLabel(f,LISTS.vendors)}">
     </div>`).join('');
   openModal('modal-vendor');
 }
@@ -1502,7 +1522,10 @@ async function importVendorsFromExcel() {
     }
 
     // Reload vendors
-    cache.vendors = await getListItems(siteId, LISTS.vendors);
+    await Promise.all([
+      getListItems(siteId, LISTS.vendors).then(v=>cache.vendors=v),
+      loadListColNames(siteId, LISTS.vendors)
+    ]);
     renderVendors();
     populateSelects();
     toast('ok',`✓ Imported ${count} vendors from OneDrive`);
