@@ -473,6 +473,11 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
         <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Alerts are sent to your configured Slack channel</p>
         <span class="badge badge-green">✓ Connected</span>
       </div>
+      <div class="card">
+        <div class="card-title">📥 Data Import</div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">One-time import from your OneDrive spreadsheets into SharePoint. Safe to re-run — clears and re-imports each time.</p>
+        <button class="btn btn-primary" onclick="importVendorsFromExcel()">Import Vendors from OneDrive</button>
+      </div>
     </div>
   </div>
 
@@ -777,6 +782,14 @@ async function ensureAllLists() {
   await ensureList(LISTS.roles,[
     {name:'RoleName',text:{}},{name:'Permissions',text:{}},{name:'LocationAccess',text:{}}
   ]);
+  await ensureList(LISTS.vendors,[
+    {name:'VendorName',text:{}},{name:'Product',text:{}},{name:'OrderDeadline',text:{}},
+    {name:'OrderDays',text:{}},{name:'DeliveryDays',text:{}},{name:'ContactPerson',text:{}},
+    {name:'Email',text:{}},{name:'Website',text:{}},{name:'Phone',text:{}},
+    {name:'OrderMethod',text:{}},{name:'Terms',text:{}},{name:'InvoiceMethod',text:{}},
+    {name:'PaymentMethod',text:{}},{name:'CreditCard',text:{}},{name:'Split',text:{}},
+    {name:'Active',text:{}},{name:'Notes',text:{}}
+  ]);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -784,15 +797,16 @@ async function ensureAllLists() {
 // ════════════════════════════════════════════════════════════════════════════
 async function loadAllData() {
   const siteId = await getSiteId();
-  const [inv, xfers, orders, cls, roles] = await Promise.all([
+  const [inv, xfers, orders, cls, roles, vendors] = await Promise.all([
     getListItems(siteId, LISTS.inventory),
     getListItems(siteId, LISTS.transfers),
     getListItems(siteId, LISTS.orders),
     getListItems(siteId, LISTS.checklists),
-    getListItems(siteId, LISTS.roles)
+    getListItems(siteId, LISTS.roles),
+    getListItems(siteId, LISTS.vendors)
   ]);
   cache.inventory=inv; cache.transfers=xfers; cache.orders=orders;
-  cache.checklists=cls; cache.roles=roles;
+  cache.checklists=cls; cache.roles=roles; cache.vendors=vendors;
   if (cache.checklists.length===0) await seedChecklists();
   if (cache.roles.length===0) await seedRoles();
   renderAll();
@@ -1230,48 +1244,144 @@ async function seedChecklists() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// VENDORS (from Excel data via SharePoint)
+// VENDORS (live from SharePoint)
 // ════════════════════════════════════════════════════════════════════════════
 function renderVendors(query='') {
   const tab = document.getElementById('vendor-tab').value;
-  // For now show inline data — will migrate from Excel in a future step
   const thead = document.getElementById('vendor-thead');
   const tbody = document.getElementById('vendor-body');
+  const q = query.toLowerCase();
+  const match = v => !q || JSON.stringify(v).toLowerCase().includes(q);
 
-  if (tab==='active') {
-    thead.innerHTML = `<tr><th>Vendor</th><th>Category</th><th>Blake</th><th>Platte</th><th>Contact</th><th>Phone</th><th>Order Method</th><th>Payment</th></tr>`;
-    const vendors = SEED_VENDORS.active.filter(v=>!query||JSON.stringify(v).toLowerCase().includes(query.toLowerCase()));
-    tbody.innerHTML = vendors.map(v=>`<tr>
-      <td class="fw">${v[0]}</td><td><span class="badge badge-teal">${v[1]}</span></td>
-      <td>${v[2]||'—'}</td><td>${v[3]||'—'}</td><td>${v[4]||'—'}</td>
-      <td>${v[5]?`<a href="tel:${v[5].replace(/\D/g,'')}">${v[5]}</a>`:'—'}</td>
-      <td>${v[6]||'—'}</td><td>${v[7]||'—'}</td>
-    </tr>`).join('');
-    document.getElementById('vendor-count').textContent = vendors.length+' vendors';
-  } else if (tab==='ap') {
-    thead.innerHTML = `<tr><th>Vendor</th><th>Invoice Method</th><th>Payment</th><th>CC on File</th><th>Blake %</th><th>Platte %</th><th>Notes</th></tr>`;
-    const ap = SEED_VENDORS.ap.filter(v=>!query||JSON.stringify(v).toLowerCase().includes(query.toLowerCase()));
-    tbody.innerHTML = ap.map(v=>`<tr>
-      <td class="fw">${v[0]}</td><td>${v[1]||'—'}</td><td>${v[2]||'—'}</td>
-      <td>${v[3]||'—'}</td><td>${v[4]||'—'}</td><td>${v[5]||'—'}</td><td style="color:var(--muted);font-size:12px">${v[6]||''}</td>
-    </tr>`).join('');
-    document.getElementById('vendor-count').textContent = ap.length+' accounts';
-  } else {
-    thead.innerHTML = `<tr><th>Vendor</th><th>Category</th><th>Contact</th><th>Phone</th><th>Email</th><th>Notes</th></tr>`;
-    const arch = SEED_VENDORS.archived.filter(v=>!query||JSON.stringify(v).toLowerCase().includes(query.toLowerCase()));
-    tbody.innerHTML = arch.map(v=>`<tr>
-      <td class="fw">${v[0]}</td><td>${v[1]||'—'}</td><td>${v[2]||'—'}</td>
-      <td>${v[3]?`<a href="tel:${v[3].replace(/\D/g,'')}">${v[3]}</a>`:'—'}</td>
-      <td>${v[4]?`<a href="mailto:${v[4]}">${v[4]}</a>`:'—'}</td>
-      <td style="color:var(--muted);font-size:12px">${v[5]||''}</td>
-    </tr>`).join('');
-    document.getElementById('vendor-count').textContent = arch.length+' archived';
+  if (!cache.vendors.length) {
+    thead.innerHTML=''; tbody.innerHTML='';
+    document.getElementById('vendor-empty').style.display='block';
+    document.getElementById('vendor-count').textContent='No vendors imported yet';
+    return;
   }
   document.getElementById('vendor-empty').style.display='none';
+
+  if (tab==='active') {
+    const list = cache.vendors.filter(v=>v.Active==='Yes'&&match(v));
+    thead.innerHTML=`<tr><th>Vendor</th><th>Product</th><th>Contact</th><th>Phone</th><th>Email</th><th>Order Method</th><th>Order Days</th><th>Notes</th></tr>`;
+    tbody.innerHTML=list.map(v=>`<tr>
+      <td class="fw">${v.VendorName||'—'}</td>
+      <td><span class="badge badge-teal">${v.Product||'—'}</span></td>
+      <td>${v.ContactPerson||'—'}</td>
+      <td>${v.Phone?`<a href="tel:${v.Phone.replace(/\D/g,'')}">${v.Phone}</a>`:'—'}</td>
+      <td>${v.Email?`<a href="mailto:${v.Email}">${v.Email}</a>`:'—'}</td>
+      <td>${v.OrderMethod||'—'}</td>
+      <td>${v.OrderDays||'—'}</td>
+      <td style="color:var(--muted);font-size:12px">${v.Notes||''}</td>
+    </tr>`).join('');
+    document.getElementById('vendor-count').textContent=list.length+' vendors';
+  } else if (tab==='ap') {
+    const list = cache.vendors.filter(v=>v.Terms&&match(v));
+    thead.innerHTML=`<tr><th>Vendor</th><th>Terms</th><th>Invoice</th><th>Payment</th><th>CC on File</th><th>Split</th><th>Contact</th></tr>`;
+    tbody.innerHTML=list.map(v=>`<tr>
+      <td class="fw">${v.VendorName||'—'}</td>
+      <td>${v.Terms||'—'}</td>
+      <td>${v.InvoiceMethod||'—'}</td>
+      <td>${v.PaymentMethod||'—'}</td>
+      <td>${v.CreditCard||'—'}</td>
+      <td>${v.Split||'—'}</td>
+      <td>${v.ContactPerson||'—'}</td>
+    </tr>`).join('');
+    document.getElementById('vendor-count').textContent=list.length+' accounts';
+  } else {
+    const list = cache.vendors.filter(v=>v.Active==='No'&&match(v));
+    thead.innerHTML=`<tr><th>Vendor</th><th>Product</th><th>Contact</th><th>Phone</th><th>Email</th><th>Notes</th></tr>`;
+    tbody.innerHTML=list.map(v=>`<tr>
+      <td class="fw">${v.VendorName||'—'}</td>
+      <td>${v.Product||'—'}</td>
+      <td>${v.ContactPerson||'—'}</td>
+      <td>${v.Phone?`<a href="tel:${v.Phone.replace(/\D/g,'')}">${v.Phone}</a>`:'—'}</td>
+      <td>${v.Email?`<a href="mailto:${v.Email}">${v.Email}</a>`:'—'}</td>
+      <td style="color:var(--muted);font-size:12px">${v.Notes||''}</td>
+    </tr>`).join('');
+    document.getElementById('vendor-count').textContent=list.length+' archived';
+  }
 }
 
 function filterVendors(q) { renderVendors(q); }
 document.getElementById('vendor-tab').addEventListener('change',()=>renderVendors());
+
+// ── Import vendors from OneDrive Excel ──
+async function importVendorsFromExcel() {
+  setLoading(true,'Importing vendors from OneDrive…');
+  try {
+    const filePath = 'MS Coffee/Ordering/Managers List BSC.xlsx';
+    const base = `/me/drive/root:/${filePath}:/workbook/worksheets`;
+
+    // Read Vendor List sheet
+    const vlRes = await graph('GET',`${base}/Vendor List/usedRange`);
+    const vlRows = vlRes.values || [];
+    const vlHead = vlRows[0].map(h=>(h||'').toString().trim());
+
+    // Read Accounts Payable sheet
+    const apRes = await graph('GET',`${base}/Accounts Payable/usedRange`);
+    const apRows = apRes.values || [];
+    const apHead = apRows[0].map(h=>(h||'').toString().trim());
+
+    // Build AP lookup by vendor name
+    const apLookup = {};
+    for (let i=1;i<apRows.length;i++) {
+      const r=apRows[i]; if(!r[0]) continue;
+      apLookup[r[0].toString().trim()] = {
+        Terms:         r[apHead.indexOf('Terms')]||'',
+        InvoiceMethod: r[apHead.indexOf('Invoice')]||'',
+        PaymentMethod: r[apHead.indexOf('Payment Method')]||'',
+        CreditCard:    r[apHead.indexOf('Credit Card on file')]||'',
+        Split:         r[apHead.indexOf('Split')]||''
+      };
+    }
+
+    // Clear existing vendors
+    const siteId = await getSiteId();
+    const existing = await getListItems(siteId, LISTS.vendors);
+    for (const v of existing) {
+      await graph('DELETE',`/sites/${siteId}/lists/${LISTS.vendors}/items/${v.id}`);
+    }
+
+    // Import each vendor row
+    let count=0;
+    const col = name => vlHead.indexOf(name);
+    for (let i=1;i<vlRows.length;i++) {
+      const r=vlRows[i];
+      const name = (r[col('Company')]||'').toString().trim();
+      if (!name) continue;
+      const ap = apLookup[name]||{};
+      const fields = {
+        VendorName:    name,
+        Product:       (r[col('Product')]||'').toString(),
+        OrderDeadline: (r[col('Order Deadline')]||'').toString(),
+        OrderDays:     (r[col('Order Days')]||'').toString(),
+        DeliveryDays:  (r[col('Delivery Days')]||'').toString(),
+        ContactPerson: (r[col('Contact Person')]||'').toString(),
+        Email:         (r[col('Email')]||'').toString(),
+        Website:       (r[col('Website')]||'').toString(),
+        Phone:         (r[col('Phone Number')]||'').toString(),
+        OrderMethod:   (r[col('Prefered Order Method')]||'').toString(),
+        Notes:         (r[col('Notes')]||'').toString(),
+        Active:        r[col('Active')]===true||r[col('Active')]==='TRUE'||r[col('Active')]===1?'Yes':'No',
+        Terms:         ap.Terms||'',
+        InvoiceMethod: ap.InvoiceMethod||'',
+        PaymentMethod: ap.PaymentMethod||'',
+        CreditCard:    ap.CreditCard||'',
+        Split:         ap.Split||''
+      };
+      await addListItem(LISTS.vendors, fields);
+      count++;
+    }
+
+    // Reload vendors
+    cache.vendors = await getListItems(siteId, LISTS.vendors);
+    renderVendors();
+    populateSelects();
+    toast('ok',`✓ Imported ${count} vendors from OneDrive`);
+  } catch(e) { toast('err','Import failed: '+e.message); }
+  finally { setLoading(false); }
+}
 
 // ════════════════════════════════════════════════════════════════════════════
 // MAINTENANCE
@@ -1357,7 +1467,8 @@ function populateSelects() {
     if (el) el.innerHTML = '<option value="">Select item…</option>'+opts;
   });
   // vendor select for orders
-  const vOpts = SEED_VENDORS.active.map(v=>`<option>${v[0]}</option>`).join('');
+  const activeVendors = cache.vendors.filter(v=>v.Active==='Yes');
+  const vOpts = activeVendors.map(v=>`<option>${v.VendorName}</option>`).join('');
   const vs = document.getElementById('order-vendor-sel');
   if (vs) vs.innerHTML = '<option value="">Select vendor…</option>'+vOpts;
 }
