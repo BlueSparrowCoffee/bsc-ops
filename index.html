@@ -172,6 +172,20 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
 .progress-bar{height:100%;background:var(--gold);border-radius:20px;transition:width .4s;}
 .progress-bar.complete{background:var(--green);}
 
+/* ── RECIPE CARDS ── */
+.recipe-card{background:#fff;border:1.5px solid var(--border);border-radius:12px;padding:20px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:10px;cursor:pointer;transition:box-shadow .15s,border-color .15s;}
+.recipe-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.12);border-color:var(--gold);}
+.recipe-card-header{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
+.recipe-card-title{font-size:15px;font-weight:700;color:var(--navy);line-height:1.3;}
+.recipe-badge{display:inline-block;font-size:10px;font-weight:600;letter-spacing:.04em;padding:3px 8px;border-radius:20px;background:rgba(183,139,64,.12);color:var(--gold);white-space:nowrap;flex-shrink:0;}
+.recipe-meta{font-size:11px;color:var(--muted);}
+.recipe-body{font-size:13px;color:var(--ink);line-height:1.65;}
+.recipe-body p{margin:0 0 6px;}
+.recipe-body ul{margin:4px 0 6px 16px;padding:0;}
+.recipe-body li{margin-bottom:3px;}
+.recipe-edit-btn{font-size:11px;color:var(--gold);border:1px solid var(--gold);border-radius:6px;padding:4px 10px;background:none;cursor:pointer;align-self:flex-start;margin-top:4px;}
+.recipe-edit-btn:hover{background:rgba(183,139,64,.08);}
+
 /* ── INVENTORY SPECIFIC ── */
 .stock-low{color:var(--red);font-weight:600;}
 .stock-ok{color:var(--green);}
@@ -244,6 +258,7 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
   <div class="nav-section">Management</div>
   <div class="nav-item" onclick="nav('checklists')"><span class="nav-icon">✅</span> Checklists</div>
   <div class="nav-item" onclick="nav('vendors')"><span class="nav-icon">🤝</span> Vendors</div>
+  <div class="nav-item" onclick="nav('recipes')"><span class="nav-icon">📖</span> Recipes</div>
   <div class="nav-item" onclick="nav('maintenance')"><span class="nav-icon">🔧</span> Maintenance</div>
   <div class="nav-section">Admin</div>
   <div class="nav-item" onclick="nav('settings')"><span class="nav-icon">⚙️</span> Settings</div>
@@ -436,6 +451,77 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
         <tbody id="vendor-body"></tbody>
       </table>
       <div class="no-data" id="vendor-empty" style="display:none">No vendors found.</div>
+    </div>
+  </div>
+
+  <!-- RECIPES -->
+  <div class="page" id="page-recipes">
+    <div class="page-header">
+      <div class="page-title">📖 Recipes</div>
+      <div class="page-sub">Top secret recipe bible — add, edit, and reference from anywhere</div>
+    </div>
+    <div class="toolbar">
+      <div class="search-wrap">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input class="search-input" placeholder="Search recipes…" oninput="filterRecipes(this.value)">
+      </div>
+      <select class="filter" id="recipe-category-filter" onchange="renderRecipes()">
+        <option value="">All Categories</option>
+        <option value="Espresso">Espresso</option>
+        <option value="Batch Brew">Batch Brew</option>
+        <option value="Cold Brew">Cold Brew</option>
+        <option value="Seasonal">Seasonal</option>
+        <option value="Syrups">Syrups</option>
+        <option value="Food">Food</option>
+        <option value="Other">Other</option>
+      </select>
+      <button class="btn btn-primary ml-auto" onclick="openRecipeForm(null)">+ Add Recipe</button>
+      <span id="recipe-count" style="font-size:13px;color:var(--muted);align-self:center;"></span>
+    </div>
+    <div class="cards-grid" id="recipe-grid" style="grid-template-columns:repeat(auto-fill,minmax(340px,1fr));"></div>
+    <div class="no-data" id="recipe-empty" style="display:none">No recipes yet — add your first one above.</div>
+  </div>
+
+  <!-- RECIPE MODAL -->
+  <div class="modal-overlay" id="modal-recipe">
+    <div class="modal" style="max-width:680px;">
+      <div class="modal-header">
+        <div class="modal-title" id="recipe-modal-title">Add Recipe</div>
+        <button class="modal-close" onclick="closeModal('modal-recipe')">×</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:16px;padding:4px 0;">
+        <div class="form-group">
+          <label>Recipe Name</label>
+          <input id="rf-title" placeholder="e.g. Iced Lavender Latte" style="font-size:16px;font-weight:600;">
+        </div>
+        <div class="form-group">
+          <label>Category</label>
+          <select id="rf-category" class="filter" style="width:100%;padding:8px 12px;">
+            <option value="">Select category…</option>
+            <option value="Espresso">Espresso</option>
+            <option value="Batch Brew">Batch Brew</option>
+            <option value="Cold Brew">Cold Brew</option>
+            <option value="Seasonal">Seasonal</option>
+            <option value="Syrups">Syrups</option>
+            <option value="Food">Food</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Recipe Content</label>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Write paragraphs normally. Start a line with <code>-</code> for a bullet point.</div>
+          <textarea id="rf-content" rows="12" placeholder="e.g.&#10;2oz espresso, pulled at 200°F&#10;&#10;Ingredients:&#10;- 2 pumps lavender syrup&#10;- 4oz oat milk&#10;- Ice" style="width:100%;font-family:inherit;font-size:13px;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;resize:vertical;line-height:1.6;"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Notes <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+          <input id="rf-notes" placeholder="e.g. Seasonal — available May through August">
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="saveRecipeForm()">Save Recipe</button>
+        <button class="btn btn-outline" onclick="closeModal('modal-recipe')">Cancel</button>
+        <button id="recipe-delete-btn" class="btn" style="margin-left:auto;color:var(--red);border-color:var(--red);display:none;" onclick="deleteRecipe()">Delete Recipe</button>
+      </div>
     </div>
   </div>
 
@@ -641,7 +727,7 @@ const CFG = {
 };
 
 const SCOPES = ['Sites.ReadWrite.All','Files.ReadWrite','User.Read'];
-const MODULES = ['Dashboard','Inventory','Transfers','Ordering','Checklists','Vendors','Maintenance','Settings'];
+const MODULES = ['Dashboard','Inventory','Transfers','Ordering','Checklists','Vendors','Recipes','Maintenance','Settings'];
 const LISTS = {
   inventory:  'BSC_Inventory',
   counts:     'BSC_InventoryCounts',
@@ -650,7 +736,8 @@ const LISTS = {
   checklists: 'BSC_Checklists',
   clProgress: 'BSC_ChecklistProgress',
   vendors:    'vendors',
-  roles:      'BSC_Roles'
+  roles:      'BSC_Roles',
+  recipes:    'BSC_Recipes'
 };
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -671,7 +758,7 @@ let currentLocation = 'all';
 // in-memory cache
 const cache = {
   inventory: [], transfers: [], orders: [],
-  checklists: [], vendors: [], roles: [],
+  checklists: [], vendors: [], roles: [], recipes: [],
   clProgress: {}
 };
 
@@ -811,6 +898,11 @@ async function ensureAllLists() {
     {name:'PaymentMethod',text:{}},{name:'CreditCard',text:{}},{name:'Split',text:{}},
     {name:'Active',text:{}},{name:'Notes',text:{}}
   ]);
+  await ensureList(LISTS.recipes,[
+    {name:'Category',text:{}},
+    {name:'Content',text:{allowMultipleLines:true,linesForEditing:10}},
+    {name:'Notes',text:{}}
+  ]);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -818,17 +910,18 @@ async function ensureAllLists() {
 // ════════════════════════════════════════════════════════════════════════════
 async function loadAllData() {
   const siteId = await getSiteId();
-  const [inv, xfers, orders, cls, roles, vendors] = await Promise.all([
+  const [inv, xfers, orders, cls, roles, vendors,,recipes] = await Promise.all([
     getListItems(siteId, LISTS.inventory),
     getListItems(siteId, LISTS.transfers),
     getListItems(siteId, LISTS.orders),
     getListItems(siteId, LISTS.checklists),
     getListItems(siteId, LISTS.roles),
     getListItems(siteId, LISTS.vendors),
-    loadListColNames(siteId, LISTS.vendors)
+    loadListColNames(siteId, LISTS.vendors),
+    getListItems(siteId, LISTS.recipes)
   ]);
   cache.inventory=inv; cache.transfers=xfers; cache.orders=orders;
-  cache.checklists=cls; cache.roles=roles; cache.vendors=vendors;
+  cache.checklists=cls; cache.roles=roles; cache.vendors=vendors; cache.recipes=recipes;
   if (cache.checklists.length===0) await seedChecklists();
   if (cache.roles.length===0) await seedRoles();
   renderAll();
@@ -866,6 +959,7 @@ function renderAll() {
   renderOrders();
   renderChecklists();
   renderVendors();
+  renderRecipes();
   renderMaintenance();
   renderRoles();
   populateSelects();
@@ -1568,6 +1662,147 @@ function renderMaintenance(query='') {
   document.getElementById('maint-count').textContent = contacts.length+' contacts';
 }
 function filterMaint(q) { renderMaintenance(q); }
+
+// ════════════════════════════════════════════════════════════════════════════
+// RECIPES
+// ════════════════════════════════════════════════════════════════════════════
+
+// Convert plain text with "- " bullets into HTML
+function recipeContentToHtml(text) {
+  if (!text) return '';
+  const lines = text.split('\n');
+  let html = '';
+  let inList = false;
+  for (const raw of lines) {
+    const line = raw.trimEnd();
+    const isBullet = /^[-•]\s+/.test(line);
+    if (isBullet) {
+      if (!inList) { html += '<ul>'; inList = true; }
+      html += `<li>${line.replace(/^[-•]\s+/,'')}</li>`;
+    } else {
+      if (inList) { html += '</ul>'; inList = false; }
+      if (line.trim()) html += `<p>${line}</p>`;
+      else html += '<p style="margin:4px 0;"></p>';
+    }
+  }
+  if (inList) html += '</ul>';
+  return html;
+}
+
+function timeAgo(dateStr) {
+  if (!dateStr) return '';
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const days = Math.floor(diff / 86400000);
+  if (days === 0) return 'Updated today';
+  if (days === 1) return 'Updated yesterday';
+  if (days < 30) return `Updated ${days} days ago`;
+  const months = Math.floor(days/30);
+  return `Updated ${months} month${months>1?'s':''} ago`;
+}
+
+const CATEGORY_ICONS = {
+  'Espresso':'☕', 'Batch Brew':'🫗', 'Cold Brew':'🧊',
+  'Seasonal':'🌸', 'Syrups':'🍯', 'Food':'🥐', 'Other':'📝'
+};
+
+let _recipeEditId = null;
+
+function renderRecipes(query='') {
+  const grid = document.getElementById('recipe-grid');
+  const empty = document.getElementById('recipe-empty');
+  const countEl = document.getElementById('recipe-count');
+  const catFilter = document.getElementById('recipe-category-filter').value;
+  const q = query.toLowerCase();
+
+  let rows = cache.recipes;
+  if (catFilter) rows = rows.filter(r=>(r.Category||'')=== catFilter);
+  if (q) rows = rows.filter(r=>(r.Title+r.Category+r.Content+r.Notes||'').toLowerCase().includes(q));
+
+  if (!rows.length) {
+    grid.innerHTML=''; empty.style.display='block';
+    countEl.textContent='';
+    return;
+  }
+  empty.style.display='none';
+  countEl.textContent = rows.length + ' recipe' + (rows.length!==1?'s':'');
+
+  grid.innerHTML = rows.map(r=>{
+    const icon = CATEGORY_ICONS[r.Category] || '📝';
+    const badge = r.Category ? `<span class="recipe-badge">${icon} ${r.Category}</span>` : '';
+    const updated = timeAgo(r.Modified);
+    const bodyHtml = recipeContentToHtml(r.Content||'');
+    const notesHtml = r.Notes ? `<div style="margin-top:8px;padding:8px 10px;background:var(--cream);border-radius:6px;font-size:11px;color:var(--muted)">${r.Notes}</div>` : '';
+    return `<div class="recipe-card" onclick="openRecipeForm('${r.id}')">
+      <div class="recipe-card-header">
+        <div class="recipe-card-title">${r.Title||'Untitled Recipe'}</div>
+        ${badge}
+      </div>
+      <div class="recipe-meta">${updated}</div>
+      <div class="recipe-body">${bodyHtml}</div>
+      ${notesHtml}
+      <button class="recipe-edit-btn" onclick="event.stopPropagation();openRecipeForm('${r.id}')">✏️ Edit</button>
+    </div>`;
+  }).join('');
+}
+
+function filterRecipes(q) { renderRecipes(q); }
+document.addEventListener('DOMContentLoaded', ()=>{
+  document.getElementById('recipe-category-filter')?.addEventListener('change',()=>renderRecipes());
+});
+
+function openRecipeForm(id) {
+  _recipeEditId = id || null;
+  const item = id ? cache.recipes.find(r=>r.id===id) : null;
+  document.getElementById('recipe-modal-title').textContent = item ? 'Edit Recipe' : 'Add Recipe';
+  document.getElementById('rf-title').value = item ? (item.Title||'') : '';
+  document.getElementById('rf-category').value = item ? (item.Category||'') : '';
+  document.getElementById('rf-content').value = item ? (item.Content||'') : '';
+  document.getElementById('rf-notes').value = item ? (item.Notes||'') : '';
+  document.getElementById('recipe-delete-btn').style.display = item ? 'inline-flex' : 'none';
+  openModal('modal-recipe');
+  setTimeout(()=>document.getElementById('rf-title').focus(),100);
+}
+
+async function saveRecipeForm() {
+  const title = document.getElementById('rf-title').value.trim();
+  if (!title) { toast('err','Recipe name is required'); return; }
+  const data = {
+    Title:    title,
+    Category: document.getElementById('rf-category').value,
+    Content:  document.getElementById('rf-content').value,
+    Notes:    document.getElementById('rf-notes').value
+  };
+  setLoading(true,'Saving recipe…');
+  try {
+    if (_recipeEditId) {
+      await updateListItem(LISTS.recipes, _recipeEditId, data);
+      const i = cache.recipes.findIndex(r=>r.id===_recipeEditId);
+      if (i!==-1) cache.recipes[i] = {...cache.recipes[i], ...data, Modified: new Date().toISOString()};
+      toast('ok','✓ Recipe updated');
+    } else {
+      const item = await addListItem(LISTS.recipes, data);
+      cache.recipes.push(item);
+      toast('ok','✓ Recipe added');
+    }
+    renderRecipes(document.querySelector('#page-recipes .search-input')?.value||'');
+    closeModal('modal-recipe');
+  } catch(e) { toast('err','Save failed: '+e.message); }
+  finally { setLoading(false); }
+}
+
+async function deleteRecipe() {
+  if (!_recipeEditId) return;
+  if (!confirm('Delete this recipe? This cannot be undone.')) return;
+  setLoading(true,'Deleting recipe…');
+  try {
+    await deleteListItem(LISTS.recipes, _recipeEditId);
+    cache.recipes = cache.recipes.filter(r=>r.id!==_recipeEditId);
+    renderRecipes();
+    closeModal('modal-recipe');
+    toast('ok','✓ Recipe deleted');
+  } catch(e) { toast('err','Delete failed: '+e.message); }
+  finally { setLoading(false); }
+}
 
 // ════════════════════════════════════════════════════════════════════════════
 // ROLES & PERMISSIONS
