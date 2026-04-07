@@ -1283,14 +1283,26 @@ const SP_SYSTEM_FIELDS = new Set([
 
 // Map: listName -> { internalName: displayName }
 const _colDisplayNames = {};
+const _colReadOnly = {};
 
 async function loadListColNames(siteId, listName) {
   try {
-    const res = await graph('GET',`/sites/${siteId}/lists/${listName}/columns?$select=name,displayName&$top=200`);
+    const res = await graph('GET',`/sites/${siteId}/lists/${listName}/columns?$select=name,displayName,readOnly,hidden&$top=200`);
     const map = {};
-    (res.value||[]).forEach(c=>{ if(c.name && c.displayName) map[c.name]=c.displayName; });
+    const ro = new Set();
+    (res.value||[]).forEach(c=>{
+      if(c.name && c.displayName) map[c.name]=c.displayName;
+      if(c.readOnly || c.hidden) ro.add(c.name);
+    });
     _colDisplayNames[listName] = map;
-  } catch { _colDisplayNames[listName] = {}; }
+    _colReadOnly[listName] = ro;
+  } catch { _colDisplayNames[listName] = {}; _colReadOnly[listName] = new Set(); }
+}
+
+function isEditableField(key, listName) {
+  if (SP_SYSTEM_FIELDS.has(key)) return false;
+  if (_colReadOnly[listName] && _colReadOnly[listName].has(key)) return false;
+  return true;
 }
 
 function spFieldLabel(key, listName) {
@@ -1401,7 +1413,7 @@ function openVendorForm(id) {
   const item = id ? cache.vendors.find(v=>v.id===id) : null;
   document.getElementById('vendor-modal-title').textContent = item ? 'Edit Vendor' : 'Add Vendor';
   const fields = cache.vendors.length
-    ? Object.keys(cache.vendors[0]).filter(k=>!SP_SYSTEM_FIELDS.has(k))
+    ? Object.keys(cache.vendors[0]).filter(k=>isEditableField(k, LISTS.vendors))
     : ['Title'];
   document.getElementById('vendor-form-fields').innerHTML = fields.map(f=>`
     <div class="form-group">
@@ -1413,7 +1425,7 @@ function openVendorForm(id) {
 
 async function saveVendorForm() {
   const fields = cache.vendors.length
-    ? Object.keys(cache.vendors[0]).filter(k=>!SP_SYSTEM_FIELDS.has(k))
+    ? Object.keys(cache.vendors[0]).filter(k=>isEditableField(k, LISTS.vendors))
     : ['Title'];
   const data = {};
   fields.forEach(f=>{ const el=document.getElementById('vf_'+f); if(el) data[f]=el.value; });
