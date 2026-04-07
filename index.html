@@ -1310,16 +1310,17 @@ document.getElementById('vendor-tab').addEventListener('change',()=>renderVendor
 async function importVendorsFromExcel() {
   setLoading(true,'Importing vendors from OneDrive…');
   try {
-    const filePath = 'MS Coffee/Ordering/Managers List BSC.xlsx';
+    const enc = s => s.split('/').map(encodeURIComponent).join('/');
+    const filePath = enc('MS Coffee/Ordering/Managers List BSC.xlsx');
     const base = `/me/drive/root:/${filePath}:/workbook/worksheets`;
 
     // Read Vendor List sheet
-    const vlRes = await graph('GET',`${base}/Vendor List/usedRange`);
+    const vlRes = await graph('GET',`${base}/${encodeURIComponent('Vendor List')}/usedRange`);
     const vlRows = vlRes.values || [];
     const vlHead = vlRows[0].map(h=>(h||'').toString().trim());
 
     // Read Accounts Payable sheet
-    const apRes = await graph('GET',`${base}/Accounts Payable/usedRange`);
+    const apRes = await graph('GET',`${base}/${encodeURIComponent('Accounts Payable')}/usedRange`);
     const apRows = apRes.values || [];
     const apHead = apRows[0].map(h=>(h||'').toString().trim());
 
