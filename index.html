@@ -505,19 +505,12 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
 
   <!-- MAINTENANCE ADD/EDIT MODAL -->
   <div class="modal-overlay" id="modal-maint">
-    <div class="modal" style="max-width:520px;">
+    <div class="modal" style="max-width:560px;">
       <div class="modal-header">
         <div class="modal-title" id="maint-modal-title">Add Contact</div>
         <button class="modal-close" onclick="closeModal('modal-maint')">×</button>
       </div>
-      <div class="form-grid">
-        <div class="form-group"><label>Company / Name *</label><input id="mf-title" placeholder="e.g. Native Mechanical"></div>
-        <div class="form-group"><label>Service</label><input id="mf-service" placeholder="e.g. Ice Machine / Glycol / Fridges"></div>
-        <div class="form-group"><label>Contact Person</label><input id="mf-contact" placeholder="e.g. Patrick"></div>
-        <div class="form-group"><label>Phone</label><input id="mf-phone" placeholder="e.g. (303) 656-1774"></div>
-        <div class="form-group"><label>Email</label><input id="mf-email" type="email" placeholder="e.g. service@example.com"></div>
-        <div class="form-group" style="grid-column:span 2;"><label>Notes</label><textarea id="mf-notes" rows="3" placeholder="Any additional info…" style="width:100%;font-family:inherit;font-size:13px;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;resize:vertical;"></textarea></div>
-      </div>
+      <div id="maint-form-fields" class="form-grid"></div>
       <div class="form-actions">
         <button class="btn btn-primary" onclick="saveMaintForm()">Save</button>
         <button class="btn btn-outline" onclick="closeModal('modal-maint')">Cancel</button>
@@ -1695,12 +1688,35 @@ function maintIcon(service='') {
   return MAINT_ICONS[key] || '🔧';
 }
 
+// Smart field-type detection for maintenance cards
+function maintFieldRow(key, val, label) {
+  if (!val || val === '') return '';
+  const k = (key + label).toLowerCase();
+  if (k.includes('phone') || k.includes('tel'))
+    return `<div>📞 <a href="tel:${val.toString().replace(/\D/g,'')}" onclick="event.stopPropagation()">${val}</a></div>`;
+  if (k.includes('email') || k.includes('mail'))
+    return `<div>✉️ <a href="mailto:${val}" onclick="event.stopPropagation()">${val}</a></div>`;
+  if (k.includes('website') || k.includes('url') || k.includes('link'))
+    return `<div>🔗 <a href="${val.startsWith('http')?val:'https://'+val}" target="_blank" onclick="event.stopPropagation()">${val}</a></div>`;
+  if (k.includes('contact') || k.includes('person') || k.includes('rep'))
+    return `<div>👤 ${val}</div>`;
+  if (k.includes('note') || k.includes('comment') || k.includes('info'))
+    return `<div style="margin-top:4px;padding:6px 10px;background:var(--cream);border-radius:6px;font-size:11px;color:var(--muted)">${val}</div>`;
+  return `<div style="color:var(--muted);font-size:12px;">${label}: ${val}</div>`;
+}
+
+function maintFields(item) {
+  // Returns editable field keys (non-system, non-Title) for this list
+  if (!cache.maintenance.length) return [];
+  return Object.keys(cache.maintenance[0]).filter(k => k !== 'Title' && isEditableField(k, LISTS.maintenance));
+}
+
 function renderMaintenance(query='') {
   const grid = document.getElementById('maint-grid');
   const empty = document.getElementById('maint-empty');
   const q = query.toLowerCase();
   let rows = cache.maintenance;
-  if (q) rows = rows.filter(m=>[m.Title,m.Service,m.Contact,m.Phone,m.Email,m.Notes].filter(Boolean).join(' ').toLowerCase().includes(q));
+  if (q) rows = rows.filter(m=>Object.values(m).filter(Boolean).join(' ').toLowerCase().includes(q));
 
   if (!rows.length) {
     grid.innerHTML=''; empty.style.display='block';
@@ -1708,20 +1724,33 @@ function renderMaintenance(query='') {
     return;
   }
   empty.style.display='none';
-  document.getElementById('maint-count').textContent = rows.length+' contacts';
+  document.getElementById('maint-count').textContent = rows.length + ' contacts';
 
-  grid.innerHTML = rows.map(m=>`
-    <div class="card" style="cursor:pointer;" onclick="openMaintForm('${m.id}')">
-      <div class="card-title">${maintIcon(m.Service||'')} ${m.Title||'Unnamed'}</div>
-      ${m.Service?`<div style="font-size:12px;color:var(--muted);margin-top:-8px;margin-bottom:10px">${m.Service}</div>`:''}
-      <div style="font-size:13px;display:flex;flex-direction:column;gap:6px;">
-        ${m.Contact?`<div>👤 ${m.Contact}</div>`:''}
-        ${m.Phone?`<div>📞 <a href="tel:${m.Phone.replace(/\D/g,'')}" onclick="event.stopPropagation()">${m.Phone}</a></div>`:''}
-        ${m.Email?`<div>✉️ <a href="mailto:${m.Email}" onclick="event.stopPropagation()">${m.Email}</a></div>`:''}
-        ${m.Notes?`<div style="margin-top:6px;padding:6px 10px;background:var(--cream);border-radius:6px;font-size:11px;color:var(--muted)">${m.Notes}</div>`:''}
-      </div>
+  const extraFields = maintFields(rows[0]);
+
+  // Detect which field is likely "service" for the subtitle and icon
+  const serviceKey = extraFields.find(k => {
+    const lbl = (spFieldLabel(k, LISTS.maintenance)||k).toLowerCase();
+    return lbl.includes('service') || lbl.includes('type') || lbl.includes('category') || lbl.includes('description');
+  });
+
+  grid.innerHTML = rows.map(m => {
+    const serviceVal = serviceKey ? (m[serviceKey]||'') : '';
+    const icon = maintIcon(serviceVal);
+    const fieldRows = extraFields
+      .filter(k => k !== serviceKey)
+      .map(k => {
+        const label = spFieldLabel(k, LISTS.maintenance) || k;
+        return maintFieldRow(k, m[k], label);
+      }).filter(Boolean).join('');
+
+    return `<div class="card" style="cursor:pointer;" onclick="openMaintForm('${m.id}')">
+      <div class="card-title">${icon} ${m.Title||'Unnamed'}</div>
+      ${serviceVal ? `<div style="font-size:12px;color:var(--muted);margin-top:-8px;margin-bottom:10px">${serviceVal}</div>` : ''}
+      <div style="font-size:13px;display:flex;flex-direction:column;gap:6px;">${fieldRows}</div>
       <button class="recipe-edit-btn" style="margin-top:10px;" onclick="event.stopPropagation();openMaintForm('${m.id}')">✏️ Edit</button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 function filterMaint(q) { renderMaintenance(q); }
 
@@ -1730,28 +1759,38 @@ function openMaintForm(id) {
   _maintEditId = id || null;
   const m = id ? cache.maintenance.find(x=>x.id===id) : null;
   document.getElementById('maint-modal-title').textContent = m ? 'Edit Contact' : 'Add Contact';
-  document.getElementById('mf-title').value   = m?.Title   || '';
-  document.getElementById('mf-service').value = m?.Service || '';
-  document.getElementById('mf-contact').value = m?.Contact || '';
-  document.getElementById('mf-phone').value   = m?.Phone   || '';
-  document.getElementById('mf-email').value   = m?.Email   || '';
-  document.getElementById('mf-notes').value   = m?.Notes   || '';
+
+  // Build form dynamically from SP columns
+  const fields = cache.maintenance.length
+    ? Object.keys(cache.maintenance[0]).filter(k => isEditableField(k, LISTS.maintenance))
+    : ['Title'];
+
+  document.getElementById('maint-form-fields').innerHTML = fields.map(f => {
+    const label = spFieldLabel(f, LISTS.maintenance) || f;
+    const val = m ? (m[f] || '') : '';
+    const lk = label.toLowerCase();
+    const isLong = lk.includes('note') || lk.includes('comment') || lk.includes('description');
+    return `<div class="form-group">
+      <label>${label}${f==='Title'?' *':''}</label>
+      ${isLong
+        ? `<textarea id="mf_${f}" rows="3" style="width:100%;font-family:inherit;font-size:13px;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;resize:vertical;">${val}</textarea>`
+        : `<input id="mf_${f}" value="${val}" placeholder="${label}" ${lk.includes('email')?'type="email"':''}>`
+      }
+    </div>`;
+  }).join('');
+
   document.getElementById('maint-delete-btn').style.display = m ? 'inline-flex' : 'none';
   openModal('modal-maint');
-  setTimeout(()=>document.getElementById('mf-title').focus(),100);
+  setTimeout(()=>document.getElementById('mf_Title')?.focus(), 100);
 }
 
 async function saveMaintForm() {
-  const title = document.getElementById('mf-title').value.trim();
-  if (!title) { toast('err','Company/name is required'); return; }
-  const data = {
-    Title:   title,
-    Service: document.getElementById('mf-service').value,
-    Contact: document.getElementById('mf-contact').value,
-    Phone:   document.getElementById('mf-phone').value,
-    Email:   document.getElementById('mf-email').value,
-    Notes:   document.getElementById('mf-notes').value
-  };
+  const fields = cache.maintenance.length
+    ? Object.keys(cache.maintenance[0]).filter(k => isEditableField(k, LISTS.maintenance))
+    : ['Title'];
+  const data = {};
+  fields.forEach(f => { const el = document.getElementById('mf_'+f); if (el) data[f] = el.value; });
+  if (!data.Title?.trim()) { toast('err','Company/name is required'); return; }
   setLoading(true,'Saving…');
   try {
     if (_maintEditId) {
