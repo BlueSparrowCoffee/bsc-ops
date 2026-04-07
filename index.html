@@ -32,7 +32,7 @@ h1,h2,h3,.stat-value{font-family:'IvyPresto Display','Hoefler Text',Georgia,seri
 /* ── AUTH SCREEN ── */
 #auth-screen{display:none;position:fixed;inset:0;background:var(--dark-blue);z-index:999;flex-direction:column;align-items:center;justify-content:center;gap:16px;color:#fff;}
 #auth-screen.show{display:flex;}
-.auth-feather{font-size:56px;}
+.auth-feather{width:160px;height:160px;object-fit:contain;}
 .auth-title{font-size:32px;font-weight:600;}
 .auth-sub{font-size:14px;color:var(--light-blue);}
 .btn-signin{margin-top:8px;padding:13px 40px;background:var(--gold);color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;}
@@ -202,7 +202,7 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
 
 <!-- AUTH -->
 <div id="auth-screen">
-  <div class="auth-feather">🪶</div>
+  <img class="auth-feather" src="/logo.png" alt="Blue Sparrow Coffee">
   <div class="auth-title">Blue Sparrow Coffee</div>
   <div class="auth-sub">Operations Platform · Sign in with your BSC Microsoft account</div>
   <button class="btn-signin" onclick="signIn()">Sign in with Microsoft</button>
@@ -214,7 +214,7 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
 <!-- TOP BAR -->
 <div id="topbar">
   <div class="topbar-logo">
-    <span>🪶</span>
+    <img src="/feather.png" alt="BSC" style="height:32px;width:auto;">
     <div>Blue Sparrow Coffee <small>Operations Platform</small></div>
   </div>
   <div class="location-switcher" id="loc-switcher">
