@@ -1143,7 +1143,8 @@ const LISTS = {
   maintContacts:'Maintenance',
   staff:        'BSC_Staff',
   maintSchedule:'BSC_MaintSchedule',
-  maintLog:     'BSC_MaintLog'
+  maintLog:     'BSC_MaintLog',
+  settings:     'BSC_Settings'
 };
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1166,7 +1167,7 @@ const cache = {
   inventory: [], transfers: [], orders: [],
   checklists: [], vendors: [], roles: [], recipes: [],
   maintContacts: [], staff: [], maintSchedule: [], maintLog: [],
-  clProgress: {}, countHistory: []
+  clProgress: {}, countHistory: [], settingsItems: []
 };
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1335,7 +1336,7 @@ async function ensureAllLists() {
 // ════════════════════════════════════════════════════════════════════════════
 async function loadAllData() {
   const siteId = await getSiteId();
-  const [inv, xfers, orders, cls, roles, vendors,,recipes,,contacts,staff,sched,log,counts] = await Promise.all([
+  const [inv, xfers, orders, cls, roles, vendors,,recipes,,contacts,staff,sched,log,counts,appSettings] = await Promise.all([
     getListItems(siteId, LISTS.inventory),
     getListItems(siteId, LISTS.transfers),
     getListItems(siteId, LISTS.orders),
@@ -1349,13 +1350,14 @@ async function loadAllData() {
     getListItems(siteId, LISTS.staff),
     getListItems(siteId, LISTS.maintSchedule),
     getListItems(siteId, LISTS.maintLog),
-    getCountHistory(siteId)
+    getCountHistory(siteId),
+    getListItems(siteId, LISTS.settings)
   ]);
   cache.inventory=inv; cache.transfers=xfers; cache.orders=orders;
   cache.checklists=cls; cache.roles=roles; cache.vendors=vendors;
   cache.recipes=recipes; cache.maintContacts=contacts;
   cache.staff=staff; cache.maintSchedule=sched; cache.maintLog=log;
-  cache.countHistory=counts;
+  cache.countHistory=counts; cache.settingsItems=appSettings;
   renderAll();
 }
 
@@ -3217,8 +3219,24 @@ function isNotifEnabled(type) {
   const rule = rules.find(r=>r.type===type);
   return rule ? rule.enabled : true;
 }
+function getSetting(key) {
+  return cache.settingsItems.find(i => i.Title === key)?.Value || '';
+}
+
+async function saveSetting(key, value) {
+  const siteId = await getSiteId();
+  const existing = cache.settingsItems.find(i => i.Title === key);
+  if (existing) {
+    await updateListItem(LISTS.settings, existing.id, { Value: value });
+    existing.Value = value;
+  } else {
+    const item = await addListItem(LISTS.settings, { Title: key, Value: value });
+    cache.settingsItems.push(item);
+  }
+}
+
 function getSlackWebhook() {
-  return localStorage.getItem('bsc_slack_webhook') || CFG.slack;
+  return getSetting('slack_webhook') || CFG.slack;
 }
 
 async function sendSlackAlert(text, type=null) {
@@ -3234,20 +3252,18 @@ async function sendSlackAlert(text, type=null) {
 }
 
 function renderSlackSettings() {
-  // Webhook status
-  const stored = localStorage.getItem('bsc_slack_webhook');
-  const input = document.getElementById('slack-webhook-input');
+  const input  = document.getElementById('slack-webhook-input');
   const status = document.getElementById('slack-webhook-status');
-  if (stored) {
-    input.value = stored;
-    status.innerHTML = '<span style="color:var(--green)">✓ Custom webhook saved</span>';
+  const spVal  = getSetting('slack_webhook');
+  if (spVal) {
+    input.value = spVal;
+    status.innerHTML = '<span style="color:var(--green)">✓ Saved in SharePoint — shared across all devices</span>';
   } else if (CFG.slack && !CFG.slack.includes('PLACEHOLDER')) {
     input.value = CFG.slack;
-    status.innerHTML = '<span style="color:var(--muted)">Using deploy-time webhook</span>';
+    status.innerHTML = '<span style="color:var(--muted)">Using deploy-time webhook (not shared). Save above to share with all users.</span>';
   } else {
-    status.innerHTML = '<span style="color:var(--orange)">⚠ No webhook configured</span>';
+    status.innerHTML = '<span style="color:var(--orange)">⚠ No webhook configured — enter URL above and save</span>';
   }
-  // Rules list
   renderNotifRules();
 }
 
@@ -3273,12 +3289,21 @@ function renderNotifRules() {
     </div>`).join('');
 }
 
-function saveSlackWebhook() {
+async function saveSlackWebhook() {
   const val = document.getElementById('slack-webhook-input').value.trim();
   if (!val) { toast('err','Enter a webhook URL'); return; }
-  localStorage.setItem('bsc_slack_webhook', val);
-  document.getElementById('slack-webhook-status').innerHTML = '<span style="color:var(--green)">✓ Saved</span>';
-  toast('ok','✓ Webhook saved');
+  const btn = document.querySelector('[onclick="saveSlackWebhook()"]');
+  if (btn) { btn.disabled=true; btn.textContent='Saving…'; }
+  try {
+    await saveSetting('slack_webhook', val);
+    document.getElementById('slack-webhook-status').innerHTML =
+      '<span style="color:var(--green)">✓ Saved in SharePoint — shared across all devices</span>';
+    toast('ok','✓ Webhook saved to SharePoint');
+  } catch(e) {
+    toast('err','Save failed: '+e.message);
+  } finally {
+    if (btn) { btn.disabled=false; btn.textContent='Save'; }
+  }
 }
 
 function toggleWebhookVis() {
@@ -3448,6 +3473,9 @@ const PROVISION_LISTS = [
     {name:'StorageCount',number:{decimalPlaces:'automatic'}},
     {name:'TotalCount',number:{decimalPlaces:'automatic'}},
     {name:'Location',text:{}},{name:'CountedBy',text:{}}
+  ]},
+  { name:'BSC_Settings', columns:[
+    {name:'Value',text:{allowMultipleLines:true}}
   ]}
 ];
 
