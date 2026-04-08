@@ -7,6 +7,7 @@
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#023d4a">
 <script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
 <style>
 :root {
   --dark-blue: #023d4a;
@@ -363,6 +364,7 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
       <button class="tab-btn active" onclick="switchInvTab('items',this)">📋 Items</button>
       <button class="tab-btn" onclick="switchInvTab('count',this)">✏️ Count Entry</button>
       <button class="tab-btn" onclick="switchInvTab('analytics',this)">📊 Analytics</button>
+      <button class="tab-btn" onclick="switchInvTab('import',this)">📥 Import</button>
     </div>
 
     <!-- Items tab -->
@@ -421,6 +423,51 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
     <!-- Analytics tab -->
     <div id="inv-tab-analytics" style="display:none">
       <div id="analytics-body" style="padding-top:4px"></div>
+    </div>
+
+    <!-- Import tab -->
+    <div id="inv-tab-import" style="display:none">
+      <div style="max-width:580px;padding-top:8px">
+        <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+          <div style="flex:1;min-width:160px">
+            <label class="field-label">Location name</label>
+            <input type="text" id="imp-location" class="field-input" value="Sherman" placeholder="Sherman, Blake…" style="width:100%">
+          </div>
+          <div style="width:90px">
+            <label class="field-label">Year</label>
+            <input type="text" id="imp-year" class="field-input" value="2026" style="width:100%">
+          </div>
+        </div>
+        <div style="margin-bottom:16px">
+          <label class="field-label">Inventory spreadsheet (.xlsx)</label>
+          <input type="file" id="imp-file" accept=".xlsx" onchange="previewImportFile()"
+            style="display:block;width:100%;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;cursor:pointer;background:#fff">
+        </div>
+        <div id="imp-preview" style="display:none;margin-bottom:16px">
+          <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+            <div style="background:#f9f9f9;border-radius:8px;padding:10px 16px;text-align:center;flex:1">
+              <div style="font-size:20px;font-weight:700" id="imp-stat-items">—</div>
+              <div style="font-size:11px;color:var(--muted)">Items</div>
+            </div>
+            <div style="background:#f9f9f9;border-radius:8px;padding:10px 16px;text-align:center;flex:1">
+              <div style="font-size:20px;font-weight:700" id="imp-stat-weeks">—</div>
+              <div style="font-size:11px;color:var(--muted)">Weeks</div>
+            </div>
+            <div style="background:#f9f9f9;border-radius:8px;padding:10px 16px;text-align:center;flex:1">
+              <div style="font-size:20px;font-weight:700" id="imp-stat-records">—</div>
+              <div style="font-size:11px;color:var(--muted)">Count Records</div>
+            </div>
+          </div>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:8px">
+            <input type="checkbox" id="imp-opt-master" checked> Update item master (BSC_Inventory)
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:16px">
+            <input type="checkbox" id="imp-opt-history" checked> Import count history (BSC_InventoryCounts)
+          </label>
+          <button class="btn btn-primary" id="imp-run-btn" onclick="runInventoryImport()">Import Data</button>
+        </div>
+        <div id="imp-log" style="margin-top:14px;font-size:12px;line-height:1.9;color:#444;background:#f9f9f9;border-radius:8px;padding:12px 14px;display:none;max-height:220px;overflow-y:auto;"></div>
+      </div>
     </div>
   </div>
 
@@ -851,6 +898,12 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
         <div class="card-title">🔔 Slack Notifications</div>
         <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Alerts are sent to your configured Slack channel</p>
         <span class="badge badge-green">✓ Connected</span>
+      </div>
+      <div class="card" style="grid-column:1/-1">
+        <div class="card-title">🔧 SharePoint Setup</div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Create or update all required SharePoint lists and columns. Safe to run multiple times — skips anything that already exists.</p>
+        <button class="btn btn-outline" onclick="runProvision()" id="provision-btn">⚙️ Provision / Update SharePoint Lists</button>
+        <div id="provision-log" style="margin-top:14px;font-size:12px;line-height:1.9;color:#444;background:#f9f9f9;border-radius:8px;padding:12px 14px;display:none;max-height:200px;overflow-y:auto;"></div>
       </div>
     </div>
   </div>
@@ -1388,7 +1441,7 @@ function switchInvTab(tab, btn) {
   _invActiveTab = tab;
   document.querySelectorAll('#page-inventory .tab-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  ['items','count','analytics'].forEach(t => {
+  ['items','count','analytics','import'].forEach(t => {
     document.getElementById('inv-tab-'+t).style.display = t===tab ? '' : 'none';
   });
   if (tab==='count')     renderCountSheet();
@@ -3186,6 +3239,251 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch(()=>{});
   });
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// PROVISION — create/update SharePoint lists & columns
+// ════════════════════════════════════════════════════════════════════════════
+const PROVISION_LISTS = [
+  { name:'BSC_Staff', columns:[
+    {name:'Role',text:{}},{name:'Location',text:{}},{name:'Email',text:{}},{name:'Phone',text:{}}
+  ]},
+  { name:'BSC_MaintSchedule', columns:[
+    {name:'Frequency',text:{}},{name:'AssignedTo',text:{}},{name:'Location',text:{}},
+    {name:'Notes',text:{allowMultipleLines:true}},
+    {name:'NextDue',dateTime:{displayAs:'default',format:'dateOnly'}},
+    {name:'LastCompleted',dateTime:{displayAs:'default',format:'dateOnly'}}
+  ]},
+  { name:'BSC_MaintLog', columns:[
+    {name:'CompletedDate',dateTime:{displayAs:'default',format:'dateOnly'}},
+    {name:'CompletedBy',text:{}},{name:'Notes',text:{allowMultipleLines:true}},{name:'TaskId',text:{}}
+  ]},
+  { name:'BSC_Inventory', columns:[
+    {name:'Supplier',text:{}},{name:'OrderSize',number:{decimalPlaces:'automatic'}},
+    {name:'OrderUnit',text:{}},{name:'OrderFrequency',text:{}},
+    {name:'CostPerCase',number:{decimalPlaces:'automatic'}},
+    {name:'ServingsPerUnit',number:{decimalPlaces:'automatic'}},
+    {name:'CostPerServing',number:{decimalPlaces:'automatic'}},
+    {name:'ServingUnit',text:{}},{name:'StoreCount',number:{decimalPlaces:'automatic'}},
+    {name:'StorageCount',number:{decimalPlaces:'automatic'}}
+  ]},
+  { name:'BSC_InventoryCounts', columns:[
+    {name:'WeekOf',dateTime:{displayAs:'default',format:'dateOnly'}},
+    {name:'StoreCount',number:{decimalPlaces:'automatic'}},
+    {name:'StorageCount',number:{decimalPlaces:'automatic'}},
+    {name:'TotalCount',number:{decimalPlaces:'automatic'}},
+    {name:'Location',text:{}},{name:'CountedBy',text:{}}
+  ]}
+];
+
+function provLog(msg) {
+  const el = document.getElementById('provision-log');
+  el.style.display='block';
+  el.innerHTML += msg+'<br>';
+  el.scrollTop = el.scrollHeight;
+}
+
+async function runProvision() {
+  const btn = document.getElementById('provision-btn');
+  btn.disabled = true;
+  btn.textContent = 'Working…';
+  document.getElementById('provision-log').innerHTML = '';
+  try {
+    provLog('Getting SharePoint site…');
+    const siteId = await getSiteId();
+    provLog(`Site ready ✓<br>`);
+    for (const def of PROVISION_LISTS) {
+      provLog(`<b>${def.name}</b>`);
+      let listId;
+      try {
+        const ex = await graph('GET',`/sites/${siteId}/lists/${def.name}?$select=id`);
+        listId = ex.id;
+        provLog(`  → Already exists`);
+      } catch {
+        const cr = await graph('POST',`/sites/${siteId}/lists`,{displayName:def.name,list:{template:'genericList'}});
+        listId = cr.id;
+        provLog(`  → Created ✓`);
+      }
+      const existing = await graph('GET',`/sites/${siteId}/lists/${listId}/columns?$select=name`);
+      const existNames = new Set((existing.value||[]).map(c=>c.name));
+      for (const col of def.columns) {
+        if (existNames.has(col.name)) { provLog(`  · ${col.name} (exists)`); continue; }
+        const colDef = {name:col.name,enforceUniqueValues:false,hidden:false,indexed:false};
+        if (col.text)     colDef.text     = col.text;
+        if (col.dateTime) colDef.dateTime = col.dateTime;
+        if (col.number)   colDef.number   = col.number;
+        await graph('POST',`/sites/${siteId}/lists/${listId}/columns`,colDef);
+        provLog(`  + ${col.name}`);
+      }
+      provLog('');
+    }
+    provLog('✅ All lists ready!');
+    btn.textContent = '✓ Done';
+    toast('ok','✓ SharePoint lists provisioned');
+  } catch(e) {
+    provLog('❌ Error: '+e.message);
+    btn.disabled = false;
+    btn.textContent = '⚙️ Provision / Update SharePoint Lists';
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// IMPORT INVENTORY from Excel
+// ════════════════════════════════════════════════════════════════════════════
+let _impParsed = null;
+
+function impLog(msg) {
+  const el = document.getElementById('imp-log');
+  el.style.display='block';
+  el.innerHTML += msg+'<br>';
+  el.scrollTop = el.scrollHeight;
+}
+
+function parseImportNumber(val) {
+  if (val===null||val===undefined||val===''||val==='-') return null;
+  const n = parseFloat(val);
+  return isNaN(n)?null:n;
+}
+
+function parseImportSheetDate(name, year) {
+  const parts = name.split('.');
+  if (parts.length!==2) return null;
+  const m=parseInt(parts[0]),d=parseInt(parts[1]);
+  if (isNaN(m)||isNaN(d)) return null;
+  return new Date(parseInt(year),m-1,d).toISOString().split('T')[0];
+}
+
+function parseImportSheet(rows) {
+  const items=[];
+  for (let i=4;i<rows.length;i++) {
+    const row=rows[i];
+    const name=row[0];
+    if (!name||typeof name!=='string'||name.trim()===''||name.trim().toLowerCase()==='total') continue;
+    items.push({
+      ItemName:name.trim(),Category:row[1]||'',
+      OrderSize:parseImportNumber(row[2]),OrderUnit:row[3]?String(row[3]).trim():'',
+      Supplier:row[4]?String(row[4]).trim():'',
+      StoreCount:parseImportNumber(row[5]),StorageCount:parseImportNumber(row[6]),
+      TotalCount:parseImportNumber(row[7]),ParLevel:parseImportNumber(row[8]),
+      OrderFrequency:row[10]?String(row[10]).trim():'',
+      CostPerCase:parseImportNumber(row[11]),ServingsPerUnit:parseImportNumber(row[12]),
+      CostPerServing:parseImportNumber(row[13]),ServingUnit:row[14]?String(row[14]).trim():''
+    });
+  }
+  return items;
+}
+
+function previewImportFile() {
+  const file = document.getElementById('imp-file').files[0];
+  if (!file) return;
+  if (typeof XLSX==='undefined') { toast('err','Excel library not loaded yet, please wait a moment'); return; }
+  const year = document.getElementById('imp-year').value||'2026';
+  const reader = new FileReader();
+  reader.onload = e => {
+    const wb = XLSX.read(e.target.result,{type:'array'});
+    const weeks=[]; let latestItems=[],latestDate=null;
+    for (const sheetName of wb.SheetNames) {
+      const date = parseImportSheetDate(sheetName,year);
+      if (!date) continue;
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName],{header:1,defval:null});
+      const items = parseImportSheet(rows);
+      if (items.length>0) {
+        weeks.push({sheetName,date,items});
+        if (!latestDate||date>latestDate){latestDate=date;latestItems=items;}
+      }
+    }
+    _impParsed = {items:latestItems,weeks};
+    document.getElementById('imp-stat-items').textContent = latestItems.length;
+    document.getElementById('imp-stat-weeks').textContent = weeks.length;
+    document.getElementById('imp-stat-records').textContent = weeks.reduce((s,w)=>s+w.items.length,0);
+    document.getElementById('imp-preview').style.display = 'block';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+async function runInventoryImport() {
+  if (!_impParsed) { toast('err','Select a file first'); return; }
+  const location = document.getElementById('imp-location').value.trim()||'Sherman';
+  const doMaster  = document.getElementById('imp-opt-master').checked;
+  const doHistory = document.getElementById('imp-opt-history').checked;
+  const btn = document.getElementById('imp-run-btn');
+  btn.disabled=true; btn.textContent='Importing…';
+  document.getElementById('imp-log').innerHTML='';
+  try {
+    const siteId = await getSiteId();
+    let created=0,updated=0,countsSaved=0;
+
+    if (doMaster) {
+      impLog('<b>Updating item master…</b>');
+      const existing = await graphAll(`/sites/${siteId}/lists/${LISTS.inventory}/items?$expand=fields&$select=id,fields`);
+      const existMap={};
+      existing.forEach(it=>{const n=it.fields?.ItemName||it.fields?.Title;if(n)existMap[n.trim().toLowerCase()]=it;});
+      for (let i=0;i<_impParsed.items.length;i++) {
+        const item=_impParsed.items[i];
+        const fields={
+          ItemName:item.ItemName,Title:item.ItemName,Category:item.Category||'',Location:location,
+          CurrentStock:item.TotalCount??0,StoreCount:item.StoreCount??0,StorageCount:item.StorageCount??0,
+          ParLevel:item.ParLevel??0,Unit:item.OrderUnit||'',Supplier:item.Supplier||'',
+          OrderSize:item.OrderSize,OrderUnit:item.OrderUnit||'',OrderFrequency:item.OrderFrequency||'',
+          CostPerCase:item.CostPerCase,ServingsPerUnit:item.ServingsPerUnit,
+          CostPerServing:item.CostPerServing,ServingUnit:item.ServingUnit||''
+        };
+        Object.keys(fields).forEach(k=>{if(fields[k]===null||fields[k]===undefined)delete fields[k];});
+        const key=item.ItemName.trim().toLowerCase();
+        if (existMap[key]) {
+          await graph('PATCH',`/sites/${siteId}/lists/${LISTS.inventory}/items/${existMap[key].id}/fields`,fields);
+          updated++;
+        } else {
+          await graph('POST',`/sites/${siteId}/lists/${LISTS.inventory}/items`,{fields});
+          created++;
+        }
+        if ((i+1)%10===0) impLog(`  ${i+1}/${_impParsed.items.length} items…`);
+      }
+      impLog(`  ✓ ${created} created · ${updated} updated<br>`);
+    }
+
+    if (doHistory) {
+      impLog('<b>Importing count history…</b>');
+      for (const week of _impParsed.weeks) {
+        impLog(`  Week ${week.sheetName} (${week.date})`);
+        const tasks = week.items.map(item=>()=>graph('POST',`/sites/${siteId}/lists/${LISTS.counts}/items`,{fields:{
+          Title:item.ItemName,WeekOf:week.date+'T00:00:00Z',
+          StoreCount:item.StoreCount??0,StorageCount:item.StorageCount??0,
+          TotalCount:item.TotalCount??0,Location:location,CountedBy:'Import'
+        }}));
+        for (let i=0;i<tasks.length;i+=8) {
+          await Promise.all(tasks.slice(i,i+8).map(t=>t()));
+          countsSaved+=Math.min(8,tasks.length-i);
+        }
+      }
+      impLog(`  ✓ ${countsSaved} count records saved<br>`);
+    }
+
+    impLog('✅ Import complete! Reloading data…');
+    btn.textContent='✓ Done';
+    toast('ok',`✓ Import complete — ${created+updated} items, ${countsSaved} count records`);
+    // reload inventory data
+    const sId=await getSiteId();
+    cache.inventory=await getListItems(sId,LISTS.inventory);
+    cache.countHistory=await getCountHistory(sId);
+    renderInventory();
+  } catch(e) {
+    impLog('❌ Error: '+e.message);
+    btn.disabled=false; btn.textContent='Import Data';
+  }
+}
+
+async function graphAll(path) {
+  let url='https://graph.microsoft.com/v1.0'+path;
+  const token=await getToken();
+  let all=[];
+  while(url){
+    const res=await fetch(url,{headers:{Authorization:'Bearer '+token}});
+    const data=await res.json();
+    all=all.concat(data.value||[]);
+    url=data['@odata.nextLink']||null;
+  }
+  return all;
 }
 </script>
 </body>
