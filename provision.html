@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BSC – Provision SharePoint Lists</title>
+<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  .card{background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.10);padding:40px;max-width:560px;width:100%}
+  h1{font-size:22px;font-weight:700;margin-bottom:6px}
+  .sub{color:#777;font-size:14px;margin-bottom:28px}
+  .list-item{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #f0f0f0}
+  .list-item:last-child{border-bottom:none}
+  .icon{font-size:20px;width:32px;text-align:center}
+  .list-name{font-weight:600;font-size:14px}
+  .list-desc{font-size:12px;color:#888;margin-top:2px}
+  .status{margin-left:auto;font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;background:#f0f0f0;color:#555;white-space:nowrap}
+  .status.pending{background:#f0f0f0;color:#555}
+  .status.running{background:#fff8e1;color:#9a7200}
+  .status.done{background:#e8f5e9;color:#2e7d32}
+  .status.exists{background:#e3f2fd;color:#1565c0}
+  .status.error{background:#fde8e8;color:#c0392b}
+  btn{display:block;width:100%;padding:14px;margin-top:24px;background:#1a1a1a;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;transition:.15s}
+  button:hover{background:#333}
+  button:disabled{background:#aaa;cursor:not-allowed}
+  .log{margin-top:20px;background:#f9f9f9;border-radius:8px;padding:12px 16px;font-size:12px;color:#444;max-height:160px;overflow-y:auto;line-height:1.7;display:none}
+  .log.show{display:block}
+  .done-msg{text-align:center;padding:16px 0 0;font-size:14px;color:#2e7d32;font-weight:600;display:none}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🔧 BSC SharePoint Provisioning</h1>
+  <p class="sub">Creates the required SharePoint lists for the BSC Ops app.</p>
+
+  <div id="list-staff" class="list-item">
+    <span class="icon">👥</span>
+    <div>
+      <div class="list-name">BSC_Staff</div>
+      <div class="list-desc">Staff members · Title, Role, Location, Email, Phone</div>
+    </div>
+    <span class="status pending" id="st-staff">Pending</span>
+  </div>
+
+  <div id="list-sched" class="list-item">
+    <span class="icon">🗓️</span>
+    <div>
+      <div class="list-name">BSC_MaintSchedule</div>
+      <div class="list-desc">Recurring tasks · Title, Frequency, AssignedTo, Location, Notes, NextDue, LastCompleted</div>
+    </div>
+    <span class="status pending" id="st-sched">Pending</span>
+  </div>
+
+  <div id="list-log" class="list-item">
+    <span class="icon">📋</span>
+    <div>
+      <div class="list-name">BSC_MaintLog</div>
+      <div class="list-desc">Completion history · Title, CompletedDate, CompletedBy, Notes, TaskId</div>
+    </div>
+    <span class="status pending" id="st-log">Pending</span>
+  </div>
+
+  <button id="btn" onclick="run()">Sign in &amp; Create Lists</button>
+  <div class="log" id="log"></div>
+  <div class="done-msg" id="done-msg">✅ All done! You can close this tab and reload the BSC Ops app.</div>
+</div>
+
+<script>
+const CFG = {
+  clientId: 'a466e07b-68f4-4881-bdcc-d3adeb356799',
+  tenantId: 'b808062f-1ca4-4f25-a2eb-8998fac8dc52',
+  siteHost: 'mainspringdevelopers.sharepoint.com',
+  sitePath: '/sites/BlueSparrowCoffeeOps'
+};
+
+const msal = new msal.PublicClientApplication({
+  auth: { clientId: CFG.clientId, authority: `https://login.microsoftonline.com/${CFG.tenantId}`, redirectUri: window.location.href.split('?')[0] }
+});
+
+let siteId = null;
+
+async function getToken() {
+  let acct = msal.getAllAccounts()[0];
+  if (!acct) {
+    await msal.loginPopup({ scopes: ['Sites.Manage.All'] });
+    acct = msal.getAllAccounts()[0];
+  }
+  const r = await msal.acquireTokenSilent({ scopes: ['Sites.Manage.All'], account: acct })
+    .catch(()=> msal.acquireTokenPopup({ scopes: ['Sites.Manage.All'], account: acct }));
+  return r.accessToken;
+}
+
+async function graph(method, path, body) {
+  const token = await getToken();
+  const res = await fetch('https://graph.microsoft.com/v1.0' + path, {
+    method,
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(()=>({}));
+    throw new Error(e?.error?.message || res.statusText);
+  }
+  return res.status === 204 ? {} : res.json();
+}
+
+function log(msg) {
+  const el = document.getElementById('log');
+  el.classList.add('show');
+  el.innerHTML += msg + '<br>';
+  el.scrollTop = el.scrollHeight;
+}
+
+function setStatus(id, state, label) {
+  const el = document.getElementById('st-' + id);
+  el.className = 'status ' + state;
+  el.textContent = label;
+}
+
+const LISTS_DEF = [
+  {
+    key: 'staff',
+    name: 'BSC_Staff',
+    template: 'genericList',
+    columns: [
+      { name: 'Role',     text: {} },
+      { name: 'Location', text: {} },
+      { name: 'Email',    text: {} },
+      { name: 'Phone',    text: {} }
+    ]
+  },
+  {
+    key: 'sched',
+    name: 'BSC_MaintSchedule',
+    template: 'genericList',
+    columns: [
+      { name: 'Frequency',     text: {} },
+      { name: 'AssignedTo',    text: {} },
+      { name: 'Location',      text: {} },
+      { name: 'Notes',         text: { allowMultipleLines: true } },
+      { name: 'NextDue',       dateTime: { displayAs: 'default', format: 'dateOnly' } },
+      { name: 'LastCompleted', dateTime: { displayAs: 'default', format: 'dateOnly' } }
+    ]
+  },
+  {
+    key: 'log',
+    name: 'BSC_MaintLog',
+    template: 'genericList',
+    columns: [
+      { name: 'CompletedDate', dateTime: { displayAs: 'default', format: 'dateOnly' } },
+      { name: 'CompletedBy',   text: {} },
+      { name: 'Notes',         text: { allowMultipleLines: true } },
+      { name: 'TaskId',        text: {} }
+    ]
+  }
+];
+
+async function ensureList(def) {
+  setStatus(def.key, 'running', 'Working…');
+  log(`<b>${def.name}</b>`);
+
+  // Check if list already exists
+  let listId;
+  try {
+    const existing = await graph('GET', `/sites/${siteId}/lists/${def.name}?$select=id`);
+    listId = existing.id;
+    log(`  → Already exists (${listId.slice(0,8)}…)`);
+    setStatus(def.key, 'exists', 'Already exists');
+  } catch {
+    // Create the list
+    const created = await graph('POST', `/sites/${siteId}/lists`, {
+      displayName: def.name,
+      list: { template: def.template }
+    });
+    listId = created.id;
+    log(`  → Created (${listId.slice(0,8)}…)`);
+  }
+
+  // Add columns
+  for (const col of def.columns) {
+    const colName = col.name;
+    const colDef = { name: colName, enforceUniqueValues: false, hidden: false, indexed: false };
+
+    if (col.text)     { colDef.text     = col.text; }
+    if (col.dateTime) { colDef.dateTime = col.dateTime; }
+
+    try {
+      // Check if column exists
+      await graph('GET', `/sites/${siteId}/lists/${listId}/columns`).then(r => {
+        const exists = (r.value||[]).some(c => c.name === colName || c.displayName === colName);
+        if (exists) throw new Error('EXISTS');
+      });
+      await graph('POST', `/sites/${siteId}/lists/${listId}/columns`, colDef);
+      log(`  + ${colName}`);
+    } catch(e) {
+      if (e.message === 'EXISTS') { log(`  · ${colName} (already exists)`); }
+      else { log(`  ✗ ${colName}: ${e.message}`); }
+    }
+  }
+
+  if (document.getElementById('st-' + def.key).textContent !== 'Already exists') {
+    setStatus(def.key, 'done', 'Created ✓');
+  }
+}
+
+async function run() {
+  const btn = document.getElementById('btn');
+  btn.disabled = true;
+  btn.textContent = 'Working…';
+
+  try {
+    log('Authenticating…');
+    await getToken();
+    log('Getting site ID…');
+    const site = await graph('GET', `/sites/${CFG.siteHost}:${CFG.sitePath}?$select=id`);
+    siteId = site.id;
+    log(`Site: ${siteId.slice(0,20)}…\n`);
+
+    for (const def of LISTS_DEF) {
+      await ensureList(def);
+      log('');
+    }
+
+    btn.textContent = 'Done!';
+    document.getElementById('done-msg').style.display = 'block';
+    log('All lists ready.');
+  } catch(e) {
+    log('ERROR: ' + e.message);
+    btn.disabled = false;
+    btn.textContent = 'Retry';
+  }
+}
+
+// Handle redirect
+msal.handleRedirectPromise().catch(()=>{});
+</script>
+</body>
+</html>
