@@ -186,6 +186,22 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
 .recipe-edit-btn{font-size:11px;color:var(--gold);border:1px solid var(--gold);border-radius:6px;padding:4px 10px;background:none;cursor:pointer;align-self:flex-start;margin-top:4px;}
 .recipe-edit-btn:hover{background:rgba(183,139,64,.08);}
 
+/* ── TABS ── */
+.tab-bar{display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid var(--border);}
+.tab-btn{padding:9px 18px;border:none;background:none;font-family:inherit;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;}
+.tab-btn.active{color:var(--gold);border-bottom-color:var(--gold);}
+.tab-btn:hover:not(.active){color:var(--ink);}
+
+/* ── MAINTENANCE STATUS BADGES ── */
+.maint-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;letter-spacing:.04em;padding:3px 9px;border-radius:20px;}
+.maint-overdue{background:#fde8e8;color:var(--red);}
+.maint-due-soon{background:#fff8e1;color:#9a7200;}
+.maint-upcoming{background:#e8f5e9;color:#2e7d32;}
+.maint-card{background:#fff;border:1.5px solid var(--border);border-radius:12px;padding:18px 20px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:8px;transition:box-shadow .15s,border-color .15s;}
+.maint-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.12);}
+.maint-card.overdue{border-color:var(--red);}
+.maint-card.due-soon{border-color:#e6ac00;}
+
 /* ── INVENTORY SPECIFIC ── */
 .stock-low{color:var(--red);font-weight:600;}
 .stock-ok{color:var(--green);}
@@ -259,7 +275,9 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
   <div class="nav-item" onclick="nav('checklists')"><span class="nav-icon">✅</span> Checklists</div>
   <div class="nav-item" onclick="nav('vendors')"><span class="nav-icon">🤝</span> Vendors</div>
   <div class="nav-item" onclick="nav('recipes')"><span class="nav-icon">📖</span> Recipes</div>
-  <div class="nav-item" onclick="nav('maintenance')"><span class="nav-icon">🔧</span> Maintenance</div>
+  <div class="nav-item" onclick="nav('staff')"><span class="nav-icon">👥</span> Staff</div>
+  <div class="nav-item" onclick="nav('maint-schedule')"><span class="nav-icon">🔧</span> Maintenance <span class="nav-badge" id="badge-maint" style="display:none">!</span></div>
+  <div class="nav-item" onclick="nav('maint-contacts')"><span class="nav-icon">📋</span> Contacts</div>
   <div class="nav-section">Admin</div>
   <div class="nav-item" onclick="nav('settings')"><span class="nav-icon">⚙️</span> Settings</div>
 </div>
@@ -278,6 +296,7 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
       <div class="stat-card alert"><div class="stat-value" id="d-low">—</div><div class="stat-label">Low Stock Alerts</div></div>
       <div class="stat-card"><div class="stat-value" id="d-orders">—</div><div class="stat-label">Pending Orders</div></div>
       <div class="stat-card"><div class="stat-value" id="d-checklist">—</div><div class="stat-label">Today's Checklist</div></div>
+      <div class="stat-card alert" id="d-maint-stat" style="cursor:pointer;" onclick="nav('maint-schedule')"><div class="stat-value" id="d-maint">—</div><div class="stat-label">Maintenance Alerts</div></div>
     </div>
     <div class="cards-grid">
       <div class="card">
@@ -292,6 +311,11 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
       <div class="card">
         <div class="card-title">🛒 Recent Orders</div>
         <div id="dash-orders"><div class="no-data">Loading…</div></div>
+      </div>
+      <div class="card" id="dash-maint-card">
+        <div class="card-title">🔧 Maintenance Alerts</div>
+        <div id="dash-maint-alerts"><div class="no-data">Loading…</div></div>
+        <div style="margin-top:12px;"><button class="btn btn-outline btn-sm" onclick="nav('maint-schedule')">Open Maintenance →</button></div>
       </div>
     </div>
   </div>
@@ -503,6 +527,117 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
     </div>
   </div>
 
+  <!-- STAFF ADD/EDIT MODAL -->
+  <div class="modal-overlay" id="modal-staff">
+    <div class="modal" style="max-width:500px;">
+      <div class="modal-header">
+        <div class="modal-title" id="staff-modal-title">Add Staff Member</div>
+        <button class="modal-close" onclick="closeModal('modal-staff')">×</button>
+      </div>
+      <div class="form-grid">
+        <div class="form-group"><label>Full Name *</label><input id="sf-name" placeholder="e.g. Danny Knott"></div>
+        <div class="form-group"><label>Role / Title</label><input id="sf-role" placeholder="e.g. Store Manager"></div>
+        <div class="form-group"><label>Primary Location</label>
+          <select id="sf-location" class="filter" style="width:100%;padding:8px 12px;">
+            <option value="">Select location…</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Email</label><input id="sf-email" type="email" placeholder="e.g. danny@bluesparrow.com"></div>
+        <div class="form-group"><label>Phone</label><input id="sf-phone" placeholder="e.g. (303) 555-0100"></div>
+        <div class="form-group"><label>Active</label>
+          <select id="sf-active" class="filter" style="width:100%;padding:8px 12px;">
+            <option value="Yes">Yes</option>
+            <option value="No">No</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="saveStaffForm()">Save</button>
+        <button class="btn btn-outline" onclick="closeModal('modal-staff')">Cancel</button>
+        <button id="staff-delete-btn" class="btn" style="margin-left:auto;color:var(--red);border-color:var(--red);display:none;" onclick="deleteStaff()">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAINTENANCE TASK ADD/EDIT MODAL -->
+  <div class="modal-overlay" id="modal-maint-task">
+    <div class="modal" style="max-width:580px;">
+      <div class="modal-header">
+        <div class="modal-title" id="maint-task-modal-title">Add Maintenance Task</div>
+        <button class="modal-close" onclick="closeModal('modal-maint-task')">×</button>
+      </div>
+      <div class="form-grid">
+        <div class="form-group" style="grid-column:span 2;"><label>Task Name *</label><input id="mt-title" placeholder="e.g. Deep Clean Espresso Machine"></div>
+        <div class="form-group"><label>Equipment *</label>
+          <select id="mt-equipment" class="filter" style="width:100%;padding:8px 12px;">
+            <option value="">Select equipment…</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Frequency *</label>
+          <select id="mt-frequency" class="filter" style="width:100%;padding:8px 12px;">
+            <option value="Monthly">Monthly</option>
+            <option value="Quarterly">Quarterly</option>
+            <option value="Annually">Annually</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Assigned To</label>
+          <select id="mt-assigned" class="filter" style="width:100%;padding:8px 12px;">
+            <option value="">Unassigned</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Location</label>
+          <select id="mt-location" class="filter" style="width:100%;padding:8px 12px;">
+            <option value="">All Locations</option>
+          </select>
+        </div>
+        <div class="form-group" style="grid-column:span 2;"><label>First Due Date</label>
+          <input id="mt-nextdue" type="date" style="width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;">
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">After first completion, next due date calculates automatically.</div>
+        </div>
+        <div class="form-group" style="grid-column:span 2;"><label>Description / Notes</label>
+          <textarea id="mt-description" rows="3" style="width:100%;font-family:inherit;font-size:13px;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;resize:vertical;" placeholder="Any specific instructions or notes…"></textarea>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="saveMaintTaskForm()">Save Task</button>
+        <button class="btn btn-outline" onclick="closeModal('modal-maint-task')">Cancel</button>
+        <button id="maint-task-delete-btn" class="btn" style="margin-left:auto;color:var(--red);border-color:var(--red);display:none;" onclick="deleteMaintTask()">Delete Task</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPLETE TASK MODAL -->
+  <div class="modal-overlay" id="modal-maint-complete">
+    <div class="modal" style="max-width:520px;">
+      <div class="modal-header">
+        <div class="modal-title" id="maint-complete-title">Complete Task</div>
+        <button class="modal-close" onclick="closeModal('modal-maint-complete')">×</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:16px;padding:4px 0;">
+        <div id="maint-complete-info" style="padding:12px 14px;background:var(--cream);border-radius:8px;font-size:13px;line-height:1.6;"></div>
+        <div class="form-group">
+          <label>Completed By *</label>
+          <select id="mc-completed-by" class="filter" style="width:100%;padding:8px 12px;">
+            <option value="">Select person…</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Notes <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+          <textarea id="mc-notes" rows="3" style="width:100%;font-family:inherit;font-size:13px;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;resize:vertical;" placeholder="Any observations, measurements, or follow-up needed…"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Photo <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+          <input type="file" id="mc-photo" accept="image/*" capture="environment" style="font-size:13px;">
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">Opens camera on mobile. Photo is saved to the completion record.</div>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="saveCompleteTask()">✓ Mark Complete</button>
+        <button class="btn btn-outline" onclick="closeModal('modal-maint-complete')">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <!-- MAINTENANCE ADD/EDIT MODAL -->
   <div class="modal-overlay" id="modal-maint">
     <div class="modal" style="max-width:560px;">
@@ -535,10 +670,80 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
   </div>
 
   <!-- MAINTENANCE -->
-  <div class="page" id="page-maintenance">
+  <!-- STAFF -->
+  <div class="page" id="page-staff">
+    <div class="page-header">
+      <div class="page-title">👥 Staff</div>
+      <div class="page-sub">Team members — used for task assignment and scheduling</div>
+    </div>
+    <div class="toolbar">
+      <div class="search-wrap">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input class="search-input" placeholder="Search staff…" oninput="filterStaff(this.value)">
+      </div>
+      <button class="btn btn-primary ml-auto" onclick="openStaffForm(null)">+ Add Staff Member</button>
+      <span id="staff-count" style="font-size:13px;color:var(--muted);align-self:center;"></span>
+    </div>
+    <div class="cards-grid" id="staff-grid"></div>
+    <div class="no-data" id="staff-empty" style="display:none">No staff yet — add your first team member above.</div>
+  </div>
+
+  <!-- MAINTENANCE SCHEDULE -->
+  <div class="page" id="page-maint-schedule">
     <div class="page-header">
       <div class="page-title">🔧 Maintenance</div>
-      <div class="page-sub">Service contacts and maintenance logs</div>
+      <div class="page-sub">Scheduled tasks, completion tracking, and full history log</div>
+    </div>
+    <div class="tab-bar">
+      <button class="tab-btn active" id="maint-tab-schedule" onclick="switchMaintTab('schedule',this)">📅 Schedule</button>
+      <button class="tab-btn" id="maint-tab-log" onclick="switchMaintTab('log',this)">📋 Log</button>
+    </div>
+
+    <!-- Schedule Tab -->
+    <div id="maint-schedule-panel">
+      <div class="toolbar">
+        <select class="filter" id="maint-filter-loc" onchange="renderMaintSchedule()">
+          <option value="">All Locations</option>
+        </select>
+        <select class="filter" id="maint-filter-equip" onchange="renderMaintSchedule()">
+          <option value="">All Equipment</option>
+        </select>
+        <select class="filter" id="maint-filter-status" onchange="renderMaintSchedule()">
+          <option value="">All Status</option>
+          <option value="overdue">🔴 Past Due</option>
+          <option value="due-soon">🟡 Due Soon</option>
+          <option value="upcoming">🟢 Upcoming</option>
+        </select>
+        <button class="btn btn-primary ml-auto" onclick="openMaintTaskForm(null)">+ Add Task</button>
+        <span id="maint-sched-count" style="font-size:13px;color:var(--muted);align-self:center;"></span>
+      </div>
+      <div class="cards-grid" id="maint-schedule-grid" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr));"></div>
+      <div class="no-data" id="maint-sched-empty" style="display:none">No maintenance tasks scheduled. Add one above.</div>
+    </div>
+
+    <!-- Log Tab -->
+    <div id="maint-log-panel" style="display:none;">
+      <div class="toolbar">
+        <select class="filter" id="maint-log-filter-equip" onchange="renderMaintLog()">
+          <option value="">All Equipment</option>
+        </select>
+        <span id="maint-log-count" class="ml-auto" style="font-size:13px;color:var(--muted);align-self:center;"></span>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table" id="maint-log-table">
+          <thead id="maint-log-thead"></thead>
+          <tbody id="maint-log-body"></tbody>
+        </table>
+        <div class="no-data" id="maint-log-empty" style="display:none">No completions logged yet.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAINTENANCE CONTACTS (renamed) -->
+  <div class="page" id="page-maint-contacts">
+    <div class="page-header">
+      <div class="page-title">📋 Maintenance Contacts</div>
+      <div class="page-sub">Service vendors and repair contacts</div>
     </div>
     <div class="toolbar">
       <div class="search-wrap">
@@ -743,18 +948,23 @@ const CFG = {
 };
 
 const SCOPES = ['Sites.ReadWrite.All','Files.ReadWrite','User.Read'];
-const MODULES = ['Dashboard','Inventory','Transfers','Ordering','Checklists','Vendors','Recipes','Maintenance','Settings'];
+const MODULES = ['Dashboard','Inventory','Transfers','Ordering','Checklists','Vendors','Recipes','Staff','Maintenance','Settings'];
+const EQUIPMENT_LIST = ['Slayer Espresso Machine','Grinders','Glycol Chiller','Refrigerators','Ice Machine','Fetco Batch Brewer','Cold Brew System','Keg Lines / Draft','Water Filtration','Dishwasher','POS Terminals','HVAC / Ventilation','Plumbing / Sinks','Hood / Exhaust'];
+const FREQ_DAYS = {Monthly:30, Quarterly:90, Annually:365};
 const LISTS = {
-  inventory:  'BSC_Inventory',
-  counts:     'BSC_InventoryCounts',
-  transfers:  'BSC_Transfers',
-  orders:     'BSC_Orders',
-  checklists: 'BSC_Checklists',
-  clProgress: 'BSC_ChecklistProgress',
-  vendors:    'vendors',
-  roles:      'BSC_Roles',
-  recipes:    'BSC_Recipes',
-  maintenance:'Maintenance'
+  inventory:    'BSC_Inventory',
+  counts:       'BSC_InventoryCounts',
+  transfers:    'BSC_Transfers',
+  orders:       'BSC_Orders',
+  checklists:   'BSC_Checklists',
+  clProgress:   'BSC_ChecklistProgress',
+  vendors:      'vendors',
+  roles:        'BSC_Roles',
+  recipes:      'BSC_Recipes',
+  maintContacts:'Maintenance',
+  staff:        'BSC_Staff',
+  maintSchedule:'BSC_MaintSchedule',
+  maintLog:     'BSC_MaintLog'
 };
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -775,7 +985,8 @@ let currentLocation = 'all';
 // in-memory cache
 const cache = {
   inventory: [], transfers: [], orders: [],
-  checklists: [], vendors: [], roles: [], recipes: [], maintenance: [],
+  checklists: [], vendors: [], roles: [], recipes: [],
+  maintContacts: [], staff: [], maintSchedule: [], maintLog: [],
   clProgress: {}
 };
 
@@ -920,9 +1131,23 @@ async function ensureAllLists() {
     {name:'Content',text:{allowMultipleLines:true,linesForEditing:10}},
     {name:'Notes',text:{}}
   ]);
-  await ensureList(LISTS.maintenance,[
+  await ensureList(LISTS.maintContacts,[
     {name:'Service',text:{}},{name:'Contact',text:{}},
     {name:'Phone',text:{}},{name:'Email',text:{}},{name:'Notes',text:{}}
+  ]);
+  await ensureList(LISTS.staff,[
+    {name:'Role',text:{}},{name:'Location',text:{}},
+    {name:'Email',text:{}},{name:'Phone',text:{}},{name:'Active',text:{}}
+  ]);
+  await ensureList(LISTS.maintSchedule,[
+    {name:'Equipment',text:{}},{name:'Description',text:{allowMultipleLines:true}},
+    {name:'Frequency',text:{}},{name:'AssignedTo',text:{}},{name:'Location',text:{}},
+    {name:'NextDue',text:{}},{name:'Notes',text:{}}
+  ]);
+  await ensureList(LISTS.maintLog,[
+    {name:'ScheduleId',text:{}},{name:'Equipment',text:{}},{name:'TaskName',text:{}},
+    {name:'CompletedBy',text:{}},{name:'CompletedDate',text:{}},{name:'Location',text:{}},
+    {name:'Notes',text:{allowMultipleLines:true}},{name:'PhotoName',text:{}}
   ]);
 }
 
@@ -931,7 +1156,7 @@ async function ensureAllLists() {
 // ════════════════════════════════════════════════════════════════════════════
 async function loadAllData() {
   const siteId = await getSiteId();
-  const [inv, xfers, orders, cls, roles, vendors,,recipes,,maint] = await Promise.all([
+  const [inv, xfers, orders, cls, roles, vendors,,recipes,,contacts,staff,sched,log] = await Promise.all([
     getListItems(siteId, LISTS.inventory),
     getListItems(siteId, LISTS.transfers),
     getListItems(siteId, LISTS.orders),
@@ -940,12 +1165,16 @@ async function loadAllData() {
     getListItems(siteId, LISTS.vendors),
     loadListColNames(siteId, LISTS.vendors),
     getRecipeItems(siteId),
-    loadListColNames(siteId, LISTS.maintenance),
-    getListItems(siteId, LISTS.maintenance)
+    loadListColNames(siteId, LISTS.maintContacts),
+    getListItems(siteId, LISTS.maintContacts),
+    getListItems(siteId, LISTS.staff),
+    getListItems(siteId, LISTS.maintSchedule),
+    getListItems(siteId, LISTS.maintLog)
   ]);
   cache.inventory=inv; cache.transfers=xfers; cache.orders=orders;
   cache.checklists=cls; cache.roles=roles; cache.vendors=vendors;
-  cache.recipes=recipes; cache.maintenance=maint;
+  cache.recipes=recipes; cache.maintContacts=contacts;
+  cache.staff=staff; cache.maintSchedule=sched; cache.maintLog=log;
   renderAll();
 }
 
@@ -994,10 +1223,13 @@ function renderAll() {
   renderChecklists();
   renderVendors();
   renderRecipes();
-  renderMaintenance();
+  renderStaff();
+  renderMaintSchedule();
+  renderMaintContacts();
   renderRoles();
   renderLocations();
   populateSelects();
+  checkMaintNotifications();
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1052,6 +1284,8 @@ function renderDashboard() {
       <span>${o.Vendor||'Unknown'}</span>
       <span style="margin-left:auto"><span class="badge badge-gold">${o.Status}</span></span>
     </div>`).join('');
+
+  updateMaintDashboard();
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1675,15 +1909,15 @@ function maintFieldRow(key, val, label) {
 
 function maintFields(item) {
   // Returns editable field keys (non-system, non-Title) for this list
-  if (!cache.maintenance.length) return [];
-  return Object.keys(cache.maintenance[0]).filter(k => k !== 'Title' && isEditableField(k, LISTS.maintenance));
+  if (!cache.maintContacts.length) return [];
+  return Object.keys(cache.maintContacts[0]).filter(k => k !== 'Title' && isEditableField(k, LISTS.maintContacts));
 }
 
-function renderMaintenance(query='') {
+function renderMaintContacts(query='') {
   const grid = document.getElementById('maint-grid');
   const empty = document.getElementById('maint-empty');
   const q = query.toLowerCase();
-  let rows = cache.maintenance;
+  let rows = cache.maintContacts;
   if (q) rows = rows.filter(m=>Object.values(m).filter(Boolean).join(' ').toLowerCase().includes(q));
 
   if (!rows.length) {
@@ -1698,7 +1932,7 @@ function renderMaintenance(query='') {
 
   // Detect which field is likely "service" for the subtitle and icon
   const serviceKey = extraFields.find(k => {
-    const lbl = (spFieldLabel(k, LISTS.maintenance)||k).toLowerCase();
+    const lbl = (spFieldLabel(k, LISTS.maintContacts)||k).toLowerCase();
     return lbl.includes('service') || lbl.includes('type') || lbl.includes('category') || lbl.includes('description');
   });
 
@@ -1708,7 +1942,7 @@ function renderMaintenance(query='') {
     const fieldRows = extraFields
       .filter(k => k !== serviceKey)
       .map(k => {
-        const label = spFieldLabel(k, LISTS.maintenance) || k;
+        const label = spFieldLabel(k, LISTS.maintContacts) || k;
         return maintFieldRow(k, m[k], label);
       }).filter(Boolean).join('');
 
@@ -1720,21 +1954,21 @@ function renderMaintenance(query='') {
     </div>`;
   }).join('');
 }
-function filterMaint(q) { renderMaintenance(q); }
+function filterMaint(q) { renderMaintContacts(q); }
 
 let _maintEditId = null;
 function openMaintForm(id) {
   _maintEditId = id || null;
-  const m = id ? cache.maintenance.find(x=>x.id===id) : null;
+  const m = id ? cache.maintContacts.find(x=>x.id===id) : null;
   document.getElementById('maint-modal-title').textContent = m ? 'Edit Contact' : 'Add Contact';
 
   // Build form dynamically from SP columns
-  const fields = cache.maintenance.length
-    ? Object.keys(cache.maintenance[0]).filter(k => isEditableField(k, LISTS.maintenance))
+  const fields = cache.maintContacts.length
+    ? Object.keys(cache.maintContacts[0]).filter(k => isEditableField(k, LISTS.maintContacts))
     : ['Title'];
 
   document.getElementById('maint-form-fields').innerHTML = fields.map(f => {
-    const label = spFieldLabel(f, LISTS.maintenance) || f;
+    const label = spFieldLabel(f, LISTS.maintContacts) || f;
     const val = m ? (m[f] || '') : '';
     const lk = label.toLowerCase();
     const isLong = lk.includes('note') || lk.includes('comment') || lk.includes('description');
@@ -1753,8 +1987,8 @@ function openMaintForm(id) {
 }
 
 async function saveMaintForm() {
-  const fields = cache.maintenance.length
-    ? Object.keys(cache.maintenance[0]).filter(k => isEditableField(k, LISTS.maintenance))
+  const fields = cache.maintContacts.length
+    ? Object.keys(cache.maintContacts[0]).filter(k => isEditableField(k, LISTS.maintContacts))
     : ['Title'];
   const data = {};
   fields.forEach(f => { const el = document.getElementById('mf_'+f); if (el) data[f] = el.value; });
@@ -1762,16 +1996,16 @@ async function saveMaintForm() {
   setLoading(true,'Saving…');
   try {
     if (_maintEditId) {
-      await updateListItem(LISTS.maintenance, _maintEditId, data);
-      const i = cache.maintenance.findIndex(m=>m.id===_maintEditId);
-      if (i!==-1) cache.maintenance[i] = {...cache.maintenance[i], ...data};
+      await updateListItem(LISTS.maintContacts, _maintEditId, data);
+      const i = cache.maintContacts.findIndex(m=>m.id===_maintEditId);
+      if (i!==-1) cache.maintContacts[i] = {...cache.maintContacts[i], ...data};
       toast('ok','✓ Contact updated');
     } else {
-      const item = await addListItem(LISTS.maintenance, data);
-      cache.maintenance.push(item);
+      const item = await addListItem(LISTS.maintContacts, data);
+      cache.maintContacts.push(item);
       toast('ok','✓ Contact added');
     }
-    renderMaintenance(document.querySelector('#page-maintenance .search-input')?.value||'');
+    renderMaintContacts(document.querySelector('#page-maint-contacts .search-input')?.value||'');
     closeModal('modal-maint');
   } catch(e) { toast('err','Save failed: '+e.message); }
   finally { setLoading(false); }
@@ -1779,13 +2013,13 @@ async function saveMaintForm() {
 
 async function deleteMaintContact() {
   if (!_maintEditId) return;
-  const m = cache.maintenance.find(x=>x.id===_maintEditId);
+  const m = cache.maintContacts.find(x=>x.id===_maintEditId);
   if (!confirm(`Delete "${m?.Title}"?`)) return;
   setLoading(true,'Deleting…');
   try {
-    await deleteListItem(LISTS.maintenance, _maintEditId);
-    cache.maintenance = cache.maintenance.filter(x=>x.id!==_maintEditId);
-    renderMaintenance();
+    await deleteListItem(LISTS.maintContacts, _maintEditId);
+    cache.maintContacts = cache.maintContacts.filter(x=>x.id!==_maintEditId);
+    renderMaintContacts();
     closeModal('modal-maint');
     toast('ok','✓ Contact deleted');
   } catch(e) { toast('err','Delete failed: '+e.message); }
@@ -1994,6 +2228,340 @@ async function restoreRecipeVersion(itemId, versionId) {
 // ════════════════════════════════════════════════════════════════════════════
 
 
+// ════════════════════════════════════════════════════════════════════════════
+// STAFF
+// ════════════════════════════════════════════════════════════════════════════
+function renderStaff(query='') {
+  const grid = document.getElementById('staff-grid');
+  const empty = document.getElementById('staff-empty');
+  if (!grid) return;
+  const q = query.toLowerCase();
+  let rows = cache.staff.filter(s=>s.Active!=='No');
+  if (q) rows = rows.filter(s=>[s.Title,s.Role,s.Location,s.Email].filter(Boolean).join(' ').toLowerCase().includes(q));
+  const countEl = document.getElementById('staff-count');
+  if (countEl) countEl.textContent = rows.length+' members';
+  if (!rows.length) { grid.innerHTML=''; if(empty) empty.style.display='block'; return; }
+  if (empty) empty.style.display='none';
+  grid.innerHTML = rows.map(s=>`
+    <div class="card" style="cursor:pointer;" onclick="openStaffForm('${s.id}')">
+      <div class="card-title">👤 ${s.Title||'Unnamed'}</div>
+      ${s.Role?`<div style="font-size:12px;color:var(--muted);margin-top:-8px;margin-bottom:8px;">${s.Role}</div>`:''}
+      <div style="font-size:13px;display:flex;flex-direction:column;gap:5px;">
+        ${s.Location?`<div>📍 ${s.Location}</div>`:''}
+        ${s.Phone?`<div>📞 <a href="tel:${s.Phone.replace(/\D/g,'')}" onclick="event.stopPropagation()">${s.Phone}</a></div>`:''}
+        ${s.Email?`<div>✉️ <a href="mailto:${s.Email}" onclick="event.stopPropagation()">${s.Email}</a></div>`:''}
+      </div>
+      <button class="recipe-edit-btn" style="margin-top:10px;" onclick="event.stopPropagation();openStaffForm('${s.id}')">✏️ Edit</button>
+    </div>`).join('');
+  populateStaffSelects();
+}
+function filterStaff(q) { renderStaff(q); }
+
+function populateStaffSelects() {
+  const active = cache.staff.filter(s=>s.Active!=='No');
+  const staffOpts = '<option value="">Unassigned</option>'+active.map(s=>`<option value="${s.Title}">${s.Title}${s.Role?' ('+s.Role+')':''}</option>`).join('');
+  ['mt-assigned','mc-completed-by'].forEach(id=>{
+    const el=document.getElementById(id); if(!el) return;
+    const v=el.value; el.innerHTML=staffOpts; el.value=v;
+  });
+  const locs = getLocations();
+  const locOpts = locs.map(l=>`<option value="${l}">${l}</option>`).join('');
+  ['sf-location'].forEach(id=>{
+    const el=document.getElementById(id); if(!el) return;
+    const v=el.value; el.innerHTML='<option value="">Select location…</option>'+locOpts; el.value=v;
+  });
+  ['mt-location'].forEach(id=>{
+    const el=document.getElementById(id); if(!el) return;
+    const v=el.value; el.innerHTML='<option value="">All Locations</option>'+locOpts; el.value=v;
+  });
+  const equipOpts = EQUIPMENT_LIST.map(e=>`<option value="${e}">${e}</option>`).join('');
+  const eqEl=document.getElementById('mt-equipment'); if(eqEl){const v=eqEl.value;eqEl.innerHTML='<option value="">Select equipment…</option>'+equipOpts;eqEl.value=v;}
+  const fLocEl=document.getElementById('maint-filter-loc'); if(fLocEl) fLocEl.innerHTML='<option value="">All Locations</option>'+locOpts;
+  const fEqEl=document.getElementById('maint-filter-equip'); if(fEqEl) fEqEl.innerHTML='<option value="">All Equipment</option>'+EQUIPMENT_LIST.map(e=>`<option value="${e}">${e}</option>`).join('');
+  const lEqEl=document.getElementById('maint-log-filter-equip'); if(lEqEl) lEqEl.innerHTML='<option value="">All Equipment</option>'+EQUIPMENT_LIST.map(e=>`<option value="${e}">${e}</option>`).join('');
+}
+
+let _staffEditId = null;
+function openStaffForm(id) {
+  _staffEditId = id||null;
+  const s = id ? cache.staff.find(x=>x.id===id) : null;
+  document.getElementById('staff-modal-title').textContent = s ? 'Edit Staff Member' : 'Add Staff Member';
+  document.getElementById('sf-name').value   = s?.Title    ||'';
+  document.getElementById('sf-role').value   = s?.Role     ||'';
+  document.getElementById('sf-email').value  = s?.Email    ||'';
+  document.getElementById('sf-phone').value  = s?.Phone    ||'';
+  document.getElementById('sf-active').value = s?.Active   ||'Yes';
+  const locs=getLocations();
+  const locEl=document.getElementById('sf-location');
+  locEl.innerHTML='<option value="">Select location…</option>'+locs.map(l=>`<option value="${l}">${l}</option>`).join('');
+  locEl.value=s?.Location||'';
+  document.getElementById('staff-delete-btn').style.display = s?'inline-flex':'none';
+  openModal('modal-staff');
+  setTimeout(()=>document.getElementById('sf-name').focus(),100);
+}
+async function saveStaffForm() {
+  const name=document.getElementById('sf-name').value.trim();
+  if(!name){toast('err','Name is required');return;}
+  const data={Title:name,Role:document.getElementById('sf-role').value,
+    Location:document.getElementById('sf-location').value,Email:document.getElementById('sf-email').value,
+    Phone:document.getElementById('sf-phone').value,Active:document.getElementById('sf-active').value};
+  setLoading(true,'Saving…');
+  try {
+    if(_staffEditId){
+      await updateListItem(LISTS.staff,_staffEditId,data);
+      const i=cache.staff.findIndex(s=>s.id===_staffEditId);
+      if(i!==-1) cache.staff[i]={...cache.staff[i],...data};
+      toast('ok','✓ Updated');
+    } else {
+      const item=await addListItem(LISTS.staff,data);
+      cache.staff.push(item);
+      toast('ok','✓ Staff member added');
+    }
+    renderStaff(); closeModal('modal-staff');
+  } catch(e){toast('err','Save failed: '+e.message);}
+  finally{setLoading(false);}
+}
+async function deleteStaff() {
+  if(!_staffEditId) return;
+  const s=cache.staff.find(x=>x.id===_staffEditId);
+  if(!confirm(`Remove ${s?.Title}?`)) return;
+  setLoading(true,'Removing…');
+  try {
+    await deleteListItem(LISTS.staff,_staffEditId);
+    cache.staff=cache.staff.filter(x=>x.id!==_staffEditId);
+    renderStaff(); closeModal('modal-staff'); toast('ok','✓ Removed');
+  } catch(e){toast('err','Failed: '+e.message);}
+  finally{setLoading(false);}
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// MAINTENANCE SCHEDULE
+// ════════════════════════════════════════════════════════════════════════════
+function calcNextDue(frequency, fromDate) {
+  const d=new Date(fromDate||new Date());
+  if(frequency==='Monthly')   d.setMonth(d.getMonth()+1);
+  else if(frequency==='Quarterly') d.setMonth(d.getMonth()+3);
+  else if(frequency==='Annually')  d.setFullYear(d.getFullYear()+1);
+  return d.toISOString().split('T')[0];
+}
+function getMaintStatus(item) {
+  if(!item.NextDue) return 'upcoming';
+  const days=Math.floor((new Date(item.NextDue)-new Date())/86400000);
+  if(days<0)  return 'overdue';
+  if(days<=7) return 'due-soon';
+  return 'upcoming';
+}
+function maintStatusBadge(status, nextDue) {
+  const d=nextDue?new Date(nextDue).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
+  if(status==='overdue')  return `<span class="maint-badge maint-overdue">🔴 Past Due — ${d}</span>`;
+  if(status==='due-soon') return `<span class="maint-badge maint-due-soon">🟡 Due Soon — ${d}</span>`;
+  return `<span class="maint-badge maint-upcoming">🟢 Due ${d}</span>`;
+}
+function switchMaintTab(tab,btn) {
+  document.querySelectorAll('#page-maint-schedule .tab-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('maint-schedule-panel').style.display=tab==='schedule'?'':'none';
+  document.getElementById('maint-log-panel').style.display=tab==='log'?'':'none';
+  if(tab==='log') renderMaintLog();
+}
+function renderMaintSchedule() {
+  const grid=document.getElementById('maint-schedule-grid');
+  const empty=document.getElementById('maint-sched-empty');
+  const countEl=document.getElementById('maint-sched-count');
+  if(!grid) return;
+  const locF  =document.getElementById('maint-filter-loc')?.value   ||'';
+  const equipF=document.getElementById('maint-filter-equip')?.value ||'';
+  const statF =document.getElementById('maint-filter-status')?.value||'';
+  let rows=[...cache.maintSchedule];
+  if(locF)   rows=rows.filter(r=>r.Location===locF);
+  if(equipF) rows=rows.filter(r=>r.Equipment===equipF);
+  if(statF)  rows=rows.filter(r=>getMaintStatus(r)===statF);
+  const ord={overdue:0,'due-soon':1,upcoming:2};
+  rows.sort((a,b)=>ord[getMaintStatus(a)]-ord[getMaintStatus(b)]);
+  if(!rows.length){grid.innerHTML='';if(empty)empty.style.display='block';if(countEl)countEl.textContent='';updateMaintDashboard();return;}
+  if(empty) empty.style.display='none';
+  if(countEl) countEl.textContent=rows.length+' task'+(rows.length!==1?'s':'');
+  grid.innerHTML=rows.map(r=>{
+    const status=getMaintStatus(r);
+    return `<div class="maint-card ${status}" onclick="openMaintTaskForm('${r.id}')">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+        <div style="font-weight:700;font-size:14px;">${r.Title||'Unnamed Task'}</div>
+        ${maintStatusBadge(status,r.NextDue)}
+      </div>
+      <div style="font-size:12px;color:var(--muted);">${r.Equipment||''}${r.Location?' · '+r.Location:''}</div>
+      ${r.AssignedTo?`<div style="font-size:12px;">👤 ${r.AssignedTo}</div>`:''}
+      ${r.Frequency?`<div style="font-size:12px;color:var(--muted);">🔁 ${r.Frequency}</div>`:''}
+      ${r.Description?`<div style="font-size:12px;color:var(--muted);margin-top:4px;border-top:1px solid var(--border);padding-top:6px;">${r.Description}</div>`:''}
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button class="btn btn-primary" style="flex:1;padding:6px 8px;font-size:12px;" onclick="event.stopPropagation();openCompleteTask('${r.id}')">✓ Complete</button>
+        <button class="recipe-edit-btn" onclick="event.stopPropagation();openMaintTaskForm('${r.id}')">✏️ Edit</button>
+      </div>
+    </div>`;
+  }).join('');
+  updateMaintDashboard();
+}
+
+let _maintTaskEditId=null;
+function openMaintTaskForm(id) {
+  _maintTaskEditId=id||null;
+  const t=id?cache.maintSchedule.find(x=>x.id===id):null;
+  document.getElementById('maint-task-modal-title').textContent=t?'Edit Task':'Add Maintenance Task';
+  document.getElementById('mt-title').value      =t?.Title      ||'';
+  document.getElementById('mt-frequency').value  =t?.Frequency  ||'Monthly';
+  document.getElementById('mt-nextdue').value    =t?.NextDue    ||'';
+  document.getElementById('mt-description').value=t?.Description||'';
+  populateStaffSelects();
+  document.getElementById('mt-equipment').value =t?.Equipment  ||'';
+  document.getElementById('mt-assigned').value  =t?.AssignedTo ||'';
+  document.getElementById('mt-location').value  =t?.Location   ||'';
+  document.getElementById('maint-task-delete-btn').style.display=t?'inline-flex':'none';
+  openModal('modal-maint-task');
+  setTimeout(()=>document.getElementById('mt-title').focus(),100);
+}
+async function saveMaintTaskForm() {
+  const title=document.getElementById('mt-title').value.trim();
+  if(!title){toast('err','Task name is required');return;}
+  const equip=document.getElementById('mt-equipment').value;
+  if(!equip){toast('err','Equipment is required');return;}
+  const data={Title:title,Equipment:equip,Frequency:document.getElementById('mt-frequency').value,
+    AssignedTo:document.getElementById('mt-assigned').value,Location:document.getElementById('mt-location').value,
+    NextDue:document.getElementById('mt-nextdue').value,Description:document.getElementById('mt-description').value};
+  setLoading(true,'Saving…');
+  try {
+    if(_maintTaskEditId){
+      await updateListItem(LISTS.maintSchedule,_maintTaskEditId,data);
+      const i=cache.maintSchedule.findIndex(x=>x.id===_maintTaskEditId);
+      if(i!==-1) cache.maintSchedule[i]={...cache.maintSchedule[i],...data};
+      toast('ok','✓ Task updated');
+    } else {
+      const item=await addListItem(LISTS.maintSchedule,data);
+      cache.maintSchedule.push(item);
+      toast('ok','✓ Task added');
+    }
+    renderMaintSchedule(); closeModal('modal-maint-task');
+  } catch(e){toast('err','Save failed: '+e.message);}
+  finally{setLoading(false);}
+}
+async function deleteMaintTask() {
+  if(!_maintTaskEditId) return;
+  const t=cache.maintSchedule.find(x=>x.id===_maintTaskEditId);
+  if(!confirm(`Delete "${t?.Title}"?`)) return;
+  setLoading(true,'Deleting…');
+  try {
+    await deleteListItem(LISTS.maintSchedule,_maintTaskEditId);
+    cache.maintSchedule=cache.maintSchedule.filter(x=>x.id!==_maintTaskEditId);
+    renderMaintSchedule(); closeModal('modal-maint-task'); toast('ok','✓ Deleted');
+  } catch(e){toast('err','Delete failed: '+e.message);}
+  finally{setLoading(false);}
+}
+
+let _maintCompleteId=null;
+function openCompleteTask(id) {
+  _maintCompleteId=id;
+  const t=cache.maintSchedule.find(x=>x.id===id);
+  document.getElementById('maint-complete-title').textContent=`Complete: ${t?.Title||'Task'}`;
+  document.getElementById('maint-complete-info').innerHTML=
+    `<strong>${t?.Equipment||''}</strong>${t?.Location?' · '+t.Location:''}<br>`+
+    (t?.Description?`<span style="color:var(--muted);font-size:12px;">${t.Description}</span>`:'');
+  document.getElementById('mc-notes').value='';
+  document.getElementById('mc-photo').value='';
+  populateStaffSelects();
+  document.getElementById('mc-completed-by').value='';
+  openModal('modal-maint-complete');
+}
+async function graphUploadAttachment(listName,itemId,file) {
+  const siteId=await getSiteId();
+  const token=await getToken();
+  const res=await fetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listName}/items/${itemId}/attachments`,
+    {method:'POST',headers:{'Authorization':'Bearer '+token,
+      'Content-Disposition':`attachment; filename="${file.name}"`,
+      'Content-Type':file.type||'image/jpeg'},body:file});
+  if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e?.error?.message||'Upload failed');}
+  return res.json().catch(()=>({}));
+}
+async function saveCompleteTask() {
+  const by=document.getElementById('mc-completed-by').value;
+  if(!by){toast('err','Please select who completed this task');return;}
+  const t=cache.maintSchedule.find(x=>x.id===_maintCompleteId);
+  if(!t) return;
+  const today=new Date().toISOString().split('T')[0];
+  const nextDue=calcNextDue(t.Frequency||'Monthly',today);
+  const logData={Title:`${t.Equipment||t.Title} — ${today}`,ScheduleId:_maintCompleteId,
+    Equipment:t.Equipment||'',TaskName:t.Title||'',CompletedBy:by,
+    CompletedDate:today,Location:t.Location||'',
+    Notes:document.getElementById('mc-notes').value,PhotoName:''};
+  setLoading(true,'Saving completion…');
+  try {
+    const logItem=await addListItem(LISTS.maintLog,logData);
+    cache.maintLog.push(logItem);
+    const photoFile=document.getElementById('mc-photo').files[0];
+    if(photoFile){
+      try {
+        await graphUploadAttachment(LISTS.maintLog,logItem.id,photoFile);
+        await updateListItem(LISTS.maintLog,logItem.id,{PhotoName:photoFile.name});
+        logItem.PhotoName=photoFile.name;
+      } catch(e){toast('err','Photo upload failed (log saved): '+e.message);}
+    }
+    await updateListItem(LISTS.maintSchedule,_maintCompleteId,{NextDue:nextDue});
+    const si=cache.maintSchedule.findIndex(x=>x.id===_maintCompleteId);
+    if(si!==-1) cache.maintSchedule[si].NextDue=nextDue;
+    renderMaintSchedule();
+    closeModal('modal-maint-complete');
+    toast('ok',`✓ Completed! Next due: ${new Date(nextDue).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}`);
+  } catch(e){toast('err','Save failed: '+e.message);}
+  finally{setLoading(false);}
+}
+function renderMaintLog() {
+  const tbody=document.getElementById('maint-log-body');
+  const thead=document.getElementById('maint-log-thead');
+  const empty=document.getElementById('maint-log-empty');
+  const countEl=document.getElementById('maint-log-count');
+  if(!tbody) return;
+  const equipF=document.getElementById('maint-log-filter-equip')?.value||'';
+  let rows=[...cache.maintLog].sort((a,b)=>new Date(b.CompletedDate)-new Date(a.CompletedDate));
+  if(equipF) rows=rows.filter(r=>r.Equipment===equipF);
+  if(!rows.length){thead.innerHTML='';tbody.innerHTML='';if(empty)empty.style.display='block';if(countEl)countEl.textContent='';return;}
+  if(empty) empty.style.display='none';
+  if(countEl) countEl.textContent=rows.length+' record'+(rows.length!==1?'s':'');
+  thead.innerHTML='<tr><th>Date</th><th>Task</th><th>Equipment</th><th>Location</th><th>Completed By</th><th>Notes</th><th>Photo</th></tr>';
+  tbody.innerHTML=rows.map(r=>{
+    const d=r.CompletedDate?new Date(r.CompletedDate).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
+    return `<tr>
+      <td style="white-space:nowrap">${d}</td>
+      <td>${r.TaskName||r.Title||'—'}</td>
+      <td>${r.Equipment||'—'}</td>
+      <td>${r.Location||'—'}</td>
+      <td>${r.CompletedBy||'—'}</td>
+      <td style="max-width:200px;white-space:pre-wrap;">${r.Notes||'—'}</td>
+      <td>${r.PhotoName?`<span style="font-size:11px;color:var(--gold);">📷 ${r.PhotoName}</span>`:'—'}</td>
+    </tr>`;
+  }).join('');
+}
+function updateMaintDashboard() {
+  const overdue=cache.maintSchedule.filter(t=>getMaintStatus(t)==='overdue');
+  const dueSoon=cache.maintSchedule.filter(t=>getMaintStatus(t)==='due-soon');
+  const total=overdue.length+dueSoon.length;
+  const dEl=document.getElementById('d-maint'); if(dEl) dEl.textContent=total||'✓';
+  const sc=document.getElementById('d-maint-stat'); if(sc) sc.classList.toggle('alert',total>0);
+  const badge=document.getElementById('badge-maint'); if(badge) badge.style.display=total>0?'inline':'none';
+  const el=document.getElementById('dash-maint-alerts'); if(!el) return;
+  if(!total){el.innerHTML='<div style="font-size:13px;color:var(--green);">✓ All maintenance up to date</div>';return;}
+  el.innerHTML=[
+    ...overdue.map(t=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px;"><span class="maint-badge maint-overdue" style="flex-shrink:0;font-size:9px;">PAST DUE</span><span>${t.Title} · ${t.Equipment||''}</span></div>`),
+    ...dueSoon.map(t=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px;"><span class="maint-badge maint-due-soon" style="flex-shrink:0;font-size:9px;">DUE SOON</span><span>${t.Title} · ${t.Equipment||''}</span></div>`)
+  ].join('');
+}
+async function checkMaintNotifications() {
+  const today=new Date().toDateString();
+  if(localStorage.getItem('lastMaintNotif')===today) return;
+  if(!cache.maintSchedule.length) return;
+  const overdue=cache.maintSchedule.filter(t=>getMaintStatus(t)==='overdue');
+  const dueSoon=cache.maintSchedule.filter(t=>getMaintStatus(t)==='due-soon');
+  if(overdue.length) await sendSlackAlert(`🔴 *${overdue.length} maintenance task${overdue.length>1?'s':''} PAST DUE at Blue Sparrow Coffee:*\n${overdue.map(t=>`• ${t.Title} — ${t.Equipment||''}${t.Location?' ('+t.Location+')':''}`).join('\n')}`);
+  if(dueSoon.length) await sendSlackAlert(`🟡 *${dueSoon.length} maintenance task${dueSoon.length>1?'s':''} due within 7 days:*\n${dueSoon.map(t=>`• ${t.Title} — ${t.Equipment||''}${t.NextDue?' · Due '+new Date(t.NextDue).toLocaleDateString('en-US',{month:'short',day:'numeric'}):''}`).join('\n')}`);
+  localStorage.setItem('lastMaintNotif',today);
+}
+
 function renderRoles() {
   const el = document.getElementById('roles-list');
   if (!cache.roles.length) { el.innerHTML='<div style="font-size:13px;color:var(--muted)">No roles yet.</div>'; return; }
@@ -2131,6 +2699,7 @@ function populateSelects() {
   const vOpts = activeVendors.map(v=>`<option>${nameField?v[nameField]:Object.values(v)[1]}</option>`).join('');
   const vs = document.getElementById('order-vendor-sel');
   if (vs) vs.innerHTML = '<option value="">Select vendor…</option>'+vOpts;
+  populateStaffSelects();
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -2157,6 +2726,7 @@ function nav(page) {
   document.getElementById('page-'+page)?.classList.add('active');
   document.querySelector(`.nav-item[onclick="nav('${page}')"]`)?.classList.add('active');
   if (page==='checklists') renderChecklists();
+  if (page==='maint-schedule') renderMaintSchedule();
   if (page==='settings') { renderRoles(); renderLocations(); }
 }
 
