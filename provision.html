@@ -62,6 +62,24 @@
     <span class="status pending" id="st-log">Pending</span>
   </div>
 
+  <div id="list-inv" class="list-item">
+    <span class="icon">📦</span>
+    <div>
+      <div class="list-name">BSC_Inventory</div>
+      <div class="list-desc">Add columns: Supplier, OrderSize, OrderUnit, OrderFrequency, CostPerCase, ServingsPerUnit, CostPerServing, ServingUnit, StoreCount, StorageCount</div>
+    </div>
+    <span class="status pending" id="st-inv">Pending</span>
+  </div>
+
+  <div id="list-counts" class="list-item">
+    <span class="icon">🗂️</span>
+    <div>
+      <div class="list-name">BSC_InventoryCounts</div>
+      <div class="list-desc">Weekly count history · WeekOf, StoreCount, StorageCount, TotalCount, Location, CountedBy</div>
+    </div>
+    <span class="status pending" id="st-counts">Pending</span>
+  </div>
+
   <button id="btn" onclick="run()">Sign in &amp; Create Lists</button>
   <div class="log" id="log"></div>
   <div class="done-msg" id="done-msg">✅ All done! You can close this tab and reload the BSC Ops app.</div>
@@ -154,6 +172,36 @@ const LISTS_DEF = [
       { name: 'Notes',         text: { allowMultipleLines: true } },
       { name: 'TaskId',        text: {} }
     ]
+  },
+  {
+    key: 'inv',
+    name: 'BSC_Inventory',
+    template: 'genericList',
+    columns: [
+      { name: 'Supplier',       text: {} },
+      { name: 'OrderSize',      number: { decimalPlaces: 'automatic' } },
+      { name: 'OrderUnit',      text: {} },
+      { name: 'OrderFrequency', text: {} },
+      { name: 'CostPerCase',    number: { decimalPlaces: 'automatic' } },
+      { name: 'ServingsPerUnit',number: { decimalPlaces: 'automatic' } },
+      { name: 'CostPerServing', number: { decimalPlaces: 'automatic' } },
+      { name: 'ServingUnit',    text: {} },
+      { name: 'StoreCount',     number: { decimalPlaces: 'automatic' } },
+      { name: 'StorageCount',   number: { decimalPlaces: 'automatic' } }
+    ]
+  },
+  {
+    key: 'counts',
+    name: 'BSC_InventoryCounts',
+    template: 'genericList',
+    columns: [
+      { name: 'WeekOf',       dateTime: { displayAs: 'default', format: 'dateOnly' } },
+      { name: 'StoreCount',   number: { decimalPlaces: 'automatic' } },
+      { name: 'StorageCount', number: { decimalPlaces: 'automatic' } },
+      { name: 'TotalCount',   number: { decimalPlaces: 'automatic' } },
+      { name: 'Location',     text: {} },
+      { name: 'CountedBy',    text: {} }
+    ]
   }
 ];
 
@@ -185,6 +233,7 @@ async function ensureList(def) {
 
     if (col.text)     { colDef.text     = col.text; }
     if (col.dateTime) { colDef.dateTime = col.dateTime; }
+    if (col.number)   { colDef.number   = col.number; }
 
     try {
       // Check if column exists
