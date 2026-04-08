@@ -963,6 +963,16 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
         <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Create or update all required SharePoint lists and columns. Safe to run multiple times — skips anything that already exists.</p>
         <button class="btn btn-outline" onclick="runProvision()" id="provision-btn">⚙️ Provision / Update SharePoint Lists</button>
         <div id="provision-log" style="margin-top:14px;font-size:12px;line-height:1.9;color:#444;background:#f9f9f9;border-radius:8px;padding:12px 14px;display:none;max-height:200px;overflow-y:auto;"></div>
+
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--opal)">
+          <div style="font-size:13px;font-weight:600;margin-bottom:6px">📦 Inventory Lists per Location</div>
+          <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Each location needs its own inventory lists before importing data. Creates <code>BSC_{Location}_Inventory</code> and <code>BSC_{Location}_InventoryCounts</code>.</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <select id="prov-inv-loc" class="field-input" style="width:160px"></select>
+            <button class="btn btn-outline" onclick="provisionInventoryForLocation()" id="prov-inv-btn">Provision for Location</button>
+          </div>
+          <div id="prov-inv-log" style="margin-top:10px;font-size:12px;line-height:1.9;color:#444;background:#f9f9f9;border-radius:8px;padding:10px 14px;display:none;max-height:140px;overflow-y:auto;"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -1141,9 +1151,21 @@ const SCOPES = ['Sites.ReadWrite.All','Files.ReadWrite','User.Read'];
 const MODULES = ['Dashboard','Inventory','Transfers','Ordering','Checklists','Vendors','Recipes','Staff','Maintenance','Settings'];
 const EQUIPMENT_LIST = ['Slayer Espresso Machine','Grinders','Glycol Chiller','Refrigerators','Ice Machine','Fetco Batch Brewer','Cold Brew System','Keg Lines / Draft','Water Filtration','Dishwasher','POS Terminals','HVAC / Ventilation','Plumbing / Sinks','Hood / Exhaust'];
 const FREQ_DAYS = {Monthly:30, Quarterly:90, Annually:365};
+// Per-location inventory list name helpers
+function invListName(loc) {
+  const l = loc || currentLocation;
+  if (!l || l === 'all') return null;
+  return 'BSC_' + l.replace(/[\s\/\\]/g, '_') + '_Inventory';
+}
+function countsListName(loc) {
+  const l = loc || currentLocation;
+  if (!l || l === 'all') return null;
+  return 'BSC_' + l.replace(/[\s\/\\]/g, '_') + '_InventoryCounts';
+}
+
 const LISTS = {
-  inventory:    'BSC_Inventory',
-  counts:       'BSC_InventoryCounts',
+  inventory:    'BSC_Inventory',    // legacy fallback only
+  counts:       'BSC_InventoryCounts', // legacy fallback only
   transfers:    'BSC_Transfers',
   orders:       'BSC_Orders',
   checklists:   'BSC_Checklists',
@@ -1283,11 +1305,8 @@ async function bootstrapApp() {
 }
 
 async function ensureAllLists() {
-  await ensureList(LISTS.inventory,[
-    {name:'ItemName',text:{}},{name:'Category',text:{}},{name:'Unit',text:{}},
-    {name:'ParLevel',number:{}},{name:'CurrentStock',number:{}},
-    {name:'Location',text:{}},{name:'Notes',text:{}},{name:'LastCount',dateTime:{}}
-  ]);
+  // Note: inventory lists are per-location (BSC_Sherman_Inventory etc.)
+  // and are provisioned via Settings → SharePoint Setup → Location Inventory
   await ensureList(LISTS.transfers,[
     {name:'ItemName',text:{}},{name:'Quantity',number:{}},{name:'Unit',text:{}},
     {name:'FromLocation',text:{}},{name:'ToLocation',text:{}},
@@ -1347,8 +1366,7 @@ async function ensureAllLists() {
 // ════════════════════════════════════════════════════════════════════════════
 async function loadAllData() {
   const siteId = await getSiteId();
-  const [inv, xfers, orders, cls, roles, vendors,,recipes,,contacts,staff,sched,log,counts,appSettings] = await Promise.all([
-    getListItems(siteId, LISTS.inventory),
+  const [xfers, orders, cls, roles, vendors,,recipes,,contacts,staff,sched,log,appSettings] = await Promise.all([
     getListItems(siteId, LISTS.transfers),
     getListItems(siteId, LISTS.orders),
     getListItems(siteId, LISTS.checklists),
@@ -1361,14 +1379,15 @@ async function loadAllData() {
     getListItems(siteId, LISTS.staff),
     getListItems(siteId, LISTS.maintSchedule),
     getListItems(siteId, LISTS.maintLog),
-    getCountHistory(siteId),
     getListItems(siteId, LISTS.settings)
   ]);
-  cache.inventory=inv; cache.transfers=xfers; cache.orders=orders;
+  cache.transfers=xfers; cache.orders=orders;
   cache.checklists=cls; cache.roles=roles; cache.vendors=vendors;
   cache.recipes=recipes; cache.maintContacts=contacts;
   cache.staff=staff; cache.maintSchedule=sched; cache.maintLog=log;
-  cache.countHistory=counts; cache.settingsItems=appSettings;
+  cache.settingsItems=appSettings;
+  // Load location-specific inventory (per-location lists)
+  await loadInventoryData(siteId);
   renderAll();
 }
 
@@ -1379,15 +1398,38 @@ async function getListItems(siteId, listName) {
   } catch { return []; }
 }
 
-async function getCountHistory(siteId) {
-  // load up to 2000 most recent count records, all locations
+async function getCountHistoryForList(siteId, listName) {
+  if (!listName) return [];
   try {
     const token = await getToken();
-    let url = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${LISTS.counts}/items?expand=fields&$top=2000`;
-    const res = await fetch(url, { headers: { Authorization: 'Bearer '+token } });
+    const res = await fetch(
+      `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listName}/items?expand=fields&$top=2000`,
+      { headers: { Authorization: 'Bearer '+token } }
+    );
+    if (!res.ok) return [];
     const data = await res.json();
     return (data.value||[]).map(i=>({id:i.id,...i.fields}));
   } catch { return []; }
+}
+
+async function loadInventoryData(siteId) {
+  const locs = getLocations();
+  if (currentLocation === 'all') {
+    // Load from all location lists in parallel, merge results
+    const [invArrays, cntArrays] = await Promise.all([
+      Promise.all(locs.map(l => getListItems(siteId, invListName(l)).catch(() => []))),
+      Promise.all(locs.map(l => getCountHistoryForList(siteId, countsListName(l)).catch(() => [])))
+    ]);
+    cache.inventory    = invArrays.flat();
+    cache.countHistory = cntArrays.flat();
+  } else {
+    const ln = invListName(currentLocation);
+    const cn = countsListName(currentLocation);
+    [cache.inventory, cache.countHistory] = await Promise.all([
+      ln ? getListItems(siteId, ln).catch(() => []) : Promise.resolve([]),
+      cn ? getCountHistoryForList(siteId, cn).catch(() => []) : Promise.resolve([])
+    ]);
+  }
 }
 
 async function getRecipeItems(siteId) {
@@ -1601,6 +1643,18 @@ function filterInventory(query) {
 
 // ── Count Sheet ───────────────────────────────────────────────────────────────
 function renderCountSheet() {
+  // Show warning if no specific location is selected
+  const container = document.getElementById('count-sheet-body');
+  if (currentLocation === 'all') {
+    container.innerHTML = `
+      <div style="background:#fff8e1;border:1.5px solid #f0c040;border-radius:10px;padding:20px 24px;margin-top:12px;text-align:center">
+        <div style="font-size:22px;margin-bottom:8px">📍</div>
+        <div style="font-weight:600;font-size:14px;margin-bottom:4px">Select a location to enter counts</div>
+        <div style="font-size:13px;color:var(--muted)">Use the location buttons at the top to choose Sherman, Blake, or Platte before entering weekly counts.</div>
+      </div>`;
+    return;
+  }
+
   // default week = today
   const dateEl = document.getElementById('count-week-date');
   if (!dateEl.value) dateEl.value = new Date().toISOString().split('T')[0];
@@ -1715,8 +1769,12 @@ async function submitWeeklyCount() {
   try {
     setLoading(true, `Saving ${entries.length} count records…`);
 
-    // batch save to BSC_InventoryCounts (8 concurrent)
-    const countTasks = entries.map(e => () => addListItem(LISTS.counts, {
+    const cntList = countsListName(loc);
+    const invList = invListName(loc);
+    if (!cntList || !invList) { toast('err','Select a specific location to submit counts'); setLoading(false); btn.disabled=false; return; }
+
+    // batch save to location counts list (8 concurrent)
+    const countTasks = entries.map(e => () => addListItem(cntList, {
       Title: e.name,
       WeekOf: weekOf+'T00:00:00Z',
       StoreCount: e.store,
@@ -1726,14 +1784,14 @@ async function submitWeeklyCount() {
       CountedBy: countedBy
     }));
 
-    // batch PATCH BSC_Inventory items
+    // batch PATCH location inventory items
     const invTasks = entries.map(e => () => {
       const item = cache.inventory.find(i=>i.id===e.id);
       if (!item) return Promise.resolve();
       item.CurrentStock = e.total;
       item.StoreCount = e.store;
       item.StorageCount = e.storage;
-      return updateListItem(LISTS.inventory, e.id, {
+      return updateListItem(invList, e.id, {
         CurrentStock: e.total, StoreCount: e.store, StorageCount: e.storage
       });
     });
@@ -1890,9 +1948,12 @@ async function saveInventoryItem() {
   };
   // remove nulls
   Object.keys(fields).forEach(k=>{ if(fields[k]===null||fields[k]==='') delete fields[k]; });
+  const itemLoc = fields.Location;
+  const listName = invListName(itemLoc) || invListName(currentLocation);
+  if (!listName) { toast('err','Select a specific location first'); return; }
   setLoading(true,'Saving…');
   try {
-    const item = await addListItem(LISTS.inventory, fields);
+    const item = await addListItem(listName, fields);
     cache.inventory.push(item);
     renderInventory(); renderDashboard(); populateSelects();
     closeModal('modal-add-item');
@@ -1945,12 +2006,12 @@ async function saveTransfer() {
       const toItems   = cache.inventory.filter(i=>i.ItemName===item.ItemName&&(i.Location===to||i.Location==='All'));
       for (const fi of fromItems) {
         const newStock = Math.max(0,(fi.CurrentStock||0)-qty);
-        await updateListItem(LISTS.inventory,fi.id,{CurrentStock:newStock});
+        await updateListItem(invListName(from)||LISTS.inventory, fi.id, {CurrentStock:newStock});
         fi.CurrentStock=newStock;
       }
       for (const ti of toItems) {
         const newStock = (ti.CurrentStock||0)+qty;
-        await updateListItem(LISTS.inventory,ti.id,{CurrentStock:newStock});
+        await updateListItem(invListName(to)||LISTS.inventory, ti.id, {CurrentStock:newStock});
         ti.CurrentStock=newStock;
       }
     }
@@ -3174,6 +3235,12 @@ function renderLocations() {
     switcher.innerHTML = `<button class="loc-btn active" onclick="setLocation('all',this)">All</button>`
       + locs.map(l=>`<button class="loc-btn" onclick="setLocation('${l}',this)">${l}</button>`).join('');
   }
+  // Per-location provision select in Settings
+  const provSel = document.getElementById('prov-inv-loc');
+  if (provSel) {
+    provSel.innerHTML = '<option value="">Select location…</option>'
+      + locs.map(l=>`<option value="${l}">${l}</option>`).join('');
+  }
 }
 function addLocation() {
   const input = document.getElementById('new-location-input');
@@ -3218,11 +3285,20 @@ function populateSelects() {
 // ════════════════════════════════════════════════════════════════════════════
 // LOCATION FILTER
 // ════════════════════════════════════════════════════════════════════════════
-function setLocation(loc, btn) {
+async function setLocation(loc, btn) {
   currentLocation = loc;
   document.querySelectorAll('.loc-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
+  // Clear inventory immediately so stale data doesn't flash
+  cache.inventory = []; cache.countHistory = [];
   renderAll();
+  // Reload inventory from the correct per-location list(s)
+  try {
+    const siteId = await getSiteId();
+    await loadInventoryData(siteId);
+  } catch(e) { console.warn('Inventory reload failed:', e); }
+  renderInventory();
+  renderDashboard();
 }
 
 function filterByLocation(items) {
@@ -3511,16 +3587,30 @@ const PROVISION_LISTS = [
     {name:'ServingUnit',text:{}},{name:'StoreCount',number:{decimalPlaces:'automatic'}},
     {name:'StorageCount',number:{decimalPlaces:'automatic'}}
   ]},
-  { name:'BSC_InventoryCounts', columns:[
-    {name:'WeekOf',dateTime:{displayAs:'default',format:'dateOnly'}},
-    {name:'StoreCount',number:{decimalPlaces:'automatic'}},
-    {name:'StorageCount',number:{decimalPlaces:'automatic'}},
-    {name:'TotalCount',number:{decimalPlaces:'automatic'}},
-    {name:'Location',text:{}},{name:'CountedBy',text:{}}
-  ]},
   { name:'BSC_Settings', columns:[
     {name:'Value',text:{allowMultipleLines:true}}
   ]}
+];
+
+// Column definitions for per-location inventory lists
+const INV_LIST_COLS = [
+  {name:'ItemName',text:{}},{name:'Category',text:{}},{name:'Supplier',text:{}},
+  {name:'OrderSize',number:{decimalPlaces:'automatic'}},{name:'OrderUnit',text:{}},
+  {name:'OrderFrequency',text:{}},{name:'ParLevel',number:{decimalPlaces:'automatic'}},
+  {name:'CurrentStock',number:{decimalPlaces:'automatic'}},
+  {name:'StoreCount',number:{decimalPlaces:'automatic'}},
+  {name:'StorageCount',number:{decimalPlaces:'automatic'}},
+  {name:'CostPerCase',number:{decimalPlaces:'automatic'}},
+  {name:'ServingsPerUnit',number:{decimalPlaces:'automatic'}},
+  {name:'CostPerServing',number:{decimalPlaces:'automatic'}},
+  {name:'ServingUnit',text:{}},{name:'Unit',text:{}},{name:'Location',text:{}}
+];
+const COUNTS_LIST_COLS = [
+  {name:'WeekOf',dateTime:{displayAs:'default',format:'dateOnly'}},
+  {name:'StoreCount',number:{decimalPlaces:'automatic'}},
+  {name:'StorageCount',number:{decimalPlaces:'automatic'}},
+  {name:'TotalCount',number:{decimalPlaces:'automatic'}},
+  {name:'Location',text:{}},{name:'CountedBy',text:{}}
 ];
 
 function provLog(msg) {
@@ -3571,6 +3661,68 @@ async function runProvision() {
     provLog('❌ Error: '+e.message);
     btn.disabled = false;
     btn.textContent = '⚙️ Provision / Update SharePoint Lists';
+  }
+}
+
+async function provisionInventoryForLocation() {
+  const sel   = document.getElementById('prov-inv-loc');
+  const btn   = document.getElementById('prov-inv-btn');
+  const logEl = document.getElementById('prov-inv-log');
+  const loc   = sel ? sel.value : '';
+  if (!loc) { toast('err','Select a location first'); return; }
+
+  const invList  = invListName(loc)    || `BSC_${loc.replace(/[\s\/\\]/g,'_')}_Inventory`;
+  const cntsList = countsListName(loc) || `BSC_${loc.replace(/[\s\/\\]/g,'_')}_InventoryCounts`;
+
+  btn.disabled = true;
+  btn.textContent = 'Working…';
+  logEl.style.display = 'block';
+  logEl.innerHTML = '';
+
+  function plog(msg) {
+    logEl.innerHTML += msg + '<br>';
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  async function ensureLocList(sid, listName, cols) {
+    plog(`<b>${listName}</b>`);
+    let listId;
+    try {
+      const ex = await graph('GET', `/sites/${sid}/lists/${listName}?$select=id`);
+      listId = ex.id;
+      plog(`  → Already exists`);
+    } catch {
+      const cr = await graph('POST', `/sites/${sid}/lists`, { displayName: listName, list: { template: 'genericList' } });
+      listId = cr.id;
+      plog(`  → Created ✓`);
+    }
+    const existing = await graph('GET', `/sites/${sid}/lists/${listId}/columns?$select=name`);
+    const existNames = new Set((existing.value || []).map(c => c.name));
+    for (const col of cols) {
+      if (existNames.has(col.name)) { plog(`  · ${col.name} (exists)`); continue; }
+      const colDef = { name: col.name, enforceUniqueValues: false, hidden: false, indexed: false };
+      if (col.text)     colDef.text     = col.text;
+      if (col.dateTime) colDef.dateTime = col.dateTime;
+      if (col.number)   colDef.number   = col.number;
+      await graph('POST', `/sites/${sid}/lists/${listId}/columns`, colDef);
+      plog(`  + ${col.name}`);
+    }
+    plog('');
+  }
+
+  try {
+    plog('Getting SharePoint site…');
+    const siteId = await getSiteId();
+    plog(`Site ready ✓<br>`);
+    await ensureLocList(siteId, invList,  INV_LIST_COLS);
+    await ensureLocList(siteId, cntsList, COUNTS_LIST_COLS);
+    plog(`✅ Lists ready for <b>${loc}</b>!`);
+    btn.textContent = '✓ Done';
+    toast('ok', `✓ Inventory lists provisioned for ${loc}`);
+  } catch(e) {
+    plog('❌ Error: ' + e.message);
+    btn.disabled = false;
+    btn.textContent = 'Provision for Location';
   }
 }
 
@@ -3658,11 +3810,13 @@ async function runInventoryImport() {
   document.getElementById('imp-log').innerHTML='';
   try {
     const siteId = await getSiteId();
+    const invList  = invListName(location)    || `BSC_${location}_Inventory`;
+    const cntList  = countsListName(location) || `BSC_${location}_InventoryCounts`;
     let created=0,updated=0,countsSaved=0;
 
     if (doMaster) {
-      impLog('<b>Updating item master…</b>');
-      const existing = await graphAll(`/sites/${siteId}/lists/${LISTS.inventory}/items?$expand=fields&$select=id,fields`);
+      impLog(`<b>Updating item master → ${invList}…</b>`);
+      const existing = await graphAll(`/sites/${siteId}/lists/${invList}/items?$expand=fields&$select=id,fields`);
       const existMap={};
       existing.forEach(it=>{const n=it.fields?.ItemName||it.fields?.Title;if(n)existMap[n.trim().toLowerCase()]=it;});
       for (let i=0;i<_impParsed.items.length;i++) {
@@ -3678,10 +3832,10 @@ async function runInventoryImport() {
         Object.keys(fields).forEach(k=>{if(fields[k]===null||fields[k]===undefined)delete fields[k];});
         const key=item.ItemName.trim().toLowerCase();
         if (existMap[key]) {
-          await graph('PATCH',`/sites/${siteId}/lists/${LISTS.inventory}/items/${existMap[key].id}/fields`,fields);
+          await graph('PATCH',`/sites/${siteId}/lists/${invList}/items/${existMap[key].id}/fields`,fields);
           updated++;
         } else {
-          await graph('POST',`/sites/${siteId}/lists/${LISTS.inventory}/items`,{fields});
+          await graph('POST',`/sites/${siteId}/lists/${invList}/items`,{fields});
           created++;
         }
         if ((i+1)%10===0) impLog(`  ${i+1}/${_impParsed.items.length} items…`);
@@ -3690,10 +3844,10 @@ async function runInventoryImport() {
     }
 
     if (doHistory) {
-      impLog('<b>Importing count history…</b>');
+      impLog(`<b>Importing count history → ${cntList}…</b>`);
       for (const week of _impParsed.weeks) {
         impLog(`  Week ${week.sheetName} (${week.date})`);
-        const tasks = week.items.map(item=>()=>graph('POST',`/sites/${siteId}/lists/${LISTS.counts}/items`,{fields:{
+        const tasks = week.items.map(item=>()=>graph('POST',`/sites/${siteId}/lists/${cntList}/items`,{fields:{
           Title:item.ItemName,WeekOf:week.date+'T00:00:00Z',
           StoreCount:item.StoreCount??0,StorageCount:item.StorageCount??0,
           TotalCount:item.TotalCount??0,Location:location,CountedBy:'Import'
@@ -3709,10 +3863,8 @@ async function runInventoryImport() {
     impLog('✅ Import complete! Reloading data…');
     btn.textContent='✓ Done';
     toast('ok',`✓ Import complete — ${created+updated} items, ${countsSaved} count records`);
-    // reload inventory data
     const sId=await getSiteId();
-    cache.inventory=await getListItems(sId,LISTS.inventory);
-    cache.countHistory=await getCountHistory(sId);
+    await loadInventoryData(sId);
     renderInventory();
   } catch(e) {
     impLog('❌ Error: '+e.message);
