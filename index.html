@@ -894,10 +894,58 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
           <button class="btn btn-primary" onclick="addLocation()">Add</button>
         </div>
       </div>
-      <div class="card">
-        <div class="card-title">🔔 Slack Notifications</div>
-        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Alerts are sent to your configured Slack channel</p>
-        <span class="badge badge-green">✓ Connected</span>
+      <div class="card" style="grid-column:1/-1">
+        <div class="card-title" style="margin-bottom:16px">🔔 Slack Notifications</div>
+
+        <!-- Webhook URL -->
+        <label class="field-label">Webhook URL</label>
+        <div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+          <input id="slack-webhook-input" type="password" class="field-input" style="flex:1;min-width:200px" placeholder="https://hooks.slack.com/services/…">
+          <button class="btn btn-outline" onclick="toggleWebhookVis()" style="padding:8px 12px">👁</button>
+          <button class="btn btn-primary" onclick="saveSlackWebhook()" style="padding:8px 16px">Save</button>
+        </div>
+        <div id="slack-webhook-status" style="font-size:12px;color:var(--muted);margin-bottom:20px"></div>
+
+        <!-- Global controls -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+          <span style="font-size:13px;font-weight:600">Notification Rules</span>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-outline" style="font-size:12px;padding:6px 12px" onclick="pauseAllNotifs()">⏸ Pause All</button>
+            <button class="btn btn-outline" style="font-size:12px;padding:6px 12px" onclick="resumeAllNotifs()">▶ Resume All</button>
+            <button class="btn btn-primary" style="font-size:12px;padding:6px 12px" onclick="openAddNotifForm()">+ Add</button>
+          </div>
+        </div>
+
+        <div id="notif-rules-list"></div>
+
+        <!-- Add form -->
+        <div id="add-notif-form" style="display:none;margin-top:14px;padding:14px;background:#f9f9f9;border-radius:10px;border:1.5px solid var(--border)">
+          <div style="font-size:13px;font-weight:600;margin-bottom:12px">New Notification Rule</div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+            <div style="flex:1;min-width:180px">
+              <label class="field-label">Name</label>
+              <input type="text" id="new-notif-name" class="field-input" placeholder="e.g. Morning digest" style="width:100%">
+            </div>
+            <div style="flex:1;min-width:180px">
+              <label class="field-label">Trigger</label>
+              <select id="new-notif-type" class="field-input" style="width:100%">
+                <option value="low_inventory">Low Inventory</option>
+                <option value="maint_overdue">Overdue Maintenance</option>
+                <option value="maint_due_soon">Maintenance Due Soon</option>
+                <option value="count_submitted">Count Submitted</option>
+                <option value="custom">Custom / Manual</option>
+              </select>
+            </div>
+          </div>
+          <div style="margin-bottom:12px">
+            <label class="field-label">Description (optional)</label>
+            <input type="text" id="new-notif-desc" class="field-input" placeholder="When this fires…" style="width:100%">
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary" style="font-size:13px" onclick="saveNewNotif()">Add Rule</button>
+            <button class="btn btn-outline" style="font-size:13px" onclick="closeAddNotifForm()">Cancel</button>
+          </div>
+        </div>
       </div>
       <div class="card" style="grid-column:1/-1">
         <div class="card-title">🔧 SharePoint Setup</div>
@@ -1665,7 +1713,7 @@ async function submitWeeklyCount() {
     });
     if (lowItems.length) {
       const names = lowItems.slice(0,5).map(e=>e.name).join(', ');
-      sendSlackAlert(`⚠️ *${loc} Inventory Count — ${weekOf}*\nLow stock: ${names}${lowItems.length>5?` +${lowItems.length-5} more`:''}`);
+      sendSlackAlert(`⚠️ *${loc} Inventory Count — ${weekOf}*\nLow stock: ${names}${lowItems.length>5?` +${lowItems.length-5} more`:''}`, 'low_inventory');
     }
 
     toast('ok',`✓ Count submitted — ${entries.length} items`);
@@ -2976,8 +3024,8 @@ async function checkMaintNotifications() {
   if(!cache.maintSchedule.length) return;
   const overdue=cache.maintSchedule.filter(t=>getMaintStatus(t)==='overdue');
   const dueSoon=cache.maintSchedule.filter(t=>getMaintStatus(t)==='due-soon');
-  if(overdue.length) await sendSlackAlert(`🔴 *${overdue.length} maintenance task${overdue.length>1?'s':''} PAST DUE at Blue Sparrow Coffee:*\n${overdue.map(t=>`• ${t.Title} — ${t.Equipment||''}${t.Location?' ('+t.Location+')':''}`).join('\n')}`);
-  if(dueSoon.length) await sendSlackAlert(`🟡 *${dueSoon.length} maintenance task${dueSoon.length>1?'s':''} due within 7 days:*\n${dueSoon.map(t=>`• ${t.Title} — ${t.Equipment||''}${t.NextDue?' · Due '+new Date(t.NextDue).toLocaleDateString('en-US',{month:'short',day:'numeric'}):''}`).join('\n')}`);
+  if(overdue.length) await sendSlackAlert(`🔴 *${overdue.length} maintenance task${overdue.length>1?'s':''} PAST DUE at Blue Sparrow Coffee:*\n${overdue.map(t=>`• ${t.Title} — ${t.Equipment||''}${t.Location?' ('+t.Location+')':''}`).join('\n')}`, 'maint_overdue');
+  if(dueSoon.length) await sendSlackAlert(`🟡 *${dueSoon.length} maintenance task${dueSoon.length>1?'s':''} due within 7 days:*\n${dueSoon.map(t=>`• ${t.Title} — ${t.Equipment||''}${t.NextDue?' · Due '+new Date(t.NextDue).toLocaleDateString('en-US',{month:'short',day:'numeric'}):''}`).join('\n')}`, 'maint_due_soon');
   localStorage.setItem('lastMaintNotif',today);
 }
 
@@ -3146,19 +3194,146 @@ function nav(page) {
   document.querySelector(`.nav-item[onclick="nav('${page}')"]`)?.classList.add('active');
   if (page==='checklists') renderChecklists();
   if (page==='maint-schedule') renderMaintSchedule();
-  if (page==='settings') { renderRoles(); renderLocations(); }
+  if (page==='settings') { renderRoles(); renderLocations(); renderSlackSettings(); }
 }
 
 // ════════════════════════════════════════════════════════════════════════════
 // SLACK
 // ════════════════════════════════════════════════════════════════════════════
-async function sendSlackAlert(text) {
+const DEFAULT_NOTIF_RULES = [
+  { id:'low_inventory',  name:'Low Inventory',       type:'low_inventory',  enabled:true,  description:'Fires when items are at or below par level during a count' },
+  { id:'maint_overdue',  name:'Overdue Maintenance',  type:'maint_overdue',  enabled:true,  description:'Daily digest of past-due maintenance tasks' },
+  { id:'maint_due_soon', name:'Maintenance Due Soon', type:'maint_due_soon', enabled:true,  description:'Daily digest of tasks due within the next 7 days' },
+  { id:'count_submitted',name:'Count Submitted',      type:'count_submitted',enabled:false, description:'Confirmation when a weekly inventory count is submitted' }
+];
+
+function getNotifRules() {
+  try { return JSON.parse(localStorage.getItem('bsc_notifications')) || DEFAULT_NOTIF_RULES; }
+  catch { return DEFAULT_NOTIF_RULES; }
+}
+function saveNotifRules(rules) { localStorage.setItem('bsc_notifications',JSON.stringify(rules)); }
+function isNotifEnabled(type) {
+  const rules = getNotifRules();
+  const rule = rules.find(r=>r.type===type);
+  return rule ? rule.enabled : true;
+}
+function getSlackWebhook() {
+  return localStorage.getItem('bsc_slack_webhook') || CFG.slack;
+}
+
+async function sendSlackAlert(text, type=null) {
+  if (type && !isNotifEnabled(type)) return;
+  const webhook = getSlackWebhook();
+  if (!webhook || webhook.includes('PLACEHOLDER')) return;
   try {
-    await fetch(CFG.slack, {
+    await fetch(webhook, {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ text })
     });
   } catch(e) { console.warn('Slack alert failed',e); }
+}
+
+function renderSlackSettings() {
+  // Webhook status
+  const stored = localStorage.getItem('bsc_slack_webhook');
+  const input = document.getElementById('slack-webhook-input');
+  const status = document.getElementById('slack-webhook-status');
+  if (stored) {
+    input.value = stored;
+    status.innerHTML = '<span style="color:var(--green)">✓ Custom webhook saved</span>';
+  } else if (CFG.slack && !CFG.slack.includes('PLACEHOLDER')) {
+    input.value = CFG.slack;
+    status.innerHTML = '<span style="color:var(--muted)">Using deploy-time webhook</span>';
+  } else {
+    status.innerHTML = '<span style="color:var(--orange)">⚠ No webhook configured</span>';
+  }
+  // Rules list
+  renderNotifRules();
+}
+
+function renderNotifRules() {
+  const rules = getNotifRules();
+  const el = document.getElementById('notif-rules-list');
+  if (!rules.length) {
+    el.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:12px 0">No notification rules. Add one below.</div>';
+    return;
+  }
+  el.innerHTML = rules.map(r=>`
+    <div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--opal);flex-wrap:wrap">
+      <div style="width:10px;height:10px;border-radius:50%;background:${r.enabled?'var(--green)':'#ccc'};flex-shrink:0"></div>
+      <div style="flex:1;min-width:160px">
+        <div style="font-size:13px;font-weight:600">${r.name}</div>
+        <div style="font-size:11px;color:var(--muted)">${r.description||''}</div>
+      </div>
+      <span class="badge ${r.enabled?'badge-green':'badge-orange'}" style="font-size:11px">${r.enabled?'Active':'Paused'}</span>
+      <button class="btn btn-outline" style="font-size:12px;padding:5px 12px" onclick="toggleNotifRule('${r.id}')">
+        ${r.enabled?'⏸ Pause':'▶ Resume'}
+      </button>
+      <button class="btn btn-outline" style="font-size:12px;padding:5px 10px;color:var(--red);border-color:var(--red)" onclick="deleteNotifRule('${r.id}')">✕</button>
+    </div>`).join('');
+}
+
+function saveSlackWebhook() {
+  const val = document.getElementById('slack-webhook-input').value.trim();
+  if (!val) { toast('err','Enter a webhook URL'); return; }
+  localStorage.setItem('bsc_slack_webhook', val);
+  document.getElementById('slack-webhook-status').innerHTML = '<span style="color:var(--green)">✓ Saved</span>';
+  toast('ok','✓ Webhook saved');
+}
+
+function toggleWebhookVis() {
+  const input = document.getElementById('slack-webhook-input');
+  input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+function toggleNotifRule(id) {
+  const rules = getNotifRules();
+  const rule = rules.find(r=>r.id===id);
+  if (rule) rule.enabled = !rule.enabled;
+  saveNotifRules(rules);
+  renderNotifRules();
+}
+
+function deleteNotifRule(id) {
+  const rules = getNotifRules().filter(r=>r.id!==id);
+  saveNotifRules(rules);
+  renderNotifRules();
+}
+
+function pauseAllNotifs() {
+  const rules = getNotifRules().map(r=>({...r,enabled:false}));
+  saveNotifRules(rules);
+  renderNotifRules();
+  toast('ok','⏸ All notifications paused');
+}
+
+function resumeAllNotifs() {
+  const rules = getNotifRules().map(r=>({...r,enabled:true}));
+  saveNotifRules(rules);
+  renderNotifRules();
+  toast('ok','▶ All notifications resumed');
+}
+
+function openAddNotifForm() {
+  document.getElementById('add-notif-form').style.display='block';
+  document.getElementById('new-notif-name').value='';
+  document.getElementById('new-notif-desc').value='';
+}
+function closeAddNotifForm() {
+  document.getElementById('add-notif-form').style.display='none';
+}
+
+function saveNewNotif() {
+  const name = document.getElementById('new-notif-name').value.trim();
+  if (!name) { toast('err','Name is required'); return; }
+  const type = document.getElementById('new-notif-type').value;
+  const desc = document.getElementById('new-notif-desc').value.trim();
+  const rules = getNotifRules();
+  rules.push({ id: 'notif_'+Date.now(), name, type, description: desc, enabled: true });
+  saveNotifRules(rules);
+  renderNotifRules();
+  closeAddNotifForm();
+  toast('ok','✓ Notification rule added');
 }
 
 // ════════════════════════════════════════════════════════════════════════════
