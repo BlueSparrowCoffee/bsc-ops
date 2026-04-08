@@ -442,7 +442,7 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
         <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
           <div style="flex:1;min-width:160px">
             <label class="field-label">Location name</label>
-            <input type="text" id="imp-location" class="field-input" value="Sherman" placeholder="Sherman, Blake…" style="width:100%">
+            <input type="text" id="imp-location" class="field-input" placeholder="Sherman, Blake…" style="width:100%" oninput="updateImportListNames()">
           </div>
           <div style="width:90px">
             <label class="field-label">Year</label>
@@ -470,10 +470,10 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
             </div>
           </div>
           <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:8px">
-            <input type="checkbox" id="imp-opt-master" checked> Update item master (BSC_Inventory)
+            <input type="checkbox" id="imp-opt-master" checked> Update item master (<span id="imp-list-name-inv" style="font-family:monospace;font-size:12px;color:var(--muted)">—</span>)
           </label>
           <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:16px">
-            <input type="checkbox" id="imp-opt-history" checked> Import count history (BSC_InventoryCounts)
+            <input type="checkbox" id="imp-opt-history" checked> Import count history (<span id="imp-list-name-cnt" style="font-family:monospace;font-size:12px;color:var(--muted)">—</span>)
           </label>
           <button class="btn btn-primary" id="imp-run-btn" onclick="runInventoryImport()">Import Data</button>
         </div>
@@ -1556,6 +1556,7 @@ function switchInvTab(tab, btn) {
   });
   if (tab==='count')     renderCountSheet();
   if (tab==='analytics') renderInventoryAnalytics();
+  if (tab==='import')    initImportTab();
 }
 
 function renderInventory() {
@@ -3770,6 +3771,24 @@ async function provisionInventoryForLocation() {
 // IMPORT INVENTORY from Excel
 // ════════════════════════════════════════════════════════════════════════════
 let _impParsed = null;
+
+function updateImportListNames() {
+  const loc = (document.getElementById('imp-location')?.value || '').trim();
+  const inv = loc ? invListName(loc) || `BSC_${loc.replace(/[\s\/\\]/g,'_')}_Inventory` : '—';
+  const cnt = loc ? countsListName(loc) || `BSC_${loc.replace(/[\s\/\\]/g,'_')}_InventoryCounts` : '—';
+  const invEl = document.getElementById('imp-list-name-inv');
+  const cntEl = document.getElementById('imp-list-name-cnt');
+  if (invEl) invEl.textContent = inv;
+  if (cntEl) cntEl.textContent = cnt;
+}
+
+function initImportTab() {
+  const locEl = document.getElementById('imp-location');
+  if (locEl && !locEl.value && currentLocation !== 'all') {
+    locEl.value = currentLocation;
+  }
+  updateImportListNames();
+}
 
 function impLog(msg) {
   const el = document.getElementById('imp-log');
