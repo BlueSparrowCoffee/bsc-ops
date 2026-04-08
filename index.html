@@ -1686,7 +1686,6 @@ function renderCountSheet() {
     byCategory[cat].push(i);
   });
 
-  const container = document.getElementById('count-sheet-body');
   container.innerHTML = Object.entries(byCategory).sort(([a],[b])=>a>b?1:-1).map(([cat, catItems]) => `
     <div class="count-cat-section">
       <div class="count-cat-header">${cat}</div>
