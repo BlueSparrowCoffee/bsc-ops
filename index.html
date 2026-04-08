@@ -35,7 +35,7 @@ h1,h2,h3,.stat-value{font-family:'IvyPresto Display','Hoefler Text',Georgia,seri
 #auth-screen.show{display:flex;}
 .auth-feather{width:160px;height:160px;object-fit:contain;}
 .auth-title{font-size:32px;font-weight:600;}
-.auth-sub{font-size:14px;color:var(--light-blue);}
+.auth-sub{font-size:14px;color:rgba(255,255,255,.8);}
 .btn-signin{margin-top:8px;padding:13px 40px;background:var(--gold);color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;}
 .btn-signin:hover{opacity:.88;}
 
@@ -43,14 +43,14 @@ h1,h2,h3,.stat-value{font-family:'IvyPresto Display','Hoefler Text',Georgia,seri
 #topbar{background:var(--dark-blue);color:#fff;height:56px;display:flex;align-items:center;padding:0 20px;gap:16px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.25);}
 .topbar-logo{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:600;}
 .topbar-logo span{font-size:22px;}
-.topbar-logo small{font-size:10px;color:var(--light-blue);font-weight:400;display:block;margin-top:-2px;}
+.topbar-logo small{font-size:10px;color:rgba(255,255,255,.7);font-weight:400;display:block;margin-top:-2px;}
 .location-switcher{display:flex;gap:4px;margin-left:24px;}
-.loc-btn{padding:4px 12px;border:1.5px solid rgba(185,223,227,.35);border-radius:20px;background:transparent;color:var(--light-blue);font-size:12px;cursor:pointer;font-family:inherit;transition:all .15s;}
+.loc-btn{padding:4px 12px;border:1.5px solid rgba(255,255,255,.3);border-radius:20px;background:transparent;color:#fff;font-size:12px;cursor:pointer;font-family:inherit;transition:all .15s;}
 .loc-btn:hover,.loc-btn.active{background:var(--gold);border-color:var(--gold);color:#fff;}
 .topbar-right{margin-left:auto;display:flex;align-items:center;gap:12px;}
-#sync-label{font-size:11px;color:var(--light-blue);}
-.topbar-user{font-size:12px;color:var(--light-blue);}
-.btn-signout{font-size:11px;padding:3px 10px;border:1px solid rgba(185,223,227,.4);border-radius:5px;background:transparent;color:var(--light-blue);cursor:pointer;font-family:inherit;}
+#sync-label{font-size:11px;color:rgba(255,255,255,.7);}
+.topbar-user{font-size:12px;color:#fff;}
+.btn-signout{font-size:11px;padding:3px 10px;border:1px solid rgba(255,255,255,.35);border-radius:5px;background:transparent;color:rgba(255,255,255,.85);cursor:pointer;font-family:inherit;}
 .btn-signout:hover{border-color:#fff;color:#fff;}
 
 /* ── APP SHELL ── */
@@ -107,7 +107,10 @@ select.filter:focus{border-color:var(--gold);}
 .table-wrap{background:#fff;border-radius:12px;border:1.5px solid var(--border);overflow:auto;box-shadow:var(--shadow);}
 table{width:100%;border-collapse:collapse;min-width:500px;}
 thead{background:var(--dark-blue);position:sticky;top:0;z-index:5;}
-thead th{padding:11px 14px;text-align:left;font-size:10px;font-weight:600;color:var(--light-blue);text-transform:uppercase;letter-spacing:.7px;white-space:nowrap;}
+thead th{padding:11px 14px;text-align:left;font-size:10px;font-weight:600;color:#fff;text-transform:uppercase;letter-spacing:.7px;white-space:nowrap;cursor:pointer;user-select:none;}
+thead th:hover{color:var(--gold);}
+thead th.sort-asc::after{content:' ▲';font-size:9px;opacity:.8;}
+thead th.sort-desc::after{content:' ▼';font-size:9px;opacity:.8;}
 tbody tr{border-bottom:1px solid var(--opal);transition:background .1s;}
 tbody tr:last-child{border-bottom:none;}
 tbody tr:hover{background:var(--milk);}
@@ -388,9 +391,17 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
       <div class="table-wrap">
         <table>
           <thead><tr>
-            <th>Item</th><th>Category</th><th>Supplier</th>
-            <th>Par</th><th>Store</th><th>Storage</th><th>Total</th><th>Status</th>
-            <th>Cost/Case</th><th>Frequency</th>
+            <th onclick="sortInvBy('ItemName')">Item</th>
+            <th onclick="sortInvBy('Category')">Category</th>
+            <th onclick="sortInvBy('Supplier')">Supplier</th>
+            <th onclick="sortInvBy('ParLevel')">Par</th>
+            <th onclick="sortInvBy('StoreCount')">Store</th>
+            <th onclick="sortInvBy('StorageCount')">Storage</th>
+            <th onclick="sortInvBy('CurrentStock')">Total</th>
+            <th>Status</th>
+            <th onclick="sortInvBy('CostPerCase')">Cost/Case</th>
+            <th onclick="sortInvBy('CostPerServing')">Cost/Serving</th>
+            <th onclick="sortInvBy('ServingsPerUnit')">Servings/Unit</th>
           </tr></thead>
           <tbody id="inv-body"></tbody>
         </table>
@@ -1506,6 +1517,25 @@ function renderInventory() {
   );
 }
 
+let _invSort = { col: null, dir: 1 };
+
+function sortInvBy(col) {
+  if (_invSort.col === col) { _invSort.dir *= -1; }
+  else { _invSort.col = col; _invSort.dir = 1; }
+  // update header indicators
+  document.querySelectorAll('#inv-tab-items thead th').forEach(th => {
+    th.classList.remove('sort-asc','sort-desc');
+    if (th.getAttribute('onclick') === `sortInvBy('${col}')`) {
+      th.classList.add(_invSort.dir === 1 ? 'sort-asc' : 'sort-desc');
+    }
+  });
+  renderInventoryItems(
+    document.querySelector('#inv-tab-items .search-input')?.value||'',
+    document.getElementById('inv-cat-filter')?.value||'',
+    document.getElementById('inv-status-filter')?.value||''
+  );
+}
+
 function renderInventoryItems(query='', catFilter='', statusFilter='') {
   let items = filterByLocation(cache.inventory);
   if (query) items = items.filter(i=>(i.ItemName||'').toLowerCase().includes(query.toLowerCase())||
@@ -1515,26 +1545,40 @@ function renderInventoryItems(query='', catFilter='', statusFilter='') {
   if (statusFilter==='low') items = items.filter(i=>(i.CurrentStock||0)<=(i.ParLevel||0));
   if (statusFilter==='ok')  items = items.filter(i=>(i.CurrentStock||0)>(i.ParLevel||0));
 
+  // apply sort
+  if (_invSort.col) {
+    items = [...items].sort((a,b) => {
+      const av = a[_invSort.col], bv = b[_invSort.col];
+      if (av==null && bv==null) return 0;
+      if (av==null) return 1; if (bv==null) return -1;
+      return (typeof av==='string' ? av.localeCompare(bv) : av-bv) * _invSort.dir;
+    });
+  }
+
   const tbody = document.getElementById('inv-body');
   tbody.innerHTML = items.map(i => {
-    const store = i.StoreCount??i.CurrentStock??0;
+    const store   = i.StoreCount??i.CurrentStock??0;
     const storage = i.StorageCount??0;
-    const total = i.CurrentStock??store+storage;
-    const par = i.ParLevel||0;
-    const badge = total===0?'badge-red':total<=par?'badge-orange':'badge-green';
-    const status = total===0?'Out':total<=par?'Low':'OK';
-    const cost = i.CostPerCase!=null ? '$'+Number(i.CostPerCase).toFixed(2) : '—';
+    const total   = i.CurrentStock??store+storage;
+    const par     = i.ParLevel||0;
+    const badge   = total===0?'badge-red':total<=par?'badge-orange':'badge-green';
+    const status  = total===0?'Out':total<=par?'Low':'OK';
+    const unit    = i.OrderUnit||i.Unit||'';
+    const costCase    = i.CostPerCase    != null ? '$'+Number(i.CostPerCase).toFixed(2)    : '—';
+    const costServing = i.CostPerServing != null ? '$'+Number(i.CostPerServing).toFixed(4) : '—';
+    const servings    = i.ServingsPerUnit!= null ? Number(i.ServingsPerUnit).toLocaleString()+' '+i.ServingUnit  : '—';
     return `<tr>
       <td class="fw">${i.ItemName||'—'}</td>
       <td><span class="badge badge-teal">${i.Category||'—'}</span></td>
       <td style="color:var(--muted);font-size:12px">${i.Supplier||'—'}</td>
-      <td>${par} <span style="font-size:11px;color:var(--muted)">${i.OrderUnit||i.Unit||''}</span></td>
+      <td>${par} <span style="font-size:11px;color:var(--muted)">${unit}</span></td>
       <td>${store}</td>
       <td>${storage}</td>
       <td style="font-weight:600">${total}</td>
       <td><span class="badge ${badge}">${status}</span></td>
-      <td>${cost}</td>
-      <td style="font-size:12px;color:var(--muted)">${i.OrderFrequency||'—'}</td>
+      <td>${costCase}</td>
+      <td style="font-size:12px">${costServing}</td>
+      <td style="font-size:12px;color:var(--muted)">${servings}</td>
     </tr>`;
   }).join('');
 
