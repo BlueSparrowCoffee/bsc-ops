@@ -4037,11 +4037,12 @@ async function syncSquareCatalog() {
     } while (cursor);
 
     const categories = {};
-    objects.filter(o=>o.type==='CATEGORY').forEach(c => {
+    objects.filter(o => o.type === 'CATEGORY' && !o.is_deleted).forEach(c => {
       categories[c.id] = c.category_data?.name || 'Uncategorized';
     });
-    const items = objects.filter(o => o.type === 'ITEM');
-    sqLog(logId, `Found ${items.length} items across ${Object.keys(categories).length} categories`);
+    // Filter out archived items (Square newer API sets is_archived on item_data)
+    const items = objects.filter(o => o.type === 'ITEM' && !o.item_data?.is_archived);
+    sqLog(logId, `Found ${items.length} active items across ${Object.keys(categories).length} categories`);
 
     const siteId = await getSiteId();
     // Ensure BSC_Menu list exists
@@ -4058,7 +4059,11 @@ async function syncSquareCatalog() {
     for (const item of items) {
       const d = item.item_data || {};
       const name = d.name || item.id;
-      const cat  = d.category_id ? (categories[d.category_id] || 'Uncategorized') : 'Uncategorized';
+      // Square newer API: item_data.categories is an array; legacy API used category_id
+      const catId = (d.categories && d.categories.length > 0)
+        ? d.categories[0].id
+        : (d.category_id || null);
+      const cat = catId ? (categories[catId] || 'Uncategorized') : 'Uncategorized';
       const desc = d.description || '';
       // Build variations summary with prices
       const vars = (d.variations || []).map(v => {
