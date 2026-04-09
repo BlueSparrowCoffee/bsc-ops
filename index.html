@@ -1777,6 +1777,15 @@ async function ensureAllLists() {
   // Merch & Equipment item masters (same structure as consumable inventory)
   await ensureList(LISTS.merchInventory, INV_LIST_COLS.map(c => ({name:c.name, ...c})));
   await ensureList(LISTS.equipInventory, INV_LIST_COLS.map(c => ({name:c.name, ...c})));
+  // Per-location counts lists — create for every known location so 404s never appear
+  const locs = getLocations();
+  for (const loc of locs) {
+    const slug = loc.replace(/[\s\/\\]/g, '_');
+    await ensureList(`BSC_${slug}_InventoryCounts`, COUNTS_LIST_COLS).catch(()=>{});
+    await ensureList(`BSC_${slug}_MerchCounts`,     COUNTS_LIST_COLS).catch(()=>{});
+    await ensureList(`BSC_${slug}_EquipCounts`,     COUNTS_LIST_COLS).catch(()=>{});
+    await ensureList(`BSC_${slug}_MenuCounts`,      MENU_COUNTS_LIST_COLS).catch(()=>{});
+  }
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -5701,6 +5710,11 @@ const COUNTS_LIST_COLS = [
   {name:'TotalCount',number:{decimalPlaces:'automatic'}},
   {name:'Location',text:{}},{name:'CountedBy',text:{}}
 ];
+const MENU_COUNTS_LIST_COLS = [
+  {name:'WeekOf',dateTime:{displayAs:'default',format:'dateOnly'}},
+  {name:'Quantity',number:{decimalPlaces:'automatic'}},
+  {name:'Location',text:{}},{name:'CountedBy',text:{}}
+];
 
 function provLog(msg) {
   const el = document.getElementById('provision-log');
@@ -5803,9 +5817,10 @@ async function provisionInventoryForLocation() {
     const siteId = await getSiteId();
     plog(`Site ready ✓<br>`);
     const locSlug = loc.replace(/[\s\/\\]/g, '_');
-    await ensureLocList(siteId, cntsList, COUNTS_LIST_COLS);
+    await ensureLocList(siteId, cntsList,                       COUNTS_LIST_COLS);
     await ensureLocList(siteId, `BSC_${locSlug}_MerchCounts`,  COUNTS_LIST_COLS);
     await ensureLocList(siteId, `BSC_${locSlug}_EquipCounts`,  COUNTS_LIST_COLS);
+    await ensureLocList(siteId, `BSC_${locSlug}_MenuCounts`,   MENU_COUNTS_LIST_COLS);
     plog(`✅ All counts lists ready for <b>${loc}</b>!`);
     btn.textContent = '✓ Done';
     toast('ok', `✓ Inventory lists provisioned for ${loc}`);
