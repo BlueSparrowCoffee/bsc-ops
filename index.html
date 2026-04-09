@@ -1387,15 +1387,30 @@ async function getSiteId() {
 
 async function ensureList(listName, columns) {
   const siteId = await getSiteId();
+  let listId;
   try {
     const r = await graph('GET',`/sites/${siteId}/lists/${listName}?$select=id`);
-    return r.id;
+    listId = r.id;
   } catch {
     const r = await graph('POST',`/sites/${siteId}/lists`, {
-      displayName: listName, columns, list: { template: 'genericList' }
+      displayName: listName, list: { template: 'genericList' }
     });
-    return r.id;
+    listId = r.id;
   }
+  // Add any missing columns one-by-one (the reliable approach)
+  if (columns && columns.length) {
+    const existing = await graph('GET',`/sites/${siteId}/lists/${listId}/columns?$select=name`);
+    const existNames = new Set((existing.value||[]).map(c=>c.name));
+    for (const col of columns) {
+      if (existNames.has(col.name)) continue;
+      const colDef = {name:col.name, enforceUniqueValues:false, hidden:false, indexed:false};
+      if (col.text)     colDef.text     = col.text;
+      if (col.dateTime) colDef.dateTime = col.dateTime;
+      if (col.number)   colDef.number   = col.number;
+      await graph('POST',`/sites/${siteId}/lists/${listId}/columns`, colDef);
+    }
+  }
+  return listId;
 }
 
 async function bootstrapApp() {
