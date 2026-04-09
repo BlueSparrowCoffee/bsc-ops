@@ -548,34 +548,40 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
   <div class="page" id="page-checklists">
     <div class="page-header">
       <div class="page-title">✅ Checklists</div>
-      <div class="page-sub">Daily, weekly, monthly and annual tasks</div>
+      <div class="page-sub">Task lists for managers and baristas — per location with automatic recurrence</div>
     </div>
     <div class="toolbar">
-      <select class="filter" id="cl-freq-filter" onchange="renderChecklists()">
-        <option value="Daily">Daily</option>
-        <option value="Weekly">Weekly</option>
-        <option value="Monthly">Monthly</option>
-        <option value="Annual">Annual</option>
+      <select class="filter" id="cl-role-filter" onchange="renderChecklists()">
+        <option value="">All Roles</option>
+        <option value="Manager">Manager</option>
+        <option value="Barista">Barista</option>
       </select>
-      <select class="filter" id="cl-type-filter" onchange="renderChecklists()">
-        <option value="">Opening &amp; Closing</option>
-        <option value="Opening">Opening</option>
-        <option value="Closing">Closing</option>
-        <option value="General">General</option>
+      <select class="filter" id="cl-loc-filter" onchange="renderChecklists()">
+        <option value="">All Locations</option>
       </select>
-      <button class="btn btn-outline ml-auto" onclick="openModal('modal-cl-item')">+ Add Task</button>
-      <button class="btn btn-primary" onclick="saveChecklistProgress()">Save Progress</button>
-    </div>
-    <div id="checklist-progress-wrap" style="margin-bottom:16px;display:none;">
-      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:4px;">
-        <span id="cl-progress-label">0 of 0 complete</span>
-        <span id="cl-progress-pct">0%</span>
+      <span style="flex:1"></span>
+      <div id="cl-suggestions-btn-wrap" style="display:none;">
+        <button class="btn btn-outline" onclick="toggleSuggestionsPanel()" id="cl-suggestions-btn">
+          💡 Suggestions <span id="cl-suggestions-badge" style="background:var(--red);color:#fff;border-radius:10px;padding:1px 6px;font-size:11px;margin-left:4px;display:none;"></span>
+        </button>
       </div>
-      <div class="progress-wrap"><div class="progress-bar" id="cl-progress-bar" style="width:0%"></div></div>
+      <button class="btn btn-primary" id="cl-new-btn" style="display:none;" onclick="openChecklistGroupModal(null)">+ New Checklist</button>
     </div>
-    <div class="table-wrap" id="checklist-wrap">
-      <div id="checklist-items"></div>
-      <div class="no-data" id="cl-empty" style="display:none">No tasks found. Add one above.</div>
+    <!-- Suggestions panel (manager only) -->
+    <div id="cl-suggestions-panel" style="display:none;background:#fff8e1;border:1.5px solid #f59e0b;border-radius:12px;padding:16px 20px;margin-bottom:20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div style="font-weight:700;font-size:14px;">💡 Suggested Tasks</div>
+        <button onclick="toggleSuggestionsPanel()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px;line-height:1;">×</button>
+      </div>
+      <div id="cl-suggestions-list"></div>
+      <div id="cl-suggestions-empty" style="font-size:13px;color:var(--muted);display:none;">No pending suggestions.</div>
+    </div>
+    <!-- Cards -->
+    <div id="cl-groups-container" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:20px;"></div>
+    <div id="cl-groups-empty" style="display:none;text-align:center;padding:60px;color:var(--muted)">
+      <div style="font-size:36px;margin-bottom:8px">✅</div>
+      <div style="font-weight:600;margin-bottom:4px">No checklists yet</div>
+      <div style="font-size:13px">Managers can create checklists with the + New Checklist button above.</div>
     </div>
   </div>
 
@@ -1288,26 +1294,75 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
 </div>
 
 <!-- Add Checklist Task -->
-<div class="modal-overlay" id="modal-cl-item">
-  <div class="modal">
-    <div class="modal-header"><div class="modal-title">Add Checklist Task</div><button class="modal-close" onclick="closeModal('modal-cl-item')">×</button></div>
+<!-- Create / Edit Checklist Group -->
+<div class="modal-overlay" id="modal-cl-group">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-header">
+      <div class="modal-title" id="cl-group-modal-title">New Checklist</div>
+      <button class="modal-close" onclick="closeModal('modal-cl-group')">×</button>
+    </div>
     <div class="form-grid">
-      <div class="form-group" style="grid-column:1/-1"><label>Task *</label><input id="cl-task-name" placeholder="e.g. Clean steam wands"></div>
-      <div class="form-group"><label>Frequency *</label>
-        <select id="cl-task-freq"><option>Daily</option><option>Weekly</option><option>Monthly</option><option>Annual</option></select>
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Checklist Name *</label>
+        <input id="cl-group-name" placeholder="e.g. Opening Procedures, Weekly Deep Clean">
       </div>
-      <div class="form-group"><label>Type</label>
-        <select id="cl-task-type"><option>Opening</option><option>Closing</option><option>General</option></select>
+      <div class="form-group">
+        <label>For Role *</label>
+        <select id="cl-group-role">
+          <option value="All">All Roles</option>
+          <option value="Barista">Barista</option>
+          <option value="Manager">Manager</option>
+        </select>
       </div>
-      <div class="form-group"><label>Location</label>
-        <select id="cl-task-loc"><option>All</option><option>Blake</option><option>Platte</option><option>Sherman</option><option>17th</option></select>
+      <div class="form-group">
+        <label>Location</label>
+        <select id="cl-group-loc">
+          <option value="All">All Locations</option>
+        </select>
       </div>
-      <div class="form-group"><label>Assigned Role</label>
-        <select id="cl-task-role"><option>All</option><option>Barista</option><option>Store Manager</option><option>Owner</option></select>
+      <div class="form-group">
+        <label>Recur every (days)</label>
+        <input id="cl-group-recur" type="number" min="0" placeholder="0 = no recurrence, 1 = daily, 7 = weekly">
+      </div>
+      <div class="form-group">
+        <label>Time of day</label>
+        <input id="cl-group-time" placeholder="e.g. 7:00 AM, 9:00 PM">
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Description</label>
+        <textarea id="cl-group-desc" placeholder="Optional context for this checklist…" rows="2" style="resize:vertical;"></textarea>
       </div>
     </div>
-    <div class="form-group" style="margin-bottom:16px;"><label>Notes / Instructions</label><textarea id="cl-task-notes" placeholder="Optional instructions…"></textarea></div>
-    <div class="form-actions"><button class="btn btn-primary" onclick="saveChecklistItem()">Add Task</button><button class="btn btn-outline" onclick="closeModal('modal-cl-item')">Cancel</button></div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="saveChecklistGroup()">Save Checklist</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-cl-group')">Cancel</button>
+      <button class="btn btn-outline" id="cl-group-delete-btn" style="margin-left:auto;color:var(--red);border-color:var(--red);display:none;" onclick="deleteChecklistGroup()">Delete Checklist</button>
+    </div>
+  </div>
+</div>
+
+<!-- Barista: Suggest a Task -->
+<div class="modal-overlay" id="modal-cl-suggest">
+  <div class="modal" style="max-width:440px;">
+    <div class="modal-header">
+      <div class="modal-title">💡 Suggest a Task</div>
+      <button class="modal-close" onclick="closeModal('modal-cl-suggest')">×</button>
+    </div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Your suggestion will be sent to a manager for review before being added to the checklist.</p>
+    <div class="form-group" style="margin-bottom:12px;">
+      <label>Task Name *</label>
+      <input id="cl-suggest-name" placeholder="e.g. Wipe down espresso machine handles">
+    </div>
+    <div class="form-group" style="margin-bottom:16px;">
+      <label>Notes / Reason</label>
+      <textarea id="cl-suggest-notes" placeholder="Why should this be added?…" rows="3"></textarea>
+    </div>
+    <input type="hidden" id="cl-suggest-group-id">
+    <input type="hidden" id="cl-suggest-group-name">
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="saveSuggestedTask()">Submit Suggestion</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-cl-suggest')">Cancel</button>
+    </div>
   </div>
 </div>
 
@@ -1377,6 +1432,8 @@ const LISTS = {
   recipes:      'BSC_Recipes',
   cogs:         'BSC_Cogs',         // COGs ingredient mappings per menu item/variation
   cogHistory:   'BSC_CogHistory',   // COG/margin snapshots over time
+  clGroups:     'BSC_ChecklistGroups',     // named checklist groups
+  clCompletions:'BSC_ChecklistCompletions' // group-level completion history
   maintContacts:'Maintenance',
   staff:        'BSC_Staff',
   maintSchedule:'BSC_MaintSchedule',
@@ -1406,7 +1463,8 @@ const cache = {
   maintContacts: [], staff: [], maintSchedule: [], maintLog: [],
   clProgress: {}, countHistory: [], settingsItems: [],
   menu: [], menuCounts: [],
-  cogsRecipes: [], cogSnapshots: []
+  cogsRecipes: [], cogSnapshots: [],
+  clGroups: [], clCompletions: []
 };
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1541,7 +1599,18 @@ async function ensureAllLists() {
   ]);
   await ensureList(LISTS.checklists,[
     {name:'TaskName',text:{}},{name:'Frequency',text:{}},{name:'Type',text:{}},
-    {name:'Location',text:{}},{name:'AssignedRole',text:{}},{name:'Notes',text:{}}
+    {name:'Location',text:{}},{name:'AssignedRole',text:{}},{name:'Notes',text:{}},
+    {name:'GroupId',text:{}},{name:'SortOrder',number:{decimalPlaces:'automatic'}},
+    {name:'Status',text:{}},{name:'SuggestedBy',text:{}}
+  ]);
+  await ensureList(LISTS.clGroups,[
+    {name:'Role',text:{}},{name:'Location',text:{}},
+    {name:'RecurEveryDays',number:{decimalPlaces:'automatic'}},{name:'RecurTime',text:{}},
+    {name:'Description',text:{}}
+  ]);
+  await ensureList(LISTS.clCompletions,[
+    {name:'GroupId',text:{}},{name:'GroupName',text:{}},{name:'Location',text:{}},
+    {name:'CompletedBy',text:{}},{name:'CompletedDate',dateTime:{}}
   ]);
   await ensureList(LISTS.clProgress,[
     {name:'TaskId',text:{}},{name:'CompletedBy',text:{}},
@@ -1600,7 +1669,7 @@ async function ensureAllLists() {
 // ════════════════════════════════════════════════════════════════════════════
 async function loadAllData() {
   const siteId = await getSiteId();
-  const [xfers, orders, cls, roles, vendors,,recipes,,contacts,staff,sched,log,appSettings] = await Promise.all([
+  const [xfers, orders, cls, roles, vendors,,recipes,,contacts,staff,sched,log,appSettings,clGroups,clCompletions] = await Promise.all([
     getListItems(siteId, LISTS.transfers),
     getListItems(siteId, LISTS.orders),
     getListItems(siteId, LISTS.checklists),
@@ -1613,13 +1682,16 @@ async function loadAllData() {
     getListItems(siteId, LISTS.staff),
     getListItems(siteId, LISTS.maintSchedule),
     getListItems(siteId, LISTS.maintLog),
-    getListItems(siteId, LISTS.settings)
+    getListItems(siteId, LISTS.settings),
+    getListItems(siteId, LISTS.clGroups).catch(()=>[]),
+    getListItems(siteId, LISTS.clCompletions).catch(()=>[])
   ]);
   cache.transfers=xfers; cache.orders=orders;
   cache.checklists=cls; cache.roles=roles; cache.vendors=vendors;
   cache.recipes=recipes; cache.maintContacts=contacts;
   cache.staff=staff; cache.maintSchedule=sched; cache.maintLog=log;
   cache.settingsItems=appSettings;
+  cache.clGroups=clGroups; cache.clCompletions=clCompletions;
   // Load location-specific inventory and menu data, plus COGs
   const [cogsRecipes, cogSnapshots] = await Promise.all([
     getListItems(siteId, LISTS.cogs).catch(()=>[]),
@@ -2411,102 +2483,449 @@ async function saveOrder() {
 // ════════════════════════════════════════════════════════════════════════════
 // CHECKLISTS
 // ════════════════════════════════════════════════════════════════════════════
+
+let _clGroupEditId = null;
+
+// ── Due-status helper ─────────────────────────────────────────────────────
+function getGroupDueStatus(group) {
+  const days = parseFloat(group.RecurEveryDays) || 0;
+  if (!days) return { status:'none', badge:'' };
+  const loc = currentLocation === 'all' ? null : currentLocation;
+  const completions = cache.clCompletions
+    .filter(c => c.GroupId === group.id && (!loc || !c.Location || c.Location === 'All' || c.Location === loc))
+    .sort((a,b) => new Date(b.CompletedDate||0) - new Date(a.CompletedDate||0));
+  if (!completions.length) {
+    return { status:'overdue', badge:`<span style="font-size:11px;background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:10px;">Never done</span>` };
+  }
+  const daysSince = Math.floor((Date.now() - new Date(completions[0].CompletedDate)) / 86400000);
+  const rem = days - daysSince;
+  if (rem < 0)      return { status:'overdue', badge:`<span style="font-size:11px;background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:10px;">Overdue ${Math.abs(rem)}d</span>` };
+  if (rem === 0)    return { status:'due',     badge:`<span style="font-size:11px;background:#fef9c3;color:#b45309;padding:2px 8px;border-radius:10px;">Due Today</span>` };
+  return { status:'ok', badge:`<span style="font-size:11px;background:#dcfce7;color:#16a34a;padding:2px 8px;border-radius:10px;">Due in ${rem}d</span>` };
+}
+
+// ── Render all groups ─────────────────────────────────────────────────────
 function renderChecklists() {
-  const freq = document.getElementById('cl-freq-filter').value || 'Daily';
-  const type = document.getElementById('cl-type-filter').value;
-  let tasks = cache.checklists.filter(t => t.Frequency===freq);
-  if (type) tasks = tasks.filter(t=>t.Type===type);
-  tasks = tasks.filter(t=>!t.Location||t.Location==='All'||currentLocation==='all'||t.Location===currentLocation);
+  const userIsMgr = isManagerOrOwner();
+  const roleFilter = document.getElementById('cl-role-filter')?.value || '';
+  const locFilter  = document.getElementById('cl-loc-filter')?.value  || '';
 
-  const wrap = document.getElementById('checklist-items');
-  const progWrap = document.getElementById('checklist-progress-wrap');
+  // Manager-only controls
+  const newBtn = document.getElementById('cl-new-btn');
+  const sugWrap = document.getElementById('cl-suggestions-btn-wrap');
+  if (newBtn) newBtn.style.display = userIsMgr ? '' : 'none';
+  if (sugWrap) sugWrap.style.display = userIsMgr ? '' : 'none';
 
-  if (!tasks.length) {
-    wrap.innerHTML=''; progWrap.style.display='none';
-    document.getElementById('cl-empty').style.display='block';
-    return;
+  // Populate location filter
+  const locSel = document.getElementById('cl-loc-filter');
+  if (locSel) {
+    const locs = getLocations();
+    const cur = locSel.value;
+    locSel.innerHTML = '<option value="">All Locations</option>' +
+      locs.map(l=>`<option${l===cur?' selected':''}>${l}</option>`).join('');
   }
 
-  document.getElementById('cl-empty').style.display='none';
-  progWrap.style.display='block';
+  // Also populate create-group location select
+  const grpLocSel = document.getElementById('cl-group-loc');
+  if (grpLocSel && grpLocSel.options.length <= 1) {
+    grpLocSel.innerHTML = '<option value="All">All Locations</option>' +
+      getLocations().map(l=>`<option>${l}</option>`).join('');
+  }
 
-  wrap.innerHTML = tasks.map(t=>{
-    const done = !!cache.clProgress[t.id];
-    return `<div class="checklist-item ${done?'done':''}" id="cli-${t.id}">
-      <input type="checkbox" id="chk-${t.id}" ${done?'checked':''} onchange="toggleCheck('${t.id}',this.checked)">
-      <label for="chk-${t.id}">${t.TaskName||'Unnamed task'}</label>
-      <span class="item-meta">${t.Type||''} ${t.AssignedRole&&t.AssignedRole!=='All'?'· '+t.AssignedRole:''}</span>
+  // Pending suggestions badge
+  const pending = cache.checklists.filter(t => t.Status === 'Suggested');
+  const badge = document.getElementById('cl-suggestions-badge');
+  if (badge) { badge.textContent = pending.length || ''; badge.style.display = pending.length ? '' : 'none'; }
+
+  // Filter groups
+  let groups = cache.clGroups;
+  if (!userIsMgr) {
+    // Baristas only see Barista/All role groups at their location
+    groups = groups.filter(g => !g.Role || g.Role === 'Barista' || g.Role === 'All');
+    const allowed = getAllowedLocations();
+    if (allowed.length < getLocations().length) {
+      groups = groups.filter(g => !g.Location || g.Location === 'All' || allowed.includes(g.Location));
+    }
+  } else {
+    if (roleFilter) groups = groups.filter(g => g.Role === roleFilter || g.Role === 'All');
+    if (locFilter)  groups = groups.filter(g => !g.Location || g.Location === 'All' || g.Location === locFilter);
+  }
+
+  const container = document.getElementById('cl-groups-container');
+  const emptyEl   = document.getElementById('cl-groups-empty');
+
+  // Legacy ungrouped tasks (old data without GroupId)
+  const ungrouped = cache.checklists.filter(t => !t.GroupId && t.Status !== 'Suggested');
+
+  if (!groups.length && !ungrouped.length) {
+    container.innerHTML = ''; emptyEl.style.display = '';
+  } else {
+    emptyEl.style.display = 'none';
+    container.innerHTML = groups.map(g => renderChecklistCard(g, userIsMgr)).join('');
+    if (ungrouped.length && userIsMgr) {
+      container.innerHTML += renderLegacyTasksCard(ungrouped);
+    }
+  }
+
+  updateDashChecklist();
+  if (userIsMgr) renderSuggestions();
+}
+
+// ── Single card ────────────────────────────────────────────────────────────
+function renderChecklistCard(group, userIsMgr) {
+  const gid   = group.id;
+  const tasks = cache.checklists.filter(t => t.GroupId === gid && t.Status !== 'Suggested');
+  const done  = tasks.filter(t => cache.clProgress[t.id]).length;
+  const pct   = tasks.length ? Math.round(done / tasks.length * 100) : 0;
+  const due   = getGroupDueStatus(group);
+
+  const borderColor = due.status === 'overdue' ? '#dc2626' : due.status === 'due' ? '#f59e0b' : 'var(--border)';
+  const roleBadge   = group.Role === 'Manager' ? '#3b82f6' : group.Role === 'Barista' ? 'var(--teal)' : '#9ca3af';
+  const days = parseFloat(group.RecurEveryDays) || 0;
+  const recurLabel = days ? `Every ${days} day${days!==1?'s':''}${group.RecurTime ? ' · '+group.RecurTime : ''}` : 'No recurrence';
+
+  const taskRows = tasks.map(t => {
+    const isDone = !!cache.clProgress[t.id];
+    return `<div class="checklist-item${isDone?' done':''}" id="cli-${t.id}" style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--opal);">
+      <input type="checkbox" id="chk-${t.id}" ${isDone?'checked':''}
+        onchange="toggleCheck('${t.id}',this.checked,'${gid}')">
+      <label for="chk-${t.id}" style="flex:1;cursor:pointer;font-size:13px;${isDone?'text-decoration:line-through;color:var(--muted);':''}">${escHtml(t.TaskName||'')}</label>
+      ${t.Notes ? `<span title="${escHtml(t.Notes)}" style="font-size:12px;cursor:help;flex-shrink:0;">ℹ️</span>` : ''}
+      ${userIsMgr ? `<button onclick="deleteChecklistTask('${t.id}','${gid}')" title="Remove task" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;line-height:1;padding:0 2px;flex-shrink:0;">×</button>` : ''}
     </div>`;
   }).join('');
 
-  updateChecklistProgress(tasks);
+  const footerBtn = userIsMgr
+    ? `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;flex:1;">
+        <input id="cl-new-task-${gid}" placeholder="Add a task…"
+          style="flex:1;min-width:130px;padding:5px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;"
+          onkeydown="if(event.key==='Enter')addTaskInline('${gid}')">
+        <input id="cl-new-notes-${gid}" placeholder="Notes…"
+          style="width:90px;padding:5px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;">
+        <button onclick="addTaskInline('${gid}')"
+          style="padding:5px 12px;background:var(--gold);color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;white-space:nowrap;">+ Add</button>
+      </div>`
+    : `<button onclick="openSuggestTask('${gid}','${escHtml(group.Title||'')}')"
+        style="padding:5px 12px;background:none;border:1.5px solid var(--border);border-radius:8px;font-size:12px;cursor:pointer;">💡 Suggest Task</button>`;
+
+  const completeBtn = tasks.length
+    ? `<button onclick="markGroupComplete('${gid}','${escHtml(group.Title||'')}')"
+        style="padding:5px 12px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;white-space:nowrap;">✅ Mark All Done</button>`
+    : '';
+
+  return `
+    <div class="card" style="padding:0;overflow:hidden;border-left:4px solid ${borderColor};">
+      <div style="padding:14px 16px 10px;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+          <div style="flex:1;">
+            <div style="font-weight:700;font-size:14px;">${escHtml(group.Title||'Untitled')}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:5px;">
+              <span style="font-size:11px;background:${roleBadge};color:#fff;padding:2px 8px;border-radius:10px;">${escHtml(group.Role||'All')}</span>
+              <span style="font-size:11px;background:var(--opal);padding:2px 8px;border-radius:10px;">📍 ${escHtml(group.Location||'All Locations')}</span>
+              <span style="font-size:11px;color:var(--muted);">🔄 ${escHtml(recurLabel)}</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
+            ${due.badge}
+            ${userIsMgr ? `<button onclick="openChecklistGroupModal('${gid}')" title="Edit checklist" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:15px;padding:2px 4px;">✏️</button>` : ''}
+          </div>
+        </div>
+        ${tasks.length ? `
+        <div style="margin-top:10px;">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:3px;">
+            <span>${done} of ${tasks.length} tasks done</span><span>${pct}%</span>
+          </div>
+          <div class="progress-wrap" style="height:5px;">
+            <div class="progress-bar${pct===100?' complete':''}" style="width:${pct}%;transition:width .3s;"></div>
+          </div>
+        </div>` : ''}
+      </div>
+      <div style="padding:0 16px 8px;" id="cl-tasks-${gid}">
+        ${taskRows || `<div style="font-size:12px;color:var(--muted);padding:10px 0;text-align:center;">${userIsMgr?'No tasks yet — add one below':'No tasks yet'}</div>`}
+      </div>
+      <div style="padding:8px 16px 14px;border-top:1px solid var(--opal);display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+        ${footerBtn}
+        ${completeBtn}
+      </div>
+    </div>`;
 }
 
-function toggleCheck(taskId, checked) {
-  if (checked) cache.clProgress[taskId] = { by: currentUser.name, date: new Date() };
+function renderLegacyTasksCard(tasks) {
+  const rows = tasks.map(t => `
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--opal);font-size:13px;">
+      <span style="flex:1;">${escHtml(t.TaskName||'')}</span>
+      <span style="font-size:11px;color:var(--muted);">${escHtml(t.Frequency||'')} · ${escHtml(t.Type||'')}</span>
+      <button onclick="deleteChecklistTask('${t.id}',null)" title="Delete" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;">×</button>
+    </div>`).join('');
+  return `
+    <div class="card" style="grid-column:1/-1;border-left:4px solid #9ca3af;padding:0;overflow:hidden;">
+      <div style="padding:14px 16px 8px;font-weight:700;font-size:13px;color:var(--muted);">⚠️ Legacy Tasks (no checklist group) — delete or migrate these</div>
+      <div style="padding:0 16px 14px;">${rows}</div>
+    </div>`;
+}
+
+// ── Toggle task checkbox ──────────────────────────────────────────────────
+async function toggleCheck(taskId, checked, groupId) {
+  if (checked) cache.clProgress[taskId] = { by: currentUser?.name||'', date: new Date() };
   else delete cache.clProgress[taskId];
+
+  // Update visual immediately
   const el = document.getElementById('cli-'+taskId);
-  if (el) el.classList.toggle('done',checked);
-  const freq = document.getElementById('cl-freq-filter').value||'Daily';
-  const type = document.getElementById('cl-type-filter').value;
-  let tasks = cache.checklists.filter(t=>t.Frequency===freq);
-  if (type) tasks=tasks.filter(t=>t.Type===type);
-  updateChecklistProgress(tasks);
-  updateDashChecklist();
-}
+  if (el) el.classList.toggle('done', checked);
+  const lbl = el?.querySelector('label');
+  if (lbl) { lbl.style.textDecoration = checked ? 'line-through' : ''; lbl.style.color = checked ? 'var(--muted)' : ''; }
 
-function updateChecklistProgress(tasks) {
-  const done = tasks.filter(t=>cache.clProgress[t.id]).length;
-  const pct  = tasks.length ? Math.round(done/tasks.length*100) : 0;
-  const bar  = document.getElementById('cl-progress-bar');
-  bar.style.width = pct+'%';
-  bar.classList.toggle('complete', pct===100);
-  document.getElementById('cl-progress-label').textContent = `${done} of ${tasks.length} complete`;
-  document.getElementById('cl-progress-pct').textContent = pct+'%';
-}
-
-function updateDashChecklist() {
-  const todayTasks = cache.checklists.filter(c=>c.Frequency==='Daily');
-  const done = todayTasks.filter(t=>cache.clProgress[t.id]);
-  document.getElementById('d-checklist').textContent = `${done.length}/${todayTasks.length}`;
-}
-
-async function saveChecklistProgress() {
-  setLoading(true,'Saving progress…');
+  // Auto-save progress record
   try {
-    const siteId = await getSiteId();
-    for (const [taskId, prog] of Object.entries(cache.clProgress)) {
-      await addListItem(LISTS.clProgress,{
+    if (checked) {
+      await addListItem(LISTS.clProgress, {
         TaskId: taskId,
-        CompletedBy: currentUser.name||currentUser.username,
+        CompletedBy: currentUser?.name||currentUser?.username||'',
         CompletedDate: new Date().toISOString(),
         Location: currentLocation==='all'?'All':currentLocation
       });
     }
-    toast('ok','✓ Progress saved');
-  } catch(e) { toast('err','Save failed: '+e.message); }
-  finally { setLoading(false); }
+  } catch(e) { /* silent — progress saved in memory even if SP write fails */ }
+
+  // Update progress bar on the card
+  if (groupId) {
+    const tasks = cache.checklists.filter(t => t.GroupId === groupId && t.Status !== 'Suggested');
+    const done  = tasks.filter(t => cache.clProgress[t.id]).length;
+    const pct   = tasks.length ? Math.round(done/tasks.length*100) : 0;
+    const bar = document.querySelector(`#cl-tasks-${groupId}`)?.closest('.card')?.querySelector('.progress-bar');
+    if (bar) { bar.style.width = pct+'%'; bar.classList.toggle('complete', pct===100); }
+    const labels = document.querySelectorAll(`#cl-tasks-${groupId}`);
+    labels.forEach(wrap => {
+      const progDiv = wrap.closest('.card')?.querySelectorAll('.progress-wrap + div, .progress-wrap ~ *');
+    });
+    // Re-render just the progress text
+    const card = document.getElementById(`cl-tasks-${groupId}`)?.closest('.card');
+    if (card) {
+      const spans = card.querySelectorAll('.progress-wrap');
+      if (spans.length) {
+        const prev = spans[0].previousElementSibling;
+        if (prev) {
+          const labels2 = prev.querySelectorAll('span');
+          if (labels2[0]) labels2[0].textContent = `${done} of ${tasks.length} tasks done`;
+          if (labels2[1]) labels2[1].textContent = pct+'%';
+        }
+      }
+    }
+  }
+  updateDashChecklist();
 }
 
-async function saveChecklistItem() {
-  const name = document.getElementById('cl-task-name').value.trim();
-  if (!name) { toast('err','Task name required'); return; }
-  setLoading(true,'Saving…');
+// ── Mark entire group complete ────────────────────────────────────────────
+async function markGroupComplete(groupId, groupName) {
+  const tasks = cache.checklists.filter(t => t.GroupId === groupId && t.Status !== 'Suggested');
   try {
-    const item = await addListItem(LISTS.checklists,{
-      TaskName:     name,
-      Frequency:    document.getElementById('cl-task-freq').value,
-      Type:         document.getElementById('cl-task-type').value,
-      Location:     document.getElementById('cl-task-loc').value,
-      AssignedRole: document.getElementById('cl-task-role').value,
-      Notes:        document.getElementById('cl-task-notes').value
+    const now = new Date().toISOString();
+    const loc = currentLocation === 'all' ? 'All' : currentLocation;
+    for (const t of tasks) {
+      if (!cache.clProgress[t.id]) {
+        cache.clProgress[t.id] = { by: currentUser?.name||'', date: new Date() };
+        await addListItem(LISTS.clProgress, {
+          TaskId: t.id, CompletedBy: currentUser?.name||currentUser?.username||'',
+          CompletedDate: now, Location: loc
+        }).catch(()=>{});
+      }
+    }
+    // Save group completion record for recurrence tracking
+    const rec = await addListItem(LISTS.clCompletions, {
+      Title: groupName + ' — ' + now.slice(0,10),
+      GroupId: groupId, GroupName: groupName,
+      Location: loc,
+      CompletedBy: currentUser?.name||currentUser?.username||'',
+      CompletedDate: now
+    });
+    cache.clCompletions.push(rec);
+    toast('ok', `✅ "${groupName}" marked complete`);
+    renderChecklists();
+  } catch(e) { toast('err', 'Error: '+e.message); }
+}
+
+// ── Add task inline (manager) ─────────────────────────────────────────────
+async function addTaskInline(groupId) {
+  const nameEl  = document.getElementById(`cl-new-task-${groupId}`);
+  const notesEl = document.getElementById(`cl-new-notes-${groupId}`);
+  const name = (nameEl?.value||'').trim();
+  if (!name) { toast('err','Task name required'); return; }
+  try {
+    const grp = cache.clGroups.find(g => g.id === groupId);
+    const item = await addListItem(LISTS.checklists, {
+      Title: name, TaskName: name,
+      GroupId: groupId,
+      Notes: notesEl?.value || '',
+      Status: 'Active',
+      Location: grp?.Location || 'All',
+      AssignedRole: grp?.Role || 'All'
     });
     cache.checklists.push(item);
+    if (nameEl)  nameEl.value  = '';
+    if (notesEl) notesEl.value = '';
     renderChecklists();
-    closeModal('modal-cl-item');
-    toast('ok','✓ Task added');
-  } catch(e) { toast('err','Save failed: '+e.message); }
-  finally { setLoading(false); }
+  } catch(e) { toast('err', 'Failed to add task: '+e.message); }
+}
+
+// ── Delete a task ─────────────────────────────────────────────────────────
+async function deleteChecklistTask(taskId, groupId) {
+  if (!confirm('Delete this task?')) return;
+  try {
+    const siteId = await getSiteId();
+    await graph('DELETE', `/sites/${siteId}/lists/${LISTS.checklists}/items/${taskId}`);
+    cache.checklists = cache.checklists.filter(t => t.id !== taskId);
+    renderChecklists();
+  } catch(e) { toast('err', 'Delete failed: '+e.message); }
+}
+
+// ── Create / Edit checklist group ─────────────────────────────────────────
+function openChecklistGroupModal(groupId) {
+  _clGroupEditId = groupId;
+  const grp = groupId ? cache.clGroups.find(g => g.id === groupId) : null;
+  document.getElementById('cl-group-modal-title').textContent = grp ? 'Edit Checklist' : 'New Checklist';
+  document.getElementById('cl-group-name').value   = grp?.Title || '';
+  document.getElementById('cl-group-role').value   = grp?.Role  || 'All';
+  document.getElementById('cl-group-loc').value    = grp?.Location || 'All';
+  document.getElementById('cl-group-recur').value  = grp?.RecurEveryDays != null ? grp.RecurEveryDays : '';
+  document.getElementById('cl-group-time').value   = grp?.RecurTime || '';
+  document.getElementById('cl-group-desc').value   = grp?.Description || '';
+  document.getElementById('cl-group-delete-btn').style.display = grp ? '' : 'none';
+  openModal('modal-cl-group');
+}
+
+async function saveChecklistGroup() {
+  const name = document.getElementById('cl-group-name').value.trim();
+  if (!name) { toast('err','Checklist name required'); return; }
+  const fields = {
+    Title:         name,
+    Role:          document.getElementById('cl-group-role').value,
+    Location:      document.getElementById('cl-group-loc').value,
+    RecurEveryDays: parseFloat(document.getElementById('cl-group-recur').value) || 0,
+    RecurTime:     document.getElementById('cl-group-time').value.trim(),
+    Description:   document.getElementById('cl-group-desc').value.trim()
+  };
+  try {
+    if (_clGroupEditId) {
+      await updateListItem(LISTS.clGroups, _clGroupEditId, fields);
+      const idx = cache.clGroups.findIndex(g => g.id === _clGroupEditId);
+      if (idx !== -1) cache.clGroups[idx] = { ...cache.clGroups[idx], ...fields };
+      toast('ok', '✓ Checklist updated');
+    } else {
+      const item = await addListItem(LISTS.clGroups, fields);
+      cache.clGroups.push(item);
+      toast('ok', '✓ Checklist created');
+    }
+    closeModal('modal-cl-group');
+    renderChecklists();
+  } catch(e) { toast('err', 'Save failed: '+e.message); }
+}
+
+async function deleteChecklistGroup() {
+  const grp = cache.clGroups.find(g => g.id === _clGroupEditId);
+  if (!grp) return;
+  if (!confirm(`Delete the checklist "${grp.Title}" and all its tasks? This cannot be undone.`)) return;
+  try {
+    const siteId = await getSiteId();
+    // Delete all tasks in the group
+    const tasks = cache.checklists.filter(t => t.GroupId === _clGroupEditId);
+    for (const t of tasks) {
+      await graph('DELETE', `/sites/${siteId}/lists/${LISTS.checklists}/items/${t.id}`).catch(()=>{});
+    }
+    cache.checklists = cache.checklists.filter(t => t.GroupId !== _clGroupEditId);
+    // Delete the group
+    await graph('DELETE', `/sites/${siteId}/lists/${LISTS.clGroups}/items/${_clGroupEditId}`);
+    cache.clGroups = cache.clGroups.filter(g => g.id !== _clGroupEditId);
+    closeModal('modal-cl-group');
+    toast('ok', '✓ Checklist deleted');
+    renderChecklists();
+  } catch(e) { toast('err', 'Delete failed: '+e.message); }
+}
+
+// ── Suggestions (barista → manager) ──────────────────────────────────────
+function openSuggestTask(groupId, groupName) {
+  document.getElementById('cl-suggest-group-id').value   = groupId;
+  document.getElementById('cl-suggest-group-name').value = groupName;
+  document.getElementById('cl-suggest-name').value  = '';
+  document.getElementById('cl-suggest-notes').value = '';
+  openModal('modal-cl-suggest');
+}
+
+async function saveSuggestedTask() {
+  const name = document.getElementById('cl-suggest-name').value.trim();
+  if (!name) { toast('err','Task name required'); return; }
+  const groupId   = document.getElementById('cl-suggest-group-id').value;
+  const groupName = document.getElementById('cl-suggest-group-name').value;
+  try {
+    const item = await addListItem(LISTS.checklists, {
+      Title:        name, TaskName: name,
+      GroupId:      groupId,
+      Notes:        document.getElementById('cl-suggest-notes').value,
+      Status:       'Suggested',
+      SuggestedBy:  currentUser?.name || currentUser?.username || ''
+    });
+    cache.checklists.push(item);
+    closeModal('modal-cl-suggest');
+    toast('ok', '✓ Suggestion submitted — a manager will review it');
+  } catch(e) { toast('err', 'Submit failed: '+e.message); }
+}
+
+function toggleSuggestionsPanel() {
+  const panel = document.getElementById('cl-suggestions-panel');
+  if (panel) panel.style.display = panel.style.display === 'none' ? '' : 'none';
+  renderSuggestions();
+}
+
+function renderSuggestions() {
+  const list  = document.getElementById('cl-suggestions-list');
+  const empty = document.getElementById('cl-suggestions-empty');
+  if (!list) return;
+  const pending = cache.checklists.filter(t => t.Status === 'Suggested');
+  if (!pending.length) { list.innerHTML = ''; empty.style.display = ''; return; }
+  empty.style.display = 'none';
+  list.innerHTML = pending.map(t => {
+    const grp = cache.clGroups.find(g => g.id === t.GroupId);
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0c040;flex-wrap:wrap;">
+      <div style="flex:1;min-width:160px;">
+        <div style="font-weight:600;font-size:13px;">${escHtml(t.TaskName||'')}</div>
+        <div style="font-size:11px;color:var(--muted);">In: ${escHtml(grp?.Title||t.GroupId||'Unknown')} · By: ${escHtml(t.SuggestedBy||'')}</div>
+        ${t.Notes ? `<div style="font-size:11px;color:#b45309;margin-top:2px;">"${escHtml(t.Notes)}"</div>` : ''}
+      </div>
+      <button onclick="approveTask('${t.id}')"
+        style="padding:4px 12px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;">✓ Approve</button>
+      <button onclick="dismissSuggestedTask('${t.id}')"
+        style="padding:4px 12px;background:none;border:1.5px solid #dc2626;color:#dc2626;border-radius:8px;font-size:12px;cursor:pointer;">✗ Dismiss</button>
+    </div>`;
+  }).join('');
+}
+
+async function approveTask(taskId) {
+  try {
+    await updateListItem(LISTS.checklists, taskId, { Status: 'Active' });
+    const t = cache.checklists.find(t => t.id === taskId);
+    if (t) t.Status = 'Active';
+    toast('ok', '✓ Task approved');
+    renderSuggestions();
+    renderChecklists();
+  } catch(e) { toast('err', 'Approve failed: '+e.message); }
+}
+
+async function dismissSuggestedTask(taskId) {
+  if (!confirm('Dismiss this suggestion?')) return;
+  try {
+    const siteId = await getSiteId();
+    await graph('DELETE', `/sites/${siteId}/lists/${LISTS.checklists}/items/${taskId}`);
+    cache.checklists = cache.checklists.filter(t => t.id !== taskId);
+    toast('ok', 'Suggestion dismissed');
+    renderSuggestions();
+    renderChecklists();
+  } catch(e) { toast('err', 'Error: '+e.message); }
+}
+
+// ── Dashboard widget ──────────────────────────────────────────────────────
+function updateDashChecklist() {
+  const allTasks = cache.checklists.filter(t => t.Status !== 'Suggested' && t.GroupId);
+  const done     = allTasks.filter(t => cache.clProgress[t.id]).length;
+  document.getElementById('d-checklist').textContent = `${done}/${allTasks.length}`;
 }
 
 
