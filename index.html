@@ -316,6 +316,7 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
   <div class="nav-item" onclick="nav('maint-schedule')"><span class="nav-icon">🔧</span> Maintenance <span class="nav-badge" id="badge-maint" style="display:none">!</span></div>
   <div class="nav-item" onclick="nav('maint-contacts')"><span class="nav-icon">📋</span> Contacts</div>
   <div class="nav-item" onclick="nav('menu')"><span class="nav-icon">☕</span> Menu</div>
+  <div class="nav-item" onclick="nav('cogs')"><span class="nav-icon">💰</span> Cost of Goods</div>
   <div class="nav-section">Admin</div>
   <div class="nav-item" onclick="nav('square')"><span class="nav-icon">◼</span> Square</div>
   <div class="nav-item" onclick="nav('settings')"><span class="nav-icon">⚙️</span> Settings</div>
@@ -926,6 +927,84 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
     </div>
   </div>
 
+  <!-- COST OF GOODS -->
+  <div class="page" id="page-cogs">
+    <div class="page-header">
+      <div class="page-title">💰 Cost of Goods</div>
+      <div class="page-sub">Map ingredients to menu items — calculate COG and gross margin per variation</div>
+    </div>
+
+    <!-- Access gate -->
+    <div id="cogs-access-denied" style="display:none;text-align:center;padding:60px;color:var(--muted)">
+      <div style="font-size:36px;margin-bottom:12px">🔒</div>
+      <div style="font-weight:600;font-size:15px;margin-bottom:6px">Manager Access Required</div>
+      <div style="font-size:13px">Cost of Goods data is only visible to managers and owners.</div>
+    </div>
+
+    <!-- Main content -->
+    <div id="cogs-content">
+      <!-- Tabs -->
+      <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:20px;">
+        <button id="cogs-tab-recipes" onclick="cogTab('recipes')"
+          style="padding:9px 20px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;color:var(--gold);border-bottom:2px solid var(--gold);margin-bottom:-2px;transition:all .15s;">
+          Recipes &amp; Margins
+        </button>
+        <button id="cogs-tab-history" onclick="cogTab('history')"
+          style="padding:9px 20px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;">
+          Cost History
+        </button>
+      </div>
+
+      <!-- Recipes tab -->
+      <div id="cogs-panel-recipes">
+        <div class="toolbar" style="margin-bottom:16px;">
+          <div class="search-wrap">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input class="search-input" placeholder="Search menu items…" oninput="filterCogs(this.value)" id="cogs-search">
+          </div>
+          <select class="filter" id="cogs-cat-filter" onchange="filterCogs(document.getElementById('cogs-search').value)">
+            <option value="">All Categories</option>
+          </select>
+          <button class="btn btn-outline" onclick="autoPopulateCogs()" style="font-size:12px;padding:6px 14px;" title="Auto-fill recipe guesses for all items">✨ Auto-populate Recipes</button>
+          <button class="btn btn-primary" onclick="snapshotCogs()" style="font-size:12px;padding:6px 14px;" title="Save current COG & margin to history">📸 Snapshot Costs</button>
+        </div>
+        <div id="cogs-missing-costs" style="display:none;background:#fff8e1;border:1.5px solid #f59e0b;border-radius:10px;padding:12px 16px;font-size:13px;color:#92400e;margin-bottom:16px;">
+          ⚠️ Some inventory items are missing <strong>Cost Per Serving</strong>. Go to <strong>Inventory → Edit Item</strong> to add serving costs for accurate margin calculations.
+        </div>
+        <div id="cogs-empty" style="display:none;text-align:center;padding:60px;color:var(--muted)">
+          <div style="font-size:36px;margin-bottom:8px">💰</div>
+          <div style="font-weight:600;margin-bottom:4px">No menu items found</div>
+          <div style="font-size:13px">Sync your Square catalog first via Square → Sync Catalog → Menu.</div>
+        </div>
+        <div id="cogs-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:20px;"></div>
+      </div>
+
+      <!-- History tab -->
+      <div id="cogs-panel-history" style="display:none;">
+        <div class="toolbar" style="margin-bottom:16px;">
+          <select class="filter" id="cogs-hist-item" onchange="renderCogHistory()">
+            <option value="">All Items</option>
+          </select>
+          <span id="cogs-hist-count" style="font-size:13px;color:var(--muted);"></span>
+        </div>
+        <div class="table-wrap">
+          <table id="cogs-hist-table">
+            <thead><tr>
+              <th>Date</th><th>Item</th><th>Variation</th>
+              <th>Selling Price</th><th>COG</th><th>Gross Margin</th>
+            </tr></thead>
+            <tbody id="cogs-hist-body"></tbody>
+          </table>
+        </div>
+        <div id="cogs-hist-empty" style="display:none;text-align:center;padding:60px;color:var(--muted)">
+          <div style="font-size:36px;margin-bottom:8px">📊</div>
+          <div style="font-weight:600;margin-bottom:4px">No cost history yet</div>
+          <div style="font-size:13px">Click "Snapshot Costs" to save a cost benchmark you can track over time.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- SQUARE -->
   <div class="page" id="page-square">
     <div class="page-header">
@@ -1281,6 +1360,8 @@ const LISTS = {
   vendors:      'vendors',
   roles:        'BSC_Roles',
   recipes:      'BSC_Recipes',
+  cogs:         'BSC_Cogs',         // COGs ingredient mappings per menu item/variation
+  cogHistory:   'BSC_CogHistory',   // COG/margin snapshots over time
   maintContacts:'Maintenance',
   staff:        'BSC_Staff',
   maintSchedule:'BSC_MaintSchedule',
@@ -1309,7 +1390,8 @@ const cache = {
   checklists: [], vendors: [], roles: [], recipes: [],
   maintContacts: [], staff: [], maintSchedule: [], maintLog: [],
   clProgress: {}, countHistory: [], settingsItems: [],
-  menu: [], menuCounts: []
+  menu: [], menuCounts: [],
+  cogsRecipes: [], cogSnapshots: []
 };
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1485,6 +1567,17 @@ async function ensureAllLists() {
     {name:'CompletedBy',text:{}},{name:'CompletedDate',text:{}},{name:'Location',text:{}},
     {name:'Notes',text:{allowMultipleLines:true}},{name:'PhotoName',text:{}}
   ]);
+  await ensureList(LISTS.cogs,[
+    {name:'MenuItemId',text:{}},{name:'MenuItemName',text:{}},{name:'VariationName',text:{}},
+    {name:'IngredientName',text:{}},{name:'Quantity',number:{decimalPlaces:'automatic'}},{name:'Unit',text:{}}
+  ]);
+  await ensureList(LISTS.cogHistory,[
+    {name:'MenuItemId',text:{}},{name:'MenuItemName',text:{}},{name:'VariationName',text:{}},
+    {name:'SellingPrice',number:{decimalPlaces:'automatic'}},
+    {name:'COG',number:{decimalPlaces:'automatic'}},
+    {name:'GrossMargin',number:{decimalPlaces:'automatic'}},
+    {name:'SnapshotDate',dateTime:{displayAs:'default'}}
+  ]);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1512,8 +1605,15 @@ async function loadAllData() {
   cache.recipes=recipes; cache.maintContacts=contacts;
   cache.staff=staff; cache.maintSchedule=sched; cache.maintLog=log;
   cache.settingsItems=appSettings;
-  // Load location-specific inventory and menu data
-  await Promise.all([loadInventoryData(siteId), loadMenuData(siteId)]);
+  // Load location-specific inventory and menu data, plus COGs
+  const [cogsRecipes, cogSnapshots] = await Promise.all([
+    getListItems(siteId, LISTS.cogs).catch(()=>[]),
+    getListItems(siteId, LISTS.cogHistory).catch(()=>[]),
+    loadInventoryData(siteId),
+    loadMenuData(siteId)
+  ]);
+  cache.cogsRecipes = cogsRecipes;
+  cache.cogSnapshots = cogSnapshots;
   renderAll();
   applyLocationAccess();
 }
@@ -3514,6 +3614,7 @@ function nav(page) {
   if (page==='settings') { renderRoles(); renderLocations(); renderSlackSettings(); renderSquareSettings(); }
   if (page==='square')   { renderSquarePage(); }
   if (page==='menu')     { renderMenu(); }
+  if (page==='cogs')     { renderCogs(); }
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -3688,6 +3789,10 @@ document.querySelectorAll('.modal-overlay').forEach(el=>{
 });
 
 let toastT={};
+function escHtml(str) {
+  return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 function toast(type,msg='✓ Saved'){
   const el=document.getElementById('toast-'+type);
   if(!el)return;
@@ -3957,6 +4062,544 @@ async function saveSquareLocationMap() {
   });
   await saveSetting('square_loc_map', JSON.stringify(map));
   toast('ok', '✓ Location mapping saved');
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// COST OF GOODS (COGs)
+// ════════════════════════════════════════════════════════════════════════════
+
+// -- Helpers -----------------------------------------------------------------
+
+function isManagerOrOwner() {
+  if (!currentUser || !cache.staff.length) return true;
+  const email = (currentUser.username || currentUser.mail || '').toLowerCase();
+  const member = cache.staff.find(s => (s.Email||'').toLowerCase() === email);
+  if (!member) return true; // not found → allow by default
+  const role = (member.Role || '').toLowerCase();
+  return role.includes('manager') || role.includes('owner') || role.includes('admin') || role === '';
+}
+
+// Build a lookup map: { [menuItemId+':'+variationName]: [cogRecipeRows] }
+function buildCogMap() {
+  const map = {};
+  for (const r of cache.cogsRecipes) {
+    const key = (r.MenuItemId||'') + ':' + (r.VariationName||'');
+    if (!map[key]) map[key] = [];
+    map[key].push(r);
+  }
+  return map;
+}
+
+// Build inventory lookup by item name (Title or ItemName)
+function buildInvMap() {
+  const map = {};
+  for (const i of cache.inventory) {
+    const n = (i.ItemName || i.Title || '').toLowerCase().trim();
+    if (n) map[n] = i;
+  }
+  return map;
+}
+
+// Calculate COG for one variation
+function calcCog(menuItemId, variationName, cogMap, invMap) {
+  const key = menuItemId + ':' + variationName;
+  const ingredients = cogMap[key] || [];
+  let cog = 0;
+  let hasMissingCost = false;
+  const lines = ingredients.map(ing => {
+    const inv = invMap[(ing.IngredientName||'').toLowerCase().trim()];
+    const costPerServing = inv ? (parseFloat(inv.CostPerServing) || 0) : null;
+    const qty = parseFloat(ing.Quantity) || 0;
+    const lineCost = costPerServing != null ? qty * costPerServing : null;
+    if (lineCost == null || costPerServing == null) hasMissingCost = true;
+    else cog += lineCost;
+    return { ...ing, costPerServing, lineCost };
+  });
+  return { cog, lines, hasMissingCost };
+}
+
+// Get selling price for a variation from cache.menu
+function getVariationPrice(menuItem, variationName) {
+  // Parse the Variations string stored in BSC_Menu
+  const vars = (menuItem.Variations || '').split('\n');
+  for (const v of vars) {
+    const match = v.match(/^(.+):\s*\$?(\d+\.?\d*)$/);
+    if (match && match[1].trim() === variationName) return parseFloat(match[2]);
+  }
+  // Fallback to base Price
+  return parseFloat(menuItem.Price) || null;
+}
+
+// Parse variation names from a menu item's Variations string
+function getVariationNames(menuItem) {
+  const vars = (menuItem.Variations || '').split('\n').filter(Boolean);
+  if (!vars.length) return [{ name: 'Regular', price: parseFloat(menuItem.Price)||null }];
+  return vars.map(v => {
+    const match = v.match(/^(.+):\s*\$?(\d+\.?\d*)$/);
+    return match
+      ? { name: match[1].trim(), price: parseFloat(match[2]) }
+      : { name: v.trim(), price: null };
+  });
+}
+
+// -- Auto-populate -----------------------------------------------------------
+
+// Returns a guess at recipe ingredients based on item name
+// Each ingredient: { name, qty: [small,med,large], unit }
+const RECIPE_TEMPLATES = [
+  { test: /latte|flat white/i,         ings: [
+    { name:'Espresso', qty:[2,2,3], unit:'oz' },
+    { name:'Milk',     qty:[8,10,12], unit:'oz' }]},
+  { test: /cappuccino/i,               ings: [
+    { name:'Espresso', qty:[2,2,3], unit:'oz' },
+    { name:'Milk',     qty:[4,6,8],  unit:'oz' }]},
+  { test: /cortado/i,                  ings: [
+    { name:'Espresso', qty:[2,2,2], unit:'oz' },
+    { name:'Milk',     qty:[2,2,2], unit:'oz' }]},
+  { test: /macchiato/i,                ings: [
+    { name:'Espresso', qty:[2,2,3], unit:'oz' },
+    { name:'Milk',     qty:[1,2,2], unit:'oz' }]},
+  { test: /americano/i,                ings: [
+    { name:'Espresso', qty:[2,2,3], unit:'oz' },
+    { name:'Water',    qty:[4,8,12], unit:'oz' }]},
+  { test: /mocha/i,                    ings: [
+    { name:'Espresso',        qty:[2,2,3],   unit:'oz' },
+    { name:'Milk',            qty:[6,8,12],  unit:'oz' },
+    { name:'Chocolate Sauce', qty:[0.5,1,1], unit:'oz' }]},
+  { test: /cold brew/i,               ings: [
+    { name:'Cold Brew Concentrate', qty:[2,4,6], unit:'oz' },
+    { name:'Water',                 qty:[4,8,10], unit:'oz' }]},
+  { test: /matcha/i,                   ings: [
+    { name:'Matcha Powder', qty:[2,3,4], unit:'g' },
+    { name:'Milk',          qty:[6,8,12], unit:'oz' }]},
+  { test: /chai/i,                     ings: [
+    { name:'Chai Concentrate', qty:[2,3,4], unit:'oz' },
+    { name:'Milk',             qty:[6,8,12], unit:'oz' }]},
+  { test: /hot chocolate|hot cocoa/i,  ings: [
+    { name:'Chocolate Sauce', qty:[1,1.5,2], unit:'oz' },
+    { name:'Milk',            qty:[8,10,12], unit:'oz' }]},
+  { test: /pour over|filter coffee|drip/i, ings: [
+    { name:'Ground Coffee', qty:[15,20,25], unit:'g' },
+    { name:'Water',         qty:[8,12,16],  unit:'oz' }]},
+  { test: /espresso/i,                 ings: [
+    { name:'Espresso', qty:[1,2,3], unit:'oz' }]},
+  { test: /tea|matcha/i,               ings: [
+    { name:'Tea Bag', qty:[1,1,2], unit:'each' },
+    { name:'Water',   qty:[8,10,12], unit:'oz' }]},
+  { test: /smoothie/i,                 ings: [
+    { name:'Fruit Blend', qty:[4,6,8], unit:'oz' },
+    { name:'Milk',        qty:[4,6,8], unit:'oz' }]},
+  { test: /muffin|croissant|scone|cookie|pastry|brownie|cake|loaf|sandwich|wrap|bagel/i, ings: [
+    { name:'Pastry Item', qty:[1,1,1], unit:'each' }]},
+  { test: /juice|lemonade/i,           ings: [
+    { name:'Juice', qty:[8,10,12], unit:'oz' }]}
+];
+
+function guessIngredients(itemName) {
+  for (const tmpl of RECIPE_TEMPLATES) {
+    if (tmpl.test.test(itemName)) return tmpl.ings;
+  }
+  return [];
+}
+
+async function autoPopulateCogs() {
+  if (!confirm('Auto-populate will add ingredient guesses for any menu item that has no recipe yet. You can edit or remove them afterwards. Continue?')) return;
+  const btn = document.querySelector('[onclick="autoPopulateCogs()"]');
+  if (btn) { btn.disabled = true; btn.textContent = '✨ Working…'; }
+  try {
+    const siteId = await getSiteId();
+    let added = 0;
+    const cogMap = buildCogMap();
+    for (const item of cache.menu) {
+      const itemId   = item.SquareId || item.id;
+      const itemName = item.ItemName || item.Title || '';
+      const guesses  = guessIngredients(itemName);
+      if (!guesses.length) continue;
+
+      const variations = getVariationNames(item);
+      // Only populate variations that have no ingredients yet
+      for (let vi = 0; vi < variations.length; vi++) {
+        const vname = variations[vi].name;
+        const key   = itemId + ':' + vname;
+        if (cogMap[key] && cogMap[key].length > 0) continue; // already has data
+
+        const sizeIdx = Math.min(vi, 2); // 0=small,1=med,2=large
+        for (const ing of guesses) {
+          const fields = {
+            Title:          itemName + ' — ' + vname + ' — ' + ing.name,
+            MenuItemId:     itemId,
+            MenuItemName:   itemName,
+            VariationName:  vname,
+            IngredientName: ing.name,
+            Quantity:       ing.qty[sizeIdx],
+            Unit:           ing.unit
+          };
+          const saved = await addListItem(LISTS.cogs, fields);
+          cache.cogsRecipes.push(saved);
+          added++;
+        }
+      }
+    }
+    toast('ok', `✓ Auto-populated ${added} ingredient rows`);
+    renderCogs();
+  } catch(e) {
+    toast('err', 'Auto-populate failed: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '✨ Auto-populate Recipes'; }
+  }
+}
+
+// -- Snapshot ----------------------------------------------------------------
+
+async function snapshotCogs() {
+  if (!confirm('Save a cost snapshot of all current recipes? This records today\'s COG and margin per item/variation.')) return;
+  try {
+    const siteId = await getSiteId();
+    const cogMap = buildCogMap();
+    const invMap = buildInvMap();
+    let count = 0;
+    const now = new Date().toISOString();
+    for (const item of cache.menu) {
+      const itemId   = item.SquareId || item.id;
+      const itemName = item.ItemName || item.Title || '';
+      const variations = getVariationNames(item);
+      for (const v of variations) {
+        const { cog, hasMissingCost } = calcCog(itemId, v.name, cogMap, invMap);
+        if (hasMissingCost || !v.price) continue;
+        const margin = ((v.price - cog) / v.price) * 100;
+        const fields = {
+          Title:          itemName + ' — ' + v.name + ' — ' + now.slice(0,10),
+          MenuItemId:     itemId,
+          MenuItemName:   itemName,
+          VariationName:  v.name,
+          SellingPrice:   v.price,
+          COG:            Math.round(cog * 1000) / 1000,
+          GrossMargin:    Math.round(margin * 10) / 10,
+          SnapshotDate:   now
+        };
+        const saved = await addListItem(LISTS.cogHistory, fields);
+        cache.cogSnapshots.push(saved);
+        count++;
+      }
+    }
+    toast('ok', `📸 Snapshot saved — ${count} variation records`);
+    renderCogHistory();
+  } catch(e) {
+    toast('err', 'Snapshot failed: ' + e.message);
+  }
+}
+
+// -- Rendering ---------------------------------------------------------------
+
+let _cogsQuery = '';
+let _cogsCatFilter = '';
+
+function cogTab(tab) {
+  document.getElementById('cogs-panel-recipes').style.display  = tab==='recipes' ? '' : 'none';
+  document.getElementById('cogs-panel-history').style.display  = tab==='history' ? '' : 'none';
+  const active   = 'color:var(--gold);border-bottom:2px solid var(--gold);margin-bottom:-2px;';
+  const inactive = 'color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-2px;';
+  document.getElementById('cogs-tab-recipes').style.cssText += tab==='recipes' ? active : inactive;
+  document.getElementById('cogs-tab-history').style.cssText += tab==='history' ? active : inactive;
+  if (tab==='history') renderCogHistory();
+}
+
+function filterCogs(q) {
+  _cogsQuery = (q||'').toLowerCase();
+  _cogsCatFilter = document.getElementById('cogs-cat-filter')?.value || '';
+  renderCogCards();
+}
+
+function renderCogs() {
+  if (!isManagerOrOwner()) {
+    document.getElementById('cogs-access-denied').style.display = '';
+    document.getElementById('cogs-content').style.display = 'none';
+    return;
+  }
+  document.getElementById('cogs-access-denied').style.display = 'none';
+  document.getElementById('cogs-content').style.display = '';
+
+  // Populate category filter
+  const cats = [...new Set(cache.menu.map(i => i.Category || 'Uncategorized'))].sort();
+  const catSel = document.getElementById('cogs-cat-filter');
+  const prevCat = catSel?.value || '';
+  if (catSel) {
+    catSel.innerHTML = '<option value="">All Categories</option>'
+      + cats.map(c=>`<option value="${c}"${c===prevCat?' selected':''}>${c}</option>`).join('');
+  }
+  // Populate history item filter
+  const histSel = document.getElementById('cogs-hist-item');
+  if (histSel) {
+    const names = [...new Set(cache.menu.map(i => i.ItemName||i.Title||'').filter(Boolean))].sort();
+    histSel.innerHTML = '<option value="">All Items</option>'
+      + names.map(n=>`<option value="${n}">${n}</option>`).join('');
+  }
+
+  // Check for missing costs
+  const invMap = buildInvMap();
+  const cogMap = buildCogMap();
+  let missingCosts = false;
+  for (const r of cache.cogsRecipes) {
+    const inv = invMap[(r.IngredientName||'').toLowerCase().trim()];
+    if (!inv || !inv.CostPerServing) { missingCosts = true; break; }
+  }
+  document.getElementById('cogs-missing-costs').style.display = missingCosts ? '' : 'none';
+
+  renderCogCards();
+}
+
+function renderCogCards() {
+  const container = document.getElementById('cogs-cards');
+  const empty     = document.getElementById('cogs-empty');
+  if (!container) return;
+
+  let items = cache.menu;
+  if (_cogsCatFilter) items = items.filter(i => (i.Category||'Uncategorized') === _cogsCatFilter);
+  if (_cogsQuery)     items = items.filter(i => (i.ItemName||i.Title||'').toLowerCase().includes(_cogsQuery));
+
+  if (!items.length) {
+    container.innerHTML = '';
+    empty.style.display = '';
+    return;
+  }
+  empty.style.display = 'none';
+
+  const cogMap = buildCogMap();
+  const invMap = buildInvMap();
+  container.innerHTML = items.map(item => renderCogCard(item, cogMap, invMap)).join('');
+}
+
+function renderCogCard(item, cogMap, invMap) {
+  const itemId   = item.SquareId || item.id;
+  const itemName = item.ItemName || item.Title || '';
+  const category = item.Category || 'Uncategorized';
+  const variations = getVariationNames(item);
+
+  const varTabs = variations.map((v, vi) =>
+    `<button class="cog-var-tab" id="cog-tab-${itemId}-${vi}"
+      onclick="cogVarTab('${itemId}',${vi},${variations.length})"
+      style="padding:5px 12px;font-size:12px;font-weight:600;border:1.5px solid var(--border);
+        border-radius:20px;cursor:pointer;background:${vi===0?'var(--gold)':'transparent'};
+        color:${vi===0?'#fff':'var(--muted)'};transition:all .15s;white-space:nowrap;">
+      ${escHtml(v.name)}
+    </button>`
+  ).join('');
+
+  const varPanels = variations.map((v, vi) => {
+    const { cog, lines, hasMissingCost } = calcCog(itemId, v.name, cogMap, invMap);
+    const price  = v.price;
+    const margin = (price && !hasMissingCost) ? ((price - cog) / price * 100) : null;
+    const marginColor = margin == null ? '#999' : margin >= 65 ? '#16a34a' : margin >= 50 ? '#d97706' : '#dc2626';
+
+    const ingRows = lines.map(ing => `
+      <tr>
+        <td style="padding:6px 8px;font-size:12px;">${escHtml(ing.IngredientName||'')}</td>
+        <td style="padding:6px 8px;font-size:12px;text-align:right;">
+          <input type="number" step="0.01" value="${ing.Quantity||''}"
+            style="width:60px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;text-align:right;"
+            onchange="updateCogIngredient(${ing.id},'Quantity',this.value)">
+        </td>
+        <td style="padding:6px 8px;font-size:12px;">
+          <input type="text" value="${escHtml(ing.Unit||'')}"
+            style="width:44px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;"
+            onchange="updateCogIngredient(${ing.id},'Unit',this.value)">
+        </td>
+        <td style="padding:6px 8px;font-size:12px;text-align:right;color:var(--muted);">
+          ${ing.costPerServing != null ? '$'+ing.costPerServing.toFixed(3) : '<span style="color:#f59e0b" title="Add Cost Per Serving in Inventory">—</span>'}
+        </td>
+        <td style="padding:6px 8px;font-size:12px;text-align:right;font-weight:600;">
+          ${ing.lineCost != null ? '$'+ing.lineCost.toFixed(3) : '—'}
+        </td>
+        <td style="padding:6px 8px;text-align:center;">
+          <button onclick="deleteCogIngredient(${ing.id},'${escHtml(itemId)}','${escHtml(v.name)}')"
+            style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:15px;line-height:1;padding:2px 4px;" title="Remove">×</button>
+        </td>
+      </tr>`).join('');
+
+    const addRow = `
+      <tr id="cog-add-row-${itemId}-${vi}">
+        <td colspan="6" style="padding:6px 8px;">
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+            <input type="text" placeholder="Ingredient name…" id="cog-new-ing-${itemId}-${vi}"
+              list="cog-ing-list-${itemId}"
+              style="flex:1;min-width:130px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;">
+            <input type="number" step="0.01" placeholder="Qty" id="cog-new-qty-${itemId}-${vi}"
+              style="width:60px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;">
+            <input type="text" placeholder="Unit" id="cog-new-unit-${itemId}-${vi}"
+              style="width:50px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;">
+            <button onclick="addCogIngredient('${escHtml(itemId)}','${escHtml(itemName)}','${escHtml(v.name)}',${vi})"
+              style="padding:4px 10px;background:var(--gold);color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;white-space:nowrap;">+ Add</button>
+          </div>
+        </td>
+      </tr>`;
+
+    const summaryRow = `
+      <tr style="border-top:2px solid var(--border);">
+        <td colspan="4" style="padding:8px;font-size:12px;font-weight:700;color:var(--muted);">TOTALS</td>
+        <td style="padding:8px;font-size:13px;font-weight:700;text-align:right;">${!hasMissingCost ? '$'+cog.toFixed(2) : '—'}</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td colspan="3" style="padding:6px 8px;font-size:12px;color:var(--muted);">
+          Selling Price${price ? ': $'+price.toFixed(2) : ': unknown'}
+        </td>
+        <td colspan="2" style="padding:6px 8px;text-align:right;">
+          ${margin != null
+            ? `<span style="font-size:14px;font-weight:700;color:${marginColor};">${margin.toFixed(1)}% margin</span>`
+            : `<span style="font-size:12px;color:var(--muted);">${hasMissingCost?'Add serving costs to inventory':!price?'Add price in Square':''}</span>`}
+        </td>
+        <td></td>
+      </tr>`;
+
+    return `
+      <div id="cog-panel-${itemId}-${vi}" style="display:${vi===0?'block':'none'}">
+        ${hasMissingCost ? `<div style="font-size:11px;color:#f59e0b;padding:4px 0 6px;"><span>⚠️ Some ingredients missing Cost Per Serving</span></div>` : ''}
+        <datalist id="cog-ing-list-${itemId}">
+          ${cache.inventory.map(i=>`<option value="${escHtml(i.ItemName||i.Title||'')}"></option>`).join('')}
+        </datalist>
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="border-bottom:1.5px solid var(--border);">
+              <th style="padding:5px 8px;font-size:11px;text-align:left;color:var(--muted);">INGREDIENT</th>
+              <th style="padding:5px 8px;font-size:11px;text-align:right;color:var(--muted);">QTY</th>
+              <th style="padding:5px 8px;font-size:11px;color:var(--muted);">UNIT</th>
+              <th style="padding:5px 8px;font-size:11px;text-align:right;color:var(--muted);">$/UNIT</th>
+              <th style="padding:5px 8px;font-size:11px;text-align:right;color:var(--muted);">COST</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${ingRows}
+            ${addRow}
+            ${summaryRow}
+          </tbody>
+        </table>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div style="padding:14px 16px 10px;border-bottom:1.5px solid var(--border);">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+          <div>
+            <div style="font-weight:700;font-size:14px;">${escHtml(itemName)}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;">${escHtml(category)}</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;">
+          ${varTabs}
+        </div>
+      </div>
+      <div style="padding:12px 16px 14px;">
+        ${varPanels}
+      </div>
+    </div>`;
+}
+
+function cogVarTab(itemId, activeIdx, total) {
+  for (let i = 0; i < total; i++) {
+    const tab   = document.getElementById(`cog-tab-${itemId}-${i}`);
+    const panel = document.getElementById(`cog-panel-${itemId}-${i}`);
+    if (!tab || !panel) continue;
+    const isActive = i === activeIdx;
+    panel.style.display = isActive ? 'block' : 'none';
+    tab.style.background = isActive ? 'var(--gold)' : 'transparent';
+    tab.style.color = isActive ? '#fff' : 'var(--muted)';
+    tab.style.borderColor = isActive ? 'var(--gold)' : 'var(--border)';
+  }
+}
+
+async function addCogIngredient(menuItemId, menuItemName, variationName, varIdx) {
+  const ingEl  = document.getElementById(`cog-new-ing-${menuItemId}-${varIdx}`);
+  const qtyEl  = document.getElementById(`cog-new-qty-${menuItemId}-${varIdx}`);
+  const unitEl = document.getElementById(`cog-new-unit-${menuItemId}-${varIdx}`);
+  const ingName = (ingEl?.value || '').trim();
+  const qty     = parseFloat(qtyEl?.value) || 0;
+  const unit    = (unitEl?.value || '').trim();
+  if (!ingName) { toast('warn', 'Enter an ingredient name'); return; }
+  try {
+    const fields = {
+      Title:          menuItemName + ' — ' + variationName + ' — ' + ingName,
+      MenuItemId:     menuItemId,
+      MenuItemName:   menuItemName,
+      VariationName:  variationName,
+      IngredientName: ingName,
+      Quantity:       qty || null,
+      Unit:           unit
+    };
+    const saved = await addListItem(LISTS.cogs, fields);
+    cache.cogsRecipes.push(saved);
+    if (ingEl)  ingEl.value  = '';
+    if (qtyEl)  qtyEl.value  = '';
+    if (unitEl) unitEl.value = '';
+    renderCogCards();
+  } catch(e) {
+    toast('err', 'Failed to add ingredient: ' + e.message);
+  }
+}
+
+async function updateCogIngredient(rowId, field, value) {
+  try {
+    const fields = {};
+    fields[field] = field === 'Quantity' ? (parseFloat(value)||null) : value;
+    await updateListItem(LISTS.cogs, rowId, fields);
+    const rec = cache.cogsRecipes.find(r => r.id == rowId);
+    if (rec) rec[field] = fields[field];
+    // Refresh just the summary portion — re-render cards to update totals
+    renderCogCards();
+  } catch(e) {
+    toast('err', 'Failed to update: ' + e.message);
+  }
+}
+
+async function deleteCogIngredient(rowId, menuItemId, variationName) {
+  try {
+    const siteId = await getSiteId();
+    await graph('DELETE', `/sites/${siteId}/lists/${LISTS.cogs}/items/${rowId}`);
+    cache.cogsRecipes = cache.cogsRecipes.filter(r => r.id != rowId);
+    renderCogCards();
+  } catch(e) {
+    toast('err', 'Failed to delete ingredient: ' + e.message);
+  }
+}
+
+// -- History -----------------------------------------------------------------
+
+function renderCogHistory() {
+  const tbody = document.getElementById('cogs-hist-body');
+  const empty = document.getElementById('cogs-hist-empty');
+  const count = document.getElementById('cogs-hist-count');
+  if (!tbody) return;
+
+  const filterItem = document.getElementById('cogs-hist-item')?.value || '';
+  let snaps = [...cache.cogSnapshots].sort((a,b) => new Date(b.SnapshotDate||0) - new Date(a.SnapshotDate||0));
+  if (filterItem) snaps = snaps.filter(s => s.MenuItemName === filterItem);
+
+  if (count) count.textContent = snaps.length ? `${snaps.length} records` : '';
+  if (!snaps.length) {
+    tbody.innerHTML = '';
+    empty.style.display = '';
+    document.getElementById('cogs-hist-table').style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+  document.getElementById('cogs-hist-table').style.display = '';
+
+  tbody.innerHTML = snaps.map(s => {
+    const margin = parseFloat(s.GrossMargin);
+    const marginColor = isNaN(margin) ? '#999' : margin >= 65 ? '#16a34a' : margin >= 50 ? '#d97706' : '#dc2626';
+    const dateStr = s.SnapshotDate
+      ? new Date(s.SnapshotDate).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
+      : '—';
+    return `<tr>
+      <td>${dateStr}</td>
+      <td>${escHtml(s.MenuItemName||'')}</td>
+      <td><span style="font-size:11px;background:var(--opal);padding:2px 8px;border-radius:10px;">${escHtml(s.VariationName||'')}</span></td>
+      <td>${s.SellingPrice ? '$'+parseFloat(s.SellingPrice).toFixed(2) : '—'}</td>
+      <td>${s.COG ? '$'+parseFloat(s.COG).toFixed(3) : '—'}</td>
+      <td><span style="font-weight:700;color:${marginColor};">${!isNaN(margin) ? margin.toFixed(1)+'%' : '—'}</span></td>
+    </tr>`;
+  }).join('');
 }
 
 // ── Sync team members ────────────────────────────────────────────────────
