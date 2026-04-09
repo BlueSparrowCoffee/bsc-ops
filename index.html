@@ -4164,7 +4164,6 @@ async function syncSquareInventory() {
     const by = currentUser?.name || currentUser?.username || 'Square Sync';
     let totalRecords = 0;
 
-    const siteId = await getSiteId();
     for (const [bscLoc, itemCounts] of Object.entries(byLoc)) {
       const cntList = menuCountsListName(bscLoc);
       if (!cntList) continue;
