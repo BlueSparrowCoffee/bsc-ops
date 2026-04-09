@@ -195,6 +195,8 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
 .tab-btn{padding:9px 18px;border:none;background:none;font-family:inherit;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;}
 .tab-btn.active{color:var(--gold);border-bottom-color:var(--gold);}
 .tab-btn:hover:not(.active){color:var(--ink);}
+.inv-type-tab.active{background:var(--gold)!important;border-color:var(--gold)!important;color:#fff!important;}
+.inv-type-tab:hover:not(.active){border-color:var(--gold);color:var(--gold);}
 
 /* ── MAINTENANCE STATUS BADGES ── */
 .maint-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;letter-spacing:.04em;padding:3px 9px;border-radius:20px;}
@@ -311,7 +313,7 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
 <div id="sidebar">
   <div class="nav-section">Operations</div>
   <div class="nav-item active" onclick="nav('dashboard')"><span class="nav-icon">🏠</span> Dashboard</div>
-  <div class="nav-item" onclick="nav('inventory')"><span class="nav-icon">📦</span> Inventory <span class="nav-badge" id="badge-low" style="display:none">!</span></div>
+  <div class="nav-item" onclick="nav('inventory')"><span class="nav-icon">📦</span> Consumable Inventory <span class="nav-badge" id="badge-low" style="display:none">!</span></div>
   <div class="nav-item" onclick="nav('transfers')"><span class="nav-icon">🔄</span> Transfers</div>
   <div class="nav-item" onclick="nav('ordering')"><span class="nav-icon">🛒</span> Ordering</div>
   <div class="nav-section">Management</div>
@@ -381,8 +383,17 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
   <!-- INVENTORY -->
   <div class="page" id="page-inventory">
     <div class="page-header">
-      <div class="page-title">📦 Inventory</div>
+      <div class="page-title">📦 Consumable Inventory</div>
       <div class="page-sub">Item master, weekly counts &amp; analytics</div>
+    </div>
+    <!-- Inventory type switcher -->
+    <div id="inv-type-tabs" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+      <button class="inv-type-tab active" data-type="consumable" onclick="switchInvType('consumable')"
+        style="padding:7px 18px;border-radius:20px;border:1.5px solid var(--border);background:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;">📦 Consumable</button>
+      <button class="inv-type-tab" data-type="merch" onclick="switchInvType('merch')"
+        style="padding:7px 18px;border-radius:20px;border:1.5px solid var(--border);background:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;">🛍️ Merch</button>
+      <button class="inv-type-tab" data-type="equipment" onclick="switchInvType('equipment')"
+        style="padding:7px 18px;border-radius:20px;border:1.5px solid var(--border);background:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;">🔧 Equipment &amp; Smallwares</button>
     </div>
     <div class="tab-bar">
       <button class="tab-btn active" onclick="switchInvTab('items',this)">📋 Items</button>
@@ -407,17 +418,17 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
           <option value="ok">In Stock</option>
         </select>
         <select class="filter" id="inv-supplier-filter" onchange="filterInventory(document.querySelector('#inv-tab-items .search-input').value)">
-          <option value="">All Suppliers</option>
+          <option value="">All Vendors</option>
         </select>
         <span id="inv-count" style="font-size:13px;color:var(--muted);"></span>
-        <button class="btn btn-primary ml-auto" onclick="openModal('modal-add-item')">+ Add Item</button>
+        <button class="btn btn-primary ml-auto" onclick="openAddInvModal()">+ Add Item</button>
       </div>
       <div class="table-wrap">
         <table>
           <thead><tr>
             <th onclick="sortInvBy('ItemName')">Item</th>
             <th onclick="sortInvBy('Category')">Category</th>
-            <th onclick="sortInvBy('Supplier')">Supplier</th>
+            <th onclick="sortInvBy('Supplier')">Vendor</th>
             <th onclick="sortInvBy('ParLevel')">Par</th>
             <th onclick="sortInvBy('StoreCount')">Store</th>
             <th onclick="sortInvBy('StorageCount')">Storage</th>
@@ -846,8 +857,7 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         <input class="search-input" placeholder="Search staff…" oninput="filterStaff(this.value)">
       </div>
-      <button class="btn btn-primary ml-auto" onclick="openStaffForm(null)">+ Add Staff Member</button>
-      <span id="staff-count" style="font-size:13px;color:var(--muted);align-self:center;"></span>
+      <span id="staff-count" style="font-size:13px;color:var(--muted);align-self:center;margin-left:auto;"></span>
     </div>
     <div class="cards-grid" id="staff-grid"></div>
     <div class="no-data" id="staff-empty" style="display:none">No staff yet — add your first team member above.</div>
@@ -1441,25 +1451,55 @@ function menuCountsListName(loc) {
 }
 
 const LISTS = {
-  inventory:    'BSC_Inventory',    // shared item master (all locations)
-  counts:       'BSC_InventoryCounts', // legacy fallback only
-  menu:         'BSC_Menu',         // Square catalog — menu items & pricing
-  transfers:    'BSC_Transfers',
-  orders:       'BSC_Orders',
-  checklists:   'BSC_Checklists',
-  clProgress:   'BSC_ChecklistProgress',
-  vendors:      'vendors',
-  roles:        'BSC_Roles',
-  recipes:      'BSC_Recipes',
-  cogs:         'BSC_Cogs',         // COGs ingredient mappings per menu item/variation
-  cogHistory:   'BSC_CogHistory',   // COG/margin snapshots over time
-  clGroups:     'BSC_ChecklistGroups',     // named checklist groups
-  clCompletions:'BSC_ChecklistCompletions', // group-level completion history
-  maintContacts:'Maintenance',
-  staff:        'BSC_Staff',
-  maintSchedule:'BSC_MaintSchedule',
-  maintLog:     'BSC_MaintLog',
-  settings:     'BSC_Settings'
+  inventory:      'BSC_Inventory',          // shared consumable item master
+  counts:         'BSC_InventoryCounts',    // legacy fallback only
+  merchInventory: 'BSC_MerchInventory',     // merch item master
+  equipInventory: 'BSC_EquipInventory',     // equipment & smallwares item master
+  menu:           'BSC_Menu',
+  transfers:      'BSC_Transfers',
+  orders:         'BSC_Orders',
+  checklists:     'BSC_Checklists',
+  clProgress:     'BSC_ChecklistProgress',
+  vendors:        'vendors',
+  roles:          'BSC_Roles',
+  recipes:        'BSC_Recipes',
+  cogs:           'BSC_Cogs',
+  cogHistory:     'BSC_CogHistory',
+  clGroups:       'BSC_ChecklistGroups',
+  clCompletions:  'BSC_ChecklistCompletions',
+  maintContacts:  'Maintenance',
+  staff:          'BSC_Staff',
+  maintSchedule:  'BSC_MaintSchedule',
+  maintLog:       'BSC_MaintLog',
+  settings:       'BSC_Settings'
+};
+
+// Inventory type config — drives which list/cache key each inv type uses
+const INV_TYPE_CFG = {
+  consumable: {
+    label:       'Consumable Inventory',
+    icon:        '📦',
+    listKey:     'inventory',
+    countsPrefix:'BSC_{loc}_InventoryCounts',
+    cacheKey:    'inventory',
+    countKey:    'countHistory'
+  },
+  merch: {
+    label:       'Merch Inventory',
+    icon:        '🛍️',
+    listKey:     'merchInventory',
+    countsPrefix:'BSC_{loc}_MerchCounts',
+    cacheKey:    'merchInventory',
+    countKey:    'merchCountHistory'
+  },
+  equipment: {
+    label:       'Equipment & Smallwares',
+    icon:        '🔧',
+    listKey:     'equipInventory',
+    countsPrefix:'BSC_{loc}_EquipCounts',
+    cacheKey:    'equipInventory',
+    countKey:    'equipCountHistory'
+  }
 };
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1486,7 +1526,9 @@ const cache = {
   clProgress: {}, countHistory: [], settingsItems: [],
   menu: [], menuCounts: [],
   cogsRecipes: [], cogSnapshots: [],
-  clGroups: [], clCompletions: []
+  clGroups: [], clCompletions: [],
+  merchInventory: [], merchCountHistory: [],
+  equipInventory: [], equipCountHistory: []
 };
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1732,6 +1774,9 @@ async function ensureAllLists() {
     {name:'GrossMargin',number:{decimalPlaces:'automatic'}},
     {name:'SnapshotDate',dateTime:{displayAs:'default'}}
   ]);
+  // Merch & Equipment item masters (same structure as consumable inventory)
+  await ensureList(LISTS.merchInventory, INV_LIST_COLS.map(c => ({name:c.name, ...c})));
+  await ensureList(LISTS.equipInventory, INV_LIST_COLS.map(c => ({name:c.name, ...c})));
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1799,18 +1844,27 @@ async function getCountHistoryForList(siteId, listName) {
 
 async function loadInventoryData(siteId) {
   const locs = getLocations();
-  // Items always from shared list
-  cache.inventory = await getListItems(siteId, LISTS.inventory).catch(() => []);
-  // Counts from per-location list(s)
-  if (currentLocation === 'all') {
-    const cntArrays = await Promise.all(
-      locs.map(l => getCountHistoryForList(siteId, countsListName(l)).catch(() => []))
-    );
-    cache.countHistory = cntArrays.flat();
-  } else {
-    const cn = countsListName(currentLocation);
-    cache.countHistory = cn ? await getCountHistoryForList(siteId, cn).catch(() => []) : [];
+
+  async function loadTypeData(typeCfg) {
+    const listName = LISTS[typeCfg.listKey];
+    const items = await getListItems(siteId, listName).catch(() => []);
+    cache[typeCfg.cacheKey] = items;
+    if (currentLocation === 'all') {
+      const cntArrays = await Promise.all(
+        locs.map(l => {
+          const cn = typeCfg.countsPrefix.replace('{loc}', l.replace(/[\s\/\\]/g, '_'));
+          return getCountHistoryForList(siteId, cn).catch(() => []);
+        })
+      );
+      cache[typeCfg.countKey] = cntArrays.flat();
+    } else {
+      const cn = typeCfg.countsPrefix.replace('{loc}', currentLocation.replace(/[\s\/\\]/g, '_'));
+      cache[typeCfg.countKey] = await getCountHistoryForList(siteId, cn).catch(() => []);
+    }
   }
+
+  // Load all inventory types in parallel
+  await Promise.all(Object.values(INV_TYPE_CFG).map(cfg => loadTypeData(cfg)));
 }
 
 async function getRecipeItems(siteId) {
@@ -1925,6 +1979,34 @@ function renderDashboard() {
 // INVENTORY
 // ════════════════════════════════════════════════════════════════════════════
 let _invActiveTab = 'items';
+let _invType = 'consumable'; // 'consumable' | 'merch' | 'equipment'
+
+function invCfg() { return INV_TYPE_CFG[_invType]; }
+
+function invCountsListName(loc) {
+  const l = loc || currentLocation;
+  if (!l || l === 'all') return null;
+  return invCfg().countsPrefix.replace('{loc}', l.replace(/[\s\/\\]/g, '_'));
+}
+
+function switchInvType(type) {
+  _invType = type;
+  document.querySelectorAll('#inv-type-tabs .inv-type-tab').forEach(b => {
+    b.classList.toggle('active', b.dataset.type === type);
+  });
+  // update page title
+  const cfg = invCfg();
+  const titleEl = document.querySelector('#page-inventory .page-title');
+  if (titleEl) titleEl.textContent = cfg.icon + ' ' + cfg.label;
+  // Reset to items tab and re-render
+  _invActiveTab = 'items';
+  document.querySelectorAll('#page-inventory .tab-bar .tab-btn').forEach((b,i) => b.classList.toggle('active', i===0));
+  ['items','count','analytics','import'].forEach(t => {
+    const el = document.getElementById('inv-tab-'+t);
+    if (el) el.style.display = t==='items' ? '' : 'none';
+  });
+  renderInventory();
+}
 
 function switchInvTab(tab, btn) {
   _invActiveTab = tab;
@@ -1967,7 +2049,7 @@ function sortInvBy(col) {
 
 function renderInventoryItems(query='', catFilter='', statusFilter='', supplierFilter='') {
   const countsMap = getLatestCountsMap(currentLocation);
-  let items = cache.inventory; // Shared list — show all items regardless of location
+  let items = cache[invCfg().cacheKey] || []; // type-specific list
   if (query) items = items.filter(i=>(i.ItemName||'').toLowerCase().includes(query.toLowerCase())||
     (i.Category||'').toLowerCase().includes(query.toLowerCase())||
     (i.Supplier||'').toLowerCase().includes(query.toLowerCase()));
@@ -2002,7 +2084,7 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
     return `<tr>
       <td class="fw">${i.ItemName||'—'}</td>
       <td><span class="badge badge-teal">${i.Category||'—'}</span></td>
-      <td style="color:var(--muted);font-size:12px">${i.Supplier||'—'}</td>
+      <td style="font-size:12px">${i.Supplier ? `<a href="#" onclick="nav('vendors');setTimeout(()=>{const s=document.querySelector('#page-vendors .search-input');if(s){s.value='${escHtml(i.Supplier||'')}';filterVendors(s.value);}},300);return false;" style="color:var(--gold);text-decoration:none;">${escHtml(i.Supplier)}</a>` : '<span style="color:var(--muted)">—</span>'}</td>
       <td>${par} <span style="font-size:11px;color:var(--muted)">${unit}</span></td>
       <td>${store}</td>
       <td>${storage}</td>
@@ -2023,16 +2105,17 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
   document.getElementById('inv-empty').style.display = items.length?'none':'block';
   document.getElementById('inv-count').textContent = `${items.length} items`;
 
-  const cats = [...new Set(cache.inventory.map(i=>i.Category).filter(Boolean))].sort();
+  const allItems = cache[invCfg().cacheKey] || [];
+  const cats = [...new Set(allItems.map(i=>i.Category).filter(Boolean))].sort();
   const catSel = document.getElementById('inv-cat-filter');
   const curCat = catSel.value;
   catSel.innerHTML = '<option value="">All Categories</option>' +
     cats.map(c=>`<option ${c===curCat?'selected':''}>${c}</option>`).join('');
 
-  const suppliers = [...new Set(cache.inventory.map(i=>i.Supplier).filter(Boolean))].sort();
+  const suppliers = [...new Set(allItems.map(i=>i.Supplier).filter(Boolean))].sort();
   const supSel = document.getElementById('inv-supplier-filter');
   const curSup = supSel?.value || '';
-  if (supSel) supSel.innerHTML = '<option value="">All Suppliers</option>' +
+  if (supSel) supSel.innerHTML = '<option value="">All Vendors</option>' +
     suppliers.map(s=>`<option ${s===curSup?'selected':''}>${s}</option>`).join('');
 }
 
@@ -2067,10 +2150,11 @@ function renderCountSheet() {
   if (!byEl.value && currentUser?.name) byEl.value = currentUser.name;
 
   // find most recent count records for current location
+  const cfg = invCfg();
   const loc = currentLocation === 'all' ? null : currentLocation;
   const recentMap = {}; // itemName → { store, storage, total, weekOf }
-  const filtered = cache.countHistory.filter(r => !loc || r.Location === loc);
-  filtered.sort((a,b)=>(b.WeekOf||'')>(a.WeekOf||'')?1:-1); // sort asc so last overwrite wins
+  const filtered = (cache[cfg.countKey] || []).filter(r => !loc || r.Location === loc);
+  filtered.sort((a,b)=>(a.WeekOf||'')>(b.WeekOf||'')?1:-1); // sort asc so newest overwrites oldest
   filtered.forEach(r => {
     const name = r.Title || r.ItemName;
     if (name) recentMap[name] = {
@@ -2081,7 +2165,7 @@ function renderCountSheet() {
   });
 
   // group items by category — all shared items, same list for every location
-  const items = cache.inventory;
+  const items = cache[cfg.cacheKey] || [];
   const byCategory = {};
   items.forEach(i => {
     const cat = i.Category || 'Other';
@@ -2171,8 +2255,9 @@ async function submitWeeklyCount() {
   try {
     setLoading(true, `Saving ${entries.length} count records…`);
 
-    const cntList = countsListName(loc);
-    const invList = invListName(loc);
+    const cfg = invCfg();
+    const cntList = cfg.countsPrefix.replace('{loc}', (loc||'').replace(/[\s\/\\]/g, '_'));
+    const invList = LISTS[cfg.listKey];
     if (!cntList || !invList) { toast('err','Select a specific location to submit counts'); setLoading(false); btn.disabled=false; return; }
 
     // batch save to location counts list (8 concurrent)
@@ -2186,9 +2271,10 @@ async function submitWeeklyCount() {
       CountedBy: countedBy
     }));
 
-    // batch PATCH location inventory items
+    // batch PATCH inventory items
+    const invCacheKey = cfg.cacheKey;
     const invTasks = entries.map(e => () => {
-      const item = cache.inventory.find(i=>i.id===e.id);
+      const item = cache[invCacheKey].find(i=>i.id===e.id);
       if (!item) return Promise.resolve();
       item.CurrentStock = e.total;
       item.StoreCount = e.store;
@@ -2210,11 +2296,11 @@ async function submitWeeklyCount() {
       StoreCount: e.store, StorageCount: e.storage, TotalCount: e.total,
       Location: loc, CountedBy: countedBy
     }));
-    cache.countHistory.unshift(...newRecords);
+    cache[cfg.countKey].unshift(...newRecords);
 
     // Slack alert for low items
     const lowItems = entries.filter(e => {
-      const item = cache.inventory.find(i=>i.id===e.id);
+      const item = cache[invCacheKey].find(i=>i.id===e.id);
       return item && e.total <= (item.ParLevel||0) && e.total >= 0;
     });
     if (lowItems.length) {
@@ -2330,11 +2416,23 @@ function renderInventoryAnalytics() {
 
 let _editInvId = null;
 
+function openAddInvModal() {
+  _editInvId = null;
+  const cfg = invCfg();
+  document.querySelector('#modal-add-item .modal-title').textContent = 'Add ' + cfg.label + ' Item';
+  document.querySelector('#modal-add-item .btn-primary').textContent = 'Save Item';
+  // clear form
+  ['new-item-name','new-item-cat','new-item-supplier','new-item-order-size',
+   'new-item-unit','new-item-par','new-item-cost','new-item-serving-unit','new-item-servings'
+  ].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  openModal('modal-add-item');
+}
+
 function openEditInvItem(id) {
-  const item = cache.inventory.find(i => i.id === id);
+  const item = cache[invCfg().cacheKey].find(i => i.id === id);
   if (!item) return;
   _editInvId = id;
-  document.querySelector('#modal-add-item .modal-title').textContent = 'Edit Inventory Item';
+  document.querySelector('#modal-add-item .modal-title').textContent = 'Edit ' + invCfg().label + ' Item';
   document.querySelector('#modal-add-item .btn-primary').textContent = 'Save Changes';
   document.getElementById('new-item-name').value         = item.ItemName || '';
   document.getElementById('new-item-cat').value          = item.Category || '';
@@ -2351,14 +2449,15 @@ function openEditInvItem(id) {
 }
 
 async function deleteInvItem(id) {
-  const item = cache.inventory.find(i => i.id === id);
+  const cfg = invCfg();
+  const item = cache[cfg.cacheKey].find(i => i.id === id);
   if (!item) return;
   if (!confirm(`Delete "${item.ItemName}" from inventory? This cannot be undone.`)) return;
   setLoading(true, 'Deleting…');
   try {
     const siteId = await getSiteId();
-    await graph('DELETE', `/sites/${siteId}/lists/${LISTS.inventory}/items/${id}`);
-    cache.inventory = cache.inventory.filter(i => i.id !== id);
+    await graph('DELETE', `/sites/${siteId}/lists/${LISTS[cfg.listKey]}/items/${id}`);
+    cache[cfg.cacheKey] = cache[cfg.cacheKey].filter(i => i.id !== id);
     renderInventory(); renderDashboard(); populateSelects();
     toast('ok', '✓ Item deleted');
   } catch(e) { toast('err', 'Delete failed: ' + e.message); }
@@ -2383,17 +2482,18 @@ async function saveInventoryItem() {
   };
   Object.keys(fields).forEach(k=>{ if(fields[k]===null||fields[k]==='') delete fields[k]; });
   setLoading(true,'Saving…');
+  const cfg = invCfg();
   try {
     if (_editInvId) {
       // Edit mode
-      await updateListItem(LISTS.inventory, _editInvId, fields);
-      const idx = cache.inventory.findIndex(i => i.id === _editInvId);
-      if (idx !== -1) cache.inventory[idx] = { ...cache.inventory[idx], ...fields };
+      await updateListItem(LISTS[cfg.listKey], _editInvId, fields);
+      const idx = cache[cfg.cacheKey].findIndex(i => i.id === _editInvId);
+      if (idx !== -1) cache[cfg.cacheKey][idx] = { ...cache[cfg.cacheKey][idx], ...fields };
       toast('ok','✓ Item updated');
     } else {
       // Add mode
-      const item = await addListItem(LISTS.inventory, fields);
-      cache.inventory.push(item);
+      const item = await addListItem(LISTS[cfg.listKey], fields);
+      cache[cfg.cacheKey].push(item);
       toast('ok','✓ Item added');
     }
     renderInventory(); renderDashboard(); populateSelects();
@@ -3067,8 +3167,19 @@ function renderDynamicTable(rows, thead, tbody, countEl) {
 }
 
 // hidden columns stored per-list in localStorage
+const DEFAULT_HIDDEN_COLS = {
+  vendors: ['Terms','Split','PaymentTerms','SplitAmt']
+};
 function getHiddenCols(listKey) {
-  try { return new Set(JSON.parse(localStorage.getItem('hiddenCols_'+listKey)||'[]')); } catch { return new Set(); }
+  const storageKey = 'hiddenCols_'+listKey;
+  const stored = localStorage.getItem(storageKey);
+  if (stored !== null) {
+    try { return new Set(JSON.parse(stored)); } catch { return new Set(); }
+  }
+  // First visit — apply defaults
+  const defaults = DEFAULT_HIDDEN_COLS[listKey] || [];
+  setHiddenCols(listKey, new Set(defaults));
+  return new Set(defaults);
 }
 function setHiddenCols(listKey, set) {
   localStorage.setItem('hiddenCols_'+listKey, JSON.stringify([...set]));
@@ -4171,22 +4282,30 @@ function populateSelects() {
 // ════════════════════════════════════════════════════════════════════════════
 async function setLocation(loc, btn) {
   currentLocation = loc;
-  renderLocations(); // Re-render buttons with correct active state
-  // Only reload counts — inventory items are shared and don't change by location
+  renderLocations();
+  // Clear all count caches
   cache.countHistory = [];
+  cache.merchCountHistory = [];
+  cache.equipCountHistory = [];
   renderInventory();
   renderDashboard();
   try {
     const siteId = await getSiteId();
     const locs = getLocations();
-    if (loc === 'all') {
-      const cntArrays = await Promise.all(
-        locs.map(l => getCountHistoryForList(siteId, countsListName(l)).catch(() => []))
-      );
-      cache.countHistory = cntArrays.flat();
-    } else {
-      const cn = countsListName(loc);
-      cache.countHistory = cn ? await getCountHistoryForList(siteId, cn).catch(() => []) : [];
+    // Reload counts for all inventory types
+    for (const [, cfg] of Object.entries(INV_TYPE_CFG)) {
+      if (loc === 'all') {
+        const arrays = await Promise.all(
+          locs.map(l => {
+            const cn = cfg.countsPrefix.replace('{loc}', l.replace(/[\s\/\\]/g, '_'));
+            return getCountHistoryForList(siteId, cn).catch(() => []);
+          })
+        );
+        cache[cfg.countKey] = arrays.flat();
+      } else {
+        const cn = cfg.countsPrefix.replace('{loc}', loc.replace(/[\s\/\\]/g, '_'));
+        cache[cfg.countKey] = await getCountHistoryForList(siteId, cn).catch(() => []);
+      }
     }
   } catch(e) { console.warn('Counts reload failed:', e); }
   renderInventory();
@@ -4195,9 +4314,10 @@ async function setLocation(loc, btn) {
 
 // Returns map of itemName → most recent count { store, storage, total, weekOf, location }
 function getLatestCountsMap(loc) {
+  const countData = cache[invCfg().countKey] || cache.countHistory;
   const filtered = (!loc || loc === 'all')
-    ? cache.countHistory
-    : cache.countHistory.filter(r => r.Location === loc);
+    ? countData
+    : countData.filter(r => r.Location === loc);
   const map = {};
   // sort ascending so later dates overwrite earlier ones
   [...filtered].sort((a,b)=>(a.WeekOf||'')>(b.WeekOf||'')?1:-1).forEach(r=>{
@@ -5680,8 +5800,11 @@ async function provisionInventoryForLocation() {
     plog('Getting SharePoint site…');
     const siteId = await getSiteId();
     plog(`Site ready ✓<br>`);
+    const locSlug = loc.replace(/[\s\/\\]/g, '_');
     await ensureLocList(siteId, cntsList, COUNTS_LIST_COLS);
-    plog(`✅ Counts list ready for <b>${loc}</b>!`);
+    await ensureLocList(siteId, `BSC_${locSlug}_MerchCounts`,  COUNTS_LIST_COLS);
+    await ensureLocList(siteId, `BSC_${locSlug}_EquipCounts`,  COUNTS_LIST_COLS);
+    plog(`✅ All counts lists ready for <b>${loc}</b>!`);
     btn.textContent = '✓ Done';
     toast('ok', `✓ Inventory lists provisioned for ${loc}`);
   } catch(e) {
