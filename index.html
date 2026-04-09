@@ -1670,7 +1670,7 @@ async function graph(method, path, body = null) {
   });
   if (!res.ok) {
     const e = await res.json().catch(()=>({}));
-    throw new Error(e?.error?.message || `Graph ${res.status}`);
+    throw new Error(`[${res.status}] ${e?.error?.message || 'Graph error'}`);
   }
   return res.status === 204 ? null : res.json();
 }
@@ -1684,7 +1684,7 @@ async function graphAdmin(method, path, body = null) {
   });
   if (!res.ok) {
     const e = await res.json().catch(()=>({}));
-    throw new Error(e?.error?.message || `Graph ${res.status}`);
+    throw new Error(`[${res.status}] ${e?.error?.message || 'Graph error'}`);
   }
   return res.status === 204 ? null : res.json();
 }
@@ -1781,7 +1781,7 @@ async function bootstrapApp() {
   } catch(e) {
     setLoading(false);
     // 403 = user is authenticated but doesn't have SharePoint access
-    if (e.message && (e.message.includes('403') || e.message.includes('Forbidden'))) {
+    if (e.message && (e.message.includes('403') || e.message.includes('Forbidden') || e.message.toLowerCase().includes('access denied'))) {
       const email = currentUser?.username || currentUser?.mail || 'your account';
       document.getElementById('app').innerHTML = `
         <div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#f5f5f0;">
