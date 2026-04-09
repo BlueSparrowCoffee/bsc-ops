@@ -1438,7 +1438,7 @@ const CFG = {
   internalDomain: 'bluesparrowcoffee.com'  // verified AAD domain — use direct grant, not B2B invite
 };
 
-const SCOPES = ['Sites.ReadWrite.All','Sites.FullControl.All','Files.ReadWrite','User.Read','User.Invite.All','User.ReadWrite.All'];
+const SCOPES = ['Sites.ReadWrite.All','Sites.FullControl.All','Files.ReadWrite','User.Read','User.ReadBasicProfile','User.Invite.All','User.Read.All'];
 const MODULES = ['Dashboard','Inventory','Transfers','Ordering','Checklists','Vendors','Recipes','Staff','Maintenance','Settings'];
 const EQUIPMENT_LIST = ['Slayer Espresso Machine','Grinders','Glycol Chiller','Refrigerators','Ice Machine','Fetco Batch Brewer','Cold Brew System','Keg Lines / Draft','Water Filtration','Dishwasher','POS Terminals','HVAC / Ventilation','Plumbing / Sinks','Hood / Exhaust'];
 const FREQ_DAYS = {Monthly:30, Quarterly:90, Annually:365};
@@ -5846,7 +5846,7 @@ async function syncStaffAccess() {
             alog(`☑️ <b>${name}</b> <span style="color:var(--muted);font-size:11px">(${email})</span> — already has access`);
             already++;
           } else if (msg.includes('does not exist') || msg.includes('resource') || msg.includes('404')) {
-            alog(`⚠️ <b>${name}</b> <span style="color:var(--muted);font-size:11px">(${email})</span> — no Azure AD account found. Create one at <a href="https://portal.azure.com/#view/Microsoft_AAD_UsersAndTenants/UserManagementMenuBlade" target="_blank" style="color:var(--gold)">Azure Portal → Users</a>`);
+            alog(`⚠️ <b>${name}</b> <span style="color:var(--muted);font-size:11px">(${email})</span> — not found in Microsoft 365. Either update their Email in BSC Staff to their personal email (Gmail etc.), or add them as a Microsoft 365 user at <a href="https://admin.microsoft.com" target="_blank" style="color:var(--gold)">admin.microsoft.com</a>`);
             failed++;
           } else {
             alog(`❌ <b>${name}</b> <span style="color:var(--muted);font-size:11px">(${email})</span> — ${e.message}`);
