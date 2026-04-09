@@ -1438,7 +1438,10 @@ const CFG = {
   internalDomain: 'bluesparrowcoffee.com'  // verified AAD domain — use direct grant, not B2B invite
 };
 
-const SCOPES = ['Sites.ReadWrite.All','Sites.FullControl.All','Files.ReadWrite','User.Read','User.ReadBasicProfile','User.Invite.All','User.Read.All'];
+// Base scopes — requested on every login, every token call
+const SCOPES = ['Sites.ReadWrite.All','Files.ReadWrite','User.Read'];
+// Admin-only scopes — only requested when owner runs staff access sync
+const ADMIN_SCOPES = [...SCOPES, 'Sites.FullControl.All','User.Invite.All','User.Read.All'];
 const MODULES = ['Dashboard','Inventory','Transfers','Ordering','Checklists','Vendors','Recipes','Staff','Maintenance','Settings'];
 const EQUIPMENT_LIST = ['Slayer Espresso Machine','Grinders','Glycol Chiller','Refrigerators','Ice Machine','Fetco Batch Brewer','Cold Brew System','Keg Lines / Draft','Water Filtration','Dishwasher','POS Terminals','HVAC / Ventilation','Plumbing / Sinks','Hood / Exhaust'];
 const FREQ_DAYS = {Monthly:30, Quarterly:90, Annually:365};
@@ -1644,8 +1647,36 @@ async function getToken() {
   }
 }
 
+async function getAdminToken() {
+  try {
+    const r = await msal.acquireTokenSilent({ scopes: ADMIN_SCOPES, account: currentUser });
+    return r.accessToken;
+  } catch(e) {
+    try {
+      const r = await msal.acquireTokenPopup({ scopes: ADMIN_SCOPES, account: currentUser });
+      return r.accessToken;
+    } catch(e2) {
+      await msal.acquireTokenRedirect({ scopes: ADMIN_SCOPES });
+    }
+  }
+}
+
 async function graph(method, path, body = null) {
   const token = await getToken();
+  const res = await fetch(`https://graph.microsoft.com/v1.0${path}`, {
+    method,
+    headers: { 'Authorization':'Bearer '+token, 'Content-Type':'application/json' },
+    body: body ? JSON.stringify(body) : null
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(()=>({}));
+    throw new Error(e?.error?.message || `Graph ${res.status}`);
+  }
+  return res.status === 204 ? null : res.json();
+}
+
+async function graphAdmin(method, path, body = null) {
+  const token = await getAdminToken();
   const res = await fetch(`https://graph.microsoft.com/v1.0${path}`, {
     method,
     headers: { 'Authorization':'Bearer '+token, 'Content-Type':'application/json' },
@@ -5841,9 +5872,9 @@ async function syncStaffAccess() {
         const name  = member.Title || member.Name || email;
         try {
           // Look up their Azure AD object ID by UPN
-          const user = await graph('GET', `/users/${encodeURIComponent(email)}?$select=id,displayName`);
+          const user = await graphAdmin('GET', `/users/${encodeURIComponent(email)}?$select=id,displayName`);
           // Grant SharePoint site write access using their AAD ID
-          await graph('POST', `/sites/${siteId}/permissions`, {
+          await graphAdmin('POST', `/sites/${siteId}/permissions`, {
             roles: ['write'],
             grantedToIdentitiesV2: [{ user: { id: user.id, email } }]
           });
@@ -5874,7 +5905,7 @@ async function syncStaffAccess() {
         const email = (member.Email || '').trim();
         const name  = member.Title || member.Name || email;
         try {
-          await graph('POST', '/invitations', {
+          await graphAdmin('POST', '/invitations', {
             invitedUserEmailAddress: email,
             invitedUserDisplayName: name,
             inviteRedirectUrl: window.location.origin + '/',
