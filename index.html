@@ -315,10 +315,9 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
   <div class="nav-item" onclick="nav('staff')"><span class="nav-icon">👥</span> Staff</div>
   <div class="nav-item" onclick="nav('maint-schedule')"><span class="nav-icon">🔧</span> Maintenance <span class="nav-badge" id="badge-maint" style="display:none">!</span></div>
   <div class="nav-item" onclick="nav('maint-contacts')"><span class="nav-icon">📋</span> Contacts</div>
+  <div class="nav-item" onclick="nav('menu')"><span class="nav-icon">☕</span> Menu</div>
   <div class="nav-section">Admin</div>
-      <div class="nav-item" onclick="nav('square')">
-        <span class="nav-icon">◼</span> Square
-      </div>
+  <div class="nav-item" onclick="nav('square')"><span class="nav-icon">◼</span> Square</div>
   <div class="nav-item" onclick="nav('settings')"><span class="nav-icon">⚙️</span> Settings</div>
 </div>
 
@@ -891,6 +890,42 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
     <div class="no-data" id="maint-empty" style="display:none">No contacts yet — add one above.</div>
   </div>
 
+  <!-- MENU -->
+  <div class="page" id="page-menu">
+    <div class="page-header">
+      <div class="page-title">☕ Menu</div>
+      <div class="page-sub">Square catalog — items, categories, pricing, and stock counts by location</div>
+    </div>
+    <div class="toolbar">
+      <div class="search-wrap">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input class="search-input" placeholder="Search menu items…" oninput="filterMenu(this.value)" id="menu-search">
+      </div>
+      <select class="filter" id="menu-cat-filter" onchange="filterMenu(document.getElementById('menu-search').value)">
+        <option value="">All Categories</option>
+      </select>
+      <span id="menu-count" style="font-size:13px;color:var(--muted);"></span>
+    </div>
+    <div class="table-wrap">
+      <table id="menu-table">
+        <thead><tr>
+          <th>Item</th>
+          <th>Category</th>
+          <th>Description</th>
+          <th>Price</th>
+          <th>Variations</th>
+          <th id="menu-stock-hdr">Stock</th>
+        </tr></thead>
+        <tbody id="menu-body"></tbody>
+      </table>
+    </div>
+    <div id="menu-empty" style="display:none;text-align:center;padding:48px;color:var(--muted)">
+      <div style="font-size:32px;margin-bottom:8px">☕</div>
+      <div style="font-weight:600;margin-bottom:4px">No menu items yet</div>
+      <div style="font-size:13px">Go to Square → Sync Catalog → Menu to import your Square catalog.</div>
+    </div>
+  </div>
+
   <!-- SQUARE -->
   <div class="page" id="page-square">
     <div class="page-header">
@@ -928,18 +963,18 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
       <!-- Catalog -->
       <div class="card">
         <div class="card-title">☕ Catalog / Menu Items</div>
-        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Pull your Square catalog — items, categories, and pricing — into BSC Inventory as the item master.</p>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Pull your Square catalog — items, categories, and pricing — into the BSC Menu page.</p>
         <div id="sq-catalog-last" style="font-size:11px;color:var(--muted);margin-bottom:12px;"></div>
-        <button class="btn btn-primary" onclick="syncSquareCatalog()" id="sq-btn-catalog">Sync Catalog → Inventory</button>
+        <button class="btn btn-primary" onclick="syncSquareCatalog()" id="sq-btn-catalog">Sync Catalog → Menu</button>
         <div id="sq-log-catalog" style="margin-top:12px;font-size:12px;line-height:1.8;color:#444;background:#f9f9f9;border-radius:8px;padding:10px 14px;display:none;max-height:160px;overflow-y:auto;"></div>
       </div>
 
       <!-- Inventory Counts -->
       <div class="card">
         <div class="card-title">📦 Inventory Counts</div>
-        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Pull current inventory counts from Square and add them as a weekly count record for each location.</p>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Pull current menu item stock counts from Square into per-location Menu Counts lists.</p>
         <div id="sq-inv-last" style="font-size:11px;color:var(--muted);margin-bottom:12px;"></div>
-        <button class="btn btn-primary" onclick="syncSquareInventory()" id="sq-btn-inv">Sync Inventory Counts</button>
+        <button class="btn btn-primary" onclick="syncSquareInventory()" id="sq-btn-inv">Sync Menu Counts</button>
         <div id="sq-log-inv" style="margin-top:12px;font-size:12px;line-height:1.8;color:#444;background:#f9f9f9;border-radius:8px;padding:10px 14px;display:none;max-height:160px;overflow-y:auto;"></div>
       </div>
 
@@ -1229,10 +1264,16 @@ function countsListName(loc) {
   if (!l || l === 'all') return null;
   return 'BSC_' + l.replace(/[\s\/\\]/g, '_') + '_InventoryCounts';
 }
+function menuCountsListName(loc) {
+  const l = loc || currentLocation;
+  if (!l || l === 'all') return null;
+  return 'BSC_' + l.replace(/[\s\/\\]/g, '_') + '_MenuCounts';
+}
 
 const LISTS = {
   inventory:    'BSC_Inventory',    // shared item master (all locations)
   counts:       'BSC_InventoryCounts', // legacy fallback only
+  menu:         'BSC_Menu',         // Square catalog — menu items & pricing
   transfers:    'BSC_Transfers',
   orders:       'BSC_Orders',
   checklists:   'BSC_Checklists',
@@ -1267,7 +1308,8 @@ const cache = {
   inventory: [], transfers: [], orders: [],
   checklists: [], vendors: [], roles: [], recipes: [],
   maintContacts: [], staff: [], maintSchedule: [], maintLog: [],
-  clProgress: {}, countHistory: [], settingsItems: []
+  clProgress: {}, countHistory: [], settingsItems: [],
+  menu: [], menuCounts: []
 };
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1455,8 +1497,8 @@ async function loadAllData() {
   cache.recipes=recipes; cache.maintContacts=contacts;
   cache.staff=staff; cache.maintSchedule=sched; cache.maintLog=log;
   cache.settingsItems=appSettings;
-  // Load location-specific inventory (per-location lists)
-  await loadInventoryData(siteId);
+  // Load location-specific inventory and menu data
+  await Promise.all([loadInventoryData(siteId), loadMenuData(siteId)]);
   renderAll();
   applyLocationAccess();
 }
@@ -3456,6 +3498,7 @@ function nav(page) {
   if (page==='maint-schedule') renderMaintSchedule();
   if (page==='settings') { renderRoles(); renderLocations(); renderSlackSettings(); renderSquareSettings(); }
   if (page==='square')   { renderSquarePage(); }
+  if (page==='menu')     { renderMenu(); }
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -3701,6 +3744,80 @@ if ('serviceWorker' in navigator) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// MENU (Square Catalog)
+// ════════════════════════════════════════════════════════════════════════════
+
+async function loadMenuData(siteId) {
+  siteId = siteId || await getSiteId();
+  const locs = getLocations();
+  try { cache.menu = await getListItems(siteId, LISTS.menu); } catch { cache.menu = []; }
+  // Load per-location menu counts
+  if (currentLocation === 'all') {
+    const arrays = await Promise.all(
+      locs.map(l => getCountHistoryForList(siteId, menuCountsListName(l)).catch(() => []))
+    );
+    cache.menuCounts = arrays.flat();
+  } else {
+    const cn = menuCountsListName(currentLocation);
+    cache.menuCounts = cn ? await getCountHistoryForList(siteId, cn).catch(() => []) : [];
+  }
+}
+
+function renderMenu(query='', catFilter='') {
+  const tbody = document.getElementById('menu-body');
+  const empty = document.getElementById('menu-empty');
+  if (!tbody) return;
+
+  // Build latest counts map: itemName → qty for current location
+  const countsMap = {};
+  const filteredCounts = currentLocation === 'all'
+    ? cache.menuCounts
+    : cache.menuCounts.filter(r => r.Location === currentLocation);
+  [...filteredCounts].sort((a,b)=>(a.WeekOf||'')>(b.WeekOf||'')?1:-1).forEach(r => {
+    const name = (r.Title||'').trim();
+    if (name) countsMap[name] = r.Quantity ?? r.TotalCount ?? 0;
+  });
+
+  let items = cache.menu;
+  if (query) items = items.filter(i =>
+    (i.ItemName||'').toLowerCase().includes(query.toLowerCase()) ||
+    (i.Category||'').toLowerCase().includes(query.toLowerCase()) ||
+    (i.Description||'').toLowerCase().includes(query.toLowerCase())
+  );
+  if (catFilter) items = items.filter(i => i.Category === catFilter);
+
+  // Populate category filter
+  const cats = [...new Set(cache.menu.map(i=>i.Category).filter(Boolean))].sort();
+  const sel = document.getElementById('menu-cat-filter');
+  if (sel) {
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">All Categories</option>' +
+      cats.map(c=>`<option${c===cur?' selected':''}>${c}</option>`).join('');
+  }
+
+  document.getElementById('menu-count').textContent = `${items.length} items`;
+  empty.style.display = items.length ? 'none' : 'block';
+
+  tbody.innerHTML = items.map(i => {
+    const stock = countsMap[i.ItemName||''];
+    const stockDisplay = stock != null ? stock : '—';
+    const vars = (i.Variations||'').split('\n').filter(Boolean);
+    return `<tr>
+      <td style="font-weight:600">${i.ItemName||'—'}</td>
+      <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${i.Category||'—'}</span></td>
+      <td style="font-size:12px;color:var(--muted);max-width:220px">${i.Description||''}</td>
+      <td>${i.Price != null ? '$'+Number(i.Price).toFixed(2) : '—'}</td>
+      <td style="font-size:11px;color:var(--muted)">${vars.slice(0,3).join('<br>')}${vars.length>3?`<br>+${vars.length-3} more`:''}</td>
+      <td style="font-weight:600;color:${stock!=null&&stock<5?'var(--red)':stock!=null&&stock<10?'var(--orange)':'var(--text)'}">${stockDisplay}</td>
+    </tr>`;
+  }).join('');
+}
+
+function filterMenu(query) {
+  renderMenu(query, document.getElementById('menu-cat-filter')?.value || '');
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // SQUARE INTEGRATION
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -3904,7 +4021,6 @@ async function syncSquareCatalog() {
       cursor = data.cursor || null;
     } while (cursor);
 
-    // Separate items and categories
     const categories = {};
     objects.filter(o=>o.type==='CATEGORY').forEach(c => {
       categories[c.id] = c.category_data?.name || 'Uncategorized';
@@ -3913,53 +4029,64 @@ async function syncSquareCatalog() {
     sqLog(logId, `Found ${items.length} items across ${Object.keys(categories).length} categories`);
 
     const siteId = await getSiteId();
-    const existing = await getListItems(siteId, LISTS.inventory);
+    // Ensure BSC_Menu list exists
+    await ensureList(LISTS.menu, [
+      {name:'ItemName',text:{}},{name:'Category',text:{}},{name:'Description',text:{allowMultipleLines:true}},
+      {name:'Price',number:{decimalPlaces:2}},{name:'Variations',text:{allowMultipleLines:true}},
+      {name:'SquareId',text:{}}
+    ]);
+    const existing = await getListItems(siteId, LISTS.menu);
     const existMap = {};
-    existing.forEach(i => { if (i.ItemName) existMap[i.ItemName.trim().toLowerCase()] = i; });
+    existing.forEach(i => { if (i.SquareId) existMap[i.SquareId] = i; });
 
     let created = 0, updated = 0;
     for (const item of items) {
       const d = item.item_data || {};
       const name = d.name || item.id;
       const cat  = d.category_id ? (categories[d.category_id] || 'Uncategorized') : 'Uncategorized';
-      // Use first variation price as cost reference
-      const variation = (d.variations || [])[0]?.item_variation_data;
-      const priceMoney = variation?.price_money;
-      const priceAmt   = priceMoney ? priceMoney.amount / 100 : null;
-      const unit = variation?.measurement_unit_id || '';
+      const desc = d.description || '';
+      // Build variations summary with prices
+      const vars = (d.variations || []).map(v => {
+        const vd = v.item_variation_data || {};
+        const price = vd.price_money ? '$'+(vd.price_money.amount/100).toFixed(2) : 'market';
+        return `${vd.name||'Regular'}: ${price}`;
+      });
+      const firstPrice = (d.variations||[])[0]?.item_variation_data?.price_money;
+      const priceAmt = firstPrice ? firstPrice.amount / 100 : null;
 
       const fields = {
         Title: name, ItemName: name, Category: cat,
-        ...(priceAmt != null ? { CostPerCase: priceAmt } : {}),
-        ...(unit ? { Unit: unit } : {})
+        Description: desc,
+        Variations: vars.join('\n'),
+        SquareId: item.id,
+        ...(priceAmt != null ? { Price: priceAmt } : {})
       };
 
-      const key = name.trim().toLowerCase();
-      if (existMap[key]) {
-        await updateListItem(LISTS.inventory, existMap[key].id, fields);
+      if (existMap[item.id]) {
+        await updateListItem(LISTS.menu, existMap[item.id].id, fields);
         updated++;
         sqLog(logId, `  ↻ ${name}`);
       } else {
-        await addListItem(LISTS.inventory, fields);
+        await addListItem(LISTS.menu, fields);
         created++;
         sqLog(logId, `  + ${name} (${cat})`);
       }
     }
 
-    // Reload inventory cache
+    // Reload menu cache
     const sId = await getSiteId();
-    cache.inventory = await getListItems(sId, LISTS.inventory).catch(()=>[]);
-    renderInventory();
+    cache.menu = await getListItems(sId, LISTS.menu).catch(()=>[]);
+    renderMenu();
 
     sqLog(logId, `<br>✅ Done — ${created} added, ${updated} updated`);
     localStorage.setItem('sq_last_catalog', new Date().toISOString());
     document.getElementById('sq-catalog-last').textContent = `Last synced: ${new Date().toLocaleString()}`;
-    toast('ok', `✓ Catalog sync — ${created} added, ${updated} updated`);
+    toast('ok', `✓ Catalog synced to Menu — ${created} added, ${updated} updated`);
   } catch(e) {
     sqLog(logId, `❌ Error: ${e.message}`);
     toast('err', 'Catalog sync failed: ' + e.message);
   }
-  btn.disabled = false; btn.textContent = 'Sync Catalog → Inventory';
+  btn.disabled = false; btn.textContent = 'Sync Catalog → Menu';
 }
 
 // ── Sync inventory counts ─────────────────────────────────────────────────
@@ -4037,17 +4164,22 @@ async function syncSquareInventory() {
     const by = currentUser?.name || currentUser?.username || 'Square Sync';
     let totalRecords = 0;
 
+    const siteId = await getSiteId();
     for (const [bscLoc, itemCounts] of Object.entries(byLoc)) {
-      const cntList = countsListName(bscLoc);
+      const cntList = menuCountsListName(bscLoc);
       if (!cntList) continue;
+      // Ensure the MenuCounts list exists for this location
+      await ensureList(cntList, [
+        {name:'WeekOf',dateTime:{displayAs:'default',format:'dateOnly'}},
+        {name:'Quantity',number:{decimalPlaces:2}},
+        {name:'Location',text:{}},{name:'CountedBy',text:{}}
+      ]);
       sqLog(logId, `Saving counts for <b>${bscLoc}</b> (${Object.keys(itemCounts).length} items)…`);
       for (const [itemName, qty] of Object.entries(itemCounts)) {
         await addListItem(cntList, {
           Title: itemName,
           WeekOf: weekOf + 'T00:00:00Z',
-          TotalCount: qty,
-          StoreCount: qty,
-          StorageCount: 0,
+          Quantity: qty,
           Location: bscLoc,
           CountedBy: by
         });
@@ -4055,21 +4187,19 @@ async function syncSquareInventory() {
       }
     }
 
-    // Reload count history
-    const sId = await getSiteId();
-    await loadInventoryData(sId);
-    renderInventory();
-    renderDashboard();
+    // Reload menu counts
+    await loadMenuData(siteId);
+    renderMenu();
 
     sqLog(logId, `<br>✅ Done — ${totalRecords} count records saved across ${Object.keys(byLoc).length} location(s)`);
     localStorage.setItem('sq_last_inv', new Date().toISOString());
     document.getElementById('sq-inv-last').textContent = `Last synced: ${new Date().toLocaleString()}`;
-    toast('ok', `✓ Inventory sync — ${totalRecords} records`);
+    toast('ok', `✓ Menu counts synced — ${totalRecords} records`);
   } catch(e) {
     sqLog(logId, `❌ Error: ${e.message}`);
-    toast('err', 'Inventory sync failed: ' + e.message);
+    toast('err', 'Menu counts sync failed: ' + e.message);
   }
-  btn.disabled = false; btn.textContent = 'Sync Inventory Counts';
+  btn.disabled = false; btn.textContent = 'Sync Menu Counts';
 }
 
 // ════════════════════════════════════════════════════════════════════════════
