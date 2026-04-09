@@ -1,0 +1,15 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "BSC Operations Hub",
+      "runtimeExecutable": "/usr/local/bin/node",
+      "runtimeArgs": [
+        "-e",
+        "const h=require('http'),fs=require('fs'),path=require('path'),port=process.env.PORT||3000,root='/Users/jeffreyknott/Desktop/BSC x Claude 1.0/bsc-ops';const m={'html':'text/html','js':'application/javascript','json':'application/json','css':'text/css','png':'image/png','ico':'image/x-icon'};h.createServer((req,res)=>{let f=path.join(root,req.url==='/'?'/index.html':req.url);if(!fs.existsSync(f))f=path.join(root,'index.html');const ext=path.extname(f).slice(1);res.setHeader('Content-Type',m[ext]||'text/plain');fs.createReadStream(f).pipe(res);}).listen(port,()=>console.log('Listening on '+port));"
+      ],
+      "port": 3000,
+      "autoPort": true
+    }
+  ]
+}
