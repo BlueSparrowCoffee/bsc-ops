@@ -1215,8 +1215,14 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
       </div>
       <div class="card" style="grid-column:1/-1">
         <div class="card-title" style="margin-bottom:4px">🔑 Microsoft Staff Access</div>
-        <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Sends a Microsoft invitation to every active staff member. They click the link in the email and sign in with their existing Google, Apple, or Microsoft account — no new account needed. Run whenever you add someone new.</p>
-        <button class="btn btn-primary" onclick="syncStaffAccess()" id="sync-access-btn">🔄 Sync Staff Access</button>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">
+          <b>Sync Access</b> — silently grants SharePoint site access to all active staff. No emails sent.<br>
+          <b>Send Invitations</b> — emails the Microsoft sign-in invitation to external staff (Gmail, iCloud, etc.) so they can log in. Run after adding someone new or if they need the link resent.
+        </p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="syncStaffAccess()" id="sync-access-btn">🔄 Sync Access</button>
+          <button class="btn" onclick="sendStaffInvitations()" id="send-invites-btn" style="background:var(--gold);color:#fff;border:none">📨 Send Invitations</button>
+        </div>
         <div id="sync-access-log" style="margin-top:14px;font-size:12px;line-height:2;color:#444;background:#f9f9f9;border-radius:8px;padding:12px 14px;display:none;max-height:220px;overflow-y:auto;"></div>
       </div>
     </div>
@@ -1657,6 +1663,22 @@ async function getAdminToken() {
       return r.accessToken;
     } catch(e2) {
       await msal.acquireTokenRedirect({ scopes: ADMIN_SCOPES });
+    }
+  }
+}
+
+// SharePoint REST API token — separate resource from Graph, needed to manage site membership
+async function getSharePointToken() {
+  const spScopes = ['https://mainspringdevelopers.sharepoint.com/AllSites.FullControl'];
+  try {
+    const r = await msal.acquireTokenSilent({ scopes: spScopes, account: currentUser });
+    return r.accessToken;
+  } catch(e) {
+    try {
+      const r = await msal.acquireTokenPopup({ scopes: spScopes, account: currentUser });
+      return r.accessToken;
+    } catch(e2) {
+      throw new Error('Could not get SharePoint token: ' + e2.message);
     }
   }
 }
@@ -5864,31 +5886,51 @@ async function syncStaffAccess() {
     let granted = 0, invited = 0, already = 0, failed = 0;
 
     // ── Internal users (@bluesparrowcoffee.com) ──────────────────────────────
-    // Can't be B2B invited. Look them up by UPN and grant SharePoint access directly.
+    // Graph's POST /sites/{id}/permissions only works for apps, not users.
+    // Use SharePoint REST API to add them to the site's Members group instead.
     if (internal.length) {
       alog(`<br><b>Internal accounts (@${CFG.internalDomain}):</b>`);
-      for (const member of internal) {
-        const email = (member.Email || '').trim();
-        const name  = member.Title || member.Name || email;
-        try {
-          // Look up their Azure AD object ID by UPN
-          const user = await graphAdmin('GET', `/users/${encodeURIComponent(email)}?$select=id,displayName`);
-          // Grant SharePoint site write access using their AAD ID
-          await graphAdmin('POST', `/sites/${siteId}/permissions`, {
-            roles: ['write'],
-            grantedToIdentitiesV2: [{ user: { id: user.id, email } }]
-          });
-          alog(`✅ <b>${name}</b> <span style="color:var(--muted);font-size:11px">(${email})</span> — SharePoint access granted`);
-          granted++;
-        } catch(e) {
-          const msg = (e.message || '').toLowerCase();
-          if (msg.includes('already') || msg.includes('duplicate') || msg.includes('conflict')) {
-            alog(`☑️ <b>${name}</b> <span style="color:var(--muted);font-size:11px">(${email})</span> — already has access`);
-            already++;
-          } else if (msg.includes('does not exist') || msg.includes('resource') || msg.includes('404')) {
-            alog(`⚠️ <b>${name}</b> <span style="color:var(--muted);font-size:11px">(${email})</span> — not found in Microsoft 365. Either update their Email in BSC Staff to their personal email (Gmail etc.), or add them as a Microsoft 365 user at <a href="https://admin.microsoft.com" target="_blank" style="color:var(--gold)">admin.microsoft.com</a>`);
-            failed++;
-          } else {
+      let spToken;
+      try {
+        spToken = await getSharePointToken();
+      } catch(e) {
+        alog(`❌ Could not get SharePoint token: ${e.message}<br><span style="color:var(--muted);font-size:11px">Make sure <b>SharePoint &gt; AllSites.FullControl</b> is added as a delegated permission in Azure AD and admin consent has been granted.</span>`);
+        failed += internal.length;
+      }
+      if (spToken) {
+        const spSiteUrl = 'https://mainspringdevelopers.sharepoint.com/sites/BlueSparrowCoffeeOps';
+        for (const member of internal) {
+          const email = (member.Email || '').trim();
+          const name  = member.Title || member.Name || email;
+          try {
+            const res = await fetch(`${spSiteUrl}/_api/web/associatedmembergroup/users`, {
+              method: 'POST',
+              headers: {
+                'Authorization': 'Bearer ' + spToken,
+                'Content-Type': 'application/json;odata=verbose',
+                'Accept': 'application/json;odata=nometadata'
+              },
+              body: JSON.stringify({
+                '__metadata': { 'type': 'SP.User' },
+                'LoginName': `i:0#.f|membership|${email}`
+              })
+            });
+            if (res.ok || res.status === 204) {
+              alog(`✅ <b>${name}</b> <span style="color:var(--muted);font-size:11px">(${email})</span> — SharePoint access granted`);
+              granted++;
+            } else {
+              const text = await res.text().catch(() => '');
+              let errMsg = `SP ${res.status}`;
+              try { errMsg = JSON.parse(text)?.error?.message?.value || errMsg; } catch {}
+              if (errMsg.toLowerCase().includes('already') || errMsg.toLowerCase().includes('user already')) {
+                alog(`☑️ <b>${name}</b> <span style="color:var(--muted);font-size:11px">(${email})</span> — already has access`);
+                already++;
+              } else {
+                alog(`❌ <b>${name}</b> <span style="color:var(--muted);font-size:11px">(${email})</span> — ${errMsg}`);
+                failed++;
+              }
+            }
+          } catch(e) {
             alog(`❌ <b>${name}</b> <span style="color:var(--muted);font-size:11px">(${email})</span> — ${e.message}`);
             failed++;
           }
@@ -5897,10 +5939,10 @@ async function syncStaffAccess() {
     }
 
     // ── External users (Gmail, iCloud, etc.) ─────────────────────────────────
-    // Send B2B guest invitation — they sign in with their existing account.
+    // B2B guest invite — silent (no email). Use "Send Invitations" button to email them.
     if (external.length) {
-      alog(`<br><b>External accounts (B2B invitations):</b>`);
-      alog(`<span style="color:var(--muted);font-size:11px">Each person gets an email — they click Accept and sign in with their Google/Apple/etc. account.</span>`);
+      alog(`<br><b>External accounts (B2B access grant — no email):</b>`);
+      alog(`<span style="color:var(--muted);font-size:11px">Accounts are created silently. Use <b>Send Invitations</b> to email them the sign-in link.</span>`);
       for (const member of external) {
         const email = (member.Email || '').trim();
         const name  = member.Title || member.Name || email;
@@ -5909,13 +5951,10 @@ async function syncStaffAccess() {
             invitedUserEmailAddress: email,
             invitedUserDisplayName: name,
             inviteRedirectUrl: window.location.origin + '/',
-            sendInvitationMessage: true,
-            invitedUserMessageInfo: {
-              customizedMessageBody: `Hi ${name.split(' ')[0]},\n\nYou've been invited to access the Blue Sparrow Coffee Operations platform.\n\nClick Accept below — you can sign in with your existing email account (Google, Apple, etc.), no new password needed.`
-            }
+            sendInvitationMessage: false
           });
-          alog(`✅ <b>${name}</b> <span style="color:var(--muted);font-size:11px">(${email})</span> — invitation sent`);
-          invited++;
+          alog(`✅ <b>${name}</b> <span style="color:var(--muted);font-size:11px">(${email})</span> — access granted`);
+          granted++;
         } catch(e) {
           const msg = (e.message || '').toLowerCase();
           if (msg.includes('already') || msg.includes('exists') || msg.includes('conflict')) {
@@ -5929,7 +5968,7 @@ async function syncStaffAccess() {
       }
     }
 
-    alog(`<br>✅ Done — ${granted} granted, ${invited} invited, ${already} already set up${failed ? `, <span style="color:var(--red)">${failed} need attention</span>` : ''}`);
+    alog(`<br>✅ Done — ${granted} granted, ${already} already set up${failed ? `, <span style="color:var(--red)">${failed} need attention</span>` : ''}`);
     toast('ok', `✓ Staff access sync complete`);
 
   } catch(e) {
@@ -5937,7 +5976,69 @@ async function syncStaffAccess() {
     toast('err', 'Sync failed: ' + e.message);
   } finally {
     btn.disabled = false;
-    btn.textContent = '🔄 Sync Staff Access';
+    btn.textContent = '🔄 Sync Access';
+  }
+}
+
+async function sendStaffInvitations() {
+  const btn = document.getElementById('send-invites-btn');
+  const log = document.getElementById('sync-access-log');
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+  log.style.display = 'block';
+  log.innerHTML = '';
+
+  function alog(msg) { log.innerHTML += msg + '<br>'; log.scrollTop = log.scrollHeight; }
+
+  try {
+    const siteId = await getSiteId();
+    const staff = await getListItems(siteId, LISTS.staff).catch(() => cache.staff);
+    const external = staff.filter(s => {
+      const email = (s.Email || '').trim();
+      const inactive = (s.Active || '').toLowerCase();
+      return email && inactive !== 'no' && inactive !== 'false'
+        && !email.toLowerCase().endsWith('@' + CFG.internalDomain);
+    });
+
+    if (!external.length) {
+      alog('⚠️ No active external staff found (invitations are only sent to non-@bluesparrowcoffee.com accounts).');
+      return;
+    }
+
+    alog(`Sending invitations to <b>${external.length}</b> external staff members…<br>`);
+    let sent = 0, failed = 0;
+
+    for (const member of external) {
+      const email = (member.Email || '').trim();
+      const name  = member.Title || member.Name || email;
+      const firstName = name.split(' ')[0];
+      try {
+        await graphAdmin('POST', '/invitations', {
+          invitedUserEmailAddress: email,
+          invitedUserDisplayName: name,
+          inviteRedirectUrl: window.location.origin + '/',
+          sendInvitationMessage: true,
+          invitedUserMessageInfo: {
+            customizedMessageBody: `Hi ${firstName},\n\nYou've been invited to access the Blue Sparrow Coffee Operations platform.\n\nClick Accept below — you can sign in with your existing email account (Google, Apple, etc.), no new password needed.`
+          }
+        });
+        alog(`✅ <b>${name}</b> <span style="color:var(--muted);font-size:11px">(${email})</span> — invitation sent`);
+        sent++;
+      } catch(e) {
+        alog(`❌ <b>${name}</b> <span style="color:var(--muted);font-size:11px">(${email})</span> — ${e.message}`);
+        failed++;
+      }
+    }
+
+    alog(`<br>✅ Done — ${sent} invitations sent${failed ? `, <span style="color:var(--red)">${failed} failed</span>` : ''}`);
+    toast('ok', `✓ ${sent} invitation${sent !== 1 ? 's' : ''} sent`);
+
+  } catch(e) {
+    alog('❌ Error: ' + e.message);
+    toast('err', 'Send invitations failed: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '📨 Send Invitations';
   }
 }
 
