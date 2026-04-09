@@ -293,7 +293,13 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
   </div>
   <div class="topbar-right">
     <span id="sync-label"></span>
-    <span class="topbar-user" id="user-label"></span>
+    <div id="user-info" style="display:flex;align-items:center;gap:8px;">
+      <div style="text-align:right;line-height:1.3;">
+        <div id="user-label" style="font-size:13px;font-weight:600;color:#fff;"></div>
+        <div id="user-role-label" style="font-size:11px;color:rgba(185,223,227,.7);"></div>
+      </div>
+      <div id="user-avatar" style="width:32px;height:32px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;flex-shrink:0;"></div>
+    </div>
     <button class="btn-signout" onclick="signOut()">Sign out</button>
   </div>
 </div>
@@ -324,6 +330,18 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
 
 <!-- CONTENT -->
 <div id="content">
+
+  <!-- Unlinked account banner (shown when login email isn't in BSC_Staff) -->
+  <div id="unlinked-banner" style="display:none;background:#fff8e1;border-bottom:2px solid #f59e0b;padding:10px 24px;display:none;align-items:center;gap:12px;font-size:13px;">
+    <span style="font-size:18px;">⚠️</span>
+    <div>
+      <strong>Your Microsoft account isn't linked to a staff record.</strong>
+      You can use the app, but your role and location permissions won't apply until a manager adds your email
+      (<span id="unlinked-email" style="font-family:monospace;font-weight:600;"></span>) to your staff record in <strong>Staff → Edit</strong>.
+    </div>
+    <button onclick="document.getElementById('unlinked-banner').style.display='none'"
+      style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:18px;color:var(--muted);flex-shrink:0;">×</button>
+  </div>
 
   <!-- DASHBOARD -->
   <div class="page active" id="page-dashboard">
@@ -681,7 +699,10 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
             <option value="">Select location…</option>
           </select>
         </div>
-        <div class="form-group"><label>Email</label><input id="sf-email" type="email" placeholder="e.g. danny@bluesparrow.com"></div>
+        <div class="form-group">
+          <label>Email <span style="font-size:11px;color:var(--muted);font-weight:400;">— must match their Microsoft login</span></label>
+          <input id="sf-email" type="email" placeholder="e.g. danny@bluesparrow.com">
+        </div>
         <div class="form-group"><label>Phone</label><input id="sf-phone" placeholder="e.g. (303) 555-0100"></div>
         <div class="form-group"><label>Active</label>
           <select id="sf-active" class="filter" style="width:100%;padding:8px 12px;">
@@ -1455,6 +1476,7 @@ const msal = new window.msal.PublicClientApplication({
 
 let currentUser = null;
 let currentLocation = 'all';
+let currentStaffMember = null; // resolved from BSC_Staff after login
 
 // in-memory cache
 const cache = {
@@ -1499,9 +1521,57 @@ async function signOut() {
 }
 
 function applyUser() {
-  document.getElementById('user-label').textContent =
-    (currentUser.name || currentUser.username).split(' ')[0];
+  // Show Microsoft display name immediately (staff record resolved later after data loads)
+  const displayName = currentUser.name || currentUser.username || '';
+  const firstName = displayName.split(' ')[0];
+  document.getElementById('user-label').textContent = firstName;
+  document.getElementById('user-avatar').textContent = firstName.charAt(0).toUpperCase();
   document.getElementById('auth-screen').classList.remove('show');
+}
+
+function resolveCurrentStaffMember() {
+  if (!currentUser || !cache.staff.length) return;
+  const email = (currentUser.username || currentUser.mail || '').toLowerCase();
+  currentStaffMember = cache.staff.find(s => (s.Email||'').toLowerCase() === email) || null;
+  updateTopbarStaffInfo();
+}
+
+function updateTopbarStaffInfo() {
+  const nameEl   = document.getElementById('user-label');
+  const roleEl   = document.getElementById('user-role-label');
+  const avatarEl = document.getElementById('user-avatar');
+
+  if (currentStaffMember) {
+    const name  = currentStaffMember.Title || currentUser?.name || currentUser?.username || '';
+    const first = name.split(' ')[0];
+    const role  = currentStaffMember.Role || '';
+    const loc   = currentStaffMember.LocationAccess === 'All' || !currentStaffMember.LocationAccess
+      ? 'All locations'
+      : currentStaffMember.LocationAccess;
+
+    if (nameEl) nameEl.textContent = first;
+    if (roleEl) roleEl.textContent = role ? `${role} · ${loc}` : loc;
+    if (avatarEl) {
+      avatarEl.textContent  = first.charAt(0).toUpperCase();
+      // Colour avatar by role
+      const r = role.toLowerCase();
+      avatarEl.style.background = r.includes('owner') ? '#b78b40'
+        : r.includes('manager') ? '#3b82f6'
+        : 'var(--teal)';
+    }
+  } else if (currentUser) {
+    // Logged in via Microsoft but no matching staff record
+    const displayName = currentUser.name || currentUser.username || '';
+    const first = displayName.split(' ')[0];
+    if (nameEl)   nameEl.textContent = first;
+    if (roleEl)   roleEl.innerHTML = `<span style="color:#f59e0b;">⚠ Not linked</span>`;
+    if (avatarEl) { avatarEl.textContent = '?'; avatarEl.style.background = '#9ca3af'; }
+    // Show the unlinked banner
+    const banner = document.getElementById('unlinked-banner');
+    const emailEl = document.getElementById('unlinked-email');
+    if (banner)  banner.style.display = 'flex';
+    if (emailEl) emailEl.textContent = currentUser.username || currentUser.mail || '';
+  }
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1701,6 +1771,7 @@ async function loadAllData() {
   ]);
   cache.cogsRecipes = cogsRecipes;
   cache.cogSnapshots = cogSnapshots;
+  resolveCurrentStaffMember(); // match login email → BSC_Staff record
   renderAll();
   applyLocationAccess();
 }
@@ -3631,6 +3702,23 @@ function openStaffForm(id) {
     <input type="checkbox" class="sf-access-loc" value="${l}" ${isAll?'disabled':''}${!isAll&&allowedSet.has(l)?'checked':''}> ${l}
   </label>`).join('');
   document.getElementById('staff-delete-btn').style.display = s?'inline-flex':'none';
+  // Show a hint if current user's email isn't set yet
+  const emailInput = document.getElementById('sf-email');
+  const myEmail = currentUser?.username || currentUser?.mail || '';
+  if (emailInput && !s?.Email && myEmail) {
+    emailInput.placeholder = `Your login: ${myEmail}`;
+  }
+  // If this record is the currently logged-in user, show a "This is you" note
+  const isCurrentUser = s && myEmail && (s.Email||'').toLowerCase() === myEmail.toLowerCase();
+  const existingNote = document.getElementById('sf-current-user-note');
+  if (existingNote) existingNote.remove();
+  if (isCurrentUser) {
+    const note = document.createElement('div');
+    note.id = 'sf-current-user-note';
+    note.style.cssText = 'font-size:12px;color:#16a34a;margin-top:4px;';
+    note.textContent = '✓ This is your account — linked to ' + myEmail;
+    emailInput?.parentElement?.appendChild(note);
+  }
   openModal('modal-staff');
   setTimeout(()=>document.getElementById('sf-name').focus(),100);
 }
@@ -3992,11 +4080,10 @@ function saveLocations(locs) {
 }
 function getAllowedLocations(locs) {
   locs = locs || getLocations();
-  if (!currentUser || !cache.staff.length) return locs;
-  const email = (currentUser.username || currentUser.mail || '').toLowerCase();
-  const member = cache.staff.find(s => (s.Email||'').toLowerCase() === email);
-  if (!member || !member.LocationAccess || member.LocationAccess.trim() === 'All') return locs;
-  const allowed = member.LocationAccess.split(',').map(l=>l.trim()).filter(Boolean);
+  if (!currentStaffMember) return locs; // unlinked → see everything
+  const access = currentStaffMember.LocationAccess || 'All';
+  if (!access || access.trim() === 'All') return locs;
+  const allowed = access.split(',').map(l=>l.trim()).filter(Boolean);
   return locs.filter(l => allowed.includes(l));
 }
 
@@ -4643,20 +4730,16 @@ async function saveSquareLocationMap() {
 // -- Helpers -----------------------------------------------------------------
 
 function isManagerOrOwner() {
-  if (!currentUser || !cache.staff.length) return true;
-  const email = (currentUser.username || currentUser.mail || '').toLowerCase();
-  const member = cache.staff.find(s => (s.Email||'').toLowerCase() === email);
-  if (!member) return true; // not found → allow by default
-  const role = (member.Role || '').toLowerCase();
+  if (!currentUser) return false;
+  if (!currentStaffMember) return true; // unlinked login → allow during setup
+  const role = (currentStaffMember.Role || '').toLowerCase();
   return role.includes('manager') || role.includes('owner') || role.includes('admin') || role === '';
 }
 
 function isOwner() {
-  if (!currentUser || !cache.staff.length) return true;
-  const email = (currentUser.username || currentUser.mail || '').toLowerCase();
-  const member = cache.staff.find(s => (s.Email||'').toLowerCase() === email);
-  if (!member) return true; // not found in staff list → allow by default
-  const role = (member.Role || '').toLowerCase();
+  if (!currentUser) return false;
+  if (!currentStaffMember) return true; // unlinked login → allow during setup
+  const role = (currentStaffMember.Role || '').toLowerCase();
   return role.includes('owner') || role.includes('admin');
 }
 
