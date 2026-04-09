@@ -1658,29 +1658,41 @@ async function getSiteId() {
   return CFG.siteId;
 }
 
+// Session-level cache of existing SP list name → id (populated once, avoids per-list GET 404s)
+let _spListCache = null;
+async function getSpListCache(siteId) {
+  if (_spListCache) return _spListCache;
+  const res = await graph('GET', `/sites/${siteId}/lists?$select=name,id&$top=500`);
+  _spListCache = {};
+  (res.value || []).forEach(l => { _spListCache[l.name] = l.id; });
+  return _spListCache;
+}
+
 async function ensureList(listName, columns) {
   const siteId = await getSiteId();
-  let listId;
-  try {
-    const r = await graph('GET',`/sites/${siteId}/lists/${listName}?$select=id`);
-    listId = r.id;
-  } catch {
-    const r = await graph('POST',`/sites/${siteId}/lists`, {
+  const listCache = await getSpListCache(siteId);
+  let listId = listCache[listName];
+
+  if (!listId) {
+    // List doesn't exist — create it (no 404 since we checked the cache)
+    const r = await graph('POST', `/sites/${siteId}/lists`, {
       displayName: listName, list: { template: 'genericList' }
     });
     listId = r.id;
+    listCache[listName] = listId; // update session cache
   }
-  // Add any missing columns one-by-one (the reliable approach)
+
+  // Add any missing columns one-by-one
   if (columns && columns.length) {
-    const existing = await graph('GET',`/sites/${siteId}/lists/${listId}/columns?$select=name`);
-    const existNames = new Set((existing.value||[]).map(c=>c.name));
+    const existing = await graph('GET', `/sites/${siteId}/lists/${listId}/columns?$select=name`);
+    const existNames = new Set((existing.value || []).map(c => c.name));
     for (const col of columns) {
       if (existNames.has(col.name)) continue;
-      const colDef = {name:col.name, enforceUniqueValues:false, hidden:false, indexed:false};
+      const colDef = { name: col.name, enforceUniqueValues: false, hidden: false, indexed: false };
       if (col.text)     colDef.text     = col.text;
       if (col.dateTime) colDef.dateTime = col.dateTime;
       if (col.number)   colDef.number   = col.number;
-      await graph('POST',`/sites/${siteId}/lists/${listId}/columns`, colDef);
+      await graph('POST', `/sites/${siteId}/lists/${listId}/columns`, colDef);
     }
   }
   return listId;
@@ -1862,6 +1874,8 @@ async function getListItems(siteId, listName) {
 
 async function getCountHistoryForList(siteId, listName) {
   if (!listName) return [];
+  // Skip fetch entirely if list isn't in the cache — avoids 404 console noise
+  if (_spListCache && !_spListCache[listName]) return [];
   try {
     const token = await getToken();
     const res = await fetch(
