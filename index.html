@@ -4032,7 +4032,7 @@ async function syncSquareCatalog() {
     // Ensure BSC_Menu list exists
     await ensureList(LISTS.menu, [
       {name:'ItemName',text:{}},{name:'Category',text:{}},{name:'Description',text:{allowMultipleLines:true}},
-      {name:'Price',number:{decimalPlaces:2}},{name:'Variations',text:{allowMultipleLines:true}},
+      {name:'Price',number:{decimalPlaces:'automatic'}},{name:'Variations',text:{allowMultipleLines:true}},
       {name:'SquareId',text:{}}
     ]);
     const existing = await getListItems(siteId, LISTS.menu);
@@ -4170,7 +4170,7 @@ async function syncSquareInventory() {
       // Ensure the MenuCounts list exists for this location
       await ensureList(cntList, [
         {name:'WeekOf',dateTime:{displayAs:'default',format:'dateOnly'}},
-        {name:'Quantity',number:{decimalPlaces:2}},
+        {name:'Quantity',number:{decimalPlaces:'automatic'}},
         {name:'Location',text:{}},{name:'CountedBy',text:{}}
       ]);
       sqLog(logId, `Saving counts for <b>${bscLoc}</b> (${Object.keys(itemCounts).length} items)…`);
