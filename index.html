@@ -388,6 +388,9 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
           <option value="low">Low / Out</option>
           <option value="ok">In Stock</option>
         </select>
+        <select class="filter" id="inv-supplier-filter" onchange="filterInventory(document.querySelector('#inv-tab-items .search-input').value)">
+          <option value="">All Suppliers</option>
+        </select>
         <span id="inv-count" style="font-size:13px;color:var(--muted);"></span>
         <button class="btn btn-primary ml-auto" onclick="openModal('modal-add-item')">+ Add Item</button>
       </div>
@@ -405,6 +408,7 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
             <th onclick="sortInvBy('CostPerCase')">Cost/Case</th>
             <th onclick="sortInvBy('CostPerServing')">Cost/Serving</th>
             <th onclick="sortInvBy('ServingsPerUnit')">Servings/Unit</th>
+            <th style="width:72px"></th>
           </tr></thead>
           <tbody id="inv-body"></tbody>
         </table>
@@ -417,7 +421,7 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
       <div class="count-header-bar">
         <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
           <div>
-            <label class="field-label">Week of</label>
+            <label class="field-label">Date</label>
             <input type="date" id="count-week-date" class="field-input" style="width:160px">
           </div>
           <div>
@@ -906,6 +910,10 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
         <option value="">All Categories</option>
       </select>
       <span id="menu-count" style="font-size:13px;color:var(--muted);"></span>
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer;margin-left:auto;">
+        <input type="checkbox" id="menu-show-hidden" onchange="filterMenu(document.getElementById('menu-search').value)">
+        Show hidden
+      </label>
     </div>
     <div class="table-wrap">
       <table id="menu-table">
@@ -916,6 +924,7 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
           <th>Price</th>
           <th>Variations</th>
           <th id="menu-stock-hdr">Stock</th>
+          <th style="width:60px"></th>
         </tr></thead>
         <tbody id="menu-body"></tbody>
       </table>
@@ -1066,7 +1075,12 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
       <div class="page-title">⚙️ Settings</div>
       <div class="page-sub">Manage roles, permissions and app preferences</div>
     </div>
-    <div class="cards-grid">
+    <div id="settings-access-denied" style="display:none;text-align:center;padding:60px;color:var(--muted)">
+      <div style="font-size:36px;margin-bottom:12px">🔒</div>
+      <div style="font-weight:600;font-size:15px;margin-bottom:6px">Owner Access Required</div>
+      <div style="font-size:13px">Settings are only accessible to the Owner.</div>
+    </div>
+    <div id="settings-body" class="cards-grid">
       <div class="card" style="grid-column:span 2;">
         <div class="card-title">👥 Roles &amp; Permissions</div>
         <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Click a role to edit its name and module access</p>
@@ -1163,7 +1177,8 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
         </div>
       </div>
     </div>
-  </div>
+  </div><!-- /settings-body -->
+  </div><!-- /page-settings -->
 
 </div><!-- /content -->
 </div><!-- /app -->
@@ -1807,13 +1822,14 @@ function sortInvBy(col) {
   );
 }
 
-function renderInventoryItems(query='', catFilter='', statusFilter='') {
+function renderInventoryItems(query='', catFilter='', statusFilter='', supplierFilter='') {
   const countsMap = getLatestCountsMap(currentLocation);
   let items = cache.inventory; // Shared list — show all items regardless of location
   if (query) items = items.filter(i=>(i.ItemName||'').toLowerCase().includes(query.toLowerCase())||
     (i.Category||'').toLowerCase().includes(query.toLowerCase())||
     (i.Supplier||'').toLowerCase().includes(query.toLowerCase()));
-  if (catFilter) items = items.filter(i=>i.Category===catFilter);
+  if (catFilter)      items = items.filter(i=>i.Category===catFilter);
+  if (supplierFilter) items = items.filter(i=>(i.Supplier||'')===supplierFilter);
   if (statusFilter==='low') items = items.filter(i=>(countsMap[i.ItemName||'']?.total??0)<=(i.ParLevel||0));
   if (statusFilter==='ok')  items = items.filter(i=>(countsMap[i.ItemName||'']?.total??0)>(i.ParLevel||0));
 
@@ -1852,6 +1868,12 @@ function renderInventoryItems(query='', catFilter='', statusFilter='') {
       <td>${costCase}</td>
       <td style="font-size:12px">${costServing}</td>
       <td style="font-size:12px;color:var(--muted)">${servings}</td>
+      <td style="white-space:nowrap;">
+        <button onclick="openEditInvItem('${i.id}')" title="Edit"
+          style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:15px;padding:2px 4px;">✏️</button>
+        <button onclick="deleteInvItem('${i.id}')" title="Delete"
+          style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:15px;padding:2px 4px;">🗑️</button>
+      </td>
     </tr>`;
   }).join('');
 
@@ -1859,16 +1881,23 @@ function renderInventoryItems(query='', catFilter='', statusFilter='') {
   document.getElementById('inv-count').textContent = `${items.length} items`;
 
   const cats = [...new Set(cache.inventory.map(i=>i.Category).filter(Boolean))].sort();
-  const sel = document.getElementById('inv-cat-filter');
-  const cur = sel.value;
-  sel.innerHTML = '<option value="">All Categories</option>' +
-    cats.map(c=>`<option ${c===cur?'selected':''}>${c}</option>`).join('');
+  const catSel = document.getElementById('inv-cat-filter');
+  const curCat = catSel.value;
+  catSel.innerHTML = '<option value="">All Categories</option>' +
+    cats.map(c=>`<option ${c===curCat?'selected':''}>${c}</option>`).join('');
+
+  const suppliers = [...new Set(cache.inventory.map(i=>i.Supplier).filter(Boolean))].sort();
+  const supSel = document.getElementById('inv-supplier-filter');
+  const curSup = supSel?.value || '';
+  if (supSel) supSel.innerHTML = '<option value="">All Suppliers</option>' +
+    suppliers.map(s=>`<option ${s===curSup?'selected':''}>${s}</option>`).join('');
 }
 
 function filterInventory(query) {
   renderInventoryItems(query,
     document.getElementById('inv-cat-filter').value,
-    document.getElementById('inv-status-filter').value
+    document.getElementById('inv-status-filter').value,
+    document.getElementById('inv-supplier-filter')?.value || ''
   );
 }
 
@@ -2156,6 +2185,43 @@ function renderInventoryAnalytics() {
     </div>`;
 }
 
+let _editInvId = null;
+
+function openEditInvItem(id) {
+  const item = cache.inventory.find(i => i.id === id);
+  if (!item) return;
+  _editInvId = id;
+  document.querySelector('#modal-add-item .modal-title').textContent = 'Edit Inventory Item';
+  document.querySelector('#modal-add-item .btn-primary').textContent = 'Save Changes';
+  document.getElementById('new-item-name').value         = item.ItemName || '';
+  document.getElementById('new-item-cat').value          = item.Category || '';
+  document.getElementById('new-item-supplier').value     = item.Supplier || '';
+  document.getElementById('new-item-order-size').value   = item.OrderSize != null ? item.OrderSize : '';
+  document.getElementById('new-item-unit').value         = item.OrderUnit || item.Unit || '';
+  document.getElementById('new-item-par').value          = item.ParLevel != null ? item.ParLevel : '';
+  document.getElementById('new-item-cost').value         = item.CostPerCase != null ? item.CostPerCase : '';
+  if (document.getElementById('new-item-serving-unit'))
+    document.getElementById('new-item-serving-unit').value = item.ServingUnit || '';
+  if (document.getElementById('new-item-servings'))
+    document.getElementById('new-item-servings').value   = item.ServingsPerUnit != null ? item.ServingsPerUnit : '';
+  openModal('modal-add-item');
+}
+
+async function deleteInvItem(id) {
+  const item = cache.inventory.find(i => i.id === id);
+  if (!item) return;
+  if (!confirm(`Delete "${item.ItemName}" from inventory? This cannot be undone.`)) return;
+  setLoading(true, 'Deleting…');
+  try {
+    const siteId = await getSiteId();
+    await graph('DELETE', `/sites/${siteId}/lists/${LISTS.inventory}/items/${id}`);
+    cache.inventory = cache.inventory.filter(i => i.id !== id);
+    renderInventory(); renderDashboard(); populateSelects();
+    toast('ok', '✓ Item deleted');
+  } catch(e) { toast('err', 'Delete failed: ' + e.message); }
+  finally { setLoading(false); }
+}
+
 async function saveInventoryItem() {
   const name = document.getElementById('new-item-name').value.trim();
   if (!name) { toast('err','Item name is required'); return; }
@@ -2172,19 +2238,27 @@ async function saveInventoryItem() {
     ServingUnit:     document.getElementById('new-item-serving-unit')?.value||null,
     ServingsPerUnit: parseFloat(document.getElementById('new-item-servings')?.value)||null,
   };
-  // remove nulls
   Object.keys(fields).forEach(k=>{ if(fields[k]===null||fields[k]==='') delete fields[k]; });
-  const listName = LISTS.inventory;
   setLoading(true,'Saving…');
   try {
-    const item = await addListItem(listName, fields);
-    cache.inventory.push(item);
+    if (_editInvId) {
+      // Edit mode
+      await updateListItem(LISTS.inventory, _editInvId, fields);
+      const idx = cache.inventory.findIndex(i => i.id === _editInvId);
+      if (idx !== -1) cache.inventory[idx] = { ...cache.inventory[idx], ...fields };
+      toast('ok','✓ Item updated');
+    } else {
+      // Add mode
+      const item = await addListItem(LISTS.inventory, fields);
+      cache.inventory.push(item);
+      toast('ok','✓ Item added');
+    }
     renderInventory(); renderDashboard(); populateSelects();
     closeModal('modal-add-item');
-    toast('ok','✓ Item added');
   } catch(e) { toast('err','Save failed: '+e.message); }
   finally { setLoading(false); }
 }
+
 
 // ════════════════════════════════════════════════════════════════════════════
 // TRANSFERS
@@ -2214,35 +2288,69 @@ async function saveTransfer() {
   if (!itemId||!qty) { toast('err','Item and quantity required'); return; }
   if (from===to) { toast('err','From and To locations must be different'); return; }
   const item = cache.inventory.find(i=>i.id===itemId);
+  const itemName = item?.ItemName || '';
+  const unit = item?.OrderUnit || item?.Unit || '';
   setLoading(true,'Processing transfer…');
   try {
+    // Log transfer record
     const xfer = await addListItem(LISTS.transfers, {
-      ItemName: item?.ItemName||'',
-      Quantity: qty, Unit: item?.Unit||'',
+      ItemName: itemName,
+      Quantity: qty, Unit: unit,
       FromLocation: from, ToLocation: to,
       TransferredBy: currentUser.name||currentUser.username,
       Notes: document.getElementById('xfer-notes').value
     });
     cache.transfers.push(xfer);
-    // update stock levels
-    if (item) {
-      const fromItems = cache.inventory.filter(i=>i.ItemName===item.ItemName);
-      const toItems   = cache.inventory.filter(i=>i.ItemName===item.ItemName);
-      for (const fi of fromItems) {
-        const newStock = Math.max(0,(fi.CurrentStock||0)-qty);
-        await updateListItem(LISTS.inventory, fi.id, {CurrentStock:newStock});
-        fi.CurrentStock=newStock;
-      }
-      for (const ti of toItems) {
-        const newStock = (ti.CurrentStock||0)+qty;
-        await updateListItem(LISTS.inventory, ti.id, {CurrentStock:newStock});
-        ti.CurrentStock=newStock;
-      }
+
+    // Adjust per-location inventory count records
+    const siteId = await getSiteId();
+    const fromList = countsListName(from);
+    const toList   = countsListName(to);
+    const now = new Date().toISOString();
+    const byNote = `Transfer by ${currentUser.name||currentUser.username}`;
+
+    // Get the latest total for an item at a location list
+    const getLatestTotal = async (listName, iName) => {
+      if (!listName) return 0;
+      try {
+        const res = await graph('GET', `/sites/${siteId}/lists/${listName}/items?expand=fields&$top=500`);
+        const rows = (res.value||[]).map(r=>({...r.fields}))
+          .filter(r=>(r.Title||'').trim().toLowerCase()===iName.toLowerCase())
+          .sort((a,b)=>new Date(b.WeekOf||0)-new Date(a.WeekOf||0));
+        return rows.length ? (rows[0].TotalCount||0) : 0;
+      } catch { return 0; }
+    };
+
+    const [fromTotal, toTotal] = await Promise.all([
+      getLatestTotal(fromList, itemName),
+      getLatestTotal(toList, itemName)
+    ]);
+
+    if (fromList) {
+      const r = await addListItem(fromList, {
+        Title: itemName, WeekOf: now,
+        TotalCount: Math.max(0, fromTotal - qty),
+        StoreCount: Math.max(0, fromTotal - qty),
+        StorageCount: 0,
+        Location: from, CountedBy: byNote
+      });
+      cache.countHistory.push(r);
     }
+    if (toList) {
+      const r = await addListItem(toList, {
+        Title: itemName, WeekOf: now,
+        TotalCount: toTotal + qty,
+        StoreCount: toTotal + qty,
+        StorageCount: 0,
+        Location: to, CountedBy: byNote
+      });
+      cache.countHistory.push(r);
+    }
+
     renderTransfers(); renderInventory(); renderDashboard();
     closeModal('modal-transfer');
-    toast('ok','✓ Transfer logged');
-    sendSlackAlert(`🔄 Transfer: *${item?.ItemName}* — ${qty} ${item?.Unit||''} from ${from} → ${to} (${currentUser.name||currentUser.username})`);
+    toast('ok', `✓ Transfer logged — ${from} −${qty} / ${to} +${qty}`);
+    sendSlackAlert(`🔄 Transfer: *${itemName}* — ${qty} ${unit} from ${from} → ${to} (${currentUser.name||currentUser.username})`);
   } catch(e) { toast('err','Transfer failed: '+e.message); }
   finally { setLoading(false); }
 }
@@ -3480,6 +3588,9 @@ function applyLocationAccess() {
     currentLocation = allowed[0];
   }
   renderLocations();
+  // Hide Settings nav for non-owners
+  const settingsNav = document.querySelector('.nav-item[onclick="nav(\'settings\')"]');
+  if (settingsNav) settingsNav.style.display = isOwner() ? '' : 'none';
 }
 
 function renderLocations() {
@@ -3611,7 +3722,12 @@ function nav(page) {
   document.querySelector(`.nav-item[onclick="nav('${page}')"]`)?.classList.add('active');
   if (page==='checklists') renderChecklists();
   if (page==='maint-schedule') renderMaintSchedule();
-  if (page==='settings') { renderRoles(); renderLocations(); renderSlackSettings(); renderSquareSettings(); }
+  if (page==='settings') {
+    const denied = !isOwner();
+    document.getElementById('settings-access-denied').style.display = denied ? '' : 'none';
+    document.getElementById('settings-body').style.display = denied ? 'none' : '';
+    if (!denied) { renderRoles(); renderLocations(); renderSlackSettings(); renderSquareSettings(); }
+  }
   if (page==='square')   { renderSquarePage(); }
   if (page==='menu')     { renderMenu(); }
   if (page==='cogs')     { renderCogs(); }
@@ -3782,8 +3898,22 @@ function saveNewNotif() {
 // ════════════════════════════════════════════════════════════════════════════
 // MODAL / TOAST / LOADING
 // ════════════════════════════════════════════════════════════════════════════
-function openModal(id) { document.getElementById(id)?.classList.add('show'); }
-function closeModal(id) { document.getElementById(id)?.classList.remove('show'); }
+function openModal(id) {
+  // Reset inventory modal to "Add" mode if opened via the toolbar button (not via edit)
+  if (id === 'modal-add-item' && !_editInvId) {
+    document.querySelector('#modal-add-item .modal-title').textContent = 'Add Inventory Item';
+    document.querySelector('#modal-add-item .btn-primary').textContent = 'Save Item';
+    ['new-item-name','new-item-supplier','new-item-order-size','new-item-unit','new-item-par',
+     'new-item-cost','new-item-serving-unit','new-item-servings'].forEach(id2 => {
+       const el = document.getElementById(id2); if (el) el.value = '';
+    });
+  }
+  document.getElementById(id)?.classList.add('show');
+}
+function closeModal(id) {
+  document.getElementById(id)?.classList.remove('show');
+  if (id === 'modal-add-item') _editInvId = null;
+}
 document.querySelectorAll('.modal-overlay').forEach(el=>{
   el.addEventListener('click',e=>{ if(e.target===el) el.classList.remove('show'); });
 });
@@ -3898,7 +4028,10 @@ function renderMenu(query='', catFilter='') {
     if (name) countsMap[name] = r.Quantity ?? r.TotalCount ?? 0;
   });
 
+  const showHidden = document.getElementById('menu-show-hidden')?.checked || false;
   let items = cache.menu;
+  // Filter hidden items unless "Show hidden" is checked
+  if (!showHidden) items = items.filter(i => i.Hidden !== 'Yes');
   if (query) items = items.filter(i =>
     (i.ItemName||'').toLowerCase().includes(query.toLowerCase()) ||
     (i.Category||'').toLowerCase().includes(query.toLowerCase()) ||
@@ -3919,18 +4052,38 @@ function renderMenu(query='', catFilter='') {
   empty.style.display = items.length ? 'none' : 'block';
 
   tbody.innerHTML = items.map(i => {
+    const isHidden = i.Hidden === 'Yes';
     const stock = countsMap[i.ItemName||''];
     const stockDisplay = stock != null ? stock : '—';
     const vars = (i.Variations||'').split('\n').filter(Boolean);
-    return `<tr>
+    return `<tr style="${isHidden?'opacity:0.45;':''}">
       <td style="font-weight:600">${i.ItemName||'—'}</td>
       <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${i.Category||'—'}</span></td>
       <td style="font-size:12px;color:var(--muted);max-width:220px">${i.Description||''}</td>
       <td>${i.Price != null ? '$'+Number(i.Price).toFixed(2) : '—'}</td>
       <td style="font-size:11px;color:var(--muted)">${vars.slice(0,3).join('<br>')}${vars.length>3?`<br>+${vars.length-3} more`:''}</td>
       <td style="font-weight:600;color:${stock!=null&&stock<5?'var(--red)':stock!=null&&stock<10?'var(--orange)':'var(--text)'}">${stockDisplay}</td>
+      <td style="text-align:center;">
+        <button onclick="toggleMenuItemHidden('${i.id}','${isHidden?'No':'Yes'}')"
+          title="${isHidden?'Show item':'Hide item'}"
+          style="background:none;border:none;cursor:pointer;font-size:15px;padding:2px 4px;color:var(--muted);">
+          ${isHidden?'👁️':'🙈'}
+        </button>
+      </td>
     </tr>`;
   }).join('');
+}
+
+async function toggleMenuItemHidden(id, newVal) {
+  try {
+    await updateListItem(LISTS.menu, id, { Hidden: newVal });
+    const item = cache.menu.find(i => i.id === id);
+    if (item) item.Hidden = newVal;
+    renderMenu(
+      document.getElementById('menu-search')?.value || '',
+      document.getElementById('menu-cat-filter')?.value || ''
+    );
+  } catch(e) { toast('err', 'Failed to update visibility: ' + e.message); }
 }
 
 function filterMenu(query) {
@@ -4077,6 +4230,15 @@ function isManagerOrOwner() {
   if (!member) return true; // not found → allow by default
   const role = (member.Role || '').toLowerCase();
   return role.includes('manager') || role.includes('owner') || role.includes('admin') || role === '';
+}
+
+function isOwner() {
+  if (!currentUser || !cache.staff.length) return true;
+  const email = (currentUser.username || currentUser.mail || '').toLowerCase();
+  const member = cache.staff.find(s => (s.Email||'').toLowerCase() === email);
+  if (!member) return true; // not found in staff list → allow by default
+  const role = (member.Role || '').toLowerCase();
+  return role.includes('owner') || role.includes('admin');
 }
 
 // Build a lookup map: { [menuItemId+':'+variationName]: [cogRecipeRows] }
@@ -4680,19 +4842,31 @@ async function syncSquareCatalog() {
     } while (cursor);
 
     const categories = {};
-    objects.filter(o => o.type === 'CATEGORY' && !o.is_deleted).forEach(c => {
-      categories[c.id] = c.category_data?.name || 'Uncategorized';
+    const catObjects = objects.filter(o => o.type === 'CATEGORY' && !o.is_deleted);
+    catObjects.forEach(c => {
+      categories[c.id] = c.category_data?.name || c.category_data?.category_type || 'Uncategorized';
     });
     // Filter out archived items (Square newer API sets is_archived on item_data)
     const items = objects.filter(o => o.type === 'ITEM' && !o.item_data?.is_archived);
-    sqLog(logId, `Found ${items.length} active items across ${Object.keys(categories).length} categories`);
+    sqLog(logId, `Found ${items.length} active items, ${catObjects.length} category objects`);
+
+    // Debug: show first few category objects and first item's category fields
+    if (catObjects.length) {
+      sqLog(logId, `📂 Sample categories: ${catObjects.slice(0,3).map(c=>`${c.id.slice(-6)} → "${c.category_data?.name}"`).join(', ')}`);
+    } else {
+      sqLog(logId, `⚠️ No CATEGORY objects returned — Square may be using a different type`);
+    }
+    if (items.length) {
+      const d0 = items[0].item_data || {};
+      sqLog(logId, `🔍 Sample item "${d0.name}" category fields: category_id="${d0.category_id||''}" categories=${JSON.stringify(d0.categories?.slice(0,2)||[])} reporting_category=${JSON.stringify(d0.reporting_category||{})}`);
+    }
 
     const siteId = await getSiteId();
     // Ensure BSC_Menu list exists
     await ensureList(LISTS.menu, [
       {name:'ItemName',text:{}},{name:'Category',text:{}},{name:'Description',text:{allowMultipleLines:true}},
       {name:'Price',number:{decimalPlaces:'automatic'}},{name:'Variations',text:{allowMultipleLines:true}},
-      {name:'SquareId',text:{}}
+      {name:'SquareId',text:{}},{name:'Hidden',text:{}}
     ]);
     const existing = await getListItems(siteId, LISTS.menu);
     const existMap = {};
@@ -4702,11 +4876,11 @@ async function syncSquareCatalog() {
     for (const item of items) {
       const d = item.item_data || {};
       const name = d.name || item.id;
-      // Square newer API: item_data.categories is an array; legacy API used category_id
+      // Square newer API: item_data.categories is an array; legacy uses category_id; newest uses reporting_category
       const catId = (d.categories && d.categories.length > 0)
-        ? d.categories[0].id
-        : (d.category_id || null);
-      const cat = catId ? (categories[catId] || 'Uncategorized') : 'Uncategorized';
+        ? (d.categories[0].id || d.categories[0])
+        : (d.reporting_category?.id || d.category_id || null);
+      const cat = catId ? (categories[catId] || catId.slice(-8)) : 'Uncategorized';
       const desc = d.description || '';
       // Build variations summary with prices
       const vars = (d.variations || []).map(v => {
