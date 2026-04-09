@@ -1509,7 +1509,7 @@ const msal = new window.msal.PublicClientApplication({
   auth: {
     clientId: CFG.clientId,
     authority: `https://login.microsoftonline.com/${CFG.tenantId}`,
-    redirectUri: window.location.origin + window.location.pathname
+    redirectUri: window.location.origin + '/'
   },
   cache: { cacheLocation: 'sessionStorage' }
 });
