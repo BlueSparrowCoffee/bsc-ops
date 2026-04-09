@@ -1662,13 +1662,19 @@ async function getSiteId() {
 let _spListCache = null;
 async function getSpListCache(siteId) {
   if (_spListCache) return _spListCache;
-  // Fetch up to 1000 lists; index by both name and displayName since SP can differ
-  const res = await graph('GET', `/sites/${siteId}/lists?$select=name,displayName,id&$top=1000`);
   _spListCache = {};
-  (res.value || []).forEach(l => {
-    if (l.name)        _spListCache[l.name]        = l.id;
-    if (l.displayName) _spListCache[l.displayName] = l.id;
-  });
+  // Follow all pages so we never miss a list
+  let url = `/sites/${siteId}/lists?$select=name,displayName,id&$top=500`;
+  while (url) {
+    const res = await graph('GET', url);
+    (res.value || []).forEach(l => {
+      if (l.name)        _spListCache[l.name]        = l.id;
+      if (l.displayName) _spListCache[l.displayName] = l.id;
+    });
+    // nextLink is a full URL — strip the base so graph() can use it
+    const next = res['@odata.nextLink'];
+    url = next ? next.replace('https://graph.microsoft.com/v1.0', '') : null;
+  }
   return _spListCache;
 }
 
@@ -1678,20 +1684,32 @@ async function ensureList(listName, columns) {
   let listId = listCache[listName];
 
   if (!listId) {
-    try {
-      const r = await graph('POST', `/sites/${siteId}/lists`, {
-        displayName: listName, list: { template: 'genericList' }
-      });
+    // Use raw fetch so a 409 never appears in the browser console
+    const token = await getToken();
+    const createRes = await fetch(
+      `https://graph.microsoft.com/v1.0/sites/${siteId}/lists`,
+      {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ displayName: listName, list: { template: 'genericList' } })
+      }
+    );
+    if (createRes.ok) {
+      const r = await createRes.json();
       listId = r.id;
-      listCache[listName] = listId;
-    } catch(e) {
-      // 409 = list already exists despite cache miss — fetch its real ID
-      if ((e.message||'').includes('409') || (e.message||'').includes('conflict')) {
-        const r = await graph('GET', `/sites/${siteId}/lists/${encodeURIComponent(listName)}?$select=id`);
-        listId = r.id;
-        listCache[listName] = listId;
-      } else { throw e; }
+    } else if (createRes.status === 409) {
+      // Already exists — fetch its ID quietly
+      const getRes = await fetch(
+        `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${encodeURIComponent(listName)}?$select=id`,
+        { headers: { Authorization: 'Bearer ' + token } }
+      );
+      const r = await getRes.json();
+      listId = r.id;
+    } else {
+      const err = await createRes.json().catch(() => ({}));
+      throw new Error(err.error?.message || `List create failed: ${createRes.status}`);
     }
+    listCache[listName] = listId;
   }
 
   // Add any missing columns one-by-one
