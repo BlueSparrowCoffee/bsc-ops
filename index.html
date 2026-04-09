@@ -1630,8 +1630,17 @@ async function getToken() {
   try {
     const r = await msal.acquireTokenSilent({ scopes: SCOPES, account: currentUser });
     return r.accessToken;
-  } catch {
-    await msal.acquireTokenRedirect({ scopes: SCOPES });
+  } catch(e) {
+    // Use popup instead of redirect — redirect causes an infinite loop when
+    // the cached token is missing newly-added scopes (page reloads → silent
+    // fails again → redirect → repeat forever)
+    try {
+      const r = await msal.acquireTokenPopup({ scopes: SCOPES, account: currentUser });
+      return r.accessToken;
+    } catch(e2) {
+      // Popup blocked or user dismissed — fall back to redirect as last resort
+      await msal.acquireTokenRedirect({ scopes: SCOPES });
+    }
   }
 }
 
