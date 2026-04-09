@@ -1431,13 +1431,14 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
 // CONFIG
 // ════════════════════════════════════════════════════════════════════════════
 const CFG = {
-  clientId:  'a466e07b-68f4-4881-bdcc-d3adeb356799',
-  tenantId:  'b808062f-1ca4-4f25-a2eb-8998fac8dc52',
-  slack:     'SLACK_WEBHOOK_PLACEHOLDER',
-  locations: ['Blake','Platte','Sherman','17th']
+  clientId:     'a466e07b-68f4-4881-bdcc-d3adeb356799',
+  tenantId:     'b808062f-1ca4-4f25-a2eb-8998fac8dc52',
+  slack:        'SLACK_WEBHOOK_PLACEHOLDER',
+  locations:    ['Blake','Platte','Sherman','17th'],
+  internalDomain: 'bluesparrowcoffee.com'  // verified AAD domain — use direct grant, not B2B invite
 };
 
-const SCOPES = ['Sites.ReadWrite.All','Sites.FullControl.All','Files.ReadWrite','User.Read','User.Invite.All'];
+const SCOPES = ['Sites.ReadWrite.All','Sites.FullControl.All','Files.ReadWrite','User.Read','User.Invite.All','User.ReadWrite.All'];
 const MODULES = ['Dashboard','Inventory','Transfers','Ordering','Checklists','Vendors','Recipes','Staff','Maintenance','Settings'];
 const EQUIPMENT_LIST = ['Slayer Espresso Machine','Grinders','Glycol Chiller','Refrigerators','Ice Machine','Fetco Batch Brewer','Cold Brew System','Keg Lines / Draft','Water Filtration','Dishwasher','POS Terminals','HVAC / Ventilation','Plumbing / Sinks','Hood / Exhaust'];
 const FREQ_DAYS = {Monthly:30, Quarterly:90, Annually:365};
@@ -5798,10 +5799,7 @@ async function syncStaffAccess() {
   log.style.display = 'block';
   log.innerHTML = '';
 
-  function alog(msg) {
-    log.innerHTML += msg + '<br>';
-    log.scrollTop = log.scrollHeight;
-  }
+  function alog(msg) { log.innerHTML += msg + '<br>'; log.scrollTop = log.scrollHeight; }
 
   try {
     const siteId = await getSiteId();
@@ -5813,45 +5811,86 @@ async function syncStaffAccess() {
     });
 
     if (!active.length) {
-      alog('⚠️ No active staff with email addresses found in BSC Staff list.');
+      alog('⚠️ No active staff with email addresses found.');
       btn.disabled = false; btn.textContent = '🔄 Sync Staff Access';
       return;
     }
 
-    alog(`Found <b>${active.length}</b> active staff members — sending Microsoft invitations…<br>`);
-    alog(`<span style="color:var(--muted);font-size:11px">Each person will receive an email. They sign in once with their existing Google/Apple/Microsoft account to activate access.</span><br><br>`);
+    const internal = active.filter(s => (s.Email||'').toLowerCase().endsWith('@' + CFG.internalDomain));
+    const external = active.filter(s => !((s.Email||'').toLowerCase().endsWith('@' + CFG.internalDomain)));
 
-    let invited = 0, already = 0, failed = 0;
+    alog(`Found <b>${active.length}</b> staff — <b>${internal.length}</b> internal (@${CFG.internalDomain}), <b>${external.length}</b> external<br>`);
 
-    for (const member of active) {
-      const email = (member.Email || '').trim();
-      const name  = member.Title || member.Name || email;
-      try {
-        await graph('POST', '/invitations', {
-          invitedUserEmailAddress: email,
-          invitedUserDisplayName: name,
-          inviteRedirectUrl: window.location.origin + '/',
-          sendInvitationMessage: true,
-          invitedUserMessageInfo: {
-            customizedMessageBody: `Hi ${name.split(' ')[0]},\n\nYou've been invited to access the Blue Sparrow Coffee Operations platform by Jeffrey.\n\nClick the button below to accept your invitation. You can sign in with your existing email account (Google, Apple, etc.) — no new password needed.`
+    let granted = 0, invited = 0, already = 0, failed = 0;
+
+    // ── Internal users (@bluesparrowcoffee.com) ──────────────────────────────
+    // Can't be B2B invited. Look them up by UPN and grant SharePoint access directly.
+    if (internal.length) {
+      alog(`<br><b>Internal accounts (@${CFG.internalDomain}):</b>`);
+      for (const member of internal) {
+        const email = (member.Email || '').trim();
+        const name  = member.Title || member.Name || email;
+        try {
+          // Look up their Azure AD object ID by UPN
+          const user = await graph('GET', `/users/${encodeURIComponent(email)}?$select=id,displayName`);
+          // Grant SharePoint site write access using their AAD ID
+          await graph('POST', `/sites/${siteId}/permissions`, {
+            roles: ['write'],
+            grantedToIdentitiesV2: [{ user: { id: user.id, email } }]
+          });
+          alog(`✅ <b>${name}</b> <span style="color:var(--muted);font-size:11px">(${email})</span> — SharePoint access granted`);
+          granted++;
+        } catch(e) {
+          const msg = (e.message || '').toLowerCase();
+          if (msg.includes('already') || msg.includes('duplicate') || msg.includes('conflict')) {
+            alog(`☑️ <b>${name}</b> <span style="color:var(--muted);font-size:11px">(${email})</span> — already has access`);
+            already++;
+          } else if (msg.includes('does not exist') || msg.includes('resource') || msg.includes('404')) {
+            alog(`⚠️ <b>${name}</b> <span style="color:var(--muted);font-size:11px">(${email})</span> — no Azure AD account found. Create one at <a href="https://portal.azure.com/#view/Microsoft_AAD_UsersAndTenants/UserManagementMenuBlade" target="_blank" style="color:var(--gold)">Azure Portal → Users</a>`);
+            failed++;
+          } else {
+            alog(`❌ <b>${name}</b> <span style="color:var(--muted);font-size:11px">(${email})</span> — ${e.message}`);
+            failed++;
           }
-        });
-        alog(`✅ <b>${name}</b> <span style="color:var(--muted);font-size:11px">(${email})</span> — invitation sent`);
-        invited++;
-      } catch(e) {
-        const msg = (e.message || '').toLowerCase();
-        if (msg.includes('already') || msg.includes('exists') || msg.includes('conflict') || msg.includes('409')) {
-          alog(`☑️ <b>${name}</b> <span style="color:var(--muted);font-size:11px">(${email})</span> — already in tenant`);
-          already++;
-        } else {
-          alog(`❌ <b>${name}</b> <span style="color:var(--muted);font-size:11px">(${email})</span> — ${e.message}`);
-          failed++;
         }
       }
     }
 
-    alog(`<br>✅ Done — ${invited} invited, ${already} already in tenant${failed ? `, <span style="color:var(--red)">${failed} failed</span>` : ''}`);
-    if (invited > 0) toast('ok', `✓ Invitations sent to ${invited} staff member${invited>1?'s':''}`);
+    // ── External users (Gmail, iCloud, etc.) ─────────────────────────────────
+    // Send B2B guest invitation — they sign in with their existing account.
+    if (external.length) {
+      alog(`<br><b>External accounts (B2B invitations):</b>`);
+      alog(`<span style="color:var(--muted);font-size:11px">Each person gets an email — they click Accept and sign in with their Google/Apple/etc. account.</span>`);
+      for (const member of external) {
+        const email = (member.Email || '').trim();
+        const name  = member.Title || member.Name || email;
+        try {
+          await graph('POST', '/invitations', {
+            invitedUserEmailAddress: email,
+            invitedUserDisplayName: name,
+            inviteRedirectUrl: window.location.origin + '/',
+            sendInvitationMessage: true,
+            invitedUserMessageInfo: {
+              customizedMessageBody: `Hi ${name.split(' ')[0]},\n\nYou've been invited to access the Blue Sparrow Coffee Operations platform.\n\nClick Accept below — you can sign in with your existing email account (Google, Apple, etc.), no new password needed.`
+            }
+          });
+          alog(`✅ <b>${name}</b> <span style="color:var(--muted);font-size:11px">(${email})</span> — invitation sent`);
+          invited++;
+        } catch(e) {
+          const msg = (e.message || '').toLowerCase();
+          if (msg.includes('already') || msg.includes('exists') || msg.includes('conflict')) {
+            alog(`☑️ <b>${name}</b> <span style="color:var(--muted);font-size:11px">(${email})</span> — already in tenant`);
+            already++;
+          } else {
+            alog(`❌ <b>${name}</b> <span style="color:var(--muted);font-size:11px">(${email})</span> — ${e.message}`);
+            failed++;
+          }
+        }
+      }
+    }
+
+    alog(`<br>✅ Done — ${granted} granted, ${invited} invited, ${already} already set up${failed ? `, <span style="color:var(--red)">${failed} need attention</span>` : ''}`);
+    toast('ok', `✓ Staff access sync complete`);
 
   } catch(e) {
     alog('❌ Error: ' + e.message);
