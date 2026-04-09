@@ -1662,9 +1662,13 @@ async function getSiteId() {
 let _spListCache = null;
 async function getSpListCache(siteId) {
   if (_spListCache) return _spListCache;
-  const res = await graph('GET', `/sites/${siteId}/lists?$select=name,id&$top=500`);
+  // Fetch up to 1000 lists; index by both name and displayName since SP can differ
+  const res = await graph('GET', `/sites/${siteId}/lists?$select=name,displayName,id&$top=1000`);
   _spListCache = {};
-  (res.value || []).forEach(l => { _spListCache[l.name] = l.id; });
+  (res.value || []).forEach(l => {
+    if (l.name)        _spListCache[l.name]        = l.id;
+    if (l.displayName) _spListCache[l.displayName] = l.id;
+  });
   return _spListCache;
 }
 
@@ -1674,12 +1678,20 @@ async function ensureList(listName, columns) {
   let listId = listCache[listName];
 
   if (!listId) {
-    // List doesn't exist — create it (no 404 since we checked the cache)
-    const r = await graph('POST', `/sites/${siteId}/lists`, {
-      displayName: listName, list: { template: 'genericList' }
-    });
-    listId = r.id;
-    listCache[listName] = listId; // update session cache
+    try {
+      const r = await graph('POST', `/sites/${siteId}/lists`, {
+        displayName: listName, list: { template: 'genericList' }
+      });
+      listId = r.id;
+      listCache[listName] = listId;
+    } catch(e) {
+      // 409 = list already exists despite cache miss — fetch its real ID
+      if ((e.message||'').includes('409') || (e.message||'').includes('conflict')) {
+        const r = await graph('GET', `/sites/${siteId}/lists/${encodeURIComponent(listName)}?$select=id`);
+        listId = r.id;
+        listCache[listName] = listId;
+      } else { throw e; }
+    }
   }
 
   // Add any missing columns one-by-one
