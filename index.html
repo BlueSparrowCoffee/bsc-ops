@@ -2026,6 +2026,8 @@ function renderInventory() {
     document.getElementById('inv-cat-filter')?.value||'',
     document.getElementById('inv-status-filter')?.value||''
   );
+  // Also refresh count sheet if that tab is currently open
+  if (_invActiveTab === 'count') renderCountSheet();
 }
 
 let _invSort = { col: null, dir: 1 };
