@@ -14,11 +14,17 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  // Network first for API calls, cache first for app shell
-  if (e.request.url.includes('graph.microsoft.com') ||
-      e.request.url.includes('login.microsoftonline.com') ||
-      e.request.url.includes('hooks.slack.com')) {
-    return; // always go to network for API calls
+  // Pass through to network — do not intercept external requests
+  const url = e.request.url;
+  if (url.includes('graph.microsoft.com') ||
+      url.includes('login.microsoftonline.com') ||
+      url.includes('hooks.slack.com') ||
+      url.includes('alcdn.msauth.net') ||
+      url.includes('cdn.jsdelivr.net') ||
+      url.includes('sharepoint.com') ||
+      url.includes('connect.squareup.com') ||
+      !url.startsWith(self.location.origin)) {
+    return;
   }
   e.respondWith(
     caches.match(e.request).then(cached => cached || fetch(e.request))
