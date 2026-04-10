@@ -2818,14 +2818,14 @@ function renderChecklists() {
     const locs = getLocations();
     const cur = locSel.value;
     locSel.innerHTML = '<option value="">All Locations</option>' +
-      locs.map(l=>`<option${l===cur?' selected':''}>${l}</option>`).join('');
+      locs.map(l=>`<option value="${escHtml(l)}"${l===cur?' selected':''}>${escHtml(l)}</option>`).join('');
   }
 
   // Also populate create-group location select
   const grpLocSel = document.getElementById('cl-group-loc');
   if (grpLocSel && grpLocSel.options.length <= 1) {
     grpLocSel.innerHTML = '<option value="All">All Locations</option>' +
-      getLocations().map(l=>`<option>${l}</option>`).join('');
+      getLocations().map(l=>`<option value="${escHtml(l)}">${escHtml(l)}</option>`).join('');
   }
 
   // Pending suggestions badge
@@ -4958,11 +4958,11 @@ async function loadSquareLocations() {
     const el = document.getElementById('sq-locations-map');
     el.innerHTML = locs.map(l => `
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:13px;flex-wrap:wrap">
-        <span style="min-width:160px;color:var(--text)"><strong>${l.name}</strong><br><span style="font-size:11px;color:var(--muted)">${l.id}</span></span>
+        <span style="min-width:160px;color:var(--text)"><strong>${escHtml(l.name)}</strong><br><span style="font-size:11px;color:var(--muted)">${escHtml(l.id)}</span></span>
         <span style="color:var(--muted)">→</span>
-        <select class="filter" style="flex:1;min-width:140px" id="sq-loc-map-${l.id}">
+        <select class="filter" style="flex:1;min-width:140px" id="sq-loc-map-${escHtml(l.id)}">
           <option value="">— skip —</option>
-          ${bscLocs.map(b=>`<option value="${b}"${saved[l.id]===b?' selected':''}>${b}</option>`).join('')}
+          ${bscLocs.map(b=>`<option value="${escHtml(b)}"${saved[l.id]===b?' selected':''}>${escHtml(b)}</option>`).join('')}
         </select>
       </div>`).join('');
     document.getElementById('sq-btn-save-locs').style.display = 'inline-flex';
