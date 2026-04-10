@@ -1198,22 +1198,6 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
         <p style="font-size:12px;color:var(--muted)">Get your token from <a href="https://developer.squareup.com/apps" target="_blank" style="color:var(--gold)">developer.squareup.com/apps</a> → Your App → Production → Access Token.</p>
       </div>
       <div class="card" style="grid-column:1/-1">
-        <div class="card-title">🔧 SharePoint Setup</div>
-        <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Create or update all required SharePoint lists and columns. Safe to run multiple times — skips anything that already exists.</p>
-        <button class="btn btn-outline" onclick="runProvision()" id="provision-btn">⚙️ Provision / Update SharePoint Lists</button>
-        <div id="provision-log" style="margin-top:14px;font-size:12px;line-height:1.9;color:#444;background:#f9f9f9;border-radius:8px;padding:12px 14px;display:none;max-height:200px;overflow-y:auto;"></div>
-
-        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--opal)">
-          <div style="font-size:13px;font-weight:600;margin-bottom:6px">📦 Inventory Lists per Location</div>
-          <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Each location needs its own counts list. Item details are stored in the shared <code>BSC_Inventory</code> list. This creates <code>BSC_{Location}_InventoryCounts</code>.</p>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-            <select id="prov-inv-loc" class="field-input" style="width:160px"></select>
-            <button class="btn btn-outline" onclick="provisionInventoryForLocation()" id="prov-inv-btn">Provision for Location</button>
-          </div>
-          <div id="prov-inv-log" style="margin-top:10px;font-size:12px;line-height:1.9;color:#444;background:#f9f9f9;border-radius:8px;padding:10px 14px;display:none;max-height:140px;overflow-y:auto;"></div>
-        </div>
-      </div>
-      <div class="card" style="grid-column:1/-1">
         <div class="card-title" style="margin-bottom:4px">🔑 Microsoft Staff Access</div>
         <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">
           <b>Sync Access</b> — silently grants SharePoint site access to all active staff. No emails sent.<br>
@@ -1825,8 +1809,7 @@ async function bootstrapApp() {
 }
 
 async function ensureAllLists() {
-  // BSC_Inventory = shared item master (all locations)
-  // Per-location counts lists provisioned via Settings → SharePoint Setup
+  // BSC_Inventory = shared item master; per-location counts lists auto-provisioned below
   await ensureList(LISTS.inventory, INV_LIST_COLS.map(c => ({name:c.name, ...c})));
   await ensureList(LISTS.transfers,[
     {name:'ItemName',text:{}},{name:'Quantity',number:{}},{name:'Unit',text:{}},
@@ -4382,12 +4365,6 @@ function renderLocations() {
       (showAll ? `<button class="loc-btn${currentLocation==='all'?' active':''}" onclick="setLocation('all',this)">All</button>` : '')
       + allowed.map(l=>`<button class="loc-btn${currentLocation===l?' active':''}" onclick="setLocation('${l}',this)">${l}</button>`).join('');
   }
-  // Per-location provision select in Settings
-  const provSel = document.getElementById('prov-inv-loc');
-  if (provSel) {
-    provSel.innerHTML = '<option value="">Select location…</option>'
-      + locs.map(l=>`<option value="${l}">${l}</option>`).join('');
-  }
 }
 function addLocation() {
   const input = document.getElementById('new-location-input');
@@ -5812,28 +5789,6 @@ async function syncSquareInventory() {
   btn.disabled = false; btn.textContent = 'Sync Menu Counts';
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-// PROVISION — create/update SharePoint lists & columns
-// ════════════════════════════════════════════════════════════════════════════
-const PROVISION_LISTS = [
-  { name:'BSC_Staff', columns:[
-    {name:'Role',text:{}},{name:'Location',text:{}},{name:'Email',text:{}},{name:'Phone',text:{}}
-  ]},
-  { name:'BSC_MaintSchedule', columns:[
-    {name:'Frequency',text:{}},{name:'AssignedTo',text:{}},{name:'Location',text:{}},
-    {name:'Notes',text:{allowMultipleLines:true}},
-    {name:'NextDue',dateTime:{displayAs:'default',format:'dateOnly'}},
-    {name:'LastCompleted',dateTime:{displayAs:'default',format:'dateOnly'}}
-  ]},
-  { name:'BSC_MaintLog', columns:[
-    {name:'CompletedDate',dateTime:{displayAs:'default',format:'dateOnly'}},
-    {name:'CompletedBy',text:{}},{name:'Notes',text:{allowMultipleLines:true}},{name:'TaskId',text:{}}
-  ]},
-  { name:'BSC_Settings', columns:[
-    {name:'Value',text:{allowMultipleLines:true}}
-  ]}
-];
-
 // Column definitions for per-location inventory lists
 const INV_LIST_COLS = [
   {name:'ItemName',text:{}},{name:'Category',text:{}},{name:'Supplier',text:{}},
@@ -5856,13 +5811,6 @@ const MENU_COUNTS_LIST_COLS = [
   {name:'Quantity',number:{decimalPlaces:'automatic'}},
   {name:'Location',text:{}},{name:'CountedBy',text:{}}
 ];
-
-function provLog(msg) {
-  const el = document.getElementById('provision-log');
-  el.style.display='block';
-  el.innerHTML += msg+'<br>';
-  el.scrollTop = el.scrollHeight;
-}
 
 async function syncStaffAccess() {
   const btn = document.getElementById('sync-access-btn');
@@ -6141,113 +6089,6 @@ async function sendStaffInvitations() {
   }
 }
 
-async function runProvision() {
-  const btn = document.getElementById('provision-btn');
-  btn.disabled = true;
-  btn.textContent = 'Working…';
-  document.getElementById('provision-log').innerHTML = '';
-  try {
-    provLog('Getting SharePoint site…');
-    const siteId = await getSiteId();
-    provLog(`Site ready ✓<br>`);
-    for (const def of PROVISION_LISTS) {
-      provLog(`<b>${def.name}</b>`);
-      let listId;
-      try {
-        const ex = await graph('GET',`/sites/${siteId}/lists/${def.name}?$select=id`);
-        listId = ex.id;
-        provLog(`  → Already exists`);
-      } catch {
-        const cr = await graph('POST',`/sites/${siteId}/lists`,{displayName:def.name,list:{template:'genericList'}});
-        listId = cr.id;
-        provLog(`  → Created ✓`);
-      }
-      const existing = await graph('GET',`/sites/${siteId}/lists/${listId}/columns?$select=name`);
-      const existNames = new Set((existing.value||[]).map(c=>c.name));
-      for (const col of def.columns) {
-        if (existNames.has(col.name)) { provLog(`  · ${col.name} (exists)`); continue; }
-        const colDef = {name:col.name,enforceUniqueValues:false,hidden:false,indexed:false};
-        if (col.text)     colDef.text     = col.text;
-        if (col.dateTime) colDef.dateTime = col.dateTime;
-        if (col.number)   colDef.number   = col.number;
-        await graph('POST',`/sites/${siteId}/lists/${listId}/columns`,colDef);
-        provLog(`  + ${col.name}`);
-      }
-      provLog('');
-    }
-    provLog('✅ All lists ready!');
-    btn.textContent = '✓ Done';
-    toast('ok','✓ SharePoint lists provisioned');
-  } catch(e) {
-    provLog('❌ Error: '+e.message);
-    btn.disabled = false;
-    btn.textContent = '⚙️ Provision / Update SharePoint Lists';
-  }
-}
-
-async function provisionInventoryForLocation() {
-  const sel   = document.getElementById('prov-inv-loc');
-  const btn   = document.getElementById('prov-inv-btn');
-  const logEl = document.getElementById('prov-inv-log');
-  const loc   = sel ? sel.value : '';
-  if (!loc) { toast('err','Select a location first'); return; }
-
-  const cntsList = countsListName(loc) || `BSC_${loc.replace(/[\s\/\\]/g,'_')}_InventoryCounts`;
-
-  btn.disabled = true;
-  btn.textContent = 'Working…';
-  logEl.style.display = 'block';
-  logEl.innerHTML = '';
-
-  function plog(msg) {
-    logEl.innerHTML += msg + '<br>';
-    logEl.scrollTop = logEl.scrollHeight;
-  }
-
-  async function ensureLocList(sid, listName, cols) {
-    plog(`<b>${listName}</b>`);
-    let listId;
-    try {
-      const ex = await graph('GET', `/sites/${sid}/lists/${listName}?$select=id`);
-      listId = ex.id;
-      plog(`  → Already exists`);
-    } catch {
-      const cr = await graph('POST', `/sites/${sid}/lists`, { displayName: listName, list: { template: 'genericList' } });
-      listId = cr.id;
-      plog(`  → Created ✓`);
-    }
-    const existing = await graph('GET', `/sites/${sid}/lists/${listId}/columns?$select=name`);
-    const existNames = new Set((existing.value || []).map(c => c.name));
-    for (const col of cols) {
-      if (existNames.has(col.name)) { plog(`  · ${col.name} (exists)`); continue; }
-      const colDef = { name: col.name, enforceUniqueValues: false, hidden: false, indexed: false };
-      if (col.text)     colDef.text     = col.text;
-      if (col.dateTime) colDef.dateTime = col.dateTime;
-      if (col.number)   colDef.number   = col.number;
-      await graph('POST', `/sites/${sid}/lists/${listId}/columns`, colDef);
-      plog(`  + ${col.name}`);
-    }
-    plog('');
-  }
-
-  try {
-    plog('Getting SharePoint site…');
-    const siteId = await getSiteId();
-    plog(`Site ready ✓<br>`);
-    const locSlug = loc.replace(/[\s\/\\]/g, '_');
-    await ensureLocList(siteId, cntsList,                       COUNTS_LIST_COLS);
-    await ensureLocList(siteId, `BSC_${locSlug}_MerchCounts`,  COUNTS_LIST_COLS);
-    await ensureLocList(siteId, `BSC_${locSlug}_EquipCounts`,  COUNTS_LIST_COLS);
-    await ensureLocList(siteId, `BSC_${locSlug}_MenuCounts`,   MENU_COUNTS_LIST_COLS);
-    plog(`✅ All counts lists ready for <b>${loc}</b>!`);
-    btn.textContent = '✓ Done';
-    toast('ok', `✓ Inventory lists provisioned for ${loc}`);
-  } catch(e) {
-    plog('❌ Error: ' + e.message);
-    btn.disabled = false;
-    btn.textContent = 'Provision for Location';
-  }
-}
 
 // ════════════════════════════════════════════════════════════════════════════
 // IMPORT INVENTORY from Excel
