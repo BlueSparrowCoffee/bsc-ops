@@ -6128,8 +6128,10 @@ function initImportTab() {
 
 function impLog(msg) {
   const el = document.getElementById('imp-log');
-  el.style.display='block';
-  el.innerHTML += msg+'<br>';
+  el.style.display = 'block';
+  const line = document.createElement('div');
+  line.textContent = msg;
+  el.appendChild(line);
   el.scrollTop = el.scrollHeight;
 }
 
@@ -6210,7 +6212,7 @@ async function runInventoryImport() {
     let created=0,updated=0,countsSaved=0;
 
     if (doMaster) {
-      impLog(`<b>Updating item master → ${invList}…</b>`);
+      impLog(`▶ Updating item master → ${invList}…`);
       const existing = await graphAll(`/sites/${siteId}/lists/${invList}/items?$expand=fields&$select=id,fields`);
       const existMap={};
       existing.forEach(it=>{const n=it.fields?.ItemName||it.fields?.Title;if(n)existMap[n.trim().toLowerCase()]=it;});
@@ -6235,11 +6237,11 @@ async function runInventoryImport() {
         }
         if ((i+1)%10===0) impLog(`  ${i+1}/${_impParsed.items.length} items…`);
       }
-      impLog(`  ✓ ${created} created · ${updated} updated<br>`);
+      impLog(`  ✓ ${created} created · ${updated} updated`);
     }
 
     if (doHistory) {
-      impLog(`<b>Importing count history → ${cntList}…</b>`);
+      impLog(`▶ Importing count history → ${cntList}…`);
       for (const week of _impParsed.weeks) {
         impLog(`  Week ${week.sheetName} (${week.date})`);
         const tasks = week.items.map(item=>()=>graph('POST',`/sites/${siteId}/lists/${cntList}/items`,{fields:{
@@ -6252,7 +6254,7 @@ async function runInventoryImport() {
           countsSaved+=Math.min(8,tasks.length-i);
         }
       }
-      impLog(`  ✓ ${countsSaved} count records saved<br>`);
+      impLog(`  ✓ ${countsSaved} count records saved`);
     }
 
     impLog('✅ Import complete! Reloading data…');
