@@ -1447,7 +1447,7 @@ const CFG = {
 // Base scopes — requested on every login, every token call
 const SCOPES = ['Sites.ReadWrite.All','Files.ReadWrite','User.Read'];
 // Admin-only scopes — only requested when owner runs staff access sync
-const ADMIN_SCOPES = [...SCOPES, 'Sites.FullControl.All','User.Invite.All','User.Read.All'];
+const ADMIN_SCOPES = [...SCOPES, 'Sites.FullControl.All','User.Invite.All','User.Read.All','User.ReadWrite.All'];
 const MODULES = ['Dashboard','Inventory','Transfers','Ordering','Checklists','Vendors','Recipes','Staff','Maintenance','Settings'];
 const EQUIPMENT_LIST = ['Slayer Espresso Machine','Grinders','Glycol Chiller','Refrigerators','Ice Machine','Fetco Batch Brewer','Cold Brew System','Keg Lines / Draft','Water Filtration','Dishwasher','POS Terminals','HVAC / Ventilation','Plumbing / Sinks','Hood / Exhaust'];
 const FREQ_DAYS = {Monthly:30, Quarterly:90, Annually:365};
@@ -1667,19 +1667,20 @@ async function getAdminToken() {
   }
 }
 
-// SharePoint REST API token — separate resource from Graph, needed to manage site membership
+// SharePoint REST API token — uses /.default so no extra permission registration needed.
+// SharePoint checks the signed-in user's own site permissions (e.g. Jeffrey's site ownership)
+// rather than the OAuth scope when authorising REST calls.
 async function getSharePointToken() {
-  const spScopes = ['https://mainspringdevelopers.sharepoint.com/AllSites.FullControl'];
+  const spScopes = ['https://mainspringdevelopers.sharepoint.com/.default'];
   try {
     const r = await msal.acquireTokenSilent({ scopes: spScopes, account: currentUser });
     return r.accessToken;
   } catch(e) {
-    try {
-      const r = await msal.acquireTokenPopup({ scopes: spScopes, account: currentUser });
-      return r.accessToken;
-    } catch(e2) {
-      throw new Error('Could not get SharePoint token: ' + e2.message);
-    }
+    // Don't use popup — popup may be blocked when called mid-async-chain.
+    // Callers must invoke this BEFORE any other awaits so the user-gesture context is fresh.
+    // Fall back to redirect (page reloads, user re-runs the operation once).
+    await msal.acquireTokenRedirect({ scopes: spScopes });
+    return null; // never reached — redirect navigates away
   }
 }
 
@@ -3890,17 +3891,27 @@ function renderStaff(query='') {
   if (countEl) countEl.textContent = rows.length+' members';
   if (!rows.length) { grid.innerHTML=''; if(empty) empty.style.display='block'; return; }
   if (empty) empty.style.display='none';
-  grid.innerHTML = rows.map(s=>`
+  grid.innerHTML = rows.map(s=>{
+    const isInt = (s.Email||'').toLowerCase().endsWith('@'+CFG.internalDomain);
+    const grantLbl = isInt ? '🔑 Grant' : '📨 Invite';
+    return `
     <div class="card" style="cursor:pointer;" onclick="openStaffForm('${s.id}')">
-      <div class="card-title">👤 ${s.Title||'Unnamed'}</div>
-      ${s.Role?`<div style="font-size:12px;color:var(--muted);margin-top:-8px;margin-bottom:8px;">${s.Role}</div>`:''}
+      <div class="card-title">👤 ${escHtml(s.Title||'Unnamed')}</div>
+      ${s.Role?`<div style="font-size:12px;color:var(--muted);margin-top:-8px;margin-bottom:8px;">${escHtml(s.Role)}</div>`:''}
       <div style="font-size:13px;display:flex;flex-direction:column;gap:5px;">
-        ${s.Location?`<div>📍 ${s.Location}</div>`:''}
-        ${s.Phone?`<div>📞 <a href="tel:${s.Phone.replace(/\D/g,'')}" onclick="event.stopPropagation()">${s.Phone}</a></div>`:''}
-        ${s.Email?`<div>✉️ <a href="mailto:${s.Email}" onclick="event.stopPropagation()">${s.Email}</a></div>`:''}
+        ${s.Location?`<div>📍 ${escHtml(s.Location)}</div>`:''}
+        ${s.Phone?`<div>📞 <a href="tel:${s.Phone.replace(/\D/g,'')}" onclick="event.stopPropagation()">${escHtml(s.Phone)}</a></div>`:''}
+        ${s.Email?`<div>✉️ <a href="mailto:${escHtml(s.Email)}" onclick="event.stopPropagation()">${escHtml(s.Email)}</a></div>`:''}
       </div>
-      <button class="recipe-edit-btn" style="margin-top:10px;" onclick="event.stopPropagation();openStaffForm('${s.id}')">✏️ Edit</button>
-    </div>`).join('');
+      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn btn-outline" style="padding:5px 12px;font-size:12px;flex:1" onclick="event.stopPropagation();openStaffForm('${s.id}')">✏️ Edit</button>
+        ${s.Email?`
+        <button class="btn btn-primary" style="padding:5px 12px;font-size:12px;flex:1" onclick="event.stopPropagation();grantMemberAccess('${s.id}')">${grantLbl}</button>
+        <button class="btn btn-danger" style="padding:5px 12px;font-size:12px;flex:1" onclick="event.stopPropagation();revokeMemberAccess('${s.id}')">🚫 Revoke</button>
+        `:''}
+      </div>
+    </div>`;
+  }).join('');
   populateStaffSelects();
 }
 function filterStaff(q) { renderStaff(q); }
@@ -5863,6 +5874,13 @@ async function syncStaffAccess() {
 
   function alog(msg) { log.innerHTML += msg + '<br>'; log.scrollTop = log.scrollHeight; }
 
+  // ── Acquire SharePoint token NOW — must be the very first await in this
+  // function. Chrome's popup-blocker & user-gesture timer expire after the
+  // first async hop, so getting the token here (closest to the button click)
+  // keeps the popup allowed. acquireTokenSilent returns instantly if cached.
+  let spToken = null;
+  try { spToken = await getSharePointToken(); } catch(e) { /* handled per-user below */ }
+
   try {
     const siteId = await getSiteId();
     const staff = await getListItems(siteId, LISTS.staff).catch(() => cache.staff);
@@ -5874,7 +5892,7 @@ async function syncStaffAccess() {
 
     if (!active.length) {
       alog('⚠️ No active staff with email addresses found.');
-      btn.disabled = false; btn.textContent = '🔄 Sync Staff Access';
+      btn.disabled = false; btn.textContent = '🔄 Sync Access';
       return;
     }
 
@@ -5883,21 +5901,15 @@ async function syncStaffAccess() {
 
     alog(`Found <b>${active.length}</b> staff — <b>${internal.length}</b> internal (@${CFG.internalDomain}), <b>${external.length}</b> external<br>`);
 
-    let granted = 0, invited = 0, already = 0, failed = 0;
+    let granted = 0, already = 0, failed = 0;
 
     // ── Internal users (@bluesparrowcoffee.com) ──────────────────────────────
-    // Graph's POST /sites/{id}/permissions only works for apps, not users.
-    // Use SharePoint REST API to add them to the site's Members group instead.
     if (internal.length) {
       alog(`<br><b>Internal accounts (@${CFG.internalDomain}):</b>`);
-      let spToken;
-      try {
-        spToken = await getSharePointToken();
-      } catch(e) {
-        alog(`❌ Could not get SharePoint token: ${e.message}<br><span style="color:var(--muted);font-size:11px">Make sure <b>SharePoint &gt; AllSites.FullControl</b> is added as a delegated permission in Azure AD and admin consent has been granted.</span>`);
+      if (!spToken) {
+        alog(`⚠️ SharePoint token unavailable — page may have reloaded to refresh consent. Try clicking Sync Access again.`);
         failed += internal.length;
-      }
-      if (spToken) {
+      } else {
         const spSiteUrl = 'https://mainspringdevelopers.sharepoint.com/sites/BlueSparrowCoffeeOps';
         for (const member of internal) {
           const email = (member.Email || '').trim();
@@ -5910,10 +5922,7 @@ async function syncStaffAccess() {
                 'Content-Type': 'application/json;odata=verbose',
                 'Accept': 'application/json;odata=nometadata'
               },
-              body: JSON.stringify({
-                '__metadata': { 'type': 'SP.User' },
-                'LoginName': `i:0#.f|membership|${email}`
-              })
+              body: JSON.stringify({ '__metadata': { 'type': 'SP.User' }, 'LoginName': `i:0#.f|membership|${email}` })
             });
             if (res.ok || res.status === 204) {
               alog(`✅ <b>${name}</b> <span style="color:var(--muted);font-size:11px">(${email})</span> — SharePoint access granted`);
@@ -5939,10 +5948,9 @@ async function syncStaffAccess() {
     }
 
     // ── External users (Gmail, iCloud, etc.) ─────────────────────────────────
-    // B2B guest invite — silent (no email). Use "Send Invitations" button to email them.
     if (external.length) {
-      alog(`<br><b>External accounts (B2B access grant — no email):</b>`);
-      alog(`<span style="color:var(--muted);font-size:11px">Accounts are created silently. Use <b>Send Invitations</b> to email them the sign-in link.</span>`);
+      alog(`<br><b>External accounts (B2B — no email):</b>`);
+      alog(`<span style="color:var(--muted);font-size:11px">Accounts created silently. Use <b>Send Invitations</b> to email sign-in links.</span>`);
       for (const member of external) {
         const email = (member.Email || '').trim();
         const name  = member.Title || member.Name || email;
@@ -5978,6 +5986,97 @@ async function syncStaffAccess() {
     btn.disabled = false;
     btn.textContent = '🔄 Sync Access';
   }
+}
+
+// ── Per-staff individual grant ────────────────────────────────────────────
+async function grantMemberAccess(staffId) {
+  const s = cache.staff.find(x => x.id === staffId);
+  if (!s?.Email) return;
+  const email = s.Email.trim();
+  const name  = s.Title || email;
+  const isInternal = email.toLowerCase().endsWith('@' + CFG.internalDomain);
+
+  try {
+    if (isInternal) {
+      // SP REST — must be FIRST await to keep user-gesture context for any popup
+      const spToken = await getSharePointToken();
+      if (!spToken) return; // redirect in progress
+      const spUrl = 'https://mainspringdevelopers.sharepoint.com/sites/BlueSparrowCoffeeOps';
+      const res = await fetch(`${spUrl}/_api/web/associatedmembergroup/users`, {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + spToken,
+          'Content-Type': 'application/json;odata=verbose',
+          'Accept': 'application/json;odata=nometadata'
+        },
+        body: JSON.stringify({ '__metadata': { 'type': 'SP.User' }, 'LoginName': `i:0#.f|membership|${email}` })
+      });
+      if (res.ok || res.status === 204) {
+        toast('ok', `✓ ${name} granted SharePoint access`);
+      } else {
+        const text = await res.text().catch(() => '');
+        let msg = `SP ${res.status}`;
+        try { msg = JSON.parse(text)?.error?.message?.value || msg; } catch {}
+        if (msg.toLowerCase().includes('already')) { toast('ok', `${name} already has access`); return; }
+        throw new Error(msg);
+      }
+    } else {
+      // External: send B2B invite with email
+      const firstName = name.split(' ')[0];
+      await graphAdmin('POST', '/invitations', {
+        invitedUserEmailAddress: email,
+        invitedUserDisplayName: name,
+        inviteRedirectUrl: window.location.origin + '/',
+        sendInvitationMessage: true,
+        invitedUserMessageInfo: {
+          customizedMessageBody: `Hi ${firstName},\n\nYou've been invited to access the Blue Sparrow Coffee Operations platform.\n\nClick Accept below — you can sign in with your existing email account (Google, Apple, etc.), no new password needed.`
+        }
+      });
+      toast('ok', `✓ Invitation sent to ${name}`);
+    }
+  } catch(e) {
+    toast('err', `Grant failed: ${e.message}`);
+  }
+}
+
+// ── Per-staff individual revoke ───────────────────────────────────────────
+async function revokeMemberAccess(staffId) {
+  const s = cache.staff.find(x => x.id === staffId);
+  if (!s?.Email) return;
+  const email = s.Email.trim();
+  const name  = s.Title || email;
+  const isInternal = email.toLowerCase().endsWith('@' + CFG.internalDomain);
+
+  const msg = isInternal
+    ? `Remove ${name} from the SharePoint site?\n\nThey will lose access to BSC Operations.`
+    : `Revoke access for ${name}?\n\nTheir Microsoft guest account will be deleted. They will need a new invitation to regain access.`;
+  if (!confirm(msg)) return;
+
+  // SP REST — first await preserves user-gesture context
+  let spOk = false;
+  try {
+    const spToken = await getSharePointToken();
+    if (spToken) {
+      const spUrl = 'https://mainspringdevelopers.sharepoint.com/sites/BlueSparrowCoffeeOps';
+      const login = encodeURIComponent(`i:0#.f|membership|${email}`);
+      await fetch(`${spUrl}/_api/web/associatedmembergroup/users/RemoveByLoginName(@v)?@v='${login}'`, {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + spToken, 'Accept': 'application/json', 'Content-Length': '0' }
+      });
+      spOk = true;
+    }
+  } catch(e) { /* SP removal best-effort */ }
+
+  // External: also delete the B2B guest account
+  if (!isInternal) {
+    try {
+      const r = await graphAdmin('GET', `/users?$filter=mail eq '${email}'&$select=id&$top=1`);
+      const guest = (r.value || [])[0];
+      if (guest) await graphAdmin('DELETE', `/users/${guest.id}`);
+    } catch(e) { /* guest deletion best-effort */ }
+  }
+
+  toast('ok', `✓ ${name}'s access revoked`);
 }
 
 async function sendStaffInvitations() {
