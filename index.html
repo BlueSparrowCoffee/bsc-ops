@@ -3916,7 +3916,7 @@ function populateStaffSelects() {
     const v=el.value; el.innerHTML=staffOpts; el.value=v;
   });
   const locs = getLocations();
-  const locOpts = locs.map(l=>`<option value="${l}">${l}</option>`).join('');
+  const locOpts = locs.map(l=>`<option value="${escHtml(l)}">${escHtml(l)}</option>`).join('');
   ['sf-location'].forEach(id=>{
     const el=document.getElementById(id); if(!el) return;
     const v=el.value; el.innerHTML='<option value="">Select location…</option>'+locOpts; el.value=v;
@@ -3925,11 +3925,11 @@ function populateStaffSelects() {
     const el=document.getElementById(id); if(!el) return;
     const v=el.value; el.innerHTML='<option value="">All Locations</option>'+locOpts; el.value=v;
   });
-  const equipOpts = EQUIPMENT_LIST.map(e=>`<option value="${e}">${e}</option>`).join('');
+  const equipOpts = EQUIPMENT_LIST.map(e=>`<option value="${escHtml(e)}">${escHtml(e)}</option>`).join('');
   const eqEl=document.getElementById('mt-equipment'); if(eqEl){const v=eqEl.value;eqEl.innerHTML='<option value="">Select equipment…</option>'+equipOpts;eqEl.value=v;}
   const fLocEl=document.getElementById('maint-filter-loc'); if(fLocEl) fLocEl.innerHTML='<option value="">All Locations</option>'+locOpts;
-  const fEqEl=document.getElementById('maint-filter-equip'); if(fEqEl) fEqEl.innerHTML='<option value="">All Equipment</option>'+EQUIPMENT_LIST.map(e=>`<option value="${e}">${e}</option>`).join('');
-  const lEqEl=document.getElementById('maint-log-filter-equip'); if(lEqEl) lEqEl.innerHTML='<option value="">All Equipment</option>'+EQUIPMENT_LIST.map(e=>`<option value="${e}">${e}</option>`).join('');
+  const fEqEl=document.getElementById('maint-filter-equip'); if(fEqEl) fEqEl.innerHTML='<option value="">All Equipment</option>'+EQUIPMENT_LIST.map(e=>`<option value="${escHtml(e)}">${escHtml(e)}</option>`).join('');
+  const lEqEl=document.getElementById('maint-log-filter-equip'); if(lEqEl) lEqEl.innerHTML='<option value="">All Equipment</option>'+EQUIPMENT_LIST.map(e=>`<option value="${escHtml(e)}">${escHtml(e)}</option>`).join('');
 }
 
 let _staffEditId = null;
@@ -3944,7 +3944,7 @@ function openStaffForm(id) {
   document.getElementById('sf-active').value = s?.Active   ||'Yes';
   const locs=getLocations();
   const locEl=document.getElementById('sf-location');
-  locEl.innerHTML='<option value="">Select location…</option>'+locs.map(l=>`<option value="${l}">${l}</option>`).join('');
+  locEl.innerHTML='<option value="">Select location…</option>'+locs.map(l=>`<option value="${escHtml(l)}">${escHtml(l)}</option>`).join('');
   locEl.value=s?.Location||'';
   // Location access checkboxes
   const accessVal = s?.LocationAccess || 'All';
@@ -3954,7 +3954,7 @@ function openStaffForm(id) {
   locAccessEl.innerHTML = `<label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;font-weight:600">
     <input type="checkbox" id="sf-access-all" value="All" onchange="toggleAllLocAccess(this)" ${isAll?'checked':''}> All Locations
   </label>` + locs.map(l=>`<label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer">
-    <input type="checkbox" class="sf-access-loc" value="${l}" ${isAll?'disabled':''}${!isAll&&allowedSet.has(l)?'checked':''}> ${l}
+    <input type="checkbox" class="sf-access-loc" value="${escHtml(l)}" ${isAll?'disabled':''}${!isAll&&allowedSet.has(l)?'checked':''}> ${escHtml(l)}
   </label>`).join('');
   document.getElementById('staff-delete-btn').style.display = s?'inline-flex':'none';
   // Show a hint if current user's email isn't set yet
@@ -4361,8 +4361,8 @@ function renderLocations() {
   if (el) {
     el.innerHTML = locs.map(l=>`
       <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--opal);font-size:13px;">
-        <span>${l}</span>
-        <button onclick="removeLocation('${l}')" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;padding:0 4px;line-height:1;" title="Remove">×</button>
+        <span>${escHtml(l)}</span>
+        <button data-loc="${escHtml(l)}" onclick="removeLocation(this.dataset.loc)" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;padding:0 4px;line-height:1;" title="Remove">×</button>
       </div>`).join('');
   }
   // Topbar location buttons — use active state from currentLocation, filter by access
@@ -4372,7 +4372,7 @@ function renderLocations() {
     const showAll = allowed.length > 1;
     switcher.innerHTML =
       (showAll ? `<button class="loc-btn${currentLocation==='all'?' active':''}" onclick="setLocation('all',this)">All</button>` : '')
-      + allowed.map(l=>`<button class="loc-btn${currentLocation===l?' active':''}" onclick="setLocation('${l}',this)">${l}</button>`).join('');
+      + allowed.map(l=>`<button class="loc-btn${currentLocation===l?' active':''}" data-loc="${escHtml(l)}" onclick="setLocation(this.dataset.loc,this)">${escHtml(l)}</button>`).join('');
   }
 }
 function addLocation() {
@@ -4580,10 +4580,10 @@ function renderNotifRules() {
         <div style="font-size:11px;color:var(--muted)">${escHtml(r.description||'')}</div>
       </div>
       <span class="badge ${r.enabled?'badge-green':'badge-orange'}" style="font-size:11px">${r.enabled?'Active':'Paused'}</span>
-      <button class="btn btn-outline" style="font-size:12px;padding:5px 12px" onclick="toggleNotifRule('${r.id}')">
+      <button class="btn btn-outline" style="font-size:12px;padding:5px 12px" data-id="${escHtml(r.id)}" onclick="toggleNotifRule(this.dataset.id)">
         ${r.enabled?'⏸ Pause':'▶ Resume'}
       </button>
-      <button class="btn btn-outline" style="font-size:12px;padding:5px 10px;color:var(--red);border-color:var(--red)" onclick="deleteNotifRule('${r.id}')">✕</button>
+      <button class="btn btn-outline" style="font-size:12px;padding:5px 10px;color:var(--red);border-color:var(--red)" data-id="${escHtml(r.id)}" onclick="deleteNotifRule(this.dataset.id)">✕</button>
     </div>`).join('');
 }
 
@@ -6262,7 +6262,7 @@ async function runInventoryImport() {
     await loadInventoryData(sId);
     renderInventory();
   } catch(e) {
-    impLog('❌ Error: '+e.message);
+    impLog('❌ Error: '+escHtml(e.message));
     btn.disabled=false; btn.textContent='Import Data';
   }
 }
