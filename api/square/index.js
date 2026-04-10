@@ -9,6 +9,10 @@
  *   GET  /api/square/team-members?limit=200
  *   GET  /api/square/catalog/list?types=ITEM,CATEGORY
  *   POST /api/square/inventory/counts/batch-retrieve
+ *
+ * Auth: caller must supply a valid MSAL Bearer token in the
+ * Authorization header. The token's tenant ID is checked against
+ * TENANT_ID env var (defaults to BSC's tenant) and expiry is enforced.
  */
 
 const https = require('https');
@@ -17,7 +21,54 @@ const { URL } = require('url');
 const SQUARE_BASE = 'https://connect.squareup.com/v2';
 const SQUARE_VERSION = '2024-10-17';
 
+/**
+ * Decode and lightly validate an MSAL JWT Bearer token.
+ * Checks: tenant ID matches, token is not expired.
+ * Note: this does not verify the cryptographic signature — that would
+ * require jsonwebtoken + jwks-rsa. This stops unauthenticated access;
+ * for full verification add those packages in a future hardening pass.
+ */
+function validateToken(authHeader, expectedTenantId) {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return { ok: false, reason: 'Missing or malformed Authorization header' };
+  }
+  const jwt = authHeader.slice(7);
+  const parts = jwt.split('.');
+  if (parts.length !== 3) {
+    return { ok: false, reason: 'Invalid token format' };
+  }
+  let payload;
+  try {
+    const decoded = Buffer.from(parts[1], 'base64url').toString('utf8');
+    payload = JSON.parse(decoded);
+  } catch {
+    return { ok: false, reason: 'Token payload could not be decoded' };
+  }
+  const nowSecs = Math.floor(Date.now() / 1000);
+  if (payload.exp && payload.exp < nowSecs) {
+    return { ok: false, reason: 'Token is expired' };
+  }
+  if (payload.tid !== expectedTenantId) {
+    return { ok: false, reason: 'Token tenant does not match' };
+  }
+  return { ok: true };
+}
+
 module.exports = async function (context, req) {
+  // ── Auth check ────────────────────────────────────────────────────────────
+  const tenantId = process.env.TENANT_ID || 'b808062f-1ca4-4f25-a2eb-8998fac8dc52';
+  const authResult = validateToken(req.headers['authorization'], tenantId);
+  if (!authResult.ok) {
+    context.log.warn('Square proxy: auth rejected —', authResult.reason);
+    context.res = {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: 'Unauthorized' })
+    };
+    return;
+  }
+
+  // ── Square token ──────────────────────────────────────────────────────────
   const token = process.env.SQUARE_ACCESS_TOKEN;
   if (!token) {
     context.res = {
@@ -28,7 +79,7 @@ module.exports = async function (context, req) {
     return;
   }
 
-  // Build upstream Square URL
+  // ── Build upstream Square URL ─────────────────────────────────────────────
   const restPath = req.params.restPath || '';
   const qs = new URLSearchParams(req.query || {}).toString();
   const squareUrl = `${SQUARE_BASE}/${restPath}${qs ? '?' + qs : ''}`;
@@ -38,11 +89,18 @@ module.exports = async function (context, req) {
 
   context.log(`Square proxy: ${method} ${squareUrl}`);
 
+  // ── Restrict CORS to the configured app origin only ───────────────────────
+  const allowedOrigin = process.env.ALLOWED_ORIGIN || '';
+  const requestOrigin = req.headers['origin'] || '';
+  const corsOrigin = (allowedOrigin && requestOrigin === allowedOrigin) ? allowedOrigin : '';
+
   try {
     const result = await squareRequest(method, squareUrl, token, requestBody);
+    const headers = { 'Content-Type': 'application/json' };
+    if (corsOrigin) headers['Access-Control-Allow-Origin'] = corsOrigin;
     context.res = {
       status: result.status,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      headers,
       body: result.body
     };
   } catch (e) {

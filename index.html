@@ -6,8 +6,8 @@
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#023d4a">
-<script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
+<script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js" integrity="sha384-mz+8Q3jA4XBFbnyAsyQegn/0LHvziH7qHLBa9GzcU3HzeWj9J16SXM5S+TsmPBy0" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous" defer></script>
 <style>
 :root {
   --dark-blue: #023d4a;
@@ -2067,10 +2067,10 @@ function renderDashboard() {
     return `
     <div class="alert-item">
       <div class="alert-dot ${stock===0?'red':'orange'}"></div>
-      <span>${i.ItemName||'Unknown'}</span>
-      <span style="margin-left:auto;font-size:11px;color:var(--muted)">${loc}</span>
+      <span>${escHtml(i.ItemName||'Unknown')}</span>
+      <span style="margin-left:auto;font-size:11px;color:var(--muted)">${escHtml(loc)}</span>
       <span class="badge ${stock===0?'badge-red':'badge-orange'}" style="margin-left:8px">
-        ${stock} / ${i.ParLevel||0} ${i.Unit||''}
+        ${stock} / ${i.ParLevel||0} ${escHtml(i.Unit||'')}
       </span>
     </div>`;
   }).join('');
@@ -2091,8 +2091,8 @@ function renderDashboard() {
   else ordEl.innerHTML = pendingOrders.slice(0,5).map(o=>`
     <div class="alert-item">
       <div class="alert-dot gold"></div>
-      <span>${o.Vendor||'Unknown'}</span>
-      <span style="margin-left:auto"><span class="badge badge-gold">${o.Status}</span></span>
+      <span>${escHtml(o.Vendor||'Unknown')}</span>
+      <span style="margin-left:auto"><span class="badge badge-gold">${escHtml(o.Status)}</span></span>
     </div>`).join('');
 
   updateMaintDashboard();
@@ -2202,14 +2202,14 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
     const par     = i.ParLevel||0;
     const badge   = totalNum===null?'badge-gray':totalNum===0?'badge-red':totalNum<=par?'badge-orange':'badge-green';
     const status  = totalNum===null?'—':totalNum===0?'Out':totalNum<=par?'Low':'OK';
-    const unit    = i.OrderUnit||i.Unit||'';
+    const unit    = escHtml(i.OrderUnit||i.Unit||'');
     const costCase    = i.CostPerCase    != null ? '$'+Number(i.CostPerCase).toFixed(2)    : '—';
     const costServing = i.CostPerServing != null ? '$'+Number(i.CostPerServing).toFixed(4) : '—';
-    const servings    = i.ServingsPerUnit!= null ? Number(i.ServingsPerUnit).toLocaleString()+' '+i.ServingUnit  : '—';
+    const servings    = i.ServingsPerUnit!= null ? Number(i.ServingsPerUnit).toLocaleString()+' '+escHtml(i.ServingUnit||'')  : '—';
     return `<tr>
-      <td class="fw">${i.ItemName||'—'}</td>
-      <td><span class="badge badge-teal">${i.Category||'—'}</span></td>
-      <td style="font-size:12px">${i.Supplier ? `<a href="#" onclick="nav('vendors');setTimeout(()=>{const s=document.querySelector('#page-vendors .search-input');if(s){s.value='${escHtml(i.Supplier||'')}';filterVendors(s.value);}},300);return false;" style="color:var(--gold);text-decoration:none;">${escHtml(i.Supplier)}</a>` : '<span style="color:var(--muted)">—</span>'}</td>
+      <td class="fw">${escHtml(i.ItemName||'—')}</td>
+      <td><span class="badge badge-teal">${escHtml(i.Category||'—')}</span></td>
+      <td style="font-size:12px">${i.Supplier ? `<a href="#" data-supplier="${escHtml(i.Supplier||'')}" onclick="nav('vendors');setTimeout(()=>{const s=document.querySelector('#page-vendors .search-input');if(s){s.value=this.dataset.supplier;filterVendors(s.value);}},300);return false;" style="color:var(--gold);text-decoration:none;">${escHtml(i.Supplier)}</a>` : '<span style="color:var(--muted)">—</span>'}</td>
       <td>${par} <span style="font-size:11px;color:var(--muted)">${unit}</span></td>
       <td>${store}</td>
       <td>${storage}</td>
@@ -2235,13 +2235,13 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
   const catSel = document.getElementById('inv-cat-filter');
   const curCat = catSel.value;
   catSel.innerHTML = '<option value="">All Categories</option>' +
-    cats.map(c=>`<option ${c===curCat?'selected':''}>${c}</option>`).join('');
+    cats.map(c=>`<option value="${escHtml(c)}" ${c===curCat?'selected':''}>${escHtml(c)}</option>`).join('');
 
   const suppliers = [...new Set(allItems.map(i=>i.Supplier).filter(Boolean))].sort();
   const supSel = document.getElementById('inv-supplier-filter');
   const curSup = supSel?.value || '';
   if (supSel) supSel.innerHTML = '<option value="">All Vendors</option>' +
-    suppliers.map(s=>`<option ${s===curSup?'selected':''}>${s}</option>`).join('');
+    suppliers.map(s=>`<option value="${escHtml(s)}" ${s===curSup?'selected':''}>${escHtml(s)}</option>`).join('');
 }
 
 function filterInventory(query) {
@@ -2636,13 +2636,13 @@ function renderTransfers() {
   const items = [...cache.transfers].reverse();
   tbody.innerHTML = items.map(t=>`<tr>
     <td>${t.Created ? new Date(t.Created).toLocaleDateString() : '—'}</td>
-    <td class="fw">${t.ItemName||'—'}</td>
+    <td class="fw">${escHtml(t.ItemName||'—')}</td>
     <td>${t.Quantity||0}</td>
-    <td>${t.Unit||'—'}</td>
-    <td><span class="badge badge-blue">${t.FromLocation||'—'}</span></td>
-    <td><span class="badge badge-teal">${t.ToLocation||'—'}</span></td>
-    <td>${t.TransferredBy||'—'}</td>
-    <td style="color:var(--muted);font-size:12px">${t.Notes||''}</td>
+    <td>${escHtml(t.Unit||'—')}</td>
+    <td><span class="badge badge-blue">${escHtml(t.FromLocation||'—')}</span></td>
+    <td><span class="badge badge-teal">${escHtml(t.ToLocation||'—')}</span></td>
+    <td>${escHtml(t.TransferredBy||'—')}</td>
+    <td style="color:var(--muted);font-size:12px">${escHtml(t.Notes||'')}</td>
   </tr>`).join('');
   document.getElementById('transfer-empty').style.display = items.length?'none':'block';
   document.getElementById('transfer-count').textContent = `${items.length} transfers`;
@@ -2735,13 +2735,13 @@ function renderOrders(query='', statusFilter='') {
     const badges = {Pending:'badge-gold',Ordered:'badge-blue',Delivered:'badge-green',Cancelled:'badge-gray'};
     return `<tr>
       <td>${o.Created?new Date(o.Created).toLocaleDateString():'—'}</td>
-      <td class="fw">${o.Vendor||'—'}</td>
-      <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${o.Items||o.Notes||'—'}</td>
-      <td>${o.Location||'—'}</td>
-      <td><span class="badge ${badges[o.Status]||'badge-gray'}">${o.Status||'—'}</span></td>
-      <td>${o.OrderedBy||'—'}</td>
+      <td class="fw">${escHtml(o.Vendor||'—')}</td>
+      <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(o.Items||o.Notes||'—')}</td>
+      <td>${escHtml(o.Location||'—')}</td>
+      <td><span class="badge ${badges[o.Status]||'badge-gray'}">${escHtml(o.Status||'—')}</span></td>
+      <td>${escHtml(o.OrderedBy||'—')}</td>
       <td>${o.ExpectedDelivery?new Date(o.ExpectedDelivery).toLocaleDateString():'—'}</td>
-      <td style="color:var(--muted);font-size:12px">${o.Notes||''}</td>
+      <td style="color:var(--muted);font-size:12px">${escHtml(o.Notes||'')}</td>
     </tr>`;
   }).join('');
   document.getElementById('order-empty').style.display = orders.length?'none':'block';
@@ -3277,10 +3277,15 @@ function spFieldLabel(key, listName) {
 function spCellValue(key, val) {
   if (!val || val==='') return '—';
   const k = key.toLowerCase();
-  if (k.includes('phone')||k.includes('tel')) return `<a href="tel:${val.toString().replace(/\D/g,'')}">${val}</a>`;
-  if (k.includes('email')||k.includes('mail')) return `<a href="mailto:${val}">${val}</a>`;
-  if (k.includes('website')||k.includes('url')) return `<a href="${val}" target="_blank">↗</a>`;
-  return val;
+  const safe = escHtml(String(val));
+  if (k.includes('phone')||k.includes('tel')) return `<a href="tel:${val.toString().replace(/\D/g,'')}">${safe}</a>`;
+  if (k.includes('email')||k.includes('mail')) return `<a href="mailto:${safe}">${safe}</a>`;
+  if (k.includes('website')||k.includes('url')) {
+    // Only allow http/https URLs
+    const href = /^https?:\/\//i.test(val) ? escHtml(val) : '#';
+    return `<a href="${href}" target="_blank" rel="noopener noreferrer">↗</a>`;
+  }
+  return safe;
 }
 
 function renderDynamicTable(rows, thead, tbody, countEl) {
@@ -3526,17 +3531,21 @@ function maintIcon(service='') {
 function maintFieldRow(key, val, label) {
   if (!val || val === '') return '';
   const k = (key + label).toLowerCase();
+  const safe = escHtml(String(val));
+  const safeLabel = escHtml(String(label));
   if (k.includes('phone') || k.includes('tel'))
-    return `<div>📞 <a href="tel:${val.toString().replace(/\D/g,'')}" onclick="event.stopPropagation()">${val}</a></div>`;
+    return `<div>📞 <a href="tel:${val.toString().replace(/\D/g,'')}" onclick="event.stopPropagation()">${safe}</a></div>`;
   if (k.includes('email') || k.includes('mail'))
-    return `<div>✉️ <a href="mailto:${val}" onclick="event.stopPropagation()">${val}</a></div>`;
-  if (k.includes('website') || k.includes('url') || k.includes('link'))
-    return `<div>🔗 <a href="${val.startsWith('http')?val:'https://'+val}" target="_blank" onclick="event.stopPropagation()">${val}</a></div>`;
+    return `<div>✉️ <a href="mailto:${safe}" onclick="event.stopPropagation()">${safe}</a></div>`;
+  if (k.includes('website') || k.includes('url') || k.includes('link')) {
+    const href = /^https?:\/\//i.test(val) ? escHtml(val) : 'https://'+safe;
+    return `<div>🔗 <a href="${href}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">${safe}</a></div>`;
+  }
   if (k.includes('contact') || k.includes('person') || k.includes('rep'))
-    return `<div>👤 ${val}</div>`;
+    return `<div>👤 ${safe}</div>`;
   if (k.includes('note') || k.includes('comment') || k.includes('info'))
-    return `<div style="margin-top:4px;padding:6px 10px;background:var(--cream);border-radius:6px;font-size:11px;color:var(--muted)">${val}</div>`;
-  return `<div style="color:var(--muted);font-size:12px;">${label}: ${val}</div>`;
+    return `<div style="margin-top:4px;padding:6px 10px;background:var(--cream);border-radius:6px;font-size:11px;color:var(--muted)">${safe}</div>`;
+  return `<div style="color:var(--muted);font-size:12px;">${safeLabel}: ${safe}</div>`;
 }
 
 function maintFields(item) {
@@ -3579,8 +3588,8 @@ function renderMaintContacts(query='') {
       }).filter(Boolean).join('');
 
     return `<div class="card" style="cursor:pointer;" onclick="openMaintForm('${m.id}')">
-      <div class="card-title">${icon} ${m.Title||'Unnamed'}</div>
-      ${serviceVal ? `<div style="font-size:12px;color:var(--muted);margin-top:-8px;margin-bottom:10px">${serviceVal}</div>` : ''}
+      <div class="card-title">${icon} ${escHtml(m.Title||'Unnamed')}</div>
+      ${serviceVal ? `<div style="font-size:12px;color:var(--muted);margin-top:-8px;margin-bottom:10px">${escHtml(serviceVal)}</div>` : ''}
       <div style="font-size:13px;display:flex;flex-direction:column;gap:6px;">${fieldRows}</div>
       <button class="recipe-edit-btn" style="margin-top:10px;" onclick="event.stopPropagation();openMaintForm('${m.id}')">✏️ Edit</button>
     </div>`;
@@ -3674,10 +3683,10 @@ function recipeContentToHtml(text) {
     const isBullet = /^[-•]\s+/.test(line);
     if (isBullet) {
       if (!inList) { html += '<ul>'; inList = true; }
-      html += `<li>${line.replace(/^[-•]\s+/,'')}</li>`;
+      html += `<li>${escHtml(line.replace(/^[-•]\s+/,''))}</li>`;
     } else {
       if (inList) { html += '</ul>'; inList = false; }
-      if (line.trim()) html += `<p>${line}</p>`;
+      if (line.trim()) html += `<p>${escHtml(line)}</p>`;
       else html += '<p style="margin:4px 0;"></p>';
     }
   }
@@ -3706,7 +3715,7 @@ function recipeMetaLine(r) {
   const formatted = d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
   const diff = Math.floor((Date.now()-d)/86400000);
   const ago = diff===0?'Today':diff===1?'Yesterday':`${diff}d ago`;
-  return name ? `${ago} · ${formatted} · ${name}` : `${ago} · ${formatted}`;
+  return name ? `${escHtml(ago)} · ${escHtml(formatted)} · ${escHtml(name)}` : `${escHtml(ago)} · ${escHtml(formatted)}`;
 }
 
 function renderRecipes(query='') {
@@ -3729,9 +3738,9 @@ function renderRecipes(query='') {
   grid.innerHTML = rows.map(r=>{
     const meta = recipeMetaLine(r);
     const bodyHtml = recipeContentToHtml(r.Content||'');
-    const notesHtml = r.Notes ? `<div style="margin-top:8px;padding:8px 10px;background:var(--cream);border-radius:6px;font-size:11px;color:var(--muted)">${r.Notes}</div>` : '';
+    const notesHtml = r.Notes ? `<div style="margin-top:8px;padding:8px 10px;background:var(--cream);border-radius:6px;font-size:11px;color:var(--muted)">${escHtml(r.Notes)}</div>` : '';
     return `<div class="recipe-card" onclick="openRecipeForm('${r.id}')">
-      <div class="recipe-card-title">${r.Title||'Untitled Recipe'}</div>
+      <div class="recipe-card-title">${escHtml(r.Title||'Untitled Recipe')}</div>
       ${meta ? `<div class="recipe-meta">${meta}</div>` : ''}
       <div class="recipe-body">${bodyHtml}</div>
       ${notesHtml}
@@ -3901,7 +3910,7 @@ function filterStaff(q) { renderStaff(q); }
 
 function populateStaffSelects() {
   const active = cache.staff.filter(s=>s.Active!=='No');
-  const staffOpts = '<option value="">Unassigned</option>'+active.map(s=>`<option value="${s.Title}">${s.Title}${s.Role?' ('+s.Role+')':''}</option>`).join('');
+  const staffOpts = '<option value="">Unassigned</option>'+active.map(s=>`<option value="${escHtml(s.Title)}">${escHtml(s.Title)}${s.Role?' ('+escHtml(s.Role)+')':''}</option>`).join('');
   ['mt-assigned','mc-completed-by'].forEach(id=>{
     const el=document.getElementById(id); if(!el) return;
     const v=el.value; el.innerHTML=staffOpts; el.value=v;
@@ -4065,13 +4074,13 @@ function renderMaintSchedule() {
     const status=getMaintStatus(r);
     return `<div class="maint-card ${status}" onclick="openMaintTaskForm('${r.id}')">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-        <div style="font-weight:700;font-size:14px;">${r.Title||'Unnamed Task'}</div>
+        <div style="font-weight:700;font-size:14px;">${escHtml(r.Title||'Unnamed Task')}</div>
         ${maintStatusBadge(status,r.NextDue)}
       </div>
-      <div style="font-size:12px;color:var(--muted);">${r.Equipment||''}${r.Location?' · '+r.Location:''}</div>
-      ${r.AssignedTo?`<div style="font-size:12px;">👤 ${r.AssignedTo}</div>`:''}
-      ${r.Frequency?`<div style="font-size:12px;color:var(--muted);">🔁 ${r.Frequency}</div>`:''}
-      ${r.Description?`<div style="font-size:12px;color:var(--muted);margin-top:4px;border-top:1px solid var(--border);padding-top:6px;">${r.Description}</div>`:''}
+      <div style="font-size:12px;color:var(--muted);">${escHtml(r.Equipment||'')}${r.Location?' · '+escHtml(r.Location):''}</div>
+      ${r.AssignedTo?`<div style="font-size:12px;">👤 ${escHtml(r.AssignedTo)}</div>`:''}
+      ${r.Frequency?`<div style="font-size:12px;color:var(--muted);">🔁 ${escHtml(r.Frequency)}</div>`:''}
+      ${r.Description?`<div style="font-size:12px;color:var(--muted);margin-top:4px;border-top:1px solid var(--border);padding-top:6px;">${escHtml(r.Description)}</div>`:''}
       <div style="display:flex;gap:8px;margin-top:8px;">
         <button class="btn btn-primary" style="flex:1;padding:6px 8px;font-size:12px;" onclick="event.stopPropagation();openCompleteTask('${r.id}')">✓ Complete</button>
         <button class="recipe-edit-btn" onclick="event.stopPropagation();openMaintTaskForm('${r.id}')">✏️ Edit</button>
@@ -4208,12 +4217,12 @@ function renderMaintLog() {
     const d=r.CompletedDate?new Date(r.CompletedDate).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
     return `<tr>
       <td style="white-space:nowrap">${d}</td>
-      <td>${r.TaskName||r.Title||'—'}</td>
-      <td>${r.Equipment||'—'}</td>
-      <td>${r.Location||'—'}</td>
-      <td>${r.CompletedBy||'—'}</td>
-      <td style="max-width:200px;white-space:pre-wrap;">${r.Notes||'—'}</td>
-      <td>${r.PhotoName?`<span style="font-size:11px;color:var(--gold);">📷 ${r.PhotoName}</span>`:'—'}</td>
+      <td>${escHtml(r.TaskName||r.Title||'—')}</td>
+      <td>${escHtml(r.Equipment||'—')}</td>
+      <td>${escHtml(r.Location||'—')}</td>
+      <td>${escHtml(r.CompletedBy||'—')}</td>
+      <td style="max-width:200px;white-space:pre-wrap;">${escHtml(r.Notes||'—')}</td>
+      <td>${r.PhotoName?`<span style="font-size:11px;color:var(--gold);">📷 ${escHtml(r.PhotoName)}</span>`:'—'}</td>
     </tr>`;
   }).join('');
 }
@@ -4227,8 +4236,8 @@ function updateMaintDashboard() {
   const el=document.getElementById('dash-maint-alerts'); if(!el) return;
   if(!total){el.innerHTML='<div style="font-size:13px;color:var(--green);">✓ All maintenance up to date</div>';return;}
   el.innerHTML=[
-    ...overdue.map(t=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px;"><span class="maint-badge maint-overdue" style="flex-shrink:0;font-size:9px;">PAST DUE</span><span>${t.Title} · ${t.Equipment||''}</span></div>`),
-    ...dueSoon.map(t=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px;"><span class="maint-badge maint-due-soon" style="flex-shrink:0;font-size:9px;">DUE SOON</span><span>${t.Title} · ${t.Equipment||''}</span></div>`)
+    ...overdue.map(t=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px;"><span class="maint-badge maint-overdue" style="flex-shrink:0;font-size:9px;">PAST DUE</span><span>${escHtml(t.Title)} · ${escHtml(t.Equipment||'')}</span></div>`),
+    ...dueSoon.map(t=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px;"><span class="maint-badge maint-due-soon" style="flex-shrink:0;font-size:9px;">DUE SOON</span><span>${escHtml(t.Title)} · ${escHtml(t.Equipment||'')}</span></div>`)
   ].join('');
 }
 async function checkMaintNotifications() {
@@ -4567,8 +4576,8 @@ function renderNotifRules() {
     <div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--opal);flex-wrap:wrap">
       <div style="width:10px;height:10px;border-radius:50%;background:${r.enabled?'var(--green)':'#ccc'};flex-shrink:0"></div>
       <div style="flex:1;min-width:160px">
-        <div style="font-size:13px;font-weight:600">${r.name}</div>
-        <div style="font-size:11px;color:var(--muted)">${r.description||''}</div>
+        <div style="font-size:13px;font-weight:600">${escHtml(r.name)}</div>
+        <div style="font-size:11px;color:var(--muted)">${escHtml(r.description||'')}</div>
       </div>
       <span class="badge ${r.enabled?'badge-green':'badge-orange'}" style="font-size:11px">${r.enabled?'Active':'Paused'}</span>
       <button class="btn btn-outline" style="font-size:12px;padding:5px 12px" onclick="toggleNotifRule('${r.id}')">
@@ -4800,7 +4809,7 @@ function renderMenu(query='', catFilter='') {
   if (sel) {
     const cur = sel.value;
     sel.innerHTML = '<option value="">All Categories</option>' +
-      cats.map(c=>`<option${c===cur?' selected':''}>${c}</option>`).join('');
+      cats.map(c=>`<option value="${escHtml(c)}"${c===cur?' selected':''}>${escHtml(c)}</option>`).join('');
   }
 
   document.getElementById('menu-count').textContent = `${items.length} items`;
@@ -4812,11 +4821,11 @@ function renderMenu(query='', catFilter='') {
     const stockDisplay = stock != null ? stock : '—';
     const vars = (i.Variations||'').split('\n').filter(Boolean);
     return `<tr style="${isHidden?'opacity:0.45;':''}">
-      <td style="font-weight:600">${i.ItemName||'—'}</td>
-      <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${i.Category||'—'}</span></td>
-      <td style="font-size:12px;color:var(--muted);max-width:220px">${i.Description||''}</td>
+      <td style="font-weight:600">${escHtml(i.ItemName||'—')}</td>
+      <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${escHtml(i.Category||'—')}</span></td>
+      <td style="font-size:12px;color:var(--muted);max-width:220px">${escHtml(i.Description||'')}</td>
       <td>${i.Price != null ? '$'+Number(i.Price).toFixed(2) : '—'}</td>
-      <td style="font-size:11px;color:var(--muted)">${vars.slice(0,3).join('<br>')}${vars.length>3?`<br>+${vars.length-3} more`:''}</td>
+      <td style="font-size:11px;color:var(--muted)">${vars.slice(0,3).map(v=>escHtml(v)).join('<br>')}${vars.length>3?`<br>+${vars.length-3} more`:''}</td>
       <td style="font-weight:600;color:${stock!=null&&stock<5?'var(--red)':stock!=null&&stock<10?'var(--orange)':'var(--text)'}">${stockDisplay}</td>
       <td style="text-align:center;">
         <button onclick="toggleMenuItemHidden('${i.id}','${isHidden?'No':'Yes'}')"
@@ -4851,9 +4860,13 @@ function filterMenu(query) {
 
 // ── Core API helper ───────────────────────────────────────────────────────
 async function squareAPI(method, path, body) {
+  const msalToken = await getToken();
   const res = await fetch(`/api/square/${path}`, {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${msalToken}`
+    },
     body: body ? JSON.stringify(body) : undefined
   });
   const data = await res.json();
@@ -5238,14 +5251,14 @@ function renderCogs() {
   const prevCat = catSel?.value || '';
   if (catSel) {
     catSel.innerHTML = '<option value="">All Categories</option>'
-      + cats.map(c=>`<option value="${c}"${c===prevCat?' selected':''}>${c}</option>`).join('');
+      + cats.map(c=>`<option value="${escHtml(c)}"${c===prevCat?' selected':''}>${escHtml(c)}</option>`).join('');
   }
   // Populate history item filter
   const histSel = document.getElementById('cogs-hist-item');
   if (histSel) {
     const names = [...new Set(cache.menu.map(i => i.ItemName||i.Title||'').filter(Boolean))].sort();
     histSel.innerHTML = '<option value="">All Items</option>'
-      + names.map(n=>`<option value="${n}">${n}</option>`).join('');
+      + names.map(n=>`<option value="${escHtml(n)}">${escHtml(n)}</option>`).join('');
   }
 
   // Check for missing costs
