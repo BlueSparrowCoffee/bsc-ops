@@ -1732,30 +1732,32 @@ async function ensureList(listName, columns) {
   let listId = listCache[listName];
 
   if (!listId) {
-    // Use raw fetch so a 409 never appears in the browser console
     const token = await getToken();
-    const createRes = await fetch(
-      `https://graph.microsoft.com/v1.0/sites/${siteId}/lists`,
-      {
+    const base = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists`;
+    // GET first — avoids a 409 when the list exists but the name cache missed
+    const getRes = await fetch(
+      `${base}/${encodeURIComponent(listName)}?$select=id`,
+      { headers: { Authorization: 'Bearer ' + token } }
+    );
+    if (getRes.ok) {
+      const r = await getRes.json();
+      listId = r.id;
+    } else if (getRes.status === 404) {
+      // Genuinely doesn't exist — create it
+      const createRes = await fetch(base, {
         method: 'POST',
         headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
         body: JSON.stringify({ displayName: listName, list: { template: 'genericList' } })
+      });
+      if (!createRes.ok) {
+        const err = await createRes.json().catch(() => ({}));
+        throw new Error(err.error?.message || `List create failed: ${createRes.status}`);
       }
-    );
-    if (createRes.ok) {
       const r = await createRes.json();
       listId = r.id;
-    } else if (createRes.status === 409) {
-      // Already exists — fetch its ID quietly
-      const getRes = await fetch(
-        `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${encodeURIComponent(listName)}?$select=id`,
-        { headers: { Authorization: 'Bearer ' + token } }
-      );
-      const r = await getRes.json();
-      listId = r.id;
     } else {
-      const err = await createRes.json().catch(() => ({}));
-      throw new Error(err.error?.message || `List create failed: ${createRes.status}`);
+      const err = await getRes.json().catch(() => ({}));
+      throw new Error(err.error?.message || `List lookup failed: ${getRes.status}`);
     }
     listCache[listName] = listId;
   }
