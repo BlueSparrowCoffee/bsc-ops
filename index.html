@@ -1796,6 +1796,7 @@ async function ensureList(listName, columns) {
       if (col.text)     colDef.text     = col.text;
       if (col.dateTime) colDef.dateTime = col.dateTime;
       if (col.number)   colDef.number   = col.number;
+      if (col.boolean)  colDef.boolean  = col.boolean;
       await graph('POST', `/sites/${siteId}/lists/${listId}/columns`, colDef);
     }
   }
