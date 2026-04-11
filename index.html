@@ -1912,7 +1912,7 @@ async function ensureList(listName, columns) {
   return listId;
 }
 
-const PROVISION_VERSION = '2';
+const PROVISION_VERSION = '3';
 
 async function bootstrapApp() {
   setLoading(true,'Loading BSC Operations…');
@@ -5529,7 +5529,12 @@ async function squareAPI(method, path, body) {
     body: body ? JSON.stringify(body) : undefined
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data?.errors?.[0]?.detail || data?.error || `Square error ${res.status}`);
+  if (!res.ok) {
+    const msg = data?.errors?.[0]?.detail
+      || (data?.reason ? `${data?.error}: ${data.reason}` : data?.error)
+      || `Square error ${res.status}`;
+    throw new Error(msg);
+  }
   return data;
 }
 

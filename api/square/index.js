@@ -63,7 +63,7 @@ module.exports = async function (context, req) {
     context.res = {
       status: 401,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ error: 'Unauthorized' })
+      body: JSON.stringify({ error: 'Unauthorized', reason: authResult.reason })
     };
     return;
   }
