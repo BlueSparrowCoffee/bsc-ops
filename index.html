@@ -468,8 +468,9 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
       <div class="count-header-bar">
         <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end">
           <div>
-            <label class="field-label">Date</label>
-            <input type="date" id="count-week-date" class="field-input" style="width:160px">
+            <label class="field-label">Date &amp; Time</label>
+            <div id="count-date-display" style="font-size:13px;font-weight:600;color:var(--dark-blue);padding:6px 0;min-width:180px;">—</div>
+            <input type="hidden" id="count-week-date">
           </div>
           <div>
             <label class="field-label">Counted by</label>
@@ -550,7 +551,7 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
       <table>
         <thead><tr>
           <th>Date</th><th>Item</th><th>Qty</th><th>Unit</th>
-          <th>From</th><th>To</th><th>Transferred By</th><th>Notes</th><th></th>
+          <th>From</th><th>To</th><th>Transferred By</th><th>Notes</th><th>Action</th>
         </tr></thead>
         <tbody id="transfer-body"></tbody>
       </table>
@@ -1166,7 +1167,15 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
           <button class="btn btn-outline" onclick="toggleWebhookVis()" style="padding:8px 12px">👁</button>
           <button class="btn btn-primary" onclick="saveSlackWebhook()" style="padding:8px 16px">Save</button>
         </div>
-        <div id="slack-webhook-status" style="font-size:12px;color:var(--muted);margin-bottom:20px"></div>
+        <div id="slack-webhook-status" style="font-size:12px;color:var(--muted);margin-bottom:16px"></div>
+
+        <!-- Channel -->
+        <label class="field-label">Channel</label>
+        <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap">
+          <input id="slack-channel-input" type="text" class="field-input" style="flex:1;min-width:160px;max-width:240px" placeholder="#bsc_ops" value="#bsc_ops">
+          <button class="btn btn-primary" onclick="saveSlackChannel()" style="padding:8px 16px">Save</button>
+        </div>
+        <div id="slack-channel-status" style="font-size:12px;color:var(--muted);margin-bottom:20px"></div>
 
         <!-- Global controls -->
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
@@ -1231,6 +1240,14 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
           <button class="btn" onclick="sendStaffInvitations()" id="send-invites-btn" style="background:var(--gold);color:#fff;border:none">📨 Send Invitations</button>
         </div>
         <div id="sync-access-log" style="margin-top:14px;font-size:12px;line-height:2;color:#444;background:#f9f9f9;border-radius:8px;padding:12px 14px;display:none;max-height:220px;overflow-y:auto;"></div>
+      </div>
+      <div class="card" style="grid-column:1/-1">
+        <div class="card-title" style="margin-bottom:4px">🔧 SharePoint Provisioning</div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">
+          Creates or updates all required SharePoint lists and columns. Run this after updates to add new lists or columns for new features. Safe to run multiple times — existing data is never deleted.
+        </p>
+        <button class="btn btn-primary" onclick="runProvisioning()" id="provision-run-btn">▶ Run Provisioning</button>
+        <div id="provision-log" style="margin-top:14px;font-size:12px;line-height:1.9;color:#444;background:#f9f9f9;border-radius:8px;padding:12px 14px;display:none;max-height:240px;overflow-y:auto;font-family:monospace;"></div>
       </div>
     </div>
   </div><!-- /settings-body -->
@@ -1456,7 +1473,7 @@ const CFG = {
 const SCOPES = ['Sites.ReadWrite.All','Files.ReadWrite','User.Read'];
 // Admin-only scopes — only requested when owner runs staff access sync
 const ADMIN_SCOPES = [...SCOPES, 'Sites.FullControl.All','User.Invite.All','User.Read.All','User.ReadWrite.All'];
-const MODULES = ['Dashboard','Inventory','Transfers','Ordering','Checklists','Vendors','Recipes','Staff','Maintenance','Settings'];
+const MODULES = ['Dashboard','Inventory','Transfers','Ordering','Checklists','Vendors','Recipes','Staff','Maintenance','Contacts','Menu','Square','COGs','Settings'];
 const EQUIPMENT_LIST = ['Slayer Espresso Machine','Grinders','Glycol Chiller','Refrigerators','Ice Machine','Fetco Batch Brewer','Cold Brew System','Keg Lines / Draft','Water Filtration','Dishwasher','POS Terminals','HVAC / Ventilation','Plumbing / Sinks','Hood / Exhaust'];
 const FREQ_DAYS = {Monthly:30, Quarterly:90, Annually:365};
 // Per-location inventory list name helpers
@@ -2294,9 +2311,20 @@ function renderCountSheet() {
     return;
   }
 
-  // default week = today (always reset to today when switching to count tab)
-  const dateEl = document.getElementById('count-week-date');
-  if (!dateEl.value) dateEl.value = new Date().toISOString().split('T')[0];
+  // Auto date — always use current date/time, no manual input needed
+  function updateCountDateDisplay() {
+    const now = new Date();
+    const dateStr = now.toISOString().split('T')[0];
+    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const display = document.getElementById('count-date-display');
+    const hidden  = document.getElementById('count-week-date');
+    if (display) display.textContent = now.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric' }) + ' · ' + timeStr;
+    if (hidden)  hidden.value = dateStr;
+  }
+  updateCountDateDisplay();
+  // Update every minute so timestamp stays current
+  if (window._countDateInterval) clearInterval(window._countDateInterval);
+  window._countDateInterval = setInterval(updateCountDateDisplay, 60000);
 
   // auto-fill counted by from logged-in user — read-only display
   const byDisplay = document.getElementById('count-by-display');
@@ -2341,18 +2369,20 @@ function renderCountSheet() {
           <div class="count-input-group">
             <label>Store</label>
             <input type="number" class="count-num-input count-store" min="0" step="0.1"
-              oninput="updateCountTotal(this)" placeholder="0">
+              oninput="updateCountTotal(this)" placeholder="0" value="${last ? last.store : ''}">
           </div>
-          <button onclick="countPlusOne(this)" title="+1 to store"
+          <button onclick="countPlusOne(this, 'store')" title="+1 to store"
             style="align-self:flex-end;padding:6px 10px;background:var(--opal);border:1.5px solid var(--border);border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;color:var(--dark-blue);line-height:1;margin-bottom:1px;flex-shrink:0;">+1</button>
           <div class="count-input-group">
             <label>Storage</label>
             <input type="number" class="count-num-input count-storage" min="0" step="0.1"
-              oninput="updateCountTotal(this)" placeholder="0">
+              oninput="updateCountTotal(this)" placeholder="0" value="${last ? last.storage : ''}">
           </div>
+          <button onclick="countPlusOne(this, 'storage')" title="+1 to storage"
+            style="align-self:flex-end;padding:6px 10px;background:var(--opal);border:1.5px solid var(--border);border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;color:var(--dark-blue);line-height:1;margin-bottom:1px;flex-shrink:0;">+1</button>
           <div class="count-total-box">
             <label>Total</label>
-            <div class="count-total-val" id="count-total-${item.id}">0</div>
+            <div class="count-total-val" id="count-total-${item.id}">${last ? last.total : 0}</div>
           </div>
         </div>`;
       }).join('')}
@@ -2386,12 +2416,12 @@ function calcCostPerServing() {
   }
 }
 
-function countPlusOne(btn) {
+function countPlusOne(btn, target='store') {
   const row = btn.closest('.count-row');
   if (!row) return;
-  const storeInput = row.querySelector('.count-store');
-  storeInput.value = +((parseFloat(storeInput.value)||0) + 1).toFixed(2);
-  updateCountTotal(storeInput);
+  const input = row.querySelector(target === 'storage' ? '.count-storage' : '.count-store');
+  input.value = +((parseFloat(input.value)||0) + 1).toFixed(2);
+  updateCountTotal(input);
 }
 
 function clearCountSheet() {
@@ -2701,21 +2731,33 @@ function renderTransfers() {
     <td><span class="badge badge-teal">${escHtml(t.ToLocation||'—')}</span></td>
     <td>${escHtml(t.TransferredBy||'—')}</td>
     <td style="color:var(--muted);font-size:12px">${escHtml(t.Notes||'')}</td>
-    <td><button class="btn btn-sm" style="color:var(--red);border-color:var(--red);padding:3px 8px;" data-id="${escHtml(t.id)}" onclick="deleteTransfer(this.dataset.id)">✕</button></td>
+    <td><button class="btn btn-sm" style="padding:3px 8px;" data-id="${escHtml(t.id)}" onclick="reverseTransfer(this.dataset.id)" title="Create reverse transfer">↩ Reverse</button></td>
   </tr>`).join('');
   document.getElementById('transfer-empty').style.display = items.length?'none':'block';
   document.getElementById('transfer-count').textContent = `${items.length} transfers`;
 }
 
-async function deleteTransfer(id) {
-  if (!confirm('Delete this transfer record?')) return;
-  setLoading(true,'Deleting…');
+async function reverseTransfer(id) {
+  const t = cache.transfers.find(x=>x.id===id);
+  if (!t) return;
+  const label = `Reverse: ${t.ItemName||'item'} ${t.Quantity||''} ${t.Unit||''} — ${t.ToLocation} → ${t.FromLocation}`;
+  if (!confirm(`Create a reverse transfer?\n\n${label}`)) return;
+  setLoading(true,'Creating reversal…');
   try {
-    await deleteListItem(LISTS.transfers, id);
-    cache.transfers = cache.transfers.filter(t=>t.id!==id);
+    const reversal = await addListItem(LISTS.transfers, {
+      ItemName:       t.ItemName,
+      Quantity:       t.Quantity,
+      Unit:           t.Unit,
+      FromLocation:   t.ToLocation,   // swapped
+      ToLocation:     t.FromLocation, // swapped
+      TransferredBy:  currentUser?.name || currentUser?.username || '',
+      Notes:          `↩ Reversal of transfer on ${t.Created ? new Date(t.Created).toLocaleDateString() : 'unknown date'}`
+    });
+    cache.transfers.push(reversal);
     renderTransfers();
-    toast('ok','✓ Transfer deleted');
-  } catch(e) { toast('err','Delete failed: '+e.message); }
+    toast('ok', `↩ Reverse transfer created — ${t.ToLocation} → ${t.FromLocation}`);
+    sendSlackAlert(`↩ Reverse transfer: *${t.ItemName}* — ${t.Quantity} ${t.Unit} from ${t.ToLocation} → ${t.FromLocation} (${currentUser?.name||currentUser?.username})`);
+  } catch(e) { toast('err','Reversal failed: '+e.message); }
   finally { setLoading(false); }
 }
 
@@ -3698,6 +3740,8 @@ async function toggleMaintArchive(id) {
   const label = newVal ? 'Archiving…' : 'Restoring…';
   setLoading(true, label);
   try {
+    // Ensure Archived column exists (in case ensureList hasn't run yet)
+    await ensureList(LISTS.maintContacts, [{name:'Archived',boolean:{}}]);
     await updateListItem(LISTS.maintContacts, id, { Archived: newVal });
     m.Archived = newVal;
     renderMaintContacts(document.querySelector('#page-maint-contacts .search-input')?.value||'');
@@ -4406,6 +4450,27 @@ function openRoleForm(id) {
   setTimeout(()=>document.getElementById('role-name').focus(),100);
 }
 
+async function runProvisioning() {
+  const btn = document.getElementById('provision-run-btn');
+  const log = document.getElementById('provision-log');
+  btn.disabled = true;
+  btn.textContent = 'Running…';
+  log.style.display = 'block';
+  log.innerHTML = '';
+  const pLog = msg => { log.innerHTML += msg + '<br>'; log.scrollTop = log.scrollHeight; };
+  try {
+    pLog('▶ Starting provisioning…');
+    await ensureAllLists();
+    pLog('✅ All lists provisioned successfully.');
+    toast('ok','✅ Provisioning complete');
+  } catch(e) {
+    pLog('❌ Error: ' + escHtml(e.message));
+    toast('err','Provisioning error: '+e.message);
+  }
+  btn.disabled = false;
+  btn.textContent = '▶ Run Provisioning';
+}
+
 function renderRolePerms() {} // kept for nav() compatibility
 
 async function saveRole() {
@@ -4630,10 +4695,23 @@ const DEFAULT_NOTIF_RULES = [
 ];
 
 function getNotifRules() {
+  // SharePoint is the source of truth (shared across all devices/browsers)
+  const spSaved = getSetting('notification_rules');
+  if (spSaved) { try { return JSON.parse(spSaved); } catch {} }
+  // Fall back to localStorage for this device
   try { return JSON.parse(localStorage.getItem('bsc_notifications')) || DEFAULT_NOTIF_RULES; }
   catch { return DEFAULT_NOTIF_RULES; }
 }
-function saveNotifRules(rules) { localStorage.setItem('bsc_notifications',JSON.stringify(rules)); }
+function saveNotifRules(rules) {
+  localStorage.setItem('bsc_notifications', JSON.stringify(rules));
+  // Persist to SharePoint so pause/resume survives page reloads and other devices
+  const json = JSON.stringify(rules);
+  saveSetting('notification_rules', json).then(() => {
+    const i = cache.settingsItems.findIndex(s => s.Title === 'notification_rules');
+    if (i !== -1) cache.settingsItems[i].Value = json;
+    else cache.settingsItems.push({ Title: 'notification_rules', Value: json });
+  }).catch(() => {}); // fire-and-forget, localStorage copy still works
+}
 function isNotifEnabled(type) {
   const rules = getNotifRules();
   const rule = rules.find(r=>r.type===type);
@@ -4663,10 +4741,11 @@ async function sendSlackAlert(text, type=null) {
   if (type && !isNotifEnabled(type)) return;
   const webhook = getSlackWebhook();
   if (!webhook || webhook.includes('PLACEHOLDER')) return;
+  const channel = getSetting('slack_channel') || '#bsc_ops';
   try {
     await fetch(webhook, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ text })
+      body: JSON.stringify({ text, channel })
     });
   } catch(e) { console.warn('Slack alert failed',e); }
 }
@@ -4684,7 +4763,25 @@ function renderSlackSettings() {
   } else {
     status.innerHTML = '<span style="color:var(--orange)">⚠ No webhook configured — enter URL above and save</span>';
   }
+  // Channel
+  const chanInput  = document.getElementById('slack-channel-input');
+  const chanStatus = document.getElementById('slack-channel-status');
+  if (chanInput) {
+    const savedChan = getSetting('slack_channel');
+    chanInput.value = savedChan || '#bsc_ops';
+    if (savedChan) chanStatus.innerHTML = '<span style="color:var(--green)">✓ Channel saved</span>';
+  }
   renderNotifRules();
+}
+
+async function saveSlackChannel() {
+  const val = (document.getElementById('slack-channel-input')?.value || '').trim() || '#bsc_ops';
+  await saveSetting('slack_channel', val);
+  const i = cache.settingsItems.findIndex(s => s.Title === 'slack_channel');
+  if (i !== -1) cache.settingsItems[i].Value = val;
+  else cache.settingsItems.push({ Title: 'slack_channel', Value: val });
+  document.getElementById('slack-channel-status').innerHTML = '<span style="color:var(--green)">✓ Channel saved</span>';
+  toast('ok','✓ Slack channel saved: ' + val);
 }
 
 function renderNotifRules() {
