@@ -23,10 +23,12 @@ const SQUARE_VERSION = '2024-10-17';
 
 /**
  * Decode and lightly validate an MSAL JWT Bearer token.
- * Checks: tenant ID matches, token is not expired.
- * Note: this does not verify the cryptographic signature — that would
- * require jsonwebtoken + jwks-rsa. This stops unauthenticated access;
- * for full verification add those packages in a future hardening pass.
+ * Checks: token is well-formed, not expired, and (if TENANT_ID env var is
+ * set) the tenant matches. Signature verification would require jsonwebtoken
+ * + jwks-rsa — add in a future hardening pass if needed.
+ *
+ * TENANT_ID is optional: if not set, any non-expired MSAL JWT is accepted.
+ * Set it in Azure Portal → Configuration to lock down to a specific tenant.
  */
 function validateToken(authHeader, expectedTenantId) {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -48,15 +50,20 @@ function validateToken(authHeader, expectedTenantId) {
   if (payload.exp && payload.exp < nowSecs) {
     return { ok: false, reason: 'Token is expired' };
   }
-  if (payload.tid !== expectedTenantId) {
-    return { ok: false, reason: 'Token tenant does not match' };
+  // Only enforce tenant check when TENANT_ID is explicitly configured
+  if (expectedTenantId && payload.tid !== expectedTenantId) {
+    return {
+      ok: false,
+      reason: `Token tenant does not match (token tid: ${payload.tid}, expected: ${expectedTenantId})`
+    };
   }
   return { ok: true };
 }
 
 module.exports = async function (context, req) {
   // ── Auth check ────────────────────────────────────────────────────────────
-  const tenantId = process.env.TENANT_ID || 'b808062f-1ca4-4f25-a2eb-8998fac8dc52';
+  // TENANT_ID is optional — if not set, any valid non-expired MSAL JWT passes
+  const tenantId = process.env.TENANT_ID || null;
   const authResult = validateToken(req.headers['authorization'], tenantId);
   if (!authResult.ok) {
     context.log.warn('Square proxy: auth rejected —', authResult.reason);
