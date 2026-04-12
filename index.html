@@ -880,23 +880,35 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
         <label class="field-label">Item Name</label>
         <input type="text" id="fp-name" class="field-input" placeholder="e.g. Butter Croissant" style="width:100%;margin-bottom:16px;">
         <label class="field-label" style="margin-bottom:8px;display:block;">Daily Pars</label>
-        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:4px;">
-          <div style="text-align:center;font-size:11px;font-weight:600;color:var(--muted);">Mon</div>
-          <div style="text-align:center;font-size:11px;font-weight:600;color:var(--muted);">Tue</div>
-          <div style="text-align:center;font-size:11px;font-weight:600;color:var(--muted);">Wed</div>
-          <div style="text-align:center;font-size:11px;font-weight:600;color:var(--muted);">Thu</div>
-          <div style="text-align:center;font-size:11px;font-weight:600;color:var(--muted);">Fri</div>
-          <div style="text-align:center;font-size:11px;font-weight:600;color:var(--muted);">Sat</div>
-          <div style="text-align:center;font-size:11px;font-weight:600;color:var(--muted);">Sun</div>
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;">
-          <input type="number" id="fp-mon" class="field-input" min="0" placeholder="0" style="text-align:center;padding:8px 4px;">
-          <input type="number" id="fp-tue" class="field-input" min="0" placeholder="0" style="text-align:center;padding:8px 4px;">
-          <input type="number" id="fp-wed" class="field-input" min="0" placeholder="0" style="text-align:center;padding:8px 4px;">
-          <input type="number" id="fp-thu" class="field-input" min="0" placeholder="0" style="text-align:center;padding:8px 4px;">
-          <input type="number" id="fp-fri" class="field-input" min="0" placeholder="0" style="text-align:center;padding:8px 4px;">
-          <input type="number" id="fp-sat" class="field-input" min="0" placeholder="0" style="text-align:center;padding:8px 4px;">
-          <input type="number" id="fp-sun" class="field-input" min="0" placeholder="0" style="text-align:center;padding:8px 4px;">
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <span style="font-size:11px;font-weight:600;color:var(--muted);">Mon</span>
+            <input type="number" id="fp-mon" min="0" placeholder="0" style="width:100%;text-align:center;padding:8px 2px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;box-sizing:border-box;">
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <span style="font-size:11px;font-weight:600;color:var(--muted);">Tue</span>
+            <input type="number" id="fp-tue" min="0" placeholder="0" style="width:100%;text-align:center;padding:8px 2px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;box-sizing:border-box;">
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <span style="font-size:11px;font-weight:600;color:var(--muted);">Wed</span>
+            <input type="number" id="fp-wed" min="0" placeholder="0" style="width:100%;text-align:center;padding:8px 2px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;box-sizing:border-box;">
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <span style="font-size:11px;font-weight:600;color:var(--muted);">Thu</span>
+            <input type="number" id="fp-thu" min="0" placeholder="0" style="width:100%;text-align:center;padding:8px 2px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;box-sizing:border-box;">
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <span style="font-size:11px;font-weight:600;color:var(--muted);">Fri</span>
+            <input type="number" id="fp-fri" min="0" placeholder="0" style="width:100%;text-align:center;padding:8px 2px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;box-sizing:border-box;">
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <span style="font-size:11px;font-weight:600;color:var(--muted);">Sat</span>
+            <input type="number" id="fp-sat" min="0" placeholder="0" style="width:100%;text-align:center;padding:8px 2px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;box-sizing:border-box;">
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <span style="font-size:11px;font-weight:600;color:var(--muted);">Sun</span>
+            <input type="number" id="fp-sun" min="0" placeholder="0" style="width:100%;text-align:center;padding:8px 2px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;box-sizing:border-box;">
+          </div>
         </div>
         <input type="hidden" id="fp-category">
         <input type="hidden" id="fp-edit-id">
@@ -905,6 +917,21 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
         <button class="btn btn-primary" onclick="saveFoodParForm()">Save</button>
         <button class="btn btn-outline" onclick="closeModal('modal-foodpar')">Cancel</button>
         <button id="fp-delete-btn" class="btn" style="margin-left:auto;color:var(--red);border-color:var(--red);display:none;" onclick="deleteFoodPar()">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOD PARS — Sync from Square Modal -->
+  <div class="modal-overlay" id="modal-foodpar-sync">
+    <div class="modal" style="max-width:480px;">
+      <div class="modal-header">
+        <div class="modal-title" id="fp-sync-title">Sync from Square</div>
+        <button class="modal-close" onclick="closeModal('modal-foodpar-sync')">×</button>
+      </div>
+      <div id="fp-sync-body" style="padding:8px 0 16px;max-height:360px;overflow-y:auto;"></div>
+      <div class="form-actions">
+        <button class="btn btn-primary" id="fp-sync-import-btn" onclick="importSelectedFoodPars()" style="display:none;">Import Selected</button>
+        <button class="btn btn-outline" onclick="closeModal('modal-foodpar-sync')">Cancel</button>
       </div>
     </div>
   </div>
@@ -5819,7 +5846,10 @@ function renderFoodParsInTab(category) {
           ${todayItems || '<span style="color:var(--muted)">No pars set yet — add items below.</span>'}
         </div>
       </div>
-      <button class="btn btn-primary" style="margin-left:auto;white-space:nowrap;" onclick="openFoodParForm(null,'${category}')">+ Add ${label}</button>
+      <div style="display:flex;gap:8px;margin-left:auto;flex-shrink:0;">
+        <button class="btn btn-outline" style="white-space:nowrap;font-size:12px;" onclick="openFoodParSync('${category}')">↓ Sync from Square</button>
+        <button class="btn btn-primary" style="white-space:nowrap;" onclick="openFoodParForm(null,'${category}')">+ Add ${label}</button>
+      </div>
     </div>
     <div id="fp-table-wrap"></div>
   `;
@@ -5941,6 +5971,127 @@ async function deleteFoodPar() {
     toast('ok', '🗑 Item deleted');
   } catch(e) { toast('err', 'Delete failed: ' + e.message); }
   finally { setLoading(false); }
+}
+
+let _fpSyncCategory = null;
+let _fpSyncItems    = []; // Square items available to import
+
+async function openFoodParSync(category) {
+  _fpSyncCategory = category;
+  const label = category === 'pastries' ? 'Pastries' : 'Sandwiches';
+  document.getElementById('fp-sync-title').textContent = `Sync ${label} from Square`;
+  const body = document.getElementById('fp-sync-body');
+  const importBtn = document.getElementById('fp-sync-import-btn');
+  body.innerHTML = '<div style="padding:16px;color:var(--muted);font-size:13px;">Fetching Square catalog…</div>';
+  importBtn.style.display = 'none';
+  openModal('modal-foodpar-sync');
+
+  try {
+    // Fetch catalog from Square
+    let objects = [], cursor = null;
+    do {
+      const params = `catalog/list?types=ITEM,CATEGORY${cursor ? '&cursor='+encodeURIComponent(cursor) : ''}`;
+      const data = await squareAPI('GET', params);
+      objects = objects.concat(data.objects || []);
+      cursor = data.cursor || null;
+    } while (cursor);
+
+    // Build category name map
+    const catMap = {};
+    objects.filter(o => o.type === 'CATEGORY' && !o.is_deleted).forEach(c => {
+      catMap[c.id] = (c.category_data?.name || '').toLowerCase();
+    });
+
+    // Filter: Food category, non-archived, non-deleted
+    const foodItems = objects.filter(o => {
+      if (o.type !== 'ITEM' || o.is_deleted || o.item_data?.is_archived) return false;
+      const d = o.item_data || {};
+      const catId = (d.categories?.length > 0)
+        ? (d.categories[0].id || d.categories[0])
+        : (d.reporting_category?.id || d.category_id || null);
+      const catName = catId ? catMap[catId] || '' : '';
+      return catName === 'food';
+    });
+
+    // Find which names are already in this category's pars
+    const existing = new Set(
+      cache.foodPars
+        .filter(p => p.Category === category)
+        .map(p => (p.Title || '').toLowerCase().trim())
+    );
+
+    _fpSyncItems = foodItems
+      .map(o => o.item_data?.name || '')
+      .filter(n => n && !existing.has(n.toLowerCase().trim()))
+      .sort();
+
+    if (!_fpSyncItems.length) {
+      body.innerHTML = `<div style="padding:16px;font-size:13px;color:var(--muted);">
+        All Square Food items are already in your ${label} pars, or no Food items were found.
+      </div>`;
+      return;
+    }
+
+    body.innerHTML = `
+      <div style="font-size:13px;color:var(--muted);padding:0 0 12px;">
+        Select Square Food items to add to <b>${label}</b>. Pars will default to 0 — edit them after importing.
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;">
+        <button class="btn btn-sm" style="font-size:11px;" onclick="fpSyncSelectAll(true)">Select all</button>
+        <button class="btn btn-sm" style="font-size:11px;" onclick="fpSyncSelectAll(false)">Deselect all</button>
+      </div>
+      ${_fpSyncItems.map((name, i) => `
+        <label style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--border);cursor:pointer;font-size:13px;">
+          <input type="checkbox" id="fp-sync-cb-${i}" value="${escHtml(name)}" style="width:16px;height:16px;accent-color:var(--brand,#c8a951);">
+          ${escHtml(name)}
+        </label>`).join('')}`;
+
+    importBtn.style.display = 'inline-flex';
+    importBtn.textContent = 'Import Selected';
+  } catch(e) {
+    body.innerHTML = `<div style="padding:16px;font-size:13px;color:var(--red);">Failed to fetch Square catalog: ${escHtml(e.message)}</div>`;
+  }
+}
+
+function fpSyncSelectAll(checked) {
+  _fpSyncItems.forEach((_, i) => {
+    const cb = document.getElementById(`fp-sync-cb-${i}`);
+    if (cb) cb.checked = checked;
+  });
+}
+
+async function importSelectedFoodPars() {
+  const selected = _fpSyncItems.filter((_, i) => {
+    const cb = document.getElementById(`fp-sync-cb-${i}`);
+    return cb?.checked;
+  });
+  if (!selected.length) { toast('warn', 'Select at least one item'); return; }
+
+  const btn = document.getElementById('fp-sync-import-btn');
+  btn.disabled = true; btn.textContent = 'Importing…';
+  try {
+    await ensureList(LISTS.foodPars, [
+      {name:'Category',text:{}},
+      {name:'Mon',number:{decimalPlaces:0}},{name:'Tue',number:{decimalPlaces:0}},
+      {name:'Wed',number:{decimalPlaces:0}},{name:'Thu',number:{decimalPlaces:0}},
+      {name:'Fri',number:{decimalPlaces:0}},{name:'Sat',number:{decimalPlaces:0}},
+      {name:'Sun',number:{decimalPlaces:0}},{name:'SortOrder',number:{decimalPlaces:0}}
+    ]);
+    for (const name of selected) {
+      const item = await addListItem(LISTS.foodPars, {
+        Title: name, Category: _fpSyncCategory,
+        Mon:0, Tue:0, Wed:0, Thu:0, Fri:0, Sat:0, Sun:0
+      });
+      cache.foodPars.push(item);
+    }
+    closeModal('modal-foodpar-sync');
+    renderFoodParsInTab(_fpSyncCategory);
+    toast('ok', `✓ Imported ${selected.length} item${selected.length > 1 ? 's' : ''} — set your pars below`);
+  } catch(e) {
+    toast('err', 'Import failed: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Import Selected';
+  }
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -6585,9 +6736,11 @@ async function syncSquareCatalog() {
     catObjects.forEach(c => {
       categories[c.id] = c.category_data?.name || c.category_data?.category_type || 'Uncategorized';
     });
-    // Filter out archived items (Square newer API sets is_archived on item_data)
-    const items = objects.filter(o => o.type === 'ITEM' && !o.item_data?.is_archived);
-    sqLog(logId, `Found ${items.length} active items, ${catObjects.length} category objects`);
+    // Separate active vs archived items
+    const allItems  = objects.filter(o => o.type === 'ITEM' && !o.is_deleted);
+    const items     = allItems.filter(o => !o.item_data?.is_archived);
+    const archived  = allItems.filter(o =>  o.item_data?.is_archived);
+    sqLog(logId, `Found ${items.length} active items, ${archived.length} archived, ${catObjects.length} categories`);
 
     // Debug: show first few category objects and first item's category fields
     if (catObjects.length) {
@@ -6651,12 +6804,23 @@ async function syncSquareCatalog() {
       }
     }
 
+    // Auto-hide items that are now archived in Square
+    let autoHidden = 0;
+    for (const item of archived) {
+      const existing = existMap[item.id];
+      if (existing && existing.Hidden !== 'Yes') {
+        await updateListItem(LISTS.menu, existing.id, { Hidden: 'Yes' });
+        autoHidden++;
+        sqLog(logId, `  👁 Hidden (archived in Square): ${item.item_data?.name || item.id}`);
+      }
+    }
+
     // Reload menu cache
     const sId = await getSiteId();
     cache.menu = await getListItems(sId, LISTS.menu).catch(()=>[]);
     renderMenu();
 
-    sqLog(logId, `<br>✅ Done — ${created} added, ${updated} updated`);
+    sqLog(logId, `<br>✅ Done — ${created} added, ${updated} updated${autoHidden ? `, ${autoHidden} auto-hidden (archived in Square)` : ''}`);
     localStorage.setItem('sq_last_catalog', new Date().toISOString());
     document.getElementById('sq-catalog-last').textContent = `Last synced: ${new Date().toLocaleString()}`;
     toast('ok', `✓ Catalog synced to Menu — ${created} added, ${updated} updated`);
