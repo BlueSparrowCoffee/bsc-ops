@@ -343,7 +343,6 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
   <div class="nav-item" onclick="nav('maint-contacts')"><span class="nav-icon">📋</span> Contacts</div>
   <div class="nav-item" onclick="nav('menu')"><span class="nav-icon">☕</span> Menu</div>
   <div class="nav-item" onclick="nav('cogs')"><span class="nav-icon">💰</span> Cost of Goods</div>
-  <div class="nav-item" onclick="nav('labels')"><span class="nav-icon">🏷️</span> Bag Labels</div>
   <div class="nav-section">Admin</div>
   <div class="nav-item" onclick="nav('square')"><span class="nav-icon">◼</span> Square</div>
   <div class="nav-item" onclick="nav('settings')"><span class="nav-icon">⚙️</span> Settings</div>
@@ -367,34 +366,34 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
   <!-- DASHBOARD -->
   <div class="page active" id="page-dashboard">
     <div class="page-header">
-      <div class="page-title">Good morning ☕</div>
+      <div class="page-title" id="dash-greeting">Good morning ☕</div>
       <div class="page-sub" id="dash-date"></div>
     </div>
     <div class="stats-row">
-      <div class="stat-card"><div class="stat-value" id="d-inventory">—</div><div class="stat-label">Inventory Items</div></div>
-      <div class="stat-card alert"><div class="stat-value" id="d-low">—</div><div class="stat-label">Low Stock Alerts</div></div>
-      <div class="stat-card"><div class="stat-value" id="d-orders">—</div><div class="stat-label">Pending Orders</div></div>
-      <div class="stat-card"><div class="stat-value" id="d-checklist">—</div><div class="stat-label">Today's Checklist</div></div>
+      <div class="stat-card" style="cursor:pointer;" onclick="nav('inventory')"><div class="stat-value" id="d-inventory">—</div><div class="stat-label">Inventory Items</div></div>
+      <div class="stat-card alert" style="cursor:pointer;" onclick="nav('inventory')"><div class="stat-value" id="d-low">—</div><div class="stat-label">Low Stock Alerts</div></div>
+      <div class="stat-card" style="cursor:pointer;" onclick="nav('ordering')"><div class="stat-value" id="d-orders">—</div><div class="stat-label">Pending Orders</div></div>
+      <div class="stat-card" style="cursor:pointer;" onclick="nav('checklists')"><div class="stat-value" id="d-checklist">—</div><div class="stat-label">Today's Checklist</div></div>
       <div class="stat-card alert" id="d-maint-stat" style="cursor:pointer;" onclick="nav('maint-schedule')"><div class="stat-value" id="d-maint">—</div><div class="stat-label">Maintenance Alerts</div></div>
     </div>
     <div class="cards-grid">
-      <div class="card">
+      <div class="card" style="cursor:pointer;" onclick="nav('inventory')">
         <div class="card-title">🔴 Low Stock Alerts</div>
         <div id="dash-alerts"><div class="no-data">Loading…</div></div>
       </div>
-      <div class="card">
+      <div class="card" style="cursor:pointer;" onclick="nav('checklists')">
         <div class="card-title">✅ Today's Checklist</div>
         <div id="dash-checklist-preview"></div>
-        <div style="margin-top:12px;"><button class="btn btn-outline btn-sm" onclick="nav('checklists')">Open Checklists →</button></div>
+        <div style="margin-top:12px;"><button class="btn btn-outline btn-sm" onclick="event.stopPropagation();nav('checklists')">Open Checklists →</button></div>
       </div>
-      <div class="card">
+      <div class="card" style="cursor:pointer;" onclick="nav('ordering')">
         <div class="card-title">🛒 Recent Orders</div>
         <div id="dash-orders"><div class="no-data">Loading…</div></div>
       </div>
-      <div class="card" id="dash-maint-card">
+      <div class="card" id="dash-maint-card" style="cursor:pointer;" onclick="nav('maint-schedule')">
         <div class="card-title">🔧 Maintenance Alerts</div>
         <div id="dash-maint-alerts"><div class="no-data">Loading…</div></div>
-        <div style="margin-top:12px;"><button class="btn btn-outline btn-sm" onclick="nav('maint-schedule')">Open Maintenance →</button></div>
+        <div style="margin-top:12px;"><button class="btn btn-outline btn-sm" onclick="event.stopPropagation();nav('maint-schedule')">Open Maintenance →</button></div>
       </div>
     </div>
   </div>
@@ -418,6 +417,7 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
       <button class="tab-btn active" onclick="switchInvTab('items',this)">📋 Items</button>
       <button class="tab-btn" onclick="switchInvTab('count',this)">✏️ Count Entry</button>
       <button class="tab-btn" onclick="switchInvTab('analytics',this)">📊 Analytics</button>
+      <button class="tab-btn" onclick="switchInvTab('labels',this)">🏷️ Bag Labels</button>
       <button class="tab-btn" onclick="switchInvTab('import',this)">📥 Import</button>
     </div>
 
@@ -490,6 +490,11 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
     <!-- Analytics tab -->
     <div id="inv-tab-analytics" style="display:none">
       <div id="analytics-body" style="padding-top:4px"></div>
+    </div>
+
+    <!-- Bag Labels tab -->
+    <div id="inv-tab-labels" style="display:none">
+      <div id="inv-labels-content"></div>
     </div>
 
     <!-- Import tab -->
@@ -1124,47 +1129,6 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
   </div>
 
   <!-- COFFEE BAG LABELS -->
-  <div class="page" id="page-labels">
-    <div class="page-header">
-      <div class="page-title">🏷️ Coffee Bag Labels</div>
-      <div class="page-sub">Track label inventory — auto-reconciles against Square retail coffee bag sales each month</div>
-    </div>
-
-    <!-- Summary bar -->
-    <div id="labels-summary-bar" style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:24px;">
-      <div class="card" style="flex:1;min-width:160px;text-align:center;padding:20px 16px;">
-        <div style="font-size:28px;font-weight:700;color:var(--dark-blue)" id="labels-balance-num">—</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">Current Balance</div>
-      </div>
-      <div class="card" style="flex:1;min-width:160px;text-align:center;padding:20px 16px;">
-        <div style="font-size:28px;font-weight:700;color:var(--gold)" id="labels-value-num">—</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">Estimated Value</div>
-      </div>
-      <div class="card" style="flex:1;min-width:160px;text-align:center;padding:20px 16px;">
-        <div style="font-size:22px;font-weight:700;color:var(--muted)" id="labels-last-month">—</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">Last Reconciliation</div>
-      </div>
-    </div>
-
-    <!-- Quick actions -->
-    <div class="toolbar" style="margin-bottom:20px;">
-      <button class="btn btn-primary" onclick="openLabelsEntryModal()">+ Update Balance</button>
-      <button class="btn btn-outline" onclick="openLabelsReconcileModal()" id="labels-reconcile-btn">📊 Reconcile Month</button>
-      <span id="labels-reconcile-hint" style="font-size:12px;color:var(--muted);align-self:center;margin-left:8px;"></span>
-    </div>
-
-    <!-- History table -->
-    <div class="table-wrap">
-      <table class="data-table">
-        <thead><tr>
-          <th>Month</th><th>Start</th><th>Bags Sold</th><th>Adjustment</th><th>End Balance</th><th>Cost/Label</th><th>Total Value</th><th>Notes</th><th>By</th>
-        </tr></thead>
-        <tbody id="labels-history-body"></tbody>
-      </table>
-      <div class="no-data" id="labels-empty" style="display:none">No label records yet. Click "Update Balance" to set your starting count.</div>
-    </div>
-  </div>
-
   <!-- SQUARE -->
   <div class="page" id="page-square">
     <div class="page-header">
@@ -1248,7 +1212,14 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
         </div>
       </div>
       <div class="card" style="grid-column:1/-1">
-        <div class="card-title" style="margin-bottom:16px">🔔 Slack Notifications</div>
+        <div class="card-title" style="margin-bottom:8px">🔔 Slack Notifications</div>
+        <div id="slack-paused-banner" style="display:none;padding:8px 14px;background:#fff3cd;border:1.5px solid #f0ad4e;border-radius:8px;font-size:13px;font-weight:600;color:#856404;margin-bottom:14px;">
+          ⏸ All Slack notifications are globally paused
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;padding:10px 14px;background:var(--cream);border-radius:8px;">
+          <span style="font-size:13px;font-weight:600;">Global Slack Pause</span>
+          <button id="slack-global-pause-btn" class="btn btn-outline" style="font-size:12px;padding:5px 14px;margin-left:auto;" onclick="toggleGlobalSlackPause()">⏸ Pause All</button>
+        </div>
 
         <!-- Webhook URL -->
         <label class="field-label">Webhook URL</label>
@@ -1668,8 +1639,17 @@ const cache = {
 // INIT
 // ════════════════════════════════════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', async () => {
+  const _now = new Date();
   document.getElementById('dash-date').textContent =
-    new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+    _now.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  (function() {
+    const h = _now.getHours();
+    const greet = h >= 5 && h < 12 ? 'Good morning ☕'
+                : h >= 12 && h < 17 ? 'Good afternoon ☕'
+                : h >= 17 && h < 21 ? 'Good evening ☕'
+                : 'Good night 🌙';
+    document.getElementById('dash-greeting').textContent = greet;
+  })();
 
   try {
     const resp = await msal.handleRedirectPromise();
@@ -1912,7 +1892,7 @@ async function ensureList(listName, columns) {
   return listId;
 }
 
-const PROVISION_VERSION = '3';
+const PROVISION_VERSION = '4';
 
 async function bootstrapApp() {
   setLoading(true,'Loading BSC Operations…');
@@ -2003,7 +1983,7 @@ async function ensureAllLists() {
   await ensureList(LISTS.maintContacts,[
     {name:'Service',text:{}},{name:'Contact',text:{}},
     {name:'Phone',text:{}},{name:'Email',text:{}},{name:'Notes',text:{}},
-    {name:'Archived',boolean:{}}
+    {name:'ArchiveStatus',text:{}}
   ]);
   await ensureList(LISTS.staff,[
     {name:'Role',text:{}},{name:'Location',text:{}},
@@ -2191,7 +2171,6 @@ function renderAll() {
   renderStaff();
   renderMaintSchedule();
   renderMaintContacts();
-  renderLabelsPage();
   renderRoles();
   renderLocations();
   populateSelects();
@@ -2285,7 +2264,7 @@ function switchInvType(type) {
   // Reset to items tab and re-render
   _invActiveTab = 'items';
   document.querySelectorAll('#page-inventory .tab-bar .tab-btn').forEach((b,i) => b.classList.toggle('active', i===0));
-  ['items','count','analytics','import'].forEach(t => {
+  ['items','count','analytics','labels','import'].forEach(t => {
     const el = document.getElementById('inv-tab-'+t);
     if (el) el.style.display = t==='items' ? '' : 'none';
   });
@@ -2296,11 +2275,12 @@ function switchInvTab(tab, btn) {
   _invActiveTab = tab;
   document.querySelectorAll('#page-inventory .tab-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  ['items','count','analytics','import'].forEach(t => {
+  ['items','count','analytics','labels','import'].forEach(t => {
     document.getElementById('inv-tab-'+t).style.display = t===tab ? '' : 'none';
   });
   if (tab==='count')     renderCountSheet();
   if (tab==='analytics') renderInventoryAnalytics();
+  if (tab==='labels')    renderLabelsInTab();
   if (tab==='import')    initImportTab();
 }
 
@@ -3802,7 +3782,7 @@ function renderMaintContacts(query='') {
   const grid = document.getElementById('maint-grid');
   const empty = document.getElementById('maint-empty');
   const q = query.toLowerCase();
-  let rows = cache.maintContacts.filter(m => _maintTab === 'archived' ? m.Archived : !m.Archived);
+  let rows = cache.maintContacts.filter(m => _maintTab === 'archived' ? m.ArchiveStatus === '1' : m.ArchiveStatus !== '1');
   if (q) rows = rows.filter(m=>Object.values(m).filter(Boolean).join(' ').toLowerCase().includes(q));
 
   if (!rows.length) {
@@ -3832,7 +3812,7 @@ function renderMaintContacts(query='') {
         return maintFieldRow(k, m[k], label);
       }).filter(Boolean).join('');
 
-    const archiveBtn = m.Archived
+    const archiveBtn = m.ArchiveStatus === '1'
       ? `<button class="btn btn-sm" style="margin-top:10px;" data-id="${escHtml(m.id)}" onclick="event.stopPropagation();toggleMaintArchive(this.dataset.id)">↩ Restore</button>`
       : `<button class="btn btn-sm" style="margin-top:10px;color:var(--muted);" data-id="${escHtml(m.id)}" onclick="event.stopPropagation();toggleMaintArchive(this.dataset.id)">📦 Archive</button>`;
 
@@ -3852,14 +3832,12 @@ function filterMaint(q) { renderMaintContacts(q); }
 async function toggleMaintArchive(id) {
   const m = cache.maintContacts.find(x=>x.id===id);
   if (!m) return;
-  const newVal = !m.Archived;
-  const label = newVal ? 'Archiving…' : 'Restoring…';
+  const newVal = m.ArchiveStatus === '1' ? '' : '1';
+  const label = newVal === '1' ? 'Archiving…' : 'Restoring…';
   setLoading(true, label);
   try {
-    // Ensure Archived column exists (in case ensureList hasn't run yet)
-    await ensureList(LISTS.maintContacts, [{name:'Archived',boolean:{}}]);
-    await updateListItem(LISTS.maintContacts, id, { Archived: newVal });
-    m.Archived = newVal;
+    await updateListItem(LISTS.maintContacts, id, { ArchiveStatus: newVal });
+    m.ArchiveStatus = newVal;
     renderMaintContacts(document.querySelector('#page-maint-contacts .search-input')?.value||'');
     toast('ok', newVal ? '📦 Contact archived' : '↩ Contact restored');
   } catch(e) { toast('err', 'Failed: '+e.message); }
@@ -3894,7 +3872,7 @@ function openMaintForm(id) {
   const archiveBtn = document.getElementById('maint-archive-btn');
   if (m) {
     archiveBtn.style.display = 'inline-flex';
-    archiveBtn.textContent = m.Archived ? '↩ Restore' : '📦 Archive';
+    archiveBtn.textContent = m.ArchiveStatus === '1' ? '↩ Restore' : '📦 Archive';
   } else {
     archiveBtn.style.display = 'none';
   }
@@ -4797,7 +4775,6 @@ function nav(page) {
     if (!denied) { renderRoles(); renderLocations(); renderSlackSettings(); renderSquareSettings(); }
   }
   if (page==='square')   { renderSquarePage(); }
-  if (page==='labels')   { renderLabelsPage(); }
   if (page==='menu')     { renderMenu(); }
   if (page==='cogs')     { renderCogs(); }
 }
@@ -4856,6 +4833,8 @@ function getSlackWebhook() {
 }
 
 async function sendSlackAlert(text, type=null) {
+  // Global kill switch — overrides all individual rules
+  if (getSetting('slack_paused') === '1') return;
   if (type && !isNotifEnabled(type)) return;
   const webhook = getSlackWebhook();
   if (!webhook || webhook.includes('PLACEHOLDER')) return;
@@ -4881,6 +4860,16 @@ function renderSlackSettings() {
   } else {
     status.innerHTML = '<span style="color:var(--orange)">⚠ No webhook configured — enter URL above and save</span>';
   }
+  // Global pause state
+  const paused = getSetting('slack_paused') === '1';
+  const pauseBtn = document.getElementById('slack-global-pause-btn');
+  const pauseBanner = document.getElementById('slack-paused-banner');
+  if (pauseBtn) {
+    pauseBtn.textContent = paused ? '▶ Resume All' : '⏸ Pause All';
+    pauseBtn.style.borderColor = paused ? 'var(--green)' : '';
+    pauseBtn.style.color = paused ? 'var(--green)' : '';
+  }
+  if (pauseBanner) pauseBanner.style.display = paused ? '' : 'none';
   // Channel
   const chanInput  = document.getElementById('slack-channel-input');
   const chanStatus = document.getElementById('slack-channel-status');
@@ -4890,6 +4879,17 @@ function renderSlackSettings() {
     if (savedChan) chanStatus.innerHTML = '<span style="color:var(--green)">✓ Channel saved</span>';
   }
   renderNotifRules();
+}
+
+async function toggleGlobalSlackPause() {
+  const current = getSetting('slack_paused') === '1';
+  const newVal = current ? '' : '1';
+  await saveSetting('slack_paused', newVal);
+  const i = cache.settingsItems.findIndex(s => s.Title === 'slack_paused');
+  if (i !== -1) cache.settingsItems[i].Value = newVal;
+  else cache.settingsItems.push({ Title: 'slack_paused', Value: newVal });
+  renderSlackSettings();
+  toast('ok', newVal === '1' ? '⏸ All Slack notifications paused' : '▶ Slack notifications resumed');
 }
 
 async function saveSlackChannel() {
@@ -5282,6 +5282,43 @@ function isCoffeeBagItem(name='', category='') {
   const c = category.toLowerCase();
   if (c !== 'grocery') return false;
   return COFFEE_BAG_PATTERNS.some(p => n.includes(p));
+}
+
+function renderLabelsInTab() {
+  const container = document.getElementById('inv-labels-content');
+  if (!container) return;
+  if (!container.querySelector('#labels-summary-bar')) {
+    container.innerHTML = `
+      <div id="labels-summary-bar" style="display:flex;gap:16px;flex-wrap:wrap;margin:16px 0 20px;">
+        <div class="card" style="flex:1;min-width:140px;text-align:center;padding:18px 12px;">
+          <div style="font-size:26px;font-weight:700;color:var(--dark-blue)" id="labels-balance-num">—</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px">Current Balance</div>
+        </div>
+        <div class="card" style="flex:1;min-width:140px;text-align:center;padding:18px 12px;">
+          <div style="font-size:26px;font-weight:700;color:var(--gold)" id="labels-value-num">—</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px">Estimated Value</div>
+        </div>
+        <div class="card" style="flex:1;min-width:140px;text-align:center;padding:18px 12px;">
+          <div style="font-size:20px;font-weight:700;color:var(--muted)" id="labels-last-month">—</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px">Last Reconciliation</div>
+        </div>
+      </div>
+      <div class="toolbar" style="margin-bottom:16px;">
+        <button class="btn btn-primary" onclick="openLabelsEntryModal()">+ Update Balance</button>
+        <button class="btn btn-outline" onclick="openLabelsReconcileModal()" id="labels-reconcile-btn">📊 Reconcile Month</button>
+        <span id="labels-reconcile-hint" style="font-size:12px;color:var(--muted);align-self:center;margin-left:8px;"></span>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr>
+            <th>Month</th><th>Start</th><th>Bags Sold</th><th>Adjustment</th><th>End Balance</th><th>Cost/Label</th><th>Total Value</th><th>Notes</th><th>By</th>
+          </tr></thead>
+          <tbody id="labels-history-body"></tbody>
+        </table>
+        <div class="no-data" id="labels-empty" style="display:none">No label records yet. Click "Update Balance" to set your starting count.</div>
+      </div>`;
+  }
+  renderLabelsPage();
 }
 
 function renderLabelsPage() {

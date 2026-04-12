@@ -50,8 +50,9 @@ function validateToken(authHeader, expectedTenantId) {
   if (payload.exp && payload.exp < nowSecs) {
     return { ok: false, reason: 'Token is expired' };
   }
-  // Only enforce tenant check when TENANT_ID is explicitly configured
-  if (expectedTenantId && payload.tid !== expectedTenantId) {
+  // Only enforce tenant check when TENANT_ID is set AND the token actually has a tid claim
+  // (some MSAL token types — e.g. v1 tokens, certain scopes — omit tid)
+  if (expectedTenantId && payload.tid && payload.tid !== expectedTenantId) {
     return {
       ok: false,
       reason: `Token tenant does not match (token tid: ${payload.tid}, expected: ${expectedTenantId})`
