@@ -8267,9 +8267,10 @@ async function syncMerchPricesFromSquare() {
       return null;
     };
 
-    // Build squareCatalogItemId → { price, category } map
+    // Build squareCatalogItemId → { price, category } map + name → id map for auto-matching
     const priceMap = {};
     const catMap   = {};
+    const nameToSqId = {}; // lowercase item name → Square catalog item ID
     const multiVarItems = [];
     for (const obj of objects) {
       if (obj.type !== 'ITEM' || obj.is_deleted) continue;
@@ -8278,6 +8279,8 @@ async function syncMerchPricesFromSquare() {
       const priced = vars.filter(v => v.item_variation_data?.price_money);
       const cat  = resolveCategory(d);
       catMap[obj.id] = cat;
+      const objName = (d.name || '').toLowerCase().trim();
+      if (objName) nameToSqId[objName] = obj.id;
       if (!priced.length) continue;
       const price = priced[0].item_variation_data.price_money.amount / 100;
       priceMap[obj.id] = price;
@@ -8293,25 +8296,45 @@ async function syncMerchPricesFromSquare() {
       multiVarItems.slice(0,5).forEach(i => log(`   ${i.name}: ${i.prices.map(p=>'$'+p.toFixed(2)).join(', ')}`));
     }
 
-    // Match merch items by SquareCatalogItemId and update SellingPrice
-    let updated = 0, skipped = 0, notFound = 0;
+    // Match merch items — by SquareCatalogItemId first, then auto-match by name
+    let updated = 0, autoLinked = 0, unchanged = 0, notFound = 0;
     for (const item of cache.merchInventory) {
-      const sqId = (item.SquareCatalogItemId || '').trim();
-      if (!sqId) { skipped++; continue; }
+      const itemName = (item.ItemName || item.Title || '').trim();
+      let sqId = (item.SquareCatalogItemId || '').trim();
+
+      // Auto-match by name if no Square ID stored
+      if (!sqId) {
+        sqId = nameToSqId[itemName.toLowerCase()] || '';
+        if (!sqId) { notFound++; log(`  ✗ No match: ${itemName}`); continue; }
+      }
+
       const price = priceMap[sqId];
-      if (price == null) { notFound++; log(`  ⚠ No price found for: ${item.ItemName||item.Title} (Square ID: ${sqId.slice(-8)})`); continue; }
+      if (price == null) { notFound++; log(`  ⚠ No price in catalog: ${itemName}`); continue; }
+
       const cat = catMap[sqId] || null;
       const fields = { SellingPrice: price };
+      if (!item.SquareCatalogItemId) fields.SquareCatalogItemId = sqId; // save ID for future syncs
       if (cat && cat !== item.Category) fields.Category = cat;
-      const unchanged = item.SellingPrice === price && !fields.Category;
-      if (unchanged) { log(`  = ${item.ItemName||item.Title}: $${price.toFixed(2)} (unchanged)`); continue; }
+
+      if (item.SellingPrice === price && item.SquareCatalogItemId && !fields.Category) {
+        unchanged++;
+        log(`  = ${itemName}: $${price.toFixed(2)} (unchanged)`);
+        continue;
+      }
+
       await updateListItem(LISTS.merchInventory, item.id, fields);
-      log(`  ✓ ${item.ItemName||item.Title}: $${price.toFixed(2)}${fields.Category ? ' · cat → '+fields.Category : ''}`);
       Object.assign(item, fields);
-      updated++;
+
+      if (!item.SquareCatalogItemId || fields.SquareCatalogItemId) {
+        autoLinked++;
+        log(`  🔗 ${itemName}: $${price.toFixed(2)} (auto-linked by name)`);
+      } else {
+        updated++;
+        log(`  ✓ ${itemName}: $${price.toFixed(2)}${fields.Category ? ' · cat → '+fields.Category : ''}`);
+      }
     }
 
-    log(`\n✅ Done — ${updated} updated, ${skipped} skipped (no Square ID), ${notFound} not found in catalog`);
+    log(`\n✅ Done — ${updated} updated, ${autoLinked} auto-linked by name, ${unchanged} unchanged, ${notFound} not found in catalog`);
     renderMerchCogCards();
     toast('ok', `✓ Merch prices synced — ${updated} updated`);
   } catch(e) {
