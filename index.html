@@ -6,6 +6,10 @@
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#023d4a">
+<!-- Always fetch fresh HTML — prevents browser from serving a cached old version after deploys -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous" defer></script>
 <style>
@@ -1846,6 +1850,20 @@ const cache = {
 // ════════════════════════════════════════════════════════════════════════════
 // INIT
 // ════════════════════════════════════════════════════════════════════════════
+// ── Version-stamped localStorage clear ───────────────────────────────────────
+// Bump APP_VERSION any time a deploy has breaking localStorage changes.
+// On version mismatch the entire localStorage is wiped so stale prefs never
+// cause weirdness after an update.
+const APP_VERSION = '2026-04-12';
+(function() {
+  try {
+    if (localStorage.getItem('bsc_app_version') !== APP_VERSION) {
+      localStorage.clear();
+      localStorage.setItem('bsc_app_version', APP_VERSION);
+    }
+  } catch(e) { /* private browsing / storage blocked — ignore */ }
+})();
+
 window.addEventListener('DOMContentLoaded', async () => {
   const _now = new Date();
   document.getElementById('dash-date').textContent =
