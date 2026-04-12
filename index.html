@@ -1235,6 +1235,10 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
           style="padding:9px 20px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;color:var(--gold);border-bottom:2px solid var(--gold);margin-bottom:-2px;transition:all .15s;">
           Recipes &amp; Margins
         </button>
+        <button id="cogs-tab-merch" onclick="cogTab('merch')"
+          style="padding:9px 20px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;">
+          Merch Costs
+        </button>
         <button id="cogs-tab-history" onclick="cogTab('history')"
           style="padding:9px 20px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;">
           Cost History
@@ -1268,6 +1272,31 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
           <div style="font-size:13px">Sync your Square catalog first via Square → Sync Catalog → Menu.</div>
         </div>
         <div id="cogs-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:20px;"></div>
+      </div>
+
+      <!-- Merch Costs tab -->
+      <div id="cogs-panel-merch" style="display:none;">
+        <div class="toolbar" style="margin-bottom:16px;">
+          <div class="search-wrap">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input class="search-input" placeholder="Search merch items…" oninput="filterMerchCogs(this.value)" id="merch-cogs-search">
+          </div>
+          <select class="filter" id="merch-cogs-cat-filter" onchange="filterMerchCogs(document.getElementById('merch-cogs-search').value)">
+            <option value="">All Categories</option>
+          </select>
+          <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);cursor:pointer;white-space:nowrap;">
+            <input type="checkbox" id="merch-cogs-group-by-cat" onchange="renderMerchCogCards()"> Group by category
+          </label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);cursor:pointer;white-space:nowrap;">
+            <input type="checkbox" id="merch-cogs-show-hidden" onchange="renderMerchCogCards()"> Show hidden
+          </label>
+        </div>
+        <div id="merch-cogs-empty" style="display:none;text-align:center;padding:60px;color:var(--muted);">
+          <div style="font-size:36px;margin-bottom:8px;">🛍️</div>
+          <div style="font-weight:600;margin-bottom:4px;">No merch items found</div>
+          <div style="font-size:13px;">Add merch items in Inventory → Merch, then set cost and price here.</div>
+        </div>
+        <div id="merch-cogs-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px;"></div>
       </div>
 
       <!-- History tab -->
@@ -2197,7 +2226,7 @@ async function ensureList(listName, columns) {
   return listId;
 }
 
-const PROVISION_VERSION = '15';
+const PROVISION_VERSION = '16';
 
 // One-time migration: split single BSC_FoodPars into master + per-location lists
 async function migrateFoodParsToSplit() {
@@ -8111,14 +8140,22 @@ let _cogsCatFilter = '';
 const _cogsActiveVar = {}; // itemId → active variation index, persists across re-renders
 let _cogsHiddenIds = new Set(JSON.parse(localStorage.getItem('bsc_cogs_hidden')||'[]'));
 
+let _cogsMerchQuery = '';
+let _cogsMerchCatFilter = '';
+let _cogsMerchHiddenIds = new Set(JSON.parse(localStorage.getItem('bsc_merch_cogs_hidden')||'[]'));
+
 function cogTab(tab) {
-  document.getElementById('cogs-panel-recipes').style.display  = tab==='recipes' ? '' : 'none';
-  document.getElementById('cogs-panel-history').style.display  = tab==='history' ? '' : 'none';
+  document.getElementById('cogs-panel-recipes').style.display = tab==='recipes' ? '' : 'none';
+  document.getElementById('cogs-panel-merch').style.display   = tab==='merch'   ? '' : 'none';
+  document.getElementById('cogs-panel-history').style.display = tab==='history' ? '' : 'none';
   const active   = 'color:var(--gold);border-bottom:2px solid var(--gold);margin-bottom:-2px;';
   const inactive = 'color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-2px;';
-  document.getElementById('cogs-tab-recipes').style.cssText += tab==='recipes' ? active : inactive;
-  document.getElementById('cogs-tab-history').style.cssText += tab==='history' ? active : inactive;
+  ['recipes','merch','history'].forEach(t => {
+    const el = document.getElementById(`cogs-tab-${t}`);
+    if (el) el.style.cssText += t===tab ? active : inactive;
+  });
   if (tab==='history') renderCogHistory();
+  if (tab==='merch')   renderMerchCogCards();
 }
 
 function filterCogs(q) {
@@ -8144,6 +8181,15 @@ function renderCogs() {
     catSel.innerHTML = '<option value="">All Categories</option>'
       + cats.map(c=>`<option value="${escHtml(c)}"${c===prevCat?' selected':''}>${escHtml(c)}</option>`).join('');
   }
+  // Populate merch category filter
+  const merchCats = [...new Set(cache.merchInventory.map(i => i.Category || 'Uncategorized'))].sort();
+  const merchCatSel = document.getElementById('merch-cogs-cat-filter');
+  const prevMerchCat = merchCatSel?.value || '';
+  if (merchCatSel) {
+    merchCatSel.innerHTML = '<option value="">All Categories</option>'
+      + merchCats.map(c=>`<option value="${escHtml(c)}"${c===prevMerchCat?' selected':''}>${escHtml(c)}</option>`).join('');
+  }
+
   // Populate history item filter
   const histSel = document.getElementById('cogs-hist-item');
   if (histSel) {
@@ -8176,6 +8222,149 @@ function toggleCogHidden(itemId) {
   }
   localStorage.setItem('bsc_cogs_hidden', JSON.stringify([..._cogsHiddenIds]));
   renderCogCards();
+}
+
+// ── Merch Costs ──────────────────────────────────────────────────────────────
+
+function filterMerchCogs(q) {
+  _cogsMerchQuery = (q||'').toLowerCase();
+  _cogsMerchCatFilter = document.getElementById('merch-cogs-cat-filter')?.value || '';
+  renderMerchCogCards();
+}
+
+function toggleMerchCogHidden(itemId) {
+  if (_cogsMerchHiddenIds.has(itemId)) {
+    _cogsMerchHiddenIds.delete(itemId);
+  } else {
+    _cogsMerchHiddenIds.add(itemId);
+  }
+  localStorage.setItem('bsc_merch_cogs_hidden', JSON.stringify([..._cogsMerchHiddenIds]));
+  renderMerchCogCards();
+}
+
+async function updateMerchCogField(id, field, rawValue) {
+  const val = rawValue === '' ? null : parseFloat(rawValue);
+  try {
+    await updateListItem(LISTS.merchInventory, id, { [field]: isNaN(val) ? null : val });
+    const item = cache.merchInventory.find(i => i.id === id);
+    if (item) item[field] = isNaN(val) ? null : val;
+    renderMerchCogCards();
+  } catch(e) {
+    toast('err', 'Save failed: ' + e.message);
+  }
+}
+
+function renderMerchCogCards() {
+  const container = document.getElementById('merch-cogs-cards');
+  const empty     = document.getElementById('merch-cogs-empty');
+  if (!container) return;
+
+  const showHidden = document.getElementById('merch-cogs-show-hidden')?.checked;
+  const groupByCat = document.getElementById('merch-cogs-group-by-cat')?.checked;
+
+  let items = cache.merchInventory || [];
+  if (!showHidden)        items = items.filter(i => !_cogsMerchHiddenIds.has(i.id));
+  if (_cogsMerchCatFilter) items = items.filter(i => (i.Category||'Uncategorized') === _cogsMerchCatFilter);
+  if (_cogsMerchQuery)     items = items.filter(i => (i.ItemName||i.Title||'').toLowerCase().includes(_cogsMerchQuery)
+    || (i.ItemNo||'').toLowerCase().includes(_cogsMerchQuery));
+  items = [...items].sort((a,b) => (a.ItemName||a.Title||'').localeCompare(b.ItemName||b.Title||''));
+
+  if (!items.length) {
+    container.innerHTML = '';
+    if (empty) empty.style.display = '';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+
+  if (groupByCat) {
+    const byCategory = {};
+    for (const item of items) {
+      const cat = item.Category || 'Uncategorized';
+      if (!byCategory[cat]) byCategory[cat] = [];
+      byCategory[cat].push(item);
+    }
+    container.innerHTML = Object.entries(byCategory)
+      .sort(([a],[b]) => a.localeCompare(b))
+      .map(([cat, catItems]) => `
+        <div style="grid-column:1/-1;">
+          <div style="font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.08em;
+            color:var(--muted);padding:6px 0 10px;border-bottom:1.5px solid var(--border);margin-bottom:4px;">
+            ${escHtml(cat)} <span style="font-weight:400;">(${catItems.length})</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px;margin-top:12px;">
+            ${catItems.map(renderMerchCogCard).join('')}
+          </div>
+        </div>`).join('');
+  } else {
+    container.innerHTML = items.map(renderMerchCogCard).join('');
+  }
+}
+
+function renderMerchCogCard(item) {
+  const isHidden   = _cogsMerchHiddenIds.has(item.id);
+  const cost       = parseFloat(item.CostPerUnit) || null;
+  const price      = parseFloat(item.SellingPrice) || null;
+  const margin     = (cost != null && price != null && price > 0) ? ((price - cost) / price * 100) : null;
+  const marginColor = margin == null ? '#999' : margin >= 65 ? '#16a34a' : margin >= 50 ? '#d97706' : '#dc2626';
+  const marginLabel = margin != null ? margin.toFixed(1) + '% margin'
+    : cost == null && price == null ? 'Enter cost & price'
+    : cost == null ? 'Enter cost per unit'
+    : 'Enter selling price';
+
+  return `
+    <div class="card" data-gs-id="${escHtml(item.id)}" style="padding:0;overflow:hidden;${isHidden?'opacity:0.5;':''}">
+      <div style="padding:14px 16px 10px;border-bottom:1.5px solid var(--border);">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(item.ItemName||item.Title||'Untitled')}</div>
+            <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;">
+              ${item.Category?`<span style="font-size:11px;color:var(--muted);">${escHtml(item.Category)}</span>`:''}
+              ${item.ItemNo?`<span style="font-size:11px;color:var(--muted);">· ${escHtml(item.ItemNo)}</span>`:''}
+            </div>
+          </div>
+          <button data-id="${escHtml(item.id)}" onclick="toggleMerchCogHidden(this.dataset.id)"
+            title="${isHidden?'Show this item':'Hide this item'}"
+            style="background:none;border:none;cursor:pointer;font-size:16px;padding:2px 4px;color:var(--muted);flex-shrink:0;">
+            ${isHidden?'👁️':'🙈'}
+          </button>
+        </div>
+      </div>
+      <div style="padding:14px 16px;">
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+            <span style="font-size:13px;color:var(--muted);white-space:nowrap;">Cost per unit</span>
+            <div style="display:flex;align-items:center;gap:4px;">
+              <span style="color:var(--muted);font-size:13px;">$</span>
+              <input type="number" step="0.01" min="0" placeholder="0.00"
+                value="${cost != null ? cost.toFixed(2) : ''}"
+                data-id="${escHtml(item.id)}"
+                onchange="updateMerchCogField(this.dataset.id,'CostPerUnit',this.value)"
+                style="width:80px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:right;color:#1a1a1a;background:#fff;">
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+            <span style="font-size:13px;color:var(--muted);white-space:nowrap;">Selling price</span>
+            <div style="display:flex;align-items:center;gap:4px;">
+              <span style="color:var(--muted);font-size:13px;">$</span>
+              <input type="number" step="0.01" min="0" placeholder="0.00"
+                value="${price != null ? price.toFixed(2) : ''}"
+                data-id="${escHtml(item.id)}"
+                onchange="updateMerchCogField(this.dataset.id,'SellingPrice',this.value)"
+                style="width:80px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:right;color:#1a1a1a;background:#fff;">
+            </div>
+          </div>
+          <div style="border-top:1.5px solid var(--border);padding-top:10px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:12px;color:var(--muted);">Gross margin</span>
+            <span style="font-size:16px;font-weight:700;color:${marginColor};">${escHtml(marginLabel)}</span>
+          </div>
+          ${cost != null && price != null ? `
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);">
+            <span>Profit per unit</span>
+            <span style="font-weight:600;color:var(--text);">$${(price - cost).toFixed(2)}</span>
+          </div>` : ''}
+        </div>
+      </div>
+    </div>`;
 }
 
 function renderCogCards() {
@@ -8774,6 +8963,7 @@ const MENU_COUNTS_LIST_COLS = [
 const MERCH_LIST_COLS = [
   {name:'ItemName',text:{}},{name:'Category',text:{}},{name:'ItemNo',text:{}},
   {name:'CostPerUnit',number:{decimalPlaces:'automatic'}},
+  {name:'SellingPrice',number:{decimalPlaces:'automatic'}},
   {name:'SquareCatalogItemId',text:{}}
 ];
 const MERCH_COUNTS_EXTRA_COLS = [
