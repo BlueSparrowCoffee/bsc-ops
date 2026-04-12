@@ -352,6 +352,7 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
   <div class="nav-item" onclick="nav('maint-schedule')"><span class="nav-icon">🔧</span> Maintenance <span class="nav-badge" id="badge-maint" style="display:none">!</span></div>
   <div class="nav-item" onclick="nav('menu')"><span class="nav-icon">☕</span> Menu</div>
   <div class="nav-item" onclick="nav('ordering')"><span class="nav-icon">🛒</span> Ordering</div>
+  <div class="nav-item" onclick="nav('prep-items')"><span class="nav-icon">🧪</span> Prep Items</div>
   <div class="nav-item" onclick="nav('recipes')"><span class="nav-icon">📖</span> Recipes</div>
   <div class="nav-item" onclick="nav('staff')"><span class="nav-icon">👥</span> Staff</div>
   <div class="nav-item" onclick="nav('vendors')"><span class="nav-icon">🤝</span> Vendors</div>
@@ -698,6 +699,21 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
     </div>
   </div>
 
+  <!-- PREP ITEMS -->
+  <div class="page" id="page-prep-items">
+    <div class="page-header">
+      <div class="page-title">🧪 Prep Items</div>
+      <button class="btn btn-primary" onclick="openPrepItemModal(null)">+ Add Prep Item</button>
+    </div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:16px;">House-made ingredients used to calculate cost of goods. Each prep item's cost per unit is calculated from its ingredients and batch yield.</div>
+    <div id="pi-cards" style="display:grid;gap:14px;"></div>
+    <div id="pi-empty" style="display:none;text-align:center;padding:60px 20px;color:var(--muted);">
+      <div style="font-size:32px;margin-bottom:8px;">🧪</div>
+      <div style="font-weight:600;margin-bottom:4px;">No prep items yet</div>
+      <div style="font-size:12px;">Add batched matcha, syrups, concentrates, and other house-made ingredients to use in cost calculations.</div>
+    </div>
+  </div>
+
   <!-- RECIPES -->
   <div class="page" id="page-recipes">
     <div class="page-header">
@@ -743,6 +759,58 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
         <button class="btn btn-outline" onclick="closeModal('modal-recipe')">Cancel</button>
         <button id="recipe-history-btn" class="btn btn-outline" style="display:none;" onclick="loadRecipeHistory(_recipeEditId)">📋 History</button>
         <button id="recipe-delete-btn" class="btn" style="margin-left:auto;color:var(--red);border-color:var(--red);display:none;" onclick="deleteRecipe()">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PREP ITEM MODAL -->
+  <div class="modal-overlay" id="modal-prep-item">
+    <div class="modal" style="max-width:640px;">
+      <div class="modal-header">
+        <div class="modal-title" id="pi-modal-title">Add Prep Item</div>
+        <button class="modal-close" onclick="closeModal('modal-prep-item')">×</button>
+      </div>
+      <input type="hidden" id="pi-edit-id">
+      <div style="display:flex;flex-direction:column;gap:14px;padding:4px 0;">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <div class="form-group" style="flex:2;min-width:160px;">
+            <label>Name</label>
+            <input id="pi-name" placeholder="e.g. Chai Concentrate">
+          </div>
+          <div class="form-group" style="flex:1;min-width:120px;">
+            <label>Category</label>
+            <input id="pi-category" placeholder="e.g. Syrup">
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-end;">
+          <div class="form-group" style="flex:1;">
+            <label>Batch Yield</label>
+            <input id="pi-yield-qty" type="number" step="0.01" min="0" placeholder="32">
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label>Unit</label>
+            <input id="pi-yield-unit" placeholder="oz, cups, ml…">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Notes <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+          <input id="pi-notes" placeholder="e.g. Refrigerate up to 2 weeks">
+        </div>
+
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <label style="margin:0;font-weight:600;">Ingredients</label>
+            <button class="btn btn-outline" style="font-size:12px;padding:4px 10px;" onclick="addPrepIngRow(null)">+ Add Ingredient</button>
+          </div>
+          <div id="pi-ing-rows" style="display:flex;flex-direction:column;gap:0;"></div>
+          <div id="pi-no-ings" style="font-size:12px;color:var(--muted);padding:8px 0;">No ingredients added yet.</div>
+        </div>
+
+        <div id="pi-cost-preview"></div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="savePrepItemForm()">Save Prep Item</button>
+        <button class="btn btn-outline" onclick="closeModal('modal-prep-item')">Cancel</button>
       </div>
     </div>
   </div>
@@ -1780,8 +1848,10 @@ const LISTS = {
   maintLog:       'BSC_MaintLog',
   settings:       'BSC_Settings',
   labels:         'BSC_CoffeeBagLabels',
-  foodPars:       'BSC_FoodPars',
-  parking:        'BSC_Parking'
+  foodPars:            'BSC_FoodPars',
+  parking:             'BSC_Parking',
+  prepItems:           'BSC_PrepItems',
+  prepItemIngredients: 'BSC_PrepItemIngredients'
 };
 
 // Inventory type config — drives which list/cache key each inv type uses
@@ -1845,7 +1915,9 @@ const cache = {
   foodPars: [],
   foodParValues: [],
   parking: [],
-  contactArchive: []
+  contactArchive: [],
+  prepItems: [],
+  prepItemIngredients: []
 };
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -2119,7 +2191,7 @@ async function ensureList(listName, columns) {
   return listId;
 }
 
-const PROVISION_VERSION = '14';
+const PROVISION_VERSION = '15';
 
 // One-time migration: split single BSC_FoodPars into master + per-location lists
 async function migrateFoodParsToSplit() {
@@ -2324,6 +2396,23 @@ async function ensureAllLists() {
     {name:'Email',text:{}},{name:'Location',text:{}},
     {name:'ParkingStatus',text:{}},{name:'Notes',text:{allowMultipleLines:true}}
   ]);
+  // Prep Items — house-made ingredients used for COG cost calculations
+  await ensureList(LISTS.prepItems, [
+    {name:'Category',  text:{}},
+    {name:'YieldQty',  number:{decimalPlaces:'automatic'}},
+    {name:'YieldUnit', text:{}},
+    {name:'Notes',     text:{allowMultipleLines:true}},
+    {name:'SortOrder', number:{decimalPlaces:'none'}}
+  ]);
+  await ensureList(LISTS.prepItemIngredients, [
+    {name:'PrepItemId',     text:{}},
+    {name:'IngredientType', text:{}},
+    {name:'IngredientId',   text:{}},
+    {name:'IngredientName', text:{}},
+    {name:'Qty',            number:{decimalPlaces:'automatic'}},
+    {name:'Unit',           text:{}},
+    {name:'CostPerUnit',    number:{decimalPlaces:'automatic'}}
+  ]);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -2331,7 +2420,7 @@ async function ensureAllLists() {
 // ════════════════════════════════════════════════════════════════════════════
 async function loadAllData() {
   const siteId = await getSiteId();
-  const [xfers, orders, cls, roles, vendors,,recipes,,contacts,staff,sched,log,appSettings,clGroups,clCompletions,labelRows,foodParRows,parkingRows,contactArchiveRows] = await Promise.all([
+  const [xfers, orders, cls, roles, vendors,,recipes,,contacts,staff,sched,log,appSettings,clGroups,clCompletions,labelRows,foodParRows,parkingRows,contactArchiveRows,prepItemsRows,prepItemIngsRows] = await Promise.all([
     getListItems(siteId, LISTS.transfers),
     getListItems(siteId, LISTS.orders),
     getListItems(siteId, LISTS.checklists),
@@ -2350,7 +2439,9 @@ async function loadAllData() {
     getListItems(siteId, LISTS.labels).catch(()=>[]),
     getListItems(siteId, LISTS.foodPars).catch(()=>[]),
     getListItems(siteId, LISTS.parking).catch(()=>[]),
-    getListItems(siteId, LISTS.contactArchive).catch(()=>[])
+    getListItems(siteId, LISTS.contactArchive).catch(()=>[]),
+    getListItems(siteId, LISTS.prepItems).catch(()=>[]),
+    getListItems(siteId, LISTS.prepItemIngredients).catch(()=>[])
   ]);
   cache.transfers=xfers; cache.orders=orders;
   cache.checklists=cls; cache.roles=roles; cache.vendors=vendors;
@@ -2362,6 +2453,8 @@ async function loadAllData() {
   cache.foodPars = foodParRows || [];
   cache.parking = parkingRows || [];
   cache.contactArchive = contactArchiveRows || [];
+  cache.prepItems = prepItemsRows || [];
+  cache.prepItemIngredients = prepItemIngsRows || [];
   // Load per-location food par values
   if (currentLocation === 'all') {
     const fpArrays = await Promise.all(
@@ -6112,10 +6205,11 @@ function nav(page) {
     document.getElementById('settings-body').style.display = denied ? 'none' : '';
     if (!denied) { renderRoles(); renderLocations(); renderSlackSettings(); renderSquareSettings(); }
   }
-  if (page==='square')   { renderSquarePage(); }
-  if (page==='menu')     { renderMenu(); }
-  if (page==='cogs')     { renderCogs(); }
-  if (page==='parking')  { renderParking(); }
+  if (page==='square')      { renderSquarePage(); }
+  if (page==='menu')        { renderMenu(); }
+  if (page==='cogs')        { renderCogs(); }
+  if (page==='parking')     { renderParking(); }
+  if (page==='prep-items')  { renderPrepItems(); }
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -6490,6 +6584,23 @@ function globalSearch(q) {
           if (input) { input.value = i.ItemName; filterCogs(i.ItemName); }
           setTimeout(()=>{
             const el = document.querySelector(`#cogs-cards [data-gs-id="${i.id}"]`);
+            if (el) {
+              el.scrollIntoView({behavior:'smooth',block:'center'});
+              el.style.transition='background .2s';
+              el.style.background='rgba(200,169,81,.25)';
+              setTimeout(()=>el.style.background='',1800);
+            }
+          },200);
+        },80);
+      }}));
+
+    // Search prep items
+    (cache.prepItems||[]).filter(p=>(p.Title||'').toLowerCase().includes(term)||(p.Category||'').toLowerCase().includes(term)).slice(0,3)
+      .forEach(p=>results.push({icon:'🧪',label:escHtml(p.Title||'—'),sub:'Prep Items',action:()=>{
+        nav('prep-items');
+        setTimeout(()=>{
+          setTimeout(()=>{
+            const el = document.querySelector(`#pi-cards [data-gs-id="${p.id}"]`);
             if (el) {
               el.scrollIntoView({behavior:'smooth',block:'center'});
               el.style.transition='background .2s';
@@ -7507,6 +7618,378 @@ function isOwnerOrAccounting() {
   return role.includes('owner') || role.includes('admin') || role.includes('accounting');
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// PREP ITEMS
+// ════════════════════════════════════════════════════════════════════════════
+
+function buildPrepItemMap() {
+  const map = {};
+  for (const item of (cache.prepItems || [])) {
+    const name = (item.Title || '').toLowerCase().trim();
+    if (!name) continue;
+    const yieldQty = parseFloat(item.YieldQty) || 1;
+    const ings = (cache.prepItemIngredients || []).filter(i => i.PrepItemId === item.id);
+    let totalCost = 0;
+    for (const ing of ings) {
+      const qty = parseFloat(ing.Qty) || 0;
+      let costPer = 0;
+      if (ing.IngredientType === 'inventory') {
+        const invItem = cache.inventory.find(i => i.id === ing.IngredientId);
+        costPer = invItem ? (parseFloat(invItem.CostPerServing) || 0) : 0;
+      } else {
+        costPer = parseFloat(ing.CostPerUnit) || 0;
+      }
+      totalCost += qty * costPer;
+    }
+    map[name] = { CostPerServing: yieldQty > 0 ? totalCost / yieldQty : 0, _isPrepItem: true };
+  }
+  return map;
+}
+
+function calcPrepItemCost(itemId) {
+  const item = (cache.prepItems || []).find(p => p.id === itemId);
+  if (!item) return { totalCost: 0, costPerUnit: 0, yieldQty: 0, yieldUnit: '' };
+  const yieldQty = parseFloat(item.YieldQty) || 1;
+  const ings = (cache.prepItemIngredients || []).filter(i => i.PrepItemId === itemId);
+  let totalCost = 0;
+  for (const ing of ings) {
+    const qty = parseFloat(ing.Qty) || 0;
+    let costPer = 0;
+    if (ing.IngredientType === 'inventory') {
+      const invItem = cache.inventory.find(i => i.id === ing.IngredientId);
+      costPer = invItem ? (parseFloat(invItem.CostPerServing) || 0) : 0;
+    } else {
+      costPer = parseFloat(ing.CostPerUnit) || 0;
+    }
+    totalCost += qty * costPer;
+  }
+  return { totalCost, costPerUnit: yieldQty > 0 ? totalCost / yieldQty : 0, yieldQty, yieldUnit: item.YieldUnit || '' };
+}
+
+function renderPrepItems() {
+  const container = document.getElementById('pi-cards');
+  const empty = document.getElementById('pi-empty');
+  if (!container) return;
+  const items = [...(cache.prepItems || [])].sort((a,b) => (a.Title||'').localeCompare(b.Title||''));
+  if (!items.length) {
+    container.innerHTML = '';
+    if (empty) empty.style.display = '';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  container.innerHTML = items.map(item => renderPrepItemCard(item)).join('');
+}
+
+function renderPrepItemCard(item) {
+  const ings = (cache.prepItemIngredients || []).filter(i => i.PrepItemId === item.id)
+    .sort((a,b) => (a.IngredientName||'').localeCompare(b.IngredientName||''));
+  const { totalCost, costPerUnit, yieldQty, yieldUnit } = calcPrepItemCost(item.id);
+
+  const ingRows = ings.map(ing => {
+    let costLabel = '';
+    let nameHtml = escHtml(ing.IngredientName || '');
+    let lineCost = null;
+    const qty = parseFloat(ing.Qty) || 0;
+    if (ing.IngredientType === 'inventory') {
+      const invItem = cache.inventory.find(i => i.id === ing.IngredientId);
+      const cp = invItem ? parseFloat(invItem.CostPerServing) : null;
+      nameHtml += ' <span style="font-size:10px;color:var(--teal);background:rgba(0,128,128,.1);padding:1px 5px;border-radius:8px;">inv</span>';
+      costLabel = cp != null ? '$'+cp.toFixed(4) : '<span style="color:#f59e0b">no cost</span>';
+      lineCost = cp != null ? qty * cp : null;
+    } else {
+      const cp = parseFloat(ing.CostPerUnit);
+      costLabel = !isNaN(cp) ? '$'+cp.toFixed(4) : '—';
+      lineCost = !isNaN(cp) ? qty * cp : null;
+    }
+    return `<tr>
+      <td style="padding:5px 8px;font-size:12px;">${nameHtml}</td>
+      <td style="padding:5px 8px;font-size:12px;text-align:right;white-space:nowrap;">${escHtml(String(ing.Qty||''))} ${escHtml(ing.Unit||'')}</td>
+      <td style="padding:5px 8px;font-size:12px;text-align:right;color:var(--muted);">${costLabel}</td>
+      <td style="padding:5px 8px;font-size:12px;text-align:right;font-weight:600;">${lineCost!=null?'$'+lineCost.toFixed(3):'—'}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <div class="card" data-gs-id="${escHtml(item.id)}" style="padding:0;overflow:hidden;">
+      <div style="padding:14px 16px 10px;border-bottom:1.5px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+        <div>
+          <div style="font-weight:700;font-size:15px;">${escHtml(item.Title||'Untitled')}</div>
+          ${item.Category?`<div style="font-size:11px;color:var(--muted);margin-top:2px;">${escHtml(item.Category)}</div>`:''}
+          ${item.Notes?`<div style="font-size:11px;color:var(--muted);margin-top:4px;">${escHtml(item.Notes)}</div>`:''}
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-size:20px;font-weight:700;color:var(--gold);">$${costPerUnit.toFixed(4)}<span style="font-size:11px;font-weight:400;color:var(--muted);">/${escHtml(yieldUnit||'unit')}</span></div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px;">$${totalCost.toFixed(2)} total · ${yieldQty} ${escHtml(yieldUnit||'unit')} batch</div>
+        </div>
+      </div>
+      ${ings.length ? `
+      <div style="padding:4px 16px 0;">
+        <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;min-width:280px;">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border);">
+              <th style="padding:4px 8px;font-size:10px;text-align:left;color:var(--muted);font-weight:600;">INGREDIENT</th>
+              <th style="padding:4px 8px;font-size:10px;text-align:right;color:var(--muted);font-weight:600;">QTY</th>
+              <th style="padding:4px 8px;font-size:10px;text-align:right;color:var(--muted);font-weight:600;">$/UNIT</th>
+              <th style="padding:4px 8px;font-size:10px;text-align:right;color:var(--muted);font-weight:600;">LINE COST</th>
+            </tr>
+          </thead>
+          <tbody>${ingRows}</tbody>
+        </table>
+        </div>
+      </div>` : `<div style="padding:10px 16px;font-size:12px;color:var(--muted);">No ingredients added.</div>`}
+      <div style="padding:10px 16px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--border);margin-top:8px;">
+        <button class="btn" style="font-size:12px;padding:4px 12px;" data-id="${escHtml(item.id)}" onclick="openPrepItemModal(this.dataset.id)">✏️ Edit</button>
+        <button class="btn" style="font-size:12px;padding:4px 12px;color:var(--red);border-color:var(--red);" data-id="${escHtml(item.id)}" onclick="deletePrepItem(this.dataset.id)">🗑 Delete</button>
+      </div>
+    </div>`;
+}
+
+let _piIngRowCount = 0;
+
+function openPrepItemModal(id) {
+  const item = id ? (cache.prepItems || []).find(p => p.id === id) : null;
+  const ings = id ? (cache.prepItemIngredients || []).filter(i => i.PrepItemId === id) : [];
+  _piIngRowCount = 0;
+  document.getElementById('pi-modal-title').textContent = item ? 'Edit Prep Item' : 'Add Prep Item';
+  document.getElementById('pi-edit-id').value = id || '';
+  document.getElementById('pi-name').value = item?.Title || '';
+  document.getElementById('pi-category').value = item?.Category || '';
+  document.getElementById('pi-yield-qty').value = item?.YieldQty ?? '';
+  document.getElementById('pi-yield-unit').value = item?.YieldUnit || '';
+  document.getElementById('pi-notes').value = item?.Notes || '';
+  document.getElementById('pi-ing-rows').innerHTML = '';
+  const sortedIngs = [...ings].sort((a,b) => (a.IngredientName||'').localeCompare(b.IngredientName||''));
+  for (const ing of sortedIngs) addPrepIngRow(ing);
+  updatePiNoIngsMsg();
+  updatePiCostPreview();
+  openModal('modal-prep-item');
+}
+
+function updatePiNoIngsMsg() {
+  const rows = document.querySelectorAll('#pi-ing-rows .pi-ing-row');
+  const el = document.getElementById('pi-no-ings');
+  if (el) el.style.display = rows.length ? 'none' : '';
+}
+
+function addPrepIngRow(prefill) {
+  const rowsEl = document.getElementById('pi-ing-rows');
+  const rowId = ++_piIngRowCount;
+  const type = prefill?.IngredientType || 'custom';
+  const invOptions = [...cache.inventory]
+    .sort((a,b) => (a.ItemName||a.Title||'').localeCompare(b.ItemName||b.Title||''))
+    .map(i => {
+      const nm = escHtml(i.ItemName || i.Title || '');
+      const selected = prefill?.IngredientId === i.id ? ' selected' : '';
+      return `<option value="${escHtml(i.id)}" data-cost="${escHtml(String(i.CostPerServing||0))}" data-name="${nm}"${selected}>${nm}</option>`;
+    }).join('');
+
+  const row = document.createElement('div');
+  row.className = 'pi-ing-row';
+  row.style.cssText = 'display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:7px 0;border-bottom:1px solid var(--border);';
+  row.innerHTML = `
+    <select class="pi-type-sel" onchange="onPiTypeChange(this)"
+      style="padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;flex-shrink:0;">
+      <option value="custom"${type==='custom'?' selected':''}>Custom</option>
+      <option value="inventory"${type==='inventory'?' selected':''}>Inventory</option>
+    </select>
+    <div class="pi-inv-wrap" style="display:${type==='inventory'?'flex':'none'};gap:4px;align-items:center;flex:2;min-width:130px;">
+      <select class="pi-inv-sel" onchange="onPiInvChange(this)"
+        style="padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;width:100%;">
+        <option value="">Select item…</option>${invOptions}
+      </select>
+    </div>
+    <div class="pi-custom-wrap" style="display:${type==='custom'?'flex':'none'};gap:4px;align-items:center;flex:2;min-width:130px;">
+      <input type="text" class="pi-cust-name" placeholder="Ingredient name"
+        value="${escHtml(prefill?.IngredientName||'')}"
+        style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;flex:1;min-width:90px;" oninput="updatePiCostPreview()">
+      <input type="number" step="0.0001" min="0" class="pi-cust-cost" placeholder="$/unit"
+        value="${prefill?.CostPerUnit!=null?prefill.CostPerUnit:''}"
+        style="width:72px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;" oninput="updatePiCostPreview()">
+    </div>
+    <input type="number" step="0.001" min="0" class="pi-qty" placeholder="Qty"
+      value="${prefill?.Qty!=null?prefill.Qty:''}"
+      style="width:60px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;flex-shrink:0;" oninput="updatePiCostPreview()">
+    <input type="text" class="pi-unit" placeholder="Unit"
+      value="${escHtml(prefill?.Unit||'')}"
+      style="width:52px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;flex-shrink:0;">
+    <button onclick="removePiIngRow(this)"
+      style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:17px;padding:2px 4px;flex-shrink:0;line-height:1;">✕</button>
+    <input type="hidden" class="pi-ing-id" value="${escHtml(String(prefill?.id||''))}">
+    <input type="hidden" class="pi-ing-inv-id" value="${escHtml(String(prefill?.IngredientId||''))}">
+    <input type="hidden" class="pi-ing-inv-name" value="${escHtml(type==='inventory'?String(prefill?.IngredientName||''):'')}">`;
+  rowsEl.appendChild(row);
+  updatePiNoIngsMsg();
+  updatePiCostPreview();
+}
+
+function onPiTypeChange(sel) {
+  const row = sel.closest('.pi-ing-row');
+  row.querySelector('.pi-inv-wrap').style.display = sel.value === 'inventory' ? 'flex' : 'none';
+  row.querySelector('.pi-custom-wrap').style.display = sel.value === 'custom' ? 'flex' : 'none';
+  updatePiCostPreview();
+}
+
+function onPiInvChange(sel) {
+  const opt = sel.selectedOptions[0];
+  const row = sel.closest('.pi-ing-row');
+  row.querySelector('.pi-ing-inv-id').value = opt?.value || '';
+  row.querySelector('.pi-ing-inv-name').value = opt?.dataset.name || '';
+  updatePiCostPreview();
+}
+
+function removePiIngRow(btn) {
+  btn.closest('.pi-ing-row').remove();
+  updatePiNoIngsMsg();
+  updatePiCostPreview();
+}
+
+function updatePiCostPreview() {
+  const yieldQty = parseFloat(document.getElementById('pi-yield-qty')?.value) || 0;
+  const yieldUnit = document.getElementById('pi-yield-unit')?.value?.trim() || 'unit';
+  let total = 0;
+  let hasGap = false;
+  document.querySelectorAll('#pi-ing-rows .pi-ing-row').forEach(row => {
+    const type = row.querySelector('.pi-type-sel')?.value;
+    const qty = parseFloat(row.querySelector('.pi-qty')?.value) || 0;
+    let costPer = 0;
+    if (type === 'inventory') {
+      const opt = row.querySelector('.pi-inv-sel')?.selectedOptions[0];
+      if (opt?.value) {
+        const invItem = cache.inventory.find(i => i.id === opt.value);
+        costPer = invItem ? (parseFloat(invItem.CostPerServing) || 0) : 0;
+        if (!invItem || !invItem.CostPerServing) hasGap = true;
+      } else {
+        hasGap = true;
+      }
+    } else {
+      const raw = parseFloat(row.querySelector('.pi-cust-cost')?.value);
+      costPer = isNaN(raw) ? 0 : raw;
+    }
+    total += qty * costPer;
+  });
+  const cpu = yieldQty > 0 ? total / yieldQty : 0;
+  const el = document.getElementById('pi-cost-preview');
+  if (!el) return;
+  el.innerHTML = `<div style="margin-top:10px;padding:10px 14px;background:var(--cream);border-radius:8px;font-size:13px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <span style="color:var(--muted);">Batch total</span>
+      <span style="font-weight:600;">$${total.toFixed(2)}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+      <span style="color:var(--muted);">Cost per ${escHtml(yieldUnit)}</span>
+      <span style="font-weight:700;color:var(--gold);font-size:17px;">$${cpu.toFixed(4)}</span>
+    </div>
+    ${hasGap?'<div style="font-size:11px;color:#f59e0b;margin-top:6px;">⚠️ Some inventory items are missing Cost Per Serving — set it in Inventory to get accurate costs.</div>':''}
+  </div>`;
+}
+
+function getPiIngRows() {
+  const rows = [];
+  document.querySelectorAll('#pi-ing-rows .pi-ing-row').forEach(row => {
+    const type = row.querySelector('.pi-type-sel')?.value || 'custom';
+    const qty = parseFloat(row.querySelector('.pi-qty')?.value);
+    const unit = (row.querySelector('.pi-unit')?.value || '').trim();
+    const existingId = row.querySelector('.pi-ing-id')?.value || '';
+    if (type === 'inventory') {
+      const opt = row.querySelector('.pi-inv-sel')?.selectedOptions[0];
+      const invId = opt?.value || '';
+      const invName = opt?.dataset.name || row.querySelector('.pi-ing-inv-name')?.value || '';
+      if (!invId) return;
+      rows.push({ id: existingId, type: 'inventory', invId, name: invName, qty: isNaN(qty)?null:qty, unit, costPerUnit: null });
+    } else {
+      const name = (row.querySelector('.pi-cust-name')?.value || '').trim();
+      const cost = parseFloat(row.querySelector('.pi-cust-cost')?.value);
+      if (!name) return;
+      rows.push({ id: existingId, type: 'custom', invId: '', name, qty: isNaN(qty)?null:qty, unit, costPerUnit: isNaN(cost)?null:cost });
+    }
+  });
+  return rows;
+}
+
+async function savePrepItemForm() {
+  const name = document.getElementById('pi-name').value.trim();
+  if (!name) { toast('err', 'Item name is required'); return; }
+  const editId   = document.getElementById('pi-edit-id').value;
+  const yieldQty = parseFloat(document.getElementById('pi-yield-qty').value) || null;
+  const yieldUnit = document.getElementById('pi-yield-unit').value.trim();
+  const category = document.getElementById('pi-category').value.trim();
+  const notes    = document.getElementById('pi-notes').value.trim();
+  const ingRows  = getPiIngRows();
+
+  setLoading(true, editId ? 'Saving…' : 'Creating…');
+  try {
+    const masterFields = { Title: name, Category: category, YieldQty: yieldQty, YieldUnit: yieldUnit, Notes: notes };
+    let itemId;
+    if (editId) {
+      await updateListItem(LISTS.prepItems, editId, masterFields);
+      itemId = editId;
+      const existing = cache.prepItems.find(p => p.id === editId);
+      if (existing) Object.assign(existing, masterFields);
+    } else {
+      const saved = await addListItem(LISTS.prepItems, masterFields);
+      cache.prepItems.push(saved);
+      itemId = saved.id;
+    }
+    // Reconcile ingredients
+    const existingIngs = (cache.prepItemIngredients || []).filter(i => i.PrepItemId === itemId);
+    const keptIds = new Set(ingRows.filter(r => r.id).map(r => r.id));
+    for (const old of existingIngs) {
+      if (!keptIds.has(String(old.id))) {
+        await deleteListItem(LISTS.prepItemIngredients, old.id);
+        cache.prepItemIngredients = cache.prepItemIngredients.filter(i => i.id !== old.id);
+      }
+    }
+    for (const row of ingRows) {
+      const fields = {
+        Title:          name + ' — ' + row.name,
+        PrepItemId:     itemId,
+        IngredientType: row.type,
+        IngredientId:   row.invId || '',
+        IngredientName: row.name,
+        Qty:            row.qty,
+        Unit:           row.unit,
+        CostPerUnit:    row.costPerUnit
+      };
+      if (row.id) {
+        await updateListItem(LISTS.prepItemIngredients, row.id, fields);
+        const ci = cache.prepItemIngredients.find(i => String(i.id) === row.id);
+        if (ci) Object.assign(ci, fields);
+      } else {
+        const saved = await addListItem(LISTS.prepItemIngredients, fields);
+        cache.prepItemIngredients.push(saved);
+      }
+    }
+    closeModal('modal-prep-item');
+    renderPrepItems();
+    toast('ok', editId ? '✓ Prep item updated' : '✓ Prep item created');
+  } catch(e) {
+    toast('err', 'Save failed: ' + e.message);
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function deletePrepItem(id) {
+  if (!confirm('Delete this prep item? It will no longer be available as an ingredient in cost calculations.')) return;
+  setLoading(true, 'Deleting…');
+  try {
+    await deleteListItem(LISTS.prepItems, id);
+    cache.prepItems = cache.prepItems.filter(p => p.id !== id);
+    const ingsToDelete = (cache.prepItemIngredients || []).filter(i => i.PrepItemId === id);
+    for (const ing of ingsToDelete) {
+      await deleteListItem(LISTS.prepItemIngredients, ing.id);
+    }
+    cache.prepItemIngredients = (cache.prepItemIngredients || []).filter(i => i.PrepItemId !== id);
+    renderPrepItems();
+    toast('ok', '🗑 Prep item deleted');
+  } catch(e) {
+    toast('err', 'Delete failed: ' + e.message);
+  } finally {
+    setLoading(false);
+  }
+}
+
 // Build a lookup map: { [menuItemId+':'+variationName]: [cogRecipeRows] }
 function buildCogMap() {
   const map = {};
@@ -7529,19 +8012,23 @@ function buildInvMap() {
 }
 
 // Calculate COG for one variation
-function calcCog(menuItemId, variationName, cogMap, invMap) {
+function calcCog(menuItemId, variationName, cogMap, invMap, prepMap) {
   const key = menuItemId + ':' + variationName;
   const ingredients = cogMap[key] || [];
   let cog = 0;
   let hasMissingCost = false;
   const lines = ingredients.map(ing => {
-    const inv = invMap[(ing.IngredientName||'').toLowerCase().trim()];
-    const costPerServing = inv ? (parseFloat(inv.CostPerServing) || 0) : null;
+    const name = (ing.IngredientName||'').toLowerCase().trim();
+    const inv  = invMap[name];
+    const prep = (!inv && prepMap) ? prepMap[name] : null;
+    const source = inv || prep;
+    const costPerServing = source ? (parseFloat(source.CostPerServing) || 0) : null;
+    const isPrepItem = !inv && !!prep;
     const qty = parseFloat(ing.Quantity) || 0;
     const lineCost = costPerServing != null ? qty * costPerServing : null;
     if (lineCost == null || costPerServing == null) hasMissingCost = true;
     else cog += lineCost;
-    return { ...ing, costPerServing, lineCost };
+    return { ...ing, costPerServing, lineCost, isPrepItem };
   });
   return { cog, lines, hasMissingCost };
 }
@@ -7578,6 +8065,7 @@ async function snapshotCogs() {
     const siteId = await getSiteId();
     const cogMap = buildCogMap();
     const invMap = buildInvMap();
+    const prepMap = buildPrepItemMap();
     let count = 0;
     const now = new Date().toISOString();
     for (const item of cache.menu) {
@@ -7585,7 +8073,7 @@ async function snapshotCogs() {
       const itemName = item.ItemName || item.Title || '';
       const variations = getVariationNames(item);
       for (const v of variations) {
-        const { cog, hasMissingCost } = calcCog(itemId, v.name, cogMap, invMap);
+        const { cog, hasMissingCost } = calcCog(itemId, v.name, cogMap, invMap, prepMap);
         if (hasMissingCost || !v.price) continue;
         const margin = ((v.price - cog) / v.price) * 100;
         const fields = {
@@ -7659,11 +8147,14 @@ function renderCogs() {
 
   // Check for missing costs
   const invMap = buildInvMap();
+  const prepMap = buildPrepItemMap();
   const cogMap = buildCogMap();
   let missingCosts = false;
   for (const r of cache.cogsRecipes) {
-    const inv = invMap[(r.IngredientName||'').toLowerCase().trim()];
-    if (!inv || !inv.CostPerServing) { missingCosts = true; break; }
+    const name = (r.IngredientName||'').toLowerCase().trim();
+    const inv  = invMap[name];
+    const prep = prepMap[name];
+    if ((!inv || !inv.CostPerServing) && !prep) { missingCosts = true; break; }
   }
   document.getElementById('cogs-missing-costs').style.display = missingCosts ? '' : 'none';
 
@@ -7689,10 +8180,11 @@ function renderCogCards() {
 
   const cogMap = buildCogMap();
   const invMap = buildInvMap();
-  container.innerHTML = items.map(item => renderCogCard(item, cogMap, invMap)).join('');
+  const prepMap = buildPrepItemMap();
+  container.innerHTML = items.map(item => renderCogCard(item, cogMap, invMap, prepMap)).join('');
 }
 
-function renderCogCard(item, cogMap, invMap) {
+function renderCogCard(item, cogMap, invMap, prepMap) {
   const itemId   = item.SquareId || item.id;
   const itemName = item.ItemName || item.Title || '';
   const category = item.Category || 'Uncategorized';
@@ -7711,14 +8203,14 @@ function renderCogCard(item, cogMap, invMap) {
   ).join('');
 
   const varPanels = variations.map((v, vi) => {
-    const { cog, lines, hasMissingCost } = calcCog(itemId, v.name, cogMap, invMap);
+    const { cog, lines, hasMissingCost } = calcCog(itemId, v.name, cogMap, invMap, prepMap);
     const price  = v.price;
     const margin = (price && !hasMissingCost) ? ((price - cog) / price * 100) : null;
     const marginColor = margin == null ? '#999' : margin >= 65 ? '#16a34a' : margin >= 50 ? '#d97706' : '#dc2626';
 
     const ingRows = lines.map(ing => `
       <tr>
-        <td style="padding:6px 8px;font-size:12px;">${escHtml(ing.IngredientName||'')}</td>
+        <td style="padding:6px 8px;font-size:12px;">${escHtml(ing.IngredientName||'')}${ing.isPrepItem?' <span style="font-size:10px;color:var(--teal);background:rgba(0,128,128,.1);padding:1px 5px;border-radius:8px;vertical-align:middle;">prep</span>':''}</td>
         <td style="padding:6px 8px;font-size:12px;text-align:right;">
           <input type="number" step="1" min="0" value="${ing.Quantity||''}"
             style="width:60px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;text-align:right;"
@@ -7774,6 +8266,7 @@ function renderCogCard(item, cogMap, invMap) {
         ${hasMissingCost ? `<div style="font-size:11px;color:#f59e0b;padding:4px 0 6px;"><span>⚠️ Some ingredients missing Cost Per Serving</span></div>` : ''}
         <datalist id="cog-ing-list-${itemId}">
           ${cache.inventory.map(i=>`<option value="${escHtml(i.ItemName||i.Title||'')}"></option>`).join('')}
+          ${(cache.prepItems||[]).map(p=>`<option value="${escHtml(p.Title||'')}"></option>`).join('')}
         </datalist>
         <div style="overflow-x:auto;">
         <table style="width:100%;border-collapse:collapse;min-width:320px;">
