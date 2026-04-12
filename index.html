@@ -2073,14 +2073,14 @@ async function ensureAllLists() {
   ]);
   await ensureList(LISTS.foodPars,[
     {name:'Category',  text:{}},
-    {name:'Mon',       number:{decimalPlaces:0}},
-    {name:'Tue',       number:{decimalPlaces:0}},
-    {name:'Wed',       number:{decimalPlaces:0}},
-    {name:'Thu',       number:{decimalPlaces:0}},
-    {name:'Fri',       number:{decimalPlaces:0}},
-    {name:'Sat',       number:{decimalPlaces:0}},
-    {name:'Sun',       number:{decimalPlaces:0}},
-    {name:'SortOrder', number:{decimalPlaces:0}}
+    {name:'Mon',       number:{decimalPlaces:'none'}},
+    {name:'Tue',       number:{decimalPlaces:'none'}},
+    {name:'Wed',       number:{decimalPlaces:'none'}},
+    {name:'Thu',       number:{decimalPlaces:'none'}},
+    {name:'Fri',       number:{decimalPlaces:'none'}},
+    {name:'Sat',       number:{decimalPlaces:'none'}},
+    {name:'Sun',       number:{decimalPlaces:'none'}},
+    {name:'SortOrder', number:{decimalPlaces:'none'}}
   ]);
   await ensureList(LISTS.staff,[
     {name:'Role',text:{}},{name:'Location',text:{}},
@@ -5953,10 +5953,10 @@ async function saveFoodParForm() {
   try {
     await ensureList(LISTS.foodPars, [
       {name:'Category',text:{}},
-      {name:'Mon',number:{decimalPlaces:0}},{name:'Tue',number:{decimalPlaces:0}},
-      {name:'Wed',number:{decimalPlaces:0}},{name:'Thu',number:{decimalPlaces:0}},
-      {name:'Fri',number:{decimalPlaces:0}},{name:'Sat',number:{decimalPlaces:0}},
-      {name:'Sun',number:{decimalPlaces:0}},{name:'SortOrder',number:{decimalPlaces:0}}
+      {name:'Mon',number:{decimalPlaces:'none'}},{name:'Tue',number:{decimalPlaces:'none'}},
+      {name:'Wed',number:{decimalPlaces:'none'}},{name:'Thu',number:{decimalPlaces:'none'}},
+      {name:'Fri',number:{decimalPlaces:'none'}},{name:'Sat',number:{decimalPlaces:'none'}},
+      {name:'Sun',number:{decimalPlaces:'none'}},{name:'SortOrder',number:{decimalPlaces:'none'}}
     ]);
     if (editId) {
       await updateListItem(LISTS.foodPars, editId, data);
@@ -6088,10 +6088,10 @@ async function importSelectedFoodPars() {
   try {
     await ensureList(LISTS.foodPars, [
       {name:'Category',text:{}},
-      {name:'Mon',number:{decimalPlaces:0}},{name:'Tue',number:{decimalPlaces:0}},
-      {name:'Wed',number:{decimalPlaces:0}},{name:'Thu',number:{decimalPlaces:0}},
-      {name:'Fri',number:{decimalPlaces:0}},{name:'Sat',number:{decimalPlaces:0}},
-      {name:'Sun',number:{decimalPlaces:0}},{name:'SortOrder',number:{decimalPlaces:0}}
+      {name:'Mon',number:{decimalPlaces:'none'}},{name:'Tue',number:{decimalPlaces:'none'}},
+      {name:'Wed',number:{decimalPlaces:'none'}},{name:'Thu',number:{decimalPlaces:'none'}},
+      {name:'Fri',number:{decimalPlaces:'none'}},{name:'Sat',number:{decimalPlaces:'none'}},
+      {name:'Sun',number:{decimalPlaces:'none'}},{name:'SortOrder',number:{decimalPlaces:'none'}}
     ]);
     for (const name of selected) {
       const item = await addListItem(LISTS.foodPars, {
