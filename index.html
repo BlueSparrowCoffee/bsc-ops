@@ -5030,6 +5030,8 @@ async function setLocation(loc, btn) {
         cache[cfg.countKey] = await getCountHistoryForList(siteId, cn).catch(() => []);
       }
     }
+    // Reload food pars so location-specific items stay fresh
+    cache.foodPars = await getListItems(siteId, LISTS.foodPars).catch(() => []);
   } catch(e) { console.warn('Counts reload failed:', e); }
   renderInventory();
   renderDashboard();
