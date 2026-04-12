@@ -1093,6 +1093,23 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
     </div>
   </div>
 
+  <!-- PASTRY ORDER SHEET SYNC MODAL -->
+  <div class="modal-overlay" id="modal-pastry-sync">
+    <div class="modal" style="max-width:500px;">
+      <div class="modal-header">
+        <span class="modal-title">↑ Sync Pastry Pars → Order Sheet</span>
+        <button class="modal-close" onclick="closeModal('modal-pastry-sync')">×</button>
+      </div>
+      <div style="padding:20px 24px 24px;">
+        <pre id="pastry-sync-log" style="font-size:12px;font-family:monospace;background:#f8f8f8;border:1px solid var(--border);border-radius:8px;padding:12px 14px;max-height:320px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;margin-bottom:16px;min-height:80px;color:var(--text);"></pre>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <button class="btn btn-outline" onclick="closeModal('modal-pastry-sync')">Close</button>
+          <button id="pastry-sync-again-btn" class="btn btn-primary" onclick="runPastryOrderSync()" style="display:none;">Sync Again</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- MAINTENANCE -->
   <!-- STAFF -->
   <div class="page" id="page-staff">
@@ -2243,6 +2260,9 @@ async function ensureList(listName, columns) {
 }
 
 const PROVISION_VERSION = '16';
+
+// Pastry order spreadsheet (shared OneDrive file used by vendor for ordering)
+const PASTRY_ORDER_SHEET_URL = 'https://mainspringdevelopers-my.sharepoint.com/:x:/g/personal/plattestreet_bluesparrowcoffee_com/IQD4lfreJEqATZTjPUub-JmoAUDTaircsNPrwcyCR44bhYU';
 
 // One-time migration: split single BSC_FoodPars into master + per-location lists
 async function migrateFoodParsToSplit() {
@@ -7169,6 +7189,164 @@ async function confirmLabelsReconcile() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// PASTRY ORDER SHEET SYNC (OneDrive Excel → vendor order spreadsheet)
+// ════════════════════════════════════════════════════════════════════════════
+
+let _pastryWorkbookCache = null;
+
+function _encodeShareUrl(url) {
+  // Graph API shares endpoint requires u! + base64url(url)
+  return 'u!' + btoa(url).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+}
+
+async function getPastryOrderWorkbook() {
+  if (_pastryWorkbookCache) return _pastryWorkbookCache;
+  const encoded = _encodeShareUrl(PASTRY_ORDER_SHEET_URL);
+  const item = await graph('GET', `/shares/${encoded}/driveItem`);
+  _pastryWorkbookCache = {
+    driveId: item.parentReference.driveId,
+    itemId:  item.id,
+    base:    `/drives/${item.parentReference.driveId}/items/${item.id}/workbook/worksheets`
+  };
+  return _pastryWorkbookCache;
+}
+
+function openPastryOrderSync() {
+  document.getElementById('pastry-sync-log').textContent = 'Starting sync…\n';
+  document.getElementById('pastry-sync-again-btn').style.display = 'none';
+  openModal('modal-pastry-sync');
+  runPastryOrderSync();
+}
+
+async function runPastryOrderSync() {
+  const logEl = document.getElementById('pastry-sync-log');
+  const againBtn = document.getElementById('pastry-sync-again-btn');
+  logEl.textContent = 'Connecting to order spreadsheet…\n';
+  againBtn.style.display = 'none';
+
+  const log = msg => { logEl.textContent += msg + '\n'; logEl.scrollTop = logEl.scrollHeight; };
+
+  try {
+    const wb = await getPastryOrderWorkbook();
+    log('✓ Connected\n');
+
+    const siteId = await getSiteId();
+    const masterPastries = cache.foodPars
+      .filter(p => p.Category === 'pastries')
+      .sort((a,b) => ((a.SortOrder||999)-(b.SortOrder||999)) || (a.Title||'').localeCompare(b.Title||''));
+
+    if (!masterPastries.length) { log('✗ No pastry items in master list.'); againBtn.style.display=''; return; }
+
+    const locations = getLocations();
+    const FP_DAYS_LOCAL = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    const FP_DAY_FULL_LOCAL = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+
+    for (const loc of locations) {
+      log(`── ${loc} ──`);
+      const fpLn = foodParsListName(loc);
+      if (!fpLn) { log(`  ✗ No list for ${loc}, skipping\n`); continue; }
+
+      // Fetch this location's par values from SharePoint
+      const locVals = await getListItems(siteId, fpLn).catch(() => []);
+      const valMap = {};
+      for (const v of locVals) valMap[(v.Title||'').toLowerCase().trim()] = v;
+
+      // Read current worksheet to detect column layout
+      const sheetEnc = encodeURIComponent(loc);
+      let currentValues = [];
+      let currentHeaders = [];
+      try {
+        const used = await graph('GET', `${wb.base}/${sheetEnc}/usedRange`);
+        currentValues = used.values || [];
+        currentHeaders = (currentValues[0] || []).map(h => (h||'').toString().trim().toLowerCase());
+      } catch(e) {
+        log(`  ℹ Tab "${loc}" appears empty — will write standard format`);
+      }
+
+      // Identify item name column and day columns
+      const itemColIdx = currentHeaders.length
+        ? currentHeaders.findIndex(h => ['item','title','name','pastry','product','description'].includes(h))
+        : -1;
+      const dayIdxMap = {};
+      FP_DAYS_LOCAL.forEach((d, di) => {
+        if (!currentHeaders.length) return;
+        const idx = currentHeaders.findIndex(h =>
+          h === d.toLowerCase() || h === FP_DAY_FULL_LOCAL[di].toLowerCase()
+        );
+        if (idx >= 0) dayIdxMap[d] = idx;
+      });
+      const hasDayCols = Object.keys(dayIdxMap).length >= 7;
+
+      if (!currentHeaders.length || itemColIdx < 0 || !hasDayCols) {
+        // No recognizable structure — write BSC standard format from A1
+        log(`  Writing standard format…`);
+        const header = ['Item', ...FP_DAYS_LOCAL];
+        const dataRows = masterPastries.map(p => {
+          const v = valMap[(p.Title||'').toLowerCase().trim()] || {};
+          return [p.Title||'', ...(FP_DAYS_LOCAL.map(d => v[d] ?? 0))];
+        });
+        const allRows = [header, ...dataRows];
+        const endCol = String.fromCharCode(64 + header.length); // 'H'
+        // Clear any previous content that might be wider/taller
+        if (currentValues.length > 0) {
+          const clearCols = Math.max(currentHeaders.length, header.length);
+          const clearRows = Math.max(currentValues.length, allRows.length);
+          const clearEnd = String.fromCharCode(64 + clearCols);
+          await graph('POST',
+            `${wb.base}/${sheetEnc}/range(address='A1:${clearEnd}${clearRows}')/clear`, {});
+        }
+        await graph('PATCH',
+          `${wb.base}/${sheetEnc}/range(address='A1:${endCol}${allRows.length}')`,
+          { values: allRows });
+        log(`  ✓ Wrote ${dataRows.length} items\n`);
+
+      } else {
+        // Smart update: find rows by item name, update only day columns
+        log(`  Updating ${currentHeaders.length}-column layout in place…`);
+        const matrix = currentValues.map(r => [...r]);  // deep copy
+        let updated = 0; let added = 0;
+
+        for (const p of masterPastries) {
+          const name = (p.Title||'').toLowerCase().trim();
+          const v = valMap[name] || {};
+          const rowIdx = matrix.findIndex((r, i) =>
+            i > 0 && (r[itemColIdx]||'').toString().toLowerCase().trim() === name
+          );
+          if (rowIdx >= 0) {
+            FP_DAYS_LOCAL.forEach(d => {
+              if (dayIdxMap[d] !== undefined) matrix[rowIdx][dayIdxMap[d]] = v[d] ?? 0;
+            });
+            updated++;
+          } else {
+            const newRow = Array(currentHeaders.length).fill('');
+            newRow[itemColIdx] = p.Title||'';
+            FP_DAYS_LOCAL.forEach(d => {
+              if (dayIdxMap[d] !== undefined) newRow[dayIdxMap[d]] = v[d] ?? 0;
+            });
+            matrix.push(newRow);
+            added++;
+          }
+        }
+
+        const endCol = String.fromCharCode(64 + currentHeaders.length);
+        await graph('PATCH',
+          `${wb.base}/${sheetEnc}/range(address='A1:${endCol}${matrix.length}')`,
+          { values: matrix });
+        log(`  ✓ ${updated} updated${added ? `, ${added} added` : ''}\n`);
+      }
+    }
+
+    log(`✓ All ${locations.length} locations synced to order sheet.`);
+    toast('ok', '✓ Pastry pars synced to order sheet');
+  } catch(e) {
+    log(`\n✗ Error: ${e.message}`);
+    toast('err', 'Sync failed: ' + e.message);
+  }
+
+  againBtn.style.display = '';
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // FOOD PARS (Pastries & Sandwiches)
 // ════════════════════════════════════════════════════════════════════════════
 const FP_DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
@@ -7233,8 +7411,9 @@ function renderFoodParsInTab(category) {
           ${todayItems || '<span style="color:var(--muted)">No pars set yet — add items below.</span>'}
         </div>
       </div>
-      <div style="display:flex;gap:8px;margin-left:auto;flex-shrink:0;">
+      <div style="display:flex;gap:8px;margin-left:auto;flex-shrink:0;flex-wrap:wrap;">
         ${isOwner() ? `<button class="btn btn-outline" style="white-space:nowrap;font-size:12px;" onclick="openFoodParSync('${escHtml(category)}')">↓ Sync from Square</button>` : ''}
+        ${category === 'pastries' && isManagerOrOwner() ? `<button class="btn btn-outline" style="white-space:nowrap;font-size:12px;" onclick="openPastryOrderSync()">↑ Sync to Order Sheet</button>` : ''}
         <button class="btn btn-primary" style="white-space:nowrap;" onclick="openFoodParForm(null,'${escHtml(category)}')">+ Add ${escHtml(label)}</button>
       </div>
     </div>
