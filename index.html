@@ -3985,7 +3985,7 @@ function renderChecklistCard(group, userIsMgr) {
     : '';
 
   return `
-    <div class="card" style="padding:0;overflow:hidden;border-left:4px solid ${borderColor};">
+    <div class="card" data-gs-id="${escHtml(gid)}" style="padding:0;overflow:hidden;border-left:4px solid ${borderColor};">
       <div style="padding:14px 16px 10px;">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
           <div style="flex:1;">
@@ -5095,7 +5095,7 @@ function renderMaintContacts(query='') {
       ? `<button class="btn btn-sm" style="margin-top:10px;" data-id="${escHtml(m.id)}" onclick="event.stopPropagation();toggleMaintArchive(this.dataset.id)">↩ Restore</button>`
       : `<button class="btn btn-sm" style="margin-top:10px;font-size:11px;border-color:var(--border);color:var(--text-secondary);" data-id="${escHtml(m.id)}" onclick="event.stopPropagation();toggleMaintArchive(this.dataset.id)">📦 Archive</button>`;
 
-    return `<div class="card" style="cursor:pointer;" data-id="${escHtml(m.id)}" onclick="openMaintForm(this.dataset.id)">
+    return `<div class="card" style="cursor:pointer;" data-id="${escHtml(m.id)}" data-gs-id="${escHtml(m.id)}" onclick="openMaintForm(this.dataset.id)">
       <div class="card-title">${icon} ${escHtml(m.Title||'Unnamed')}</div>
       ${serviceVal ? `<div style="font-size:12px;color:var(--muted);margin-top:-8px;margin-bottom:10px">${escHtml(serviceVal)}</div>` : ''}
       <div style="font-size:13px;display:flex;flex-direction:column;gap:6px;">${fieldRows}</div>
@@ -5287,7 +5287,7 @@ function renderRecipes(query='') {
     const meta = recipeMetaLine(r);
     const bodyHtml = recipeContentToHtml(r.Content||'');
     const notesHtml = r.Notes ? `<div style="margin-top:8px;padding:8px 10px;background:var(--cream);border-radius:6px;font-size:11px;color:var(--muted)">${escHtml(r.Notes)}</div>` : '';
-    return `<div class="recipe-card" onclick="openRecipeForm('${r.id}')">
+    return `<div class="recipe-card" data-gs-id="${escHtml(r.id)}" onclick="openRecipeForm('${r.id}')">
       <div class="recipe-card-title">${escHtml(r.Title||'Untitled Recipe')}</div>
       ${meta ? `<div class="recipe-meta">${meta}</div>` : ''}
       <div class="recipe-body">${bodyHtml}</div>
@@ -5621,7 +5621,7 @@ function renderMaintSchedule() {
   if(countEl) countEl.textContent=rows.length+' task'+(rows.length!==1?'s':'');
   grid.innerHTML=rows.map(r=>{
     const status=getMaintStatus(r);
-    return `<div class="maint-card ${status}" onclick="openMaintTaskForm('${r.id}')">
+    return `<div class="maint-card ${status}" data-gs-id="${escHtml(r.id)}" onclick="openMaintTaskForm('${r.id}')">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap;">
         <div style="font-weight:700;font-size:14px;">${escHtml(r.Title||'Unnamed Task')}</div>
         ${maintStatusBadge(status,r.NextDue)}
@@ -6411,15 +6411,111 @@ function globalSearch(q) {
 
     // Search maintenance contacts
     (cache.maintContacts||[]).filter(m=>(m.Title||'').toLowerCase().includes(term)).slice(0,3)
-      .forEach(m=>results.push({icon:'📋',label:escHtml(m.Title||'—'),sub:'Contacts',action:()=>nav('maint-contacts')}));
+      .forEach(m=>results.push({icon:'📋',label:escHtml(m.Title||'—'),sub:'Contacts',action:()=>{
+        nav('maint-contacts');
+        setTimeout(()=>{
+          setTimeout(()=>{
+            const el = document.querySelector(`[data-gs-id="${m.id}"]`);
+            if (el) {
+              el.scrollIntoView({behavior:'smooth',block:'center'});
+              el.style.transition='background .2s';
+              el.style.background='rgba(200,169,81,.25)';
+              setTimeout(()=>el.style.background='',1800);
+            }
+          },200);
+        },80);
+      }}));
 
     // Search recipes
     (cache.recipes||[]).filter(r=>(r.Title||'').toLowerCase().includes(term)).slice(0,3)
-      .forEach(r=>results.push({icon:'📖',label:escHtml(r.Title||'—'),sub:'Recipes',action:()=>nav('recipes')}));
+      .forEach(r=>results.push({icon:'📖',label:escHtml(r.Title||'—'),sub:'Recipes',action:()=>{
+        nav('recipes');
+        setTimeout(()=>{
+          const input = document.querySelector('#recipe-search');
+          if (input) { input.value = r.Title; filterRecipes(r.Title); }
+          setTimeout(()=>{
+            const el = document.querySelector(`[data-gs-id="${r.id}"]`);
+            if (el) {
+              el.scrollIntoView({behavior:'smooth',block:'center'});
+              el.style.transition='background .2s';
+              el.style.background='rgba(200,169,81,.25)';
+              setTimeout(()=>el.style.background='',1800);
+            }
+          },200);
+        },80);
+      }}));
 
     // Search maintenance tasks
     (cache.maintSchedule||[]).filter(t=>(t.Title||'').toLowerCase().includes(term)||(t.Equipment||'').toLowerCase().includes(term)).slice(0,3)
-      .forEach(t=>results.push({icon:'🔧',label:escHtml(t.Title||'—'),sub:'Maintenance',action:()=>nav('maint-schedule')}));
+      .forEach(t=>results.push({icon:'🔧',label:escHtml(t.Title||'—'),sub:'Maintenance',action:()=>{
+        nav('maint-schedule');
+        setTimeout(()=>{
+          setTimeout(()=>{
+            const el = document.querySelector(`[data-gs-id="${t.id}"]`);
+            if (el) {
+              el.scrollIntoView({behavior:'smooth',block:'center'});
+              el.style.transition='background .2s';
+              el.style.background='rgba(200,169,81,.25)';
+              setTimeout(()=>el.style.background='',1800);
+            }
+          },200);
+        },80);
+      }}));
+
+    // Search menu items
+    (cache.menu||[]).filter(i=>(i.ItemName||'').toLowerCase().includes(term)||(i.Category||'').toLowerCase().includes(term)).slice(0,3)
+      .forEach(i=>results.push({icon:'☕',label:escHtml(i.ItemName||'—'),sub:'Menu',action:()=>{
+        nav('menu');
+        setTimeout(()=>{
+          const input = document.getElementById('menu-search');
+          if (input) { input.value = i.ItemName; filterMenu(i.ItemName); }
+          setTimeout(()=>{
+            const el = document.querySelector(`#menu-body tr[data-gs-id="${i.id}"]`);
+            if (el) {
+              el.scrollIntoView({behavior:'smooth',block:'center'});
+              el.style.transition='background .2s';
+              el.style.background='rgba(200,169,81,.25)';
+              setTimeout(()=>el.style.background='',1800);
+            }
+          },200);
+        },80);
+      }}));
+
+    // Search cost of goods
+    (cache.menu||[]).filter(i=>(i.ItemName||'').toLowerCase().includes(term)||(i.Category||'').toLowerCase().includes(term)).slice(0,3)
+      .forEach(i=>results.push({icon:'💰',label:escHtml(i.ItemName||'—'),sub:'Cost of Goods',action:()=>{
+        nav('cogs');
+        setTimeout(()=>{
+          const input = document.getElementById('cogs-search');
+          if (input) { input.value = i.ItemName; filterCogs(i.ItemName); }
+          setTimeout(()=>{
+            const el = document.querySelector(`#cogs-cards [data-gs-id="${i.id}"]`);
+            if (el) {
+              el.scrollIntoView({behavior:'smooth',block:'center'});
+              el.style.transition='background .2s';
+              el.style.background='rgba(200,169,81,.25)';
+              setTimeout(()=>el.style.background='',1800);
+            }
+          },200);
+        },80);
+      }}));
+
+    // Search checklists
+    (cache.clGroups||[]).filter(g=>(g.Title||'').toLowerCase().includes(term)||(g.Role||'').toLowerCase().includes(term)).slice(0,3)
+      .forEach(g=>results.push({icon:'✅',label:escHtml(g.Title||'—'),sub:'Checklists',action:()=>{
+        nav('checklists');
+        setTimeout(()=>{
+          setTimeout(()=>{
+            const el = document.querySelector(`[data-gs-id="${g.id}"]`);
+            if (el) {
+              el.scrollIntoView({behavior:'smooth',block:'center'});
+              el.style.transition='background .2s';
+              el.style.background='rgba(200,169,81,.25)';
+              setTimeout(()=>el.style.background='',1800);
+            }
+          },200);
+        },80);
+      }}));
 
     if (!results.length) {
       panel.innerHTML = `<div class="gs-empty">No results for "${escHtml(q)}"</div>`;
@@ -6591,7 +6687,7 @@ function renderMenu(query='', catFilter='') {
     const stock = countsMap[i.ItemName||''];
     const stockDisplay = stock != null ? stock : '—';
     const vars = (i.Variations||'').split('\n').filter(Boolean);
-    return `<tr style="${isHidden?'opacity:0.45;':''}">
+    return `<tr data-gs-id="${escHtml(i.id)}" style="${isHidden?'opacity:0.45;':''}">
       <td style="font-weight:600">${escHtml(i.ItemName||'—')}</td>
       <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${escHtml(i.Category||'—')}</span></td>
       <td style="font-size:12px;color:var(--muted);max-width:220px">${escHtml(i.Description||'')}</td>
@@ -7701,7 +7797,7 @@ function renderCogCard(item, cogMap, invMap) {
   }).join('');
 
   return `
-    <div class="card" style="padding:0;overflow:hidden;">
+    <div class="card" data-gs-id="${escHtml(item.id)}" style="padding:0;overflow:hidden;">
       <div style="padding:14px 16px 10px;border-bottom:1.5px solid var(--border);">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
           <div>
