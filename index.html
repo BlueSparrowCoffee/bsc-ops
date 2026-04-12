@@ -5119,7 +5119,9 @@ async function setLocation(loc, btn) {
 
 // Returns map of itemName → most recent count { store, storage, total, weekOf, location }
 function getLatestCountsMap(loc) {
-  const countData = cache[invCfg().countKey] || cache.countHistory;
+  const cfg = invCfg();
+  if (!cfg) return {};
+  const countData = cache[cfg.countKey] || cache.countHistory;
   const filtered = (!loc || loc === 'all')
     ? countData
     : countData.filter(r => r.Location === loc);
