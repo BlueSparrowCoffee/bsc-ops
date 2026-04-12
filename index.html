@@ -1251,6 +1251,12 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
           <select class="filter" id="cogs-cat-filter" onchange="filterCogs(document.getElementById('cogs-search').value)">
             <option value="">All Categories</option>
           </select>
+          <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);cursor:pointer;white-space:nowrap;">
+            <input type="checkbox" id="cogs-group-by-cat" onchange="renderCogCards()"> Group by category
+          </label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);cursor:pointer;white-space:nowrap;">
+            <input type="checkbox" id="cogs-show-hidden" onchange="renderCogCards()"> Show hidden
+          </label>
           <button class="btn btn-primary" onclick="snapshotCogs()" style="font-size:12px;padding:6px 14px;" title="Save current COG & margin to history">📸 Snapshot Costs</button>
         </div>
         <div id="cogs-missing-costs" style="display:none;background:#fff8e1;border:1.5px solid #f59e0b;border-radius:10px;padding:12px 16px;font-size:13px;color:#92400e;margin-bottom:16px;">
@@ -8103,6 +8109,7 @@ async function snapshotCogs() {
 let _cogsQuery = '';
 let _cogsCatFilter = '';
 const _cogsActiveVar = {}; // itemId → active variation index, persists across re-renders
+let _cogsHiddenIds = new Set(JSON.parse(localStorage.getItem('bsc_cogs_hidden')||'[]'));
 
 function cogTab(tab) {
   document.getElementById('cogs-panel-recipes').style.display  = tab==='recipes' ? '' : 'none';
@@ -8161,12 +8168,26 @@ function renderCogs() {
   renderCogCards();
 }
 
+function toggleCogHidden(itemId) {
+  if (_cogsHiddenIds.has(itemId)) {
+    _cogsHiddenIds.delete(itemId);
+  } else {
+    _cogsHiddenIds.add(itemId);
+  }
+  localStorage.setItem('bsc_cogs_hidden', JSON.stringify([..._cogsHiddenIds]));
+  renderCogCards();
+}
+
 function renderCogCards() {
   const container = document.getElementById('cogs-cards');
   const empty     = document.getElementById('cogs-empty');
   if (!container) return;
 
+  const showHidden    = document.getElementById('cogs-show-hidden')?.checked;
+  const groupByCat    = document.getElementById('cogs-group-by-cat')?.checked;
+
   let items = cache.menu;
+  if (!showHidden)    items = items.filter(i => !_cogsHiddenIds.has(i.id));
   if (_cogsCatFilter) items = items.filter(i => (i.Category||'Uncategorized') === _cogsCatFilter);
   if (_cogsQuery)     items = items.filter(i => (i.ItemName||i.Title||'').toLowerCase().includes(_cogsQuery));
   items = [...items].sort((a,b) => (a.ItemName||a.Title||'').localeCompare(b.ItemName||b.Title||''));
@@ -8181,7 +8202,29 @@ function renderCogCards() {
   const cogMap = buildCogMap();
   const invMap = buildInvMap();
   const prepMap = buildPrepItemMap();
-  container.innerHTML = items.map(item => renderCogCard(item, cogMap, invMap, prepMap)).join('');
+
+  if (groupByCat) {
+    const byCategory = {};
+    for (const item of items) {
+      const cat = item.Category || 'Uncategorized';
+      if (!byCategory[cat]) byCategory[cat] = [];
+      byCategory[cat].push(item);
+    }
+    container.innerHTML = Object.entries(byCategory)
+      .sort(([a],[b]) => a.localeCompare(b))
+      .map(([cat, catItems]) => `
+        <div style="grid-column:1/-1;">
+          <div style="font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.08em;
+            color:var(--muted);padding:6px 0 10px;border-bottom:1.5px solid var(--border);margin-bottom:4px;">
+            ${escHtml(cat)} <span style="font-weight:400;">(${catItems.length})</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:20px;margin-top:12px;">
+            ${catItems.map(item => renderCogCard(item, cogMap, invMap, prepMap)).join('')}
+          </div>
+        </div>`).join('');
+  } else {
+    container.innerHTML = items.map(item => renderCogCard(item, cogMap, invMap, prepMap)).join('');
+  }
 }
 
 function renderCogCard(item, cogMap, invMap, prepMap) {
@@ -8234,7 +8277,7 @@ function renderCogCard(item, cogMap, invMap, prepMap) {
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
             <input type="text" placeholder="Ingredient name…" id="cog-new-ing-${itemId}-${vi}"
               list="cog-ing-list-${itemId}"
-              style="flex:1;min-width:130px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;">
+              style="flex:1;min-width:130px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;color:#1a1a1a;background:#fff;">
             <input type="number" step="1" min="0" placeholder="Qty" id="cog-new-qty-${itemId}-${vi}"
               style="width:60px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;">
             <button onclick="addCogIngredient('${escHtml(itemId)}','${escHtml(itemName)}','${escHtml(v.name)}',${vi})"
@@ -8289,14 +8332,20 @@ function renderCogCard(item, cogMap, invMap, prepMap) {
       </div>`;
   }).join('');
 
+  const isHidden = _cogsHiddenIds.has(item.id);
   return `
-    <div class="card" data-gs-id="${escHtml(item.id)}" style="padding:0;overflow:hidden;">
+    <div class="card" data-gs-id="${escHtml(item.id)}" style="padding:0;overflow:hidden;${isHidden?'opacity:0.5;':''}">
       <div style="padding:14px 16px 10px;border-bottom:1.5px solid var(--border);">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
           <div>
             <div style="font-weight:700;font-size:14px;">${escHtml(itemName)}</div>
             <div style="font-size:11px;color:var(--muted);margin-top:2px;">${escHtml(category)}</div>
           </div>
+          <button data-id="${escHtml(item.id)}" onclick="toggleCogHidden(this.dataset.id)"
+            title="${isHidden?'Show this item':'Hide this item'}"
+            style="background:none;border:none;cursor:pointer;font-size:16px;padding:2px 4px;color:var(--muted);flex-shrink:0;">
+            ${isHidden?'👁️':'🙈'}
+          </button>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;">
           ${varTabs}
