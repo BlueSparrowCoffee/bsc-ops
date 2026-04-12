@@ -446,11 +446,12 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
           <option value="">All Vendors</option>
         </select>
         <span id="inv-count" style="font-size:13px;color:var(--muted);"></span>
-        <button class="btn btn-primary ml-auto" onclick="openAddInvModal()">+ Add Item</button>
+        <button id="inv-seed-btn" class="btn btn-outline ml-auto inv-merch-only" style="display:none" onclick="seedMerchItems()">Seed Items</button>
+        <button class="btn btn-primary" onclick="openAddInvModal()">+ Add Item</button>
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr>
+          <thead><tr id="inv-thead-row">
             <th onclick="sortInvBy('ItemName')">Item</th>
             <th id="inv-th-category" onclick="sortInvBy('Category')">Category</th>
             <th onclick="sortInvBy('Supplier')">Vendor</th>
@@ -1421,26 +1422,40 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
       <div class="form-group" style="grid-column:1/-1"><label>Item Name *</label><input id="new-item-name" placeholder="e.g. Whole Milk"></div>
       <div class="form-group" id="new-item-cat-group"><label>Category</label>
         <select id="new-item-cat">
-          <option>China</option><option>Cleaning Supplies</option><option>Consumable Goods</option>
-          <option>Dairy</option><option>Dry Goods</option><option>Event</option>
-          <option>First Aid</option><option>Glass</option><option>Paper Goods</option>
-          <option>Retail</option><option>Sweeteners</option><option>Tea</option>
-          <option>Water Filter</option><option>Other</option>
+          <!-- consumable categories -->
+          <option class="inv-cons-only">China</option><option class="inv-cons-only">Cleaning Supplies</option><option class="inv-cons-only">Consumable Goods</option>
+          <option class="inv-cons-only">Dairy</option><option class="inv-cons-only">Dry Goods</option><option class="inv-cons-only">Event</option>
+          <option class="inv-cons-only">First Aid</option><option class="inv-cons-only">Glass</option><option class="inv-cons-only">Paper Goods</option>
+          <option class="inv-cons-only">Retail</option><option class="inv-cons-only">Sweeteners</option><option class="inv-cons-only">Tea</option>
+          <option class="inv-cons-only">Water Filter</option><option class="inv-cons-only">Other</option>
+          <!-- merch categories -->
+          <option class="inv-merch-only" style="display:none">Apparel</option>
+          <option class="inv-merch-only" style="display:none">Books &amp; Art</option>
+          <option class="inv-merch-only" style="display:none">Coffee Tools</option>
+          <option class="inv-merch-only" style="display:none">Dog</option>
+          <option class="inv-merch-only" style="display:none">Drinkware</option>
+          <option class="inv-merch-only" style="display:none">Lifestyle</option>
+          <option class="inv-merch-only" style="display:none">Packaging</option>
         </select>
       </div>
-      <div class="form-group"><label>Supplier</label><input id="new-item-supplier" placeholder="e.g. Odeko, Wingtip"></div>
-      <div class="form-group"><label>Order Size</label><input id="new-item-order-size" type="number" placeholder="e.g. 12"></div>
-      <div class="form-group"><label>Order Unit</label><input id="new-item-unit" placeholder="e.g. gallon, case, bag"></div>
-      <div class="form-group"><label>Order Frequency</label>
+      <!-- Merch-only fields -->
+      <div class="form-group inv-merch-only" style="display:none"><label>Item No.</label><input id="new-item-no" placeholder="e.g. BSC001"></div>
+      <div class="form-group inv-merch-only" style="display:none"><label>Cost / Unit</label><input id="new-item-cost-unit" type="number" step="0.01" placeholder="0.00"></div>
+      <div class="form-group inv-merch-only" style="display:none" style="grid-column:1/-1"><label>Square Catalog Item ID</label><input id="new-item-square-id" placeholder="Square catalog item ID"></div>
+      <!-- Consumable-only fields -->
+      <div class="form-group inv-cons-only"><label>Supplier</label><input id="new-item-supplier" placeholder="e.g. Odeko, Wingtip"></div>
+      <div class="form-group inv-cons-only"><label>Order Size</label><input id="new-item-order-size" type="number" placeholder="e.g. 12"></div>
+      <div class="form-group inv-cons-only"><label>Order Unit</label><input id="new-item-unit" placeholder="e.g. gallon, case, bag"></div>
+      <div class="form-group inv-cons-only"><label>Order Frequency</label>
         <select id="new-item-freq">
           <option value="">—</option><option>Weekly</option><option>Monthly</option><option>Bi Annually</option>
         </select>
       </div>
-      <div class="form-group"><label>Par Level</label><input id="new-item-par" type="number" placeholder="0"></div>
-      <div class="form-group"><label>Cost / Case</label><input id="new-item-cost" type="number" step="0.01" placeholder="0.00" oninput="calcCostPerServing()"></div>
-      <div class="form-group"><label>Serving Unit</label><input id="new-item-serving-unit" placeholder="e.g. oz, shot, cup"></div>
-      <div class="form-group"><label>Servings / Unit</label><input id="new-item-servings" type="number" step="0.01" placeholder="0" oninput="calcCostPerServing()"></div>
-      <div class="form-group"><label>Cost / Serving <span style="font-size:10px;color:var(--muted)">(auto)</span></label><div id="cost-per-serving-preview" style="padding:7px 10px;background:var(--cream);border-radius:7px;font-size:13px;color:var(--muted);border:1.5px solid var(--border);">—</div></div>
+      <div class="form-group inv-cons-only"><label>Par Level</label><input id="new-item-par" type="number" placeholder="0"></div>
+      <div class="form-group inv-cons-only"><label>Cost / Case</label><input id="new-item-cost" type="number" step="0.01" placeholder="0.00" oninput="calcCostPerServing()"></div>
+      <div class="form-group inv-cons-only"><label>Serving Unit</label><input id="new-item-serving-unit" placeholder="e.g. oz, shot, cup"></div>
+      <div class="form-group inv-cons-only"><label>Servings / Unit</label><input id="new-item-servings" type="number" step="0.01" placeholder="0" oninput="calcCostPerServing()"></div>
+      <div class="form-group inv-cons-only"><label>Cost / Serving <span style="font-size:10px;color:var(--muted)">(auto)</span></label><div id="cost-per-serving-preview" style="padding:7px 10px;background:var(--cream);border-radius:7px;font-size:13px;color:var(--muted);border:1.5px solid var(--border);">—</div></div>
     </div>
     <div class="form-actions"><button class="btn btn-primary" onclick="saveInventoryItem()">Save Item</button><button class="btn btn-outline" onclick="closeModal('modal-add-item')">Cancel</button></div>
   </div>
@@ -1690,7 +1705,8 @@ const INV_TYPE_CFG = {
     countsPrefix:'BSC_{loc}_MerchCounts',
     cacheKey:    'merchInventory',
     countKey:    'merchCountHistory',
-    hasCategory: false
+    hasCategory: true,
+    isMerch:     true
   },
   equipment: {
     label:       'Equipment & Smallwares',
@@ -2158,15 +2174,15 @@ async function ensureAllLists() {
     {name:'GrossMargin',number:{decimalPlaces:'automatic'}},
     {name:'SnapshotDate',dateTime:{displayAs:'default'}}
   ]);
-  // Merch item master — no Category column (deleted by user)
-  await ensureList(LISTS.merchInventory, INV_LIST_COLS.filter(c=>c.name!=='Category').map(c=>({name:c.name,...c})));
+  // Merch item master — uses merch-specific schema (ItemNo, CostPerUnit, SquareCatalogItemId)
+  await ensureList(LISTS.merchInventory, MERCH_LIST_COLS);
   await ensureList(LISTS.equipInventory, INV_LIST_COLS.map(c => ({name:c.name, ...c})));
   // Per-location counts lists — create for every known location so 404s never appear
   const locs = getLocations();
   for (const loc of locs) {
     const slug = loc.replace(/[\s\/\\]/g, '_');
     await ensureList(`BSC_${slug}_InventoryCounts`, COUNTS_LIST_COLS).catch(()=>{});
-    await ensureList(`BSC_${slug}_MerchCounts`,     COUNTS_LIST_COLS).catch(()=>{});
+    await ensureList(`BSC_${slug}_MerchCounts`,     [...COUNTS_LIST_COLS, ...MERCH_COUNTS_EXTRA_COLS]).catch(()=>{});
     await ensureList(`BSC_${slug}_EquipCounts`,     COUNTS_LIST_COLS).catch(()=>{});
     await ensureList(`BSC_${slug}_MenuCounts`,      MENU_COUNTS_LIST_COLS).catch(()=>{});
     await ensureList(`BSC_${slug}_FoodPars`,        FP_PAR_LIST_COLS).catch(()=>{});
@@ -2424,6 +2440,8 @@ function invCountsListName(loc) {
 function invHasCategory() { return invCfg()?.hasCategory !== false; }
 
 function applyInvCategoryVisibility() {
+  const cfg = invCfg();
+  const isMerch = !!(cfg?.isMerch);
   const show = invHasCategory();
   const th = document.getElementById('inv-th-category');
   const filter = document.getElementById('inv-cat-filter');
@@ -2431,6 +2449,54 @@ function applyInvCategoryVisibility() {
   if (th)       th.style.display       = show ? '' : 'none';
   if (filter)   filter.style.display   = show ? '' : 'none';
   if (catGroup) catGroup.style.display = show ? '' : 'none';
+
+  // Show/hide supplier filter (not relevant for merch)
+  const supFilter = document.getElementById('inv-supplier-filter');
+  if (supFilter) supFilter.style.display = isMerch ? 'none' : '';
+  const statusFilter = document.getElementById('inv-status-filter');
+  if (statusFilter) statusFilter.style.display = isMerch ? 'none' : '';
+
+  // Show/hide consumable vs merch modal fields
+  document.querySelectorAll('.inv-cons-only').forEach(el => el.style.display = isMerch ? 'none' : '');
+  document.querySelectorAll('.inv-merch-only').forEach(el => el.style.display = isMerch ? '' : 'none');
+
+  renderInvTableHeader();
+}
+
+function renderInvTableHeader() {
+  const tr = document.getElementById('inv-thead-row');
+  if (!tr) return;
+  const cfg = invCfg();
+  const isMerch = !!(cfg?.isMerch);
+  if (isMerch) {
+    tr.innerHTML = `
+      <th onclick="sortInvBy('ItemNo')" style="width:80px">Item #</th>
+      <th onclick="sortInvBy('ItemName')">Name</th>
+      <th id="inv-th-category" onclick="sortInvBy('Category')">Category</th>
+      <th onclick="sortInvBy('CostPerUnit')">Cost/Unit</th>
+      <th onclick="sortInvBy('StoreCount')">Store</th>
+      <th onclick="sortInvBy('StorageCount')">Storage</th>
+      <th onclick="sortInvBy('TotalCount')">Total</th>
+      <th onclick="sortInvBy('TotalValue')">Value</th>
+      <th style="width:72px"></th>`;
+  } else {
+    tr.innerHTML = `
+      <th onclick="sortInvBy('ItemName')">Item</th>
+      <th id="inv-th-category" onclick="sortInvBy('Category')">Category</th>
+      <th onclick="sortInvBy('Supplier')">Vendor</th>
+      <th onclick="sortInvBy('ParLevel')">Par</th>
+      <th onclick="sortInvBy('StoreCount')">Store</th>
+      <th onclick="sortInvBy('StorageCount')">Storage</th>
+      <th onclick="sortInvBy('CurrentStock')">Total</th>
+      <th>Status</th>
+      <th onclick="sortInvBy('CostPerCase')">Cost/Case</th>
+      <th onclick="sortInvBy('CostPerServing')">Cost/Serving</th>
+      <th onclick="sortInvBy('ServingsPerUnit')">Servings/Unit</th>
+      <th style="width:72px"></th>`;
+    // re-apply category column visibility for non-merch
+    const th = document.getElementById('inv-th-category');
+    if (th) th.style.display = invHasCategory() ? '' : 'none';
+  }
 }
 
 function switchInvType(type) {
@@ -2507,7 +2573,7 @@ function switchInvTab(tab, btn) {
   ['items','count','analytics','import'].forEach(t => {
     document.getElementById('inv-tab-'+t).style.display = t===tab ? '' : 'none';
   });
-  if (tab==='count')     renderCountSheet();
+  if (tab==='count')     { if (invCfg()?.isMerch) renderMerchCountSheet(); else renderCountSheet(); }
   if (tab==='analytics') renderInventoryAnalytics();
   if (tab==='import')    initImportTab();
 }
@@ -2519,7 +2585,7 @@ function renderInventory() {
     document.getElementById('inv-status-filter')?.value||''
   );
   // Also refresh count sheet if that tab is currently open
-  if (_invActiveTab === 'count') renderCountSheet();
+  if (_invActiveTab === 'count') { if (invCfg()?.isMerch) renderMerchCountSheet(); else renderCountSheet(); }
 }
 
 let _invSort = { col: null, dir: 1 };
@@ -2544,8 +2610,14 @@ function sortInvBy(col) {
 function renderInventoryItems(query='', catFilter='', statusFilter='', supplierFilter='') {
   const cfg = invCfg();
   if (!cfg) return; // non-inventory type (food pars, labels, transfers)
+
+  if (cfg.isMerch) {
+    renderMerchInventoryItems(query, catFilter);
+    return;
+  }
+
   const countsMap = getLatestCountsMap(currentLocation);
-  let items = cache[cfg.cacheKey] || []; // type-specific list
+  let items = cache[cfg.cacheKey] || [];
   if (query) items = items.filter(i=>(i.ItemName||'').toLowerCase().includes(query.toLowerCase())||
     (i.Category||'').toLowerCase().includes(query.toLowerCase())||
     (i.Supplier||'').toLowerCase().includes(query.toLowerCase()));
@@ -2554,7 +2626,6 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
   if (statusFilter==='low') items = items.filter(i=>(countsMap[i.ItemName||'']?.total??0)<=(i.ParLevel||0));
   if (statusFilter==='ok')  items = items.filter(i=>(countsMap[i.ItemName||'']?.total??0)>(i.ParLevel||0));
 
-  // apply sort
   if (_invSort.col) {
     items = [...items].sort((a,b) => {
       const av = a[_invSort.col], bv = b[_invSort.col];
@@ -2617,12 +2688,134 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
     suppliers.map(s=>`<option value="${escHtml(s)}" ${s===curSup?'selected':''}>${escHtml(s)}</option>`).join('');
 }
 
+function renderMerchInventoryItems(query='', catFilter='') {
+  const cfg = invCfg();
+  const countsMap = getLatestCountsMap(currentLocation);
+  let items = cache[cfg.cacheKey] || [];
+  if (query) items = items.filter(i=>(i.ItemName||'').toLowerCase().includes(query.toLowerCase())||
+    (i.ItemNo||'').toLowerCase().includes(query.toLowerCase())||
+    (i.Category||'').toLowerCase().includes(query.toLowerCase()));
+  if (catFilter) items = items.filter(i=>i.Category===catFilter);
+
+  if (_invSort.col) {
+    items = [...items].sort((a,b) => {
+      const av = _invSort.col==='TotalValue' ? (a.CostPerUnit||0)*(countsMap[a.ItemName||'']?.total||0)
+               : _invSort.col==='TotalCount' ? (countsMap[a.ItemName||'']?.total||0)
+               : a[_invSort.col];
+      const bv = _invSort.col==='TotalValue' ? (b.CostPerUnit||0)*(countsMap[b.ItemName||'']?.total||0)
+               : _invSort.col==='TotalCount' ? (countsMap[b.ItemName||'']?.total||0)
+               : b[_invSort.col];
+      if (av==null && bv==null) return 0;
+      if (av==null) return 1; if (bv==null) return -1;
+      return (typeof av==='string' ? av.localeCompare(bv) : av-bv) * _invSort.dir;
+    });
+  }
+
+  const tbody = document.getElementById('inv-body');
+  tbody.innerHTML = items.map(i => {
+    const counts  = countsMap[i.ItemName||''] || {};
+    const store   = counts.store   != null ? counts.store   : '—';
+    const storage = counts.storage != null ? counts.storage : '—';
+    const total   = counts.total   != null ? counts.total   : '—';
+    const totalNum = counts.total  != null ? counts.total   : null;
+    const cost    = i.CostPerUnit  != null ? i.CostPerUnit  : null;
+    const value   = (cost != null && totalNum != null) ? '$'+(cost*totalNum).toFixed(2) : '—';
+    return `<tr>
+      <td style="font-size:12px;color:var(--muted)">${escHtml(i.ItemNo||'—')}</td>
+      <td class="fw">${escHtml(i.ItemName||'—')}</td>
+      <td><span class="badge badge-teal">${escHtml(i.Category||'—')}</span></td>
+      <td>${cost != null ? '$'+Number(cost).toFixed(2) : '—'}</td>
+      <td>${store}</td>
+      <td>${storage}</td>
+      <td style="font-weight:600">${total}</td>
+      <td style="font-size:12px;color:var(--muted)">${value}</td>
+      <td style="white-space:nowrap;">
+        <button onclick="openEditInvItem('${i.id}')" title="Edit"
+          style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:15px;padding:2px 4px;">✏️</button>
+        <button onclick="deleteInvItem('${i.id}')" title="Delete"
+          style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:15px;padding:2px 4px;">🗑️</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('inv-empty').style.display = items.length?'none':'block';
+  document.getElementById('inv-count').textContent = `${items.length} items`;
+
+  const allItems = cache[cfg.cacheKey] || [];
+  const catSel = document.getElementById('inv-cat-filter');
+  const cats = [...new Set(allItems.map(i=>i.Category).filter(Boolean))].sort();
+  const curCat = catSel?.value || '';
+  if (catSel) catSel.innerHTML = '<option value="">All Categories</option>' +
+    cats.map(c=>`<option value="${escHtml(c)}" ${c===curCat?'selected':''}>${escHtml(c)}</option>`).join('');
+}
+
 function filterInventory(query) {
   renderInventoryItems(query,
     document.getElementById('inv-cat-filter').value,
     document.getElementById('inv-status-filter').value,
     document.getElementById('inv-supplier-filter')?.value || ''
   );
+}
+
+async function seedMerchItems() {
+  const cfg = invCfg();
+  const existing = cache[cfg.cacheKey] || [];
+  if (existing.length > 0 && !confirm(`Merch inventory already has ${existing.length} item(s). Seed will add any missing items. Continue?`)) return;
+
+  const SEED = [
+    // Drinkware
+    { ItemNo:'BSC001', ItemName:'32oz Tumbler',              Category:'Drinkware',     CostPerUnit: 32.25 },
+    { ItemNo:'BSC002', ItemName:'20oz Tumbler',              Category:'Drinkware',     CostPerUnit: 16.47 },
+    { ItemNo:'BSC005', ItemName:'Feather Ceramic 12oz',      Category:'Drinkware',     CostPerUnit: 10.16 },
+    { ItemNo:'BSC021', ItemName:'GandyxBSC Tumbler',         Category:'Drinkware',     CostPerUnit: 18.50 },
+    // Coffee Tools
+    { ItemNo:'BSC003', ItemName:'Small Press',               Category:'Coffee Tools',  CostPerUnit: 67.00 },
+    { ItemNo:'BSC004', ItemName:'Porcelain Press',           Category:'Coffee Tools',  CostPerUnit: 78.00 },
+    { ItemNo:'BSC006', ItemName:'Matcha Whisk',              Category:'Coffee Tools',  CostPerUnit:  8.00 },
+    { ItemNo:'BSC007', ItemName:'Matcha Jars',               Category:'Coffee Tools',  CostPerUnit: 30.00 },
+    { ItemNo:'BSC008', ItemName:'Matcha Bowl',               Category:'Coffee Tools',  CostPerUnit: 20.00 },
+    { ItemNo:'BSC025', ItemName:'Matcha Kit',                Category:'Coffee Tools',  CostPerUnit: 30.00 },
+    // Books & Art
+    { ItemNo:'BSC009', ItemName:'Breakfast',                 Category:'Books & Art',   CostPerUnit: 25.97 },
+    { ItemNo:'BSC010', ItemName:'Art Record Covers',         Category:'Books & Art',   CostPerUnit: 38.50 },
+    { ItemNo:'BSC011', ItemName:'Velo 3D Gear',              Category:'Books & Art',   CostPerUnit: 24.98 },
+    { ItemNo:'BSC012', ItemName:'Annie Leibovitz at Work',   Category:'Books & Art',   CostPerUnit: 25.97 },
+    { ItemNo:'BSC013', ItemName:'HHH - Hardcover',           Category:'Books & Art',   CostPerUnit: 11.75 },
+    // Apparel
+    { ItemNo:'BSC018', ItemName:'Feather Crewneck',          Category:'Apparel',       CostPerUnit: 30.93 },
+    { ItemNo:'BSC019', ItemName:'Store Crewneck',            Category:'Apparel',       CostPerUnit: 34.59 },
+    { ItemNo:'BSC020', ItemName:'Eyes Closed Tee',           Category:'Apparel',       CostPerUnit: 19.30 },
+    { ItemNo:'BSC023', ItemName:'BSC Logo Beanie',           Category:'Apparel',       CostPerUnit: 10.07 },
+    // Lifestyle
+    { ItemNo:'BSC014', ItemName:'Chai Candle',               Category:'Lifestyle',     CostPerUnit: 16.00 },
+    // Dog
+    { ItemNo:'BSC015', ItemName:'Dog Leash',                 Category:'Dog',           CostPerUnit: 10.25 },
+    { ItemNo:'BSC016', ItemName:'Dog Plush - Mug',           Category:'Dog',           CostPerUnit:  9.00 },
+    { ItemNo:'BSC017', ItemName:'Dog Plush - Port',          Category:'Dog',           CostPerUnit:  9.50 },
+    { ItemNo:'BSC022', ItemName:'Free Dog Toys',             Category:'Dog',           CostPerUnit:  0.00 },
+    { ItemNo:'BSC026', ItemName:'Dog Plush - Coffee Bag',    Category:'Dog',           CostPerUnit:  9.70 },
+    // Packaging
+    { ItemNo:'BSC024', ItemName:'Pacific Bags',              Category:'Packaging',     CostPerUnit:  1.099 },
+  ];
+
+  const existingNames = new Set(existing.map(i=>(i.ItemName||'').trim()));
+  const toAdd = SEED.filter(s => !existingNames.has(s.ItemName));
+  if (!toAdd.length) { toast('ok','All seed items already exist'); return; }
+
+  setLoading(true, `Seeding ${toAdd.length} merch items…`);
+  try {
+    for (let i=0; i<toAdd.length; i+=4) {
+      const batch = toAdd.slice(i,i+4);
+      const results = await Promise.all(batch.map(item => addListItem(LISTS[cfg.listKey], {
+        Title: item.ItemName, ItemName: item.ItemName,
+        Category: item.Category, ItemNo: item.ItemNo, CostPerUnit: item.CostPerUnit
+      })));
+      results.forEach(r => cache[cfg.cacheKey].push(r));
+    }
+    toast('ok', `✓ Seeded ${toAdd.length} merch items`);
+    renderInventory();
+  } catch(e) { toast('err','Seed failed: '+e.message); }
+  finally { setLoading(false); }
 }
 
 // ── Count Sheet ───────────────────────────────────────────────────────────────
@@ -2855,6 +3048,272 @@ async function submitWeeklyCount() {
   finally { setLoading(false); btn.disabled=false; }
 }
 
+// ── Merch Count Sheet ─────────────────────────────────────────────────────────
+// Track which month is displayed (0 = current month, -1 = prev, etc.)
+let _merchCountMonth = 0; // offset from current month
+
+function renderMerchCountSheet() {
+  const container = document.getElementById('count-sheet-body');
+  if (currentLocation === 'all') {
+    container.innerHTML = `
+      <div style="background:#fff8e1;border:1.5px solid #f0c040;border-radius:10px;padding:20px 24px;margin-top:12px;text-align:center">
+        <div style="font-size:22px;margin-bottom:8px">📍</div>
+        <div style="font-weight:600;font-size:14px;margin-bottom:4px">Select a location to enter counts</div>
+        <div style="font-size:13px;color:var(--muted)">Use the location buttons at the top to choose a specific location before entering monthly counts.</div>
+      </div>`;
+    return;
+  }
+
+  // Update the count tab header controls dynamically for merch
+  const headerBar = document.querySelector('#inv-tab-count .count-header-bar');
+  if (headerBar) {
+    const now = new Date();
+    const d = new Date(now.getFullYear(), now.getMonth() + _merchCountMonth, 1);
+    const monthLabel = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    headerBar.innerHTML = `
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-outline" onclick="shiftMerchMonth(-1)" style="padding:5px 12px;">◀</button>
+        <div style="font-weight:700;font-size:15px;min-width:160px;text-align:center">${monthLabel}</div>
+        <button class="btn btn-outline" onclick="shiftMerchMonth(1)" style="padding:5px 12px;" ${_merchCountMonth>=0?'disabled':''}>▶</button>
+        <div style="font-size:13px;color:var(--muted)">${currentUser?.name || currentUser?.username || ''}</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-outline" id="merch-sq-btn" onclick="pullMerchSalesFromSquare()">Pull from Square</button>
+        <span id="count-submit-progress" style="font-size:13px;color:var(--muted)"></span>
+        <button class="btn btn-outline" onclick="clearMerchCountSheet()">Clear</button>
+        <button class="btn btn-primary" onclick="submitMerchCount()">Submit Count</button>
+      </div>`;
+  }
+
+  const cfg = invCfg();
+  const loc = currentLocation;
+  const now = new Date();
+  const d = new Date(now.getFullYear(), now.getMonth() + _merchCountMonth, 1);
+  const monthStr = d.toISOString().split('T')[0].slice(0,7); // "YYYY-MM"
+
+  // Find most recent count for this month+loc per item
+  const recentMap = {};
+  (cache[cfg.countKey]||[])
+    .filter(r => r.Location === loc && (r.WeekOf||'').startsWith(monthStr))
+    .sort((a,b)=>(a.WeekOf||'')>(b.WeekOf||'')?1:-1)
+    .forEach(r => {
+      const name = (r.Title||r.ItemName||'').trim();
+      if (name) recentMap[name] = {
+        store: r.StoreCount||0, storage: r.StorageCount||0,
+        total: r.TotalCount||0, sold: r.ChangesSinceLastCount||0
+      };
+    });
+
+  const items = [...(cache[cfg.cacheKey]||[])].sort((a,b)=>{
+    const ca = a.Category||'', cb = b.Category||'';
+    if (ca!==cb) return ca.localeCompare(cb);
+    return (a.ItemNo||'').localeCompare(b.ItemNo||'');
+  });
+  const byCategory = {};
+  items.forEach(i => {
+    const cat = i.Category||'Other';
+    if (!byCategory[cat]) byCategory[cat]=[];
+    byCategory[cat].push(i);
+  });
+
+  container.innerHTML = `
+    <div style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="background:var(--opal);border-bottom:2px solid var(--border)">
+        <th style="padding:8px 12px;text-align:left;font-weight:600">Item #</th>
+        <th style="padding:8px 12px;text-align:left;font-weight:600">Item</th>
+        <th style="padding:8px 12px;text-align:center;font-weight:600">Store</th>
+        <th style="padding:8px 12px;text-align:center;font-weight:600">Storage</th>
+        <th style="padding:8px 12px;text-align:center;font-weight:600">Total</th>
+        <th style="padding:8px 12px;text-align:center;font-weight:600" title="Units sold since last count (from Square)">Sold</th>
+      </tr></thead>
+      <tbody>
+      ${Object.entries(byCategory).sort(([a],[b])=>a>b?1:-1).map(([cat, catItems])=>`
+        <tr style="background:var(--cream)">
+          <td colspan="6" style="padding:8px 12px;font-weight:700;font-size:12px;color:var(--dark-blue);letter-spacing:.04em;text-transform:uppercase;border-top:2px solid var(--border)">${escHtml(cat)}</td>
+        </tr>
+        ${catItems.map(item => {
+          const last = recentMap[item.ItemName||''];
+          return `<tr class="merch-count-row" data-id="${item.id}" data-name="${(item.ItemName||'').replace(/"/g,'&quot;')}" style="border-bottom:1px solid var(--border)">
+            <td style="padding:8px 12px;color:var(--muted);font-size:12px">${escHtml(item.ItemNo||'')}</td>
+            <td style="padding:8px 12px;font-weight:500">${escHtml(item.ItemName||'—')}</td>
+            <td style="padding:6px 8px;text-align:center">
+              <input type="number" class="count-num-input merch-store" min="0" step="1" placeholder="0"
+                value="${last ? last.store : ''}"
+                oninput="updateMerchCountTotal(this)"
+                style="width:64px;text-align:center;padding:4px 6px;border:1.5px solid var(--border);border-radius:6px;font-size:13px">
+            </td>
+            <td style="padding:6px 8px;text-align:center">
+              <input type="number" class="count-num-input merch-storage" min="0" step="1" placeholder="0"
+                value="${last ? last.storage : ''}"
+                oninput="updateMerchCountTotal(this)"
+                style="width:64px;text-align:center;padding:4px 6px;border:1.5px solid var(--border);border-radius:6px;font-size:13px">
+            </td>
+            <td style="padding:8px 12px;text-align:center;font-weight:700" id="merch-total-${item.id}">${last ? last.total : 0}</td>
+            <td style="padding:6px 8px;text-align:center">
+              <input type="number" class="merch-sold" min="0" step="1" placeholder="0"
+                value="${last ? last.sold : ''}"
+                style="width:64px;text-align:center;padding:4px 6px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;background:var(--opal)" title="Pulled from Square">
+            </td>
+          </tr>`;
+        }).join('')}
+      `).join('')}
+      </tbody>
+    </table>
+    </div>`;
+}
+
+function shiftMerchMonth(delta) {
+  _merchCountMonth = Math.min(0, _merchCountMonth + delta);
+  renderMerchCountSheet();
+}
+
+function updateMerchCountTotal(input) {
+  const row = input.closest('.merch-count-row');
+  if (!row) return;
+  const id = row.dataset.id;
+  const store = parseFloat(row.querySelector('.merch-store').value)||0;
+  const storage = parseFloat(row.querySelector('.merch-storage').value)||0;
+  const el = document.getElementById('merch-total-'+id);
+  if (el) el.textContent = store + storage;
+}
+
+function clearMerchCountSheet() {
+  document.querySelectorAll('.merch-count-row .count-num-input').forEach(i=>i.value='');
+  document.querySelectorAll('.merch-count-row .merch-sold').forEach(i=>i.value='');
+  document.querySelectorAll('[id^="merch-total-"]').forEach(el=>el.textContent='0');
+}
+
+async function submitMerchCount() {
+  const loc = currentLocation === 'all' ? null : currentLocation;
+  if (!loc) { toast('err','Select a location first'); return; }
+
+  const countedBy = currentUser?.name || currentUser?.username || '';
+  const now = new Date();
+  const d = new Date(now.getFullYear(), now.getMonth() + _merchCountMonth, 1);
+  const monthDate = d.toISOString().split('T')[0]; // first of the month
+
+  const rows = document.querySelectorAll('.merch-count-row');
+  const entries = [];
+  rows.forEach(row => {
+    const storeVal = row.querySelector('.merch-store').value.trim();
+    const storageVal = row.querySelector('.merch-storage').value.trim();
+    const soldVal = row.querySelector('.merch-sold').value.trim();
+    if (storeVal==='' && storageVal==='') return;
+    const store = parseFloat(storeVal)||0;
+    const storage = parseFloat(storageVal)||0;
+    entries.push({
+      id: row.dataset.id,
+      name: row.dataset.name,
+      store, storage,
+      total: store + storage,
+      sold: parseFloat(soldVal)||0
+    });
+  });
+
+  if (!entries.length) { toast('err','Enter at least one count'); return; }
+
+  const cfg = invCfg();
+  const cntList = cfg.countsPrefix.replace('{loc}', (loc||'').replace(/[\s\/\\]/g,'_'));
+  if (!cntList) { toast('err','Could not resolve counts list'); return; }
+
+  const prog = document.getElementById('count-submit-progress');
+  const btn = document.querySelector('#inv-tab-count .btn-primary');
+  btn.disabled = true;
+
+  try {
+    setLoading(true, `Saving ${entries.length} merch count records…`);
+    const tasks = entries.map(e => () => addListItem(cntList, {
+      Title: e.name,
+      WeekOf: monthDate + 'T00:00:00Z',
+      StoreCount: e.store,
+      StorageCount: e.storage,
+      TotalCount: e.total,
+      ChangesSinceLastCount: e.sold,
+      Location: loc,
+      CountedBy: countedBy
+    }));
+    for (let i=0; i<tasks.length; i+=8) {
+      await Promise.all(tasks.slice(i,i+8).map(t=>t()));
+      prog.textContent = `${Math.min(i+8,tasks.length)}/${tasks.length}`;
+    }
+    // update cache
+    const newRecords = entries.map(e => ({
+      Title: e.name, WeekOf: monthDate+'T00:00:00Z',
+      StoreCount: e.store, StorageCount: e.storage, TotalCount: e.total,
+      ChangesSinceLastCount: e.sold, Location: loc, CountedBy: countedBy
+    }));
+    cache[cfg.countKey].unshift(...newRecords);
+    toast('ok', `✓ Merch count submitted — ${entries.length} items`);
+    renderDashboard();
+    prog.textContent = '';
+  } catch(e) { toast('err','Submit failed: '+e.message); }
+  finally { setLoading(false); btn.disabled=false; }
+}
+
+async function pullMerchSalesFromSquare() {
+  const btn = document.getElementById('merch-sq-btn');
+  if (btn) { btn.disabled=true; btn.textContent='Pulling…'; }
+
+  try {
+    const now = new Date();
+    const d = new Date(now.getFullYear(), now.getMonth() + _merchCountMonth, 1);
+    const endD = new Date(now.getFullYear(), now.getMonth() + _merchCountMonth + 1, 0);
+    const startAt = d.toISOString();
+    const endAt   = new Date(endD.getFullYear(), endD.getMonth(), endD.getDate(), 23, 59, 59).toISOString();
+
+    // Build catalog-id → item name map from merch cache
+    const cfg = invCfg();
+    const catalogMap = {}; // squareCatalogItemId → ItemName
+    (cache[cfg.cacheKey]||[]).forEach(i => {
+      if (i.SquareCatalogItemId) catalogMap[i.SquareCatalogItemId.trim()] = i.ItemName;
+    });
+    if (!Object.keys(catalogMap).length) {
+      toast('warn','No Square Catalog IDs set on merch items — add them via Edit');
+      return;
+    }
+
+    // Square Orders API — search orders for the location
+    const locMap = getSquareLocMap();
+    const loc = currentLocation;
+    const squareLocId = locMap[loc];
+    if (!squareLocId) { toast('err',`No Square location mapped for "${loc}"`); return; }
+
+    let cursor = null, salesMap = {}; // itemName → qty sold
+    do {
+      const body = {
+        location_ids: [squareLocId],
+        query: { filter: { date_time_filter: { created_at: { start_at: startAt, end_at: endAt } },
+          state_filter: { states: ['COMPLETED'] } } },
+        ...(cursor ? { cursor } : {})
+      };
+      const resp = await squareAPI('POST', 'orders/search', body);
+      (resp.orders||[]).forEach(order => {
+        (order.line_items||[]).forEach(li => {
+          const catId = li.catalog_object_id;
+          if (!catId) return;
+          const name = catalogMap[catId];
+          if (!name) return;
+          salesMap[name] = (salesMap[name]||0) + parseInt(li.quantity||0, 10);
+        });
+      });
+      cursor = resp.cursor || null;
+    } while (cursor);
+
+    // Fill Sold inputs
+    let filled = 0;
+    document.querySelectorAll('.merch-count-row').forEach(row => {
+      const name = row.dataset.name;
+      if (salesMap[name] !== undefined) {
+        row.querySelector('.merch-sold').value = salesMap[name];
+        filled++;
+      }
+    });
+    toast('ok', filled ? `✓ Pulled Square sales — ${filled} items updated` : 'No matching sales found for this period');
+  } catch(e) { toast('err','Square pull failed: '+e.message); }
+  finally { if (btn) { btn.disabled=false; btn.textContent='Pull from Square'; } }
+}
+
 // ── Analytics ─────────────────────────────────────────────────────────────────
 function renderInventoryAnalytics() {
   const loc = currentLocation === 'all' ? null : currentLocation;
@@ -2961,31 +3420,57 @@ function openAddInvModal() {
   document.querySelector('#modal-add-item .modal-title').textContent = 'Add ' + cfg.label + ' Item';
   document.querySelector('#modal-add-item .btn-primary').textContent = 'Save Item';
   // clear form
-  ['new-item-name','new-item-cat','new-item-supplier','new-item-order-size',
-   'new-item-unit','new-item-par','new-item-cost','new-item-serving-unit','new-item-servings'
+  ['new-item-name','new-item-no','new-item-cost-unit','new-item-square-id',
+   'new-item-supplier','new-item-order-size','new-item-unit','new-item-par',
+   'new-item-cost','new-item-serving-unit','new-item-servings'
   ].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  // Reset category select to first option
+  const catSel = document.getElementById('new-item-cat');
+  if (catSel) {
+    // Update options visibility to match current inv type
+    const isMerch = !!(cfg?.isMerch);
+    catSel.querySelectorAll('.inv-cons-only').forEach(o => o.style.display = isMerch ? 'none' : '');
+    catSel.querySelectorAll('.inv-merch-only').forEach(o => o.style.display = isMerch ? '' : 'none');
+    // Select first visible option
+    const firstVisible = catSel.querySelector('option:not([style*="display: none"]):not([style*="display:none"])');
+    if (firstVisible) catSel.value = firstVisible.value;
+  }
   calcCostPerServing();
   openModal('modal-add-item');
 }
 
 function openEditInvItem(id) {
-  const item = cache[invCfg().cacheKey].find(i => i.id === id);
+  const cfg = invCfg();
+  const item = cache[cfg.cacheKey].find(i => i.id === id);
   if (!item) return;
   _editInvId = id;
-  document.querySelector('#modal-add-item .modal-title').textContent = 'Edit ' + invCfg().label + ' Item';
+  document.querySelector('#modal-add-item .modal-title').textContent = 'Edit ' + cfg.label + ' Item';
   document.querySelector('#modal-add-item .btn-primary').textContent = 'Save Changes';
-  document.getElementById('new-item-name').value         = item.ItemName || '';
-  document.getElementById('new-item-cat').value          = item.Category || '';
-  document.getElementById('new-item-supplier').value     = item.Supplier || '';
-  document.getElementById('new-item-order-size').value   = item.OrderSize != null ? item.OrderSize : '';
-  document.getElementById('new-item-unit').value         = item.OrderUnit || item.Unit || '';
-  document.getElementById('new-item-par').value          = item.ParLevel != null ? item.ParLevel : '';
-  document.getElementById('new-item-cost').value         = item.CostPerCase != null ? item.CostPerCase : '';
-  if (document.getElementById('new-item-serving-unit'))
-    document.getElementById('new-item-serving-unit').value = item.ServingUnit || '';
-  if (document.getElementById('new-item-servings'))
-    document.getElementById('new-item-servings').value   = item.ServingsPerUnit != null ? item.ServingsPerUnit : '';
-  calcCostPerServing();
+  document.getElementById('new-item-name').value = item.ItemName || '';
+  // Update category option visibility, then set value
+  const catSel = document.getElementById('new-item-cat');
+  if (catSel) {
+    const isMerch = !!(cfg?.isMerch);
+    catSel.querySelectorAll('.inv-cons-only').forEach(o => o.style.display = isMerch ? 'none' : '');
+    catSel.querySelectorAll('.inv-merch-only').forEach(o => o.style.display = isMerch ? '' : 'none');
+    catSel.value = item.Category || '';
+  }
+  if (cfg.isMerch) {
+    document.getElementById('new-item-no').value          = item.ItemNo || '';
+    document.getElementById('new-item-cost-unit').value   = item.CostPerUnit != null ? item.CostPerUnit : '';
+    document.getElementById('new-item-square-id').value   = item.SquareCatalogItemId || '';
+  } else {
+    document.getElementById('new-item-supplier').value     = item.Supplier || '';
+    document.getElementById('new-item-order-size').value   = item.OrderSize != null ? item.OrderSize : '';
+    document.getElementById('new-item-unit').value         = item.OrderUnit || item.Unit || '';
+    document.getElementById('new-item-par').value          = item.ParLevel != null ? item.ParLevel : '';
+    document.getElementById('new-item-cost').value         = item.CostPerCase != null ? item.CostPerCase : '';
+    if (document.getElementById('new-item-serving-unit'))
+      document.getElementById('new-item-serving-unit').value = item.ServingUnit || '';
+    if (document.getElementById('new-item-servings'))
+      document.getElementById('new-item-servings').value   = item.ServingsPerUnit != null ? item.ServingsPerUnit : '';
+    calcCostPerServing();
+  }
   openModal('modal-add-item');
 }
 
@@ -3008,23 +3493,35 @@ async function deleteInvItem(id) {
 async function saveInventoryItem() {
   const name = document.getElementById('new-item-name').value.trim();
   if (!name) { toast('err','Item name is required'); return; }
-  const fields = {
-    ItemName:        name,
-    Title:           name,
-    ...(invHasCategory() ? { Category: document.getElementById('new-item-cat').value } : {}),
-    Supplier:        document.getElementById('new-item-supplier').value,
-    OrderSize:       parseFloat(document.getElementById('new-item-order-size').value)||null,
-    OrderUnit:       document.getElementById('new-item-unit').value,
-    Unit:            document.getElementById('new-item-unit').value,
-    ParLevel:        parseFloat(document.getElementById('new-item-par').value)||0,
-    CostPerCase:     parseFloat(document.getElementById('new-item-cost').value)||null,
-    ServingUnit:     document.getElementById('new-item-serving-unit')?.value||null,
-    ServingsPerUnit: parseFloat(document.getElementById('new-item-servings')?.value)||null,
-    CostPerServing:  (() => { const c=parseFloat(document.getElementById('new-item-cost').value)||0; const s=parseFloat(document.getElementById('new-item-servings')?.value)||0; return (c>0&&s>0) ? +(c/s).toFixed(6) : null; })(),
-  };
+  const cfg = invCfg();
+  let fields;
+  if (cfg.isMerch) {
+    fields = {
+      ItemName:            name,
+      Title:               name,
+      Category:            document.getElementById('new-item-cat').value,
+      ItemNo:              document.getElementById('new-item-no').value.trim()||null,
+      CostPerUnit:         parseFloat(document.getElementById('new-item-cost-unit').value)||null,
+      SquareCatalogItemId: document.getElementById('new-item-square-id').value.trim()||null,
+    };
+  } else {
+    fields = {
+      ItemName:        name,
+      Title:           name,
+      ...(invHasCategory() ? { Category: document.getElementById('new-item-cat').value } : {}),
+      Supplier:        document.getElementById('new-item-supplier').value,
+      OrderSize:       parseFloat(document.getElementById('new-item-order-size').value)||null,
+      OrderUnit:       document.getElementById('new-item-unit').value,
+      Unit:            document.getElementById('new-item-unit').value,
+      ParLevel:        parseFloat(document.getElementById('new-item-par').value)||0,
+      CostPerCase:     parseFloat(document.getElementById('new-item-cost').value)||null,
+      ServingUnit:     document.getElementById('new-item-serving-unit')?.value||null,
+      ServingsPerUnit: parseFloat(document.getElementById('new-item-servings')?.value)||null,
+      CostPerServing:  (() => { const c=parseFloat(document.getElementById('new-item-cost').value)||0; const s=parseFloat(document.getElementById('new-item-servings')?.value)||0; return (c>0&&s>0) ? +(c/s).toFixed(6) : null; })(),
+    };
+  }
   Object.keys(fields).forEach(k=>{ if(fields[k]===null||fields[k]==='') delete fields[k]; });
   setLoading(true,'Saving…');
-  const cfg = invCfg();
   try {
     if (_editInvId) {
       // Edit mode
@@ -7157,6 +7654,14 @@ const MENU_COUNTS_LIST_COLS = [
   {name:'WeekOf',dateTime:{displayAs:'default',format:'dateOnly'}},
   {name:'Quantity',number:{decimalPlaces:'automatic'}},
   {name:'Location',text:{}},{name:'CountedBy',text:{}}
+];
+const MERCH_LIST_COLS = [
+  {name:'ItemName',text:{}},{name:'Category',text:{}},{name:'ItemNo',text:{}},
+  {name:'CostPerUnit',number:{decimalPlaces:'automatic'}},
+  {name:'SquareCatalogItemId',text:{}}
+];
+const MERCH_COUNTS_EXTRA_COLS = [
+  {name:'ChangesSinceLastCount',number:{decimalPlaces:'automatic'}}
 ];
 
 async function syncStaffAccess() {
