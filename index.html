@@ -7219,124 +7219,77 @@ function openPastryOrderSync() {
 }
 
 async function runPastryOrderSync() {
-  const logEl = document.getElementById('pastry-sync-log');
+  const logEl  = document.getElementById('pastry-sync-log');
   const againBtn = document.getElementById('pastry-sync-again-btn');
   logEl.textContent = 'Connecting to order spreadsheet…\n';
   againBtn.style.display = 'none';
-
   const log = msg => { logEl.textContent += msg + '\n'; logEl.scrollTop = logEl.scrollHeight; };
+
+  // Day mapping: app key → 0-based column offset from B (col B=Mon=0 … H=Sun=6)
+  const DAY_COLS = { Mon:0, Tue:1, Wed:2, Thu:3, Fri:4, Sat:5, Sun:6 };
 
   try {
     const wb = await getPastryOrderWorkbook();
-    log('✓ Connected\n');
+
+    // List all worksheet names once (handles case differences like "platte" vs "Platte")
+    const sheetsResp = await graph('GET', `${wb.base}?$select=name`);
+    const sheetNames = (sheetsResp.value || []).map(s => s.name);
+    log(`✓ Connected — tabs: ${sheetNames.join(', ')}\n`);
 
     const siteId = await getSiteId();
-    const masterPastries = cache.foodPars
-      .filter(p => p.Category === 'pastries')
-      .sort((a,b) => ((a.SortOrder||999)-(b.SortOrder||999)) || (a.Title||'').localeCompare(b.Title||''));
-
+    const masterPastries = cache.foodPars.filter(p => p.Category === 'pastries');
     if (!masterPastries.length) { log('✗ No pastry items in master list.'); againBtn.style.display=''; return; }
 
-    const locations = getLocations();
-    const FP_DAYS_LOCAL = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-    const FP_DAY_FULL_LOCAL = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+    // Build a quick-lookup set of known pastry names (lowercase)
+    const pastryNameSet = new Set(masterPastries.map(p => (p.Title||'').toLowerCase().trim()));
 
-    for (const loc of locations) {
+    for (const loc of getLocations()) {
       log(`── ${loc} ──`);
+
+      // Find matching tab name (case-insensitive)
+      const sheetName = sheetNames.find(s => s.toLowerCase() === loc.toLowerCase());
+      if (!sheetName) { log(`  ✗ No tab found matching "${loc}", skipping\n`); continue; }
+
       const fpLn = foodParsListName(loc);
-      if (!fpLn) { log(`  ✗ No list for ${loc}, skipping\n`); continue; }
+      if (!fpLn) { log(`  ✗ No SharePoint list for ${loc}, skipping\n`); continue; }
 
       // Fetch this location's par values from SharePoint
       const locVals = await getListItems(siteId, fpLn).catch(() => []);
       const valMap = {};
       for (const v of locVals) valMap[(v.Title||'').toLowerCase().trim()] = v;
 
-      // Read current worksheet to detect column layout
-      const sheetEnc = encodeURIComponent(loc);
-      let currentValues = [];
-      let currentHeaders = [];
-      try {
-        const used = await graph('GET', `${wb.base}/${sheetEnc}/usedRange`);
-        currentValues = used.values || [];
-        currentHeaders = (currentValues[0] || []).map(h => (h||'').toString().trim().toLowerCase());
-      } catch(e) {
-        log(`  ℹ Tab "${loc}" appears empty — will write standard format`);
-      }
+      // Read the full used range — we only WRITE back to matched rows B:H
+      const sheetEnc = encodeURIComponent(sheetName);
+      const used = await graph('GET', `${wb.base}/${sheetEnc}/usedRange`);
+      const rows = used.values || [];
 
-      // Identify item name column and day columns
-      const itemColIdx = currentHeaders.length
-        ? currentHeaders.findIndex(h => ['item','title','name','pastry','product','description'].includes(h))
-        : -1;
-      const dayIdxMap = {};
-      FP_DAYS_LOCAL.forEach((d, di) => {
-        if (!currentHeaders.length) return;
-        const idx = currentHeaders.findIndex(h =>
-          h === d.toLowerCase() || h === FP_DAY_FULL_LOCAL[di].toLowerCase()
+      // Scan every row; update B:H on rows whose col A matches a known pastry item
+      let updated = 0; let skipped = 0;
+      for (let ri = 0; ri < rows.length; ri++) {
+        const cellA = (rows[ri][0]||'').toString().trim();
+        if (!cellA) continue;
+        const key = cellA.toLowerCase();
+        if (!pastryNameSet.has(key)) continue; // category header, total row, etc.
+
+        const v = valMap[key] || {};
+        const rowNum = ri + 1; // Excel rows are 1-indexed
+        const dayVals = Object.keys(DAY_COLS)
+          .sort((a,b) => DAY_COLS[a] - DAY_COLS[b])
+          .map(d => typeof v[d] === 'number' ? v[d] : (parseInt(v[d])||0));
+
+        // Targeted write: only columns B–H, preserving column I (Total formula) and all else
+        await graph('PATCH',
+          `${wb.base}/${sheetEnc}/range(address='B${rowNum}:H${rowNum}')`,
+          { values: [dayVals] }
         );
-        if (idx >= 0) dayIdxMap[d] = idx;
-      });
-      const hasDayCols = Object.keys(dayIdxMap).length >= 7;
-
-      if (!currentHeaders.length || itemColIdx < 0 || !hasDayCols) {
-        // No recognizable structure — write BSC standard format from A1
-        log(`  Writing standard format…`);
-        const header = ['Item', ...FP_DAYS_LOCAL];
-        const dataRows = masterPastries.map(p => {
-          const v = valMap[(p.Title||'').toLowerCase().trim()] || {};
-          return [p.Title||'', ...(FP_DAYS_LOCAL.map(d => v[d] ?? 0))];
-        });
-        const allRows = [header, ...dataRows];
-        const endCol = String.fromCharCode(64 + header.length); // 'H'
-        // Clear any previous content that might be wider/taller
-        if (currentValues.length > 0) {
-          const clearCols = Math.max(currentHeaders.length, header.length);
-          const clearRows = Math.max(currentValues.length, allRows.length);
-          const clearEnd = String.fromCharCode(64 + clearCols);
-          await graph('POST',
-            `${wb.base}/${sheetEnc}/range(address='A1:${clearEnd}${clearRows}')/clear`, {});
-        }
-        await graph('PATCH',
-          `${wb.base}/${sheetEnc}/range(address='A1:${endCol}${allRows.length}')`,
-          { values: allRows });
-        log(`  ✓ Wrote ${dataRows.length} items\n`);
-
-      } else {
-        // Smart update: find rows by item name, update only day columns
-        log(`  Updating ${currentHeaders.length}-column layout in place…`);
-        const matrix = currentValues.map(r => [...r]);  // deep copy
-        let updated = 0; let added = 0;
-
-        for (const p of masterPastries) {
-          const name = (p.Title||'').toLowerCase().trim();
-          const v = valMap[name] || {};
-          const rowIdx = matrix.findIndex((r, i) =>
-            i > 0 && (r[itemColIdx]||'').toString().toLowerCase().trim() === name
-          );
-          if (rowIdx >= 0) {
-            FP_DAYS_LOCAL.forEach(d => {
-              if (dayIdxMap[d] !== undefined) matrix[rowIdx][dayIdxMap[d]] = v[d] ?? 0;
-            });
-            updated++;
-          } else {
-            const newRow = Array(currentHeaders.length).fill('');
-            newRow[itemColIdx] = p.Title||'';
-            FP_DAYS_LOCAL.forEach(d => {
-              if (dayIdxMap[d] !== undefined) newRow[dayIdxMap[d]] = v[d] ?? 0;
-            });
-            matrix.push(newRow);
-            added++;
-          }
-        }
-
-        const endCol = String.fromCharCode(64 + currentHeaders.length);
-        await graph('PATCH',
-          `${wb.base}/${sheetEnc}/range(address='A1:${endCol}${matrix.length}')`,
-          { values: matrix });
-        log(`  ✓ ${updated} updated${added ? `, ${added} added` : ''}\n`);
+        updated++;
       }
+
+      if (updated === 0) skipped++;
+      log(`  ✓ ${updated} item${updated!==1?'s':''} updated${updated===0?' — check that item names match exactly':''}\n`);
     }
 
-    log(`✓ All ${locations.length} locations synced to order sheet.`);
+    log('✓ Sync complete — formulas and formatting preserved.');
     toast('ok', '✓ Pastry pars synced to order sheet');
   } catch(e) {
     log(`\n✗ Error: ${e.message}`);
