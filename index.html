@@ -1193,7 +1193,7 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
           <div style="font-weight:600;margin-bottom:4px">No menu items found</div>
           <div style="font-size:13px">Sync your Square catalog first via Square → Sync Catalog → Menu.</div>
         </div>
-        <div id="cogs-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:20px;"></div>
+        <div id="cogs-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:20px;"></div>
       </div>
 
       <!-- History tab -->
@@ -7650,13 +7650,14 @@ function renderCogCard(item, cogMap, invMap) {
         <datalist id="cog-ing-list-${itemId}">
           ${cache.inventory.map(i=>`<option value="${escHtml(i.ItemName||i.Title||'')}"></option>`).join('')}
         </datalist>
-        <table style="width:100%;border-collapse:collapse;">
+        <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;min-width:320px;">
           <thead>
             <tr style="border-bottom:1.5px solid var(--border);">
               <th style="padding:5px 8px;font-size:11px;text-align:left;color:var(--muted);">INGREDIENT</th>
-              <th style="padding:5px 8px;font-size:11px;text-align:right;color:var(--muted);">QTY</th>
-              <th style="padding:5px 8px;font-size:11px;text-align:right;color:var(--muted);">$/UNIT</th>
-              <th style="padding:5px 8px;font-size:11px;text-align:right;color:var(--muted);">COST</th>
+              <th style="padding:5px 8px;font-size:11px;text-align:right;color:var(--muted);white-space:nowrap;">QTY</th>
+              <th style="padding:5px 8px;font-size:11px;text-align:right;color:var(--muted);white-space:nowrap;">$/UNIT</th>
+              <th style="padding:5px 8px;font-size:11px;text-align:right;color:var(--muted);white-space:nowrap;">COST</th>
               <th></th>
             </tr>
           </thead>
@@ -7666,6 +7667,7 @@ function renderCogCard(item, cogMap, invMap) {
             ${summaryRow}
           </tbody>
         </table>
+        </div>
       </div>`;
   }).join('');
 
