@@ -1451,6 +1451,10 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
         </select>
       </div>
       <div class="form-group">
+        <label>Start Date</label>
+        <input id="cl-group-start" type="date">
+      </div>
+      <div class="form-group">
         <label>Recur every (days)</label>
         <input id="cl-group-recur" type="number" min="0" placeholder="0 = no recurrence, 1 = daily, 7 = weekly">
       </div>
@@ -1893,7 +1897,7 @@ async function ensureList(listName, columns) {
   return listId;
 }
 
-const PROVISION_VERSION = '5';
+const PROVISION_VERSION = '6';
 
 async function bootstrapApp() {
   setLoading(true,'Loading BSC Operations…');
@@ -1955,7 +1959,7 @@ async function ensureAllLists() {
   await ensureList(LISTS.clGroups,[
     {name:'Role',text:{}},{name:'Location',text:{}},
     {name:'RecurEveryDays',number:{decimalPlaces:'automatic'}},{name:'RecurTime',text:{}},
-    {name:'Description',text:{}}
+    {name:'Description',text:{}},{name:'StartDate',dateTime:{}}
   ]);
   await ensureList(LISTS.clCompletions,[
     {name:'GroupId',text:{}},{name:'GroupName',text:{}},{name:'Location',text:{}},
@@ -3315,6 +3319,7 @@ function openChecklistGroupModal(groupId) {
   document.getElementById('cl-group-name').value   = grp?.Title || '';
   document.getElementById('cl-group-role').value   = grp?.Role  || 'All';
   document.getElementById('cl-group-loc').value    = grp?.Location || 'All';
+  document.getElementById('cl-group-start').value  = grp?.StartDate ? grp.StartDate.split('T')[0] : '';
   document.getElementById('cl-group-recur').value  = grp?.RecurEveryDays != null ? grp.RecurEveryDays : '';
   document.getElementById('cl-group-time').value   = grp?.RecurTime || '';
   document.getElementById('cl-group-desc').value   = grp?.Description || '';
@@ -3325,14 +3330,17 @@ function openChecklistGroupModal(groupId) {
 async function saveChecklistGroup() {
   const name = document.getElementById('cl-group-name').value.trim();
   if (!name) { toast('err','Checklist name required'); return; }
+  const startRaw = document.getElementById('cl-group-start').value;
   const fields = {
     Title:         name,
     Role:          document.getElementById('cl-group-role').value,
     Location:      document.getElementById('cl-group-loc').value,
+    StartDate:     startRaw ? startRaw + 'T00:00:00Z' : null,
     RecurEveryDays: parseFloat(document.getElementById('cl-group-recur').value) || 0,
     RecurTime:     document.getElementById('cl-group-time').value.trim(),
     Description:   document.getElementById('cl-group-desc').value.trim()
   };
+  if (!fields.StartDate) delete fields.StartDate;
   try {
     if (_clGroupEditId) {
       await updateListItem(LISTS.clGroups, _clGroupEditId, fields);
