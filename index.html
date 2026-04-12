@@ -2752,6 +2752,8 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
       if (av==null) return 1; if (bv==null) return -1;
       return (typeof av==='string' ? av.localeCompare(bv) : av-bv) * _invSort.dir;
     });
+  } else {
+    items = [...items].sort((a,b) => (a.ItemName||'').localeCompare(b.ItemName||''));
   }
 
   const tbody = document.getElementById('inv-body');
@@ -2828,6 +2830,8 @@ function renderMerchInventoryItems(query='', catFilter='') {
       if (av==null) return 1; if (bv==null) return -1;
       return (typeof av==='string' ? av.localeCompare(bv) : av-bv) * _invSort.dir;
     });
+  } else {
+    items = [...items].sort((a,b) => (a.ItemName||'').localeCompare(b.ItemName||''));
   }
 
   const tbody = document.getElementById('inv-body');
@@ -3912,6 +3916,7 @@ function renderChecklists() {
     if (roleFilter) groups = groups.filter(g => g.Role === roleFilter || g.Role === 'All');
     if (locFilter)  groups = groups.filter(g => !g.Location || g.Location === 'All' || g.Location === locFilter);
   }
+  groups = [...groups].sort((a,b) => (a.Title||'').localeCompare(b.Title||''));
 
   const container = document.getElementById('cl-groups-container');
   const emptyEl   = document.getElementById('cl-groups-empty');
@@ -4616,6 +4621,7 @@ function renderVendors(query='') {
   else if (tab==='archived' && activeField) rows = rows.filter(v=>{const val=(v[activeField]||'').toString().toLowerCase();return val==='no'||val==='false'||val==='0';});
   // Tag filter
   if (tagFilter) rows = rows.filter(v=>(v.Tags||'').split(',').map(t=>t.trim()).includes(tagFilter));
+  rows = [...rows].sort((a,b) => (a.Title||a.VendorName||Object.values(a)[1]||'').toString().localeCompare((b.Title||b.VendorName||Object.values(b)[1]||'').toString()));
 
   // Build the full ordered field list (excluding SP system fields, Title, Tags)
   const allFields = Object.keys(sample).filter(k=>!SP_SYSTEM_FIELDS.has(k)&&k!=='Tags'&&k!=='VendorName');
@@ -5050,6 +5056,7 @@ function renderMaintContacts(query='') {
   const q = query.toLowerCase();
   let rows = cache.maintContacts.filter(m => _maintTab === 'archived' ? m.ArchiveStatus === '1' : m.ArchiveStatus !== '1');
   if (q) rows = rows.filter(m=>Object.values(m).filter(Boolean).join(' ').toLowerCase().includes(q));
+  rows = [...rows].sort((a,b) => (a.Title||'').localeCompare(b.Title||''));
 
   if (!rows.length) {
     grid.innerHTML=''; empty.style.display='block';
@@ -5265,6 +5272,7 @@ function renderRecipes(query='') {
 
   let rows = cache.recipes;
   if (q) rows = rows.filter(r=>[r.Title,r.Content,r.Notes].filter(Boolean).join(' ').toLowerCase().includes(q));
+  rows = [...rows].sort((a,b) => (a.Title||'').localeCompare(b.Title||''));
 
   if (!rows.length) {
     grid.innerHTML=''; empty.style.display='block';
@@ -5418,6 +5426,7 @@ function renderStaff(query='') {
   const q = query.toLowerCase();
   let rows = cache.staff.filter(s=>s.Active!=='No');
   if (q) rows = rows.filter(s=>[s.Title,s.Role,s.Location,s.Email].filter(Boolean).join(' ').toLowerCase().includes(q));
+  rows = [...rows].sort((a,b) => (a.Title||'').localeCompare(b.Title||''));
   const countEl = document.getElementById('staff-count');
   if (countEl) countEl.textContent = rows.length+' members';
   if (!rows.length) { grid.innerHTML=''; if(empty) empty.style.display='block'; return; }
@@ -6545,6 +6554,7 @@ function renderMenu(query='', catFilter='') {
     (i.Description||'').toLowerCase().includes(query.toLowerCase())
   );
   if (catFilter) items = items.filter(i => i.Category === catFilter);
+  items = [...items].sort((a,b) => (a.ItemName||a.Title||'').localeCompare(b.ItemName||b.Title||''));
 
   // Populate category filter
   const cats = [...new Set(cache.menu.map(i=>i.Category).filter(Boolean))].sort();
@@ -7554,6 +7564,7 @@ function renderCogCards() {
   let items = cache.menu;
   if (_cogsCatFilter) items = items.filter(i => (i.Category||'Uncategorized') === _cogsCatFilter);
   if (_cogsQuery)     items = items.filter(i => (i.ItemName||i.Title||'').toLowerCase().includes(_cogsQuery));
+  items = [...items].sort((a,b) => (a.ItemName||a.Title||'').localeCompare(b.ItemName||b.Title||''));
 
   if (!items.length) {
     container.innerHTML = '';
