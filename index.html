@@ -1774,6 +1774,7 @@ const LISTS = {
   clGroups:       'BSC_ChecklistGroups',
   clCompletions:  'BSC_ChecklistCompletions',
   maintContacts:  'Maintenance',
+  contactArchive: 'BSC_ContactArchive',
   staff:          'BSC_Staff',
   maintSchedule:  'BSC_MaintSchedule',
   maintLog:       'BSC_MaintLog',
@@ -1843,7 +1844,8 @@ const cache = {
   labels: [],
   foodPars: [],
   foodParValues: [],
-  parking: []
+  parking: [],
+  contactArchive: []
 };
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -2117,7 +2119,7 @@ async function ensureList(listName, columns) {
   return listId;
 }
 
-const PROVISION_VERSION = '13';
+const PROVISION_VERSION = '14';
 
 // One-time migration: split single BSC_FoodPars into master + per-location lists
 async function migrateFoodParsToSplit() {
@@ -2251,9 +2253,9 @@ async function ensureAllLists() {
   ]);
   await ensureList(LISTS.maintContacts,[
     {name:'Service',text:{}},{name:'Contact',text:{}},
-    {name:'Phone',text:{}},{name:'Email',text:{}},{name:'Notes',text:{}},
-    {name:'ArchiveStatus',text:{}}
+    {name:'Phone',text:{}},{name:'Email',text:{}},{name:'Notes',text:{}}
   ]);
+  await ensureList(LISTS.contactArchive, [{name:'ContactId',text:{}}]);
   await ensureList(LISTS.foodPars,[
     {name:'Category',  text:{}},
     {name:'SortOrder', number:{decimalPlaces:'none'}}
@@ -2329,7 +2331,7 @@ async function ensureAllLists() {
 // ════════════════════════════════════════════════════════════════════════════
 async function loadAllData() {
   const siteId = await getSiteId();
-  const [xfers, orders, cls, roles, vendors,,recipes,,contacts,staff,sched,log,appSettings,clGroups,clCompletions,labelRows,foodParRows,parkingRows] = await Promise.all([
+  const [xfers, orders, cls, roles, vendors,,recipes,,contacts,staff,sched,log,appSettings,clGroups,clCompletions,labelRows,foodParRows,parkingRows,contactArchiveRows] = await Promise.all([
     getListItems(siteId, LISTS.transfers),
     getListItems(siteId, LISTS.orders),
     getListItems(siteId, LISTS.checklists),
@@ -2347,7 +2349,8 @@ async function loadAllData() {
     getListItems(siteId, LISTS.clCompletions).catch(()=>[]),
     getListItems(siteId, LISTS.labels).catch(()=>[]),
     getListItems(siteId, LISTS.foodPars).catch(()=>[]),
-    getListItems(siteId, LISTS.parking).catch(()=>[])
+    getListItems(siteId, LISTS.parking).catch(()=>[]),
+    getListItems(siteId, LISTS.contactArchive).catch(()=>[])
   ]);
   cache.transfers=xfers; cache.orders=orders;
   cache.checklists=cls; cache.roles=roles; cache.vendors=vendors;
@@ -2358,6 +2361,7 @@ async function loadAllData() {
   cache.labels = labelRows || [];
   cache.foodPars = foodParRows || [];
   cache.parking = parkingRows || [];
+  cache.contactArchive = contactArchiveRows || [];
   // Load per-location food par values
   if (currentLocation === 'all') {
     const fpArrays = await Promise.all(
@@ -5054,7 +5058,8 @@ function renderMaintContacts(query='') {
   const grid = document.getElementById('maint-grid');
   const empty = document.getElementById('maint-empty');
   const q = query.toLowerCase();
-  let rows = cache.maintContacts.filter(m => _maintTab === 'archived' ? m.ArchiveStatus === '1' : m.ArchiveStatus !== '1');
+  const archivedIds = new Set(cache.contactArchive.map(a => a.ContactId));
+  let rows = cache.maintContacts.filter(m => _maintTab === 'archived' ? archivedIds.has(m.id) : !archivedIds.has(m.id));
   if (q) rows = rows.filter(m=>Object.values(m).filter(Boolean).join(' ').toLowerCase().includes(q));
   rows = [...rows].sort((a,b) => (a.Title||'').localeCompare(b.Title||''));
 
@@ -5085,7 +5090,8 @@ function renderMaintContacts(query='') {
         return maintFieldRow(k, m[k], label);
       }).filter(Boolean).join('');
 
-    const archiveBtn = m.ArchiveStatus === '1'
+    const isArchived = archivedIds.has(m.id);
+    const archiveBtn = isArchived
       ? `<button class="btn btn-sm" style="margin-top:10px;" data-id="${escHtml(m.id)}" onclick="event.stopPropagation();toggleMaintArchive(this.dataset.id)">↩ Restore</button>`
       : `<button class="btn btn-sm" style="margin-top:10px;font-size:11px;border-color:var(--border);color:var(--text-secondary);" data-id="${escHtml(m.id)}" onclick="event.stopPropagation();toggleMaintArchive(this.dataset.id)">📦 Archive</button>`;
 
@@ -5103,29 +5109,22 @@ function renderMaintContacts(query='') {
 function filterMaint(q) { renderMaintContacts(q); }
 
 async function toggleMaintArchive(id) {
-  const m = cache.maintContacts.find(x=>x.id===id);
-  if (!m) return;
-  const newVal = m.ArchiveStatus === '1' ? '' : '1';
-  setLoading(true, newVal === '1' ? 'Archiving…' : 'Restoring…');
+  const archivedIds = new Set(cache.contactArchive.map(a => a.ContactId));
+  const isArchived = archivedIds.has(id);
+  setLoading(true, isArchived ? 'Restoring…' : 'Archiving…');
   try {
-    // Detect actual internal column name — SP may rename it (e.g. ArchiveStatus0)
-    const siteId = await getSiteId();
-    const listCache = await getSpListCache(siteId);
-    const listId = listCache[LISTS.maintContacts];
-    const colsRes = await graph('GET', `/sites/${siteId}/lists/${listId}/columns?$select=name,displayName`);
-    const cols = colsRes.value || [];
-    const archiveCol = cols.find(c => c.name === 'ArchiveStatus' || c.displayName === 'ArchiveStatus' ||
-                                      c.name === 'ArchiveStatus0' || c.displayName === 'Archive Status');
-    if (!archiveCol) {
-      toast('err', 'ArchiveStatus column not found. Go to Settings → Run Provisioning.');
-      return;
+    if (isArchived) {
+      const archiveEntry = cache.contactArchive.find(a => a.ContactId === id);
+      if (archiveEntry) {
+        await deleteListItem(LISTS.contactArchive, archiveEntry.id);
+        cache.contactArchive = cache.contactArchive.filter(a => a.ContactId !== id);
+      }
+    } else {
+      const entry = await addListItem(LISTS.contactArchive, { Title: id, ContactId: id });
+      cache.contactArchive.push(entry);
     }
-    await updateListItem(LISTS.maintContacts, id, { [archiveCol.name]: newVal });
-    m.ArchiveStatus = newVal;
-    // Keep local cache key consistent
-    if (archiveCol.name !== 'ArchiveStatus') m['ArchiveStatus'] = newVal;
     renderMaintContacts(document.querySelector('#page-maint-contacts .search-input')?.value||'');
-    toast('ok', newVal ? '📦 Contact archived' : '↩ Contact restored');
+    toast('ok', isArchived ? '↩ Contact restored' : '📦 Contact archived');
   } catch(e) {
     toast('err', 'Archive failed: '+e.message);
   }
