@@ -911,6 +911,7 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
         </div>
         <input type="hidden" id="fp-category">
         <input type="hidden" id="fp-edit-id">
+        <input type="hidden" id="fp-loc-id">
       </div>
       <div class="form-actions">
         <button class="btn btn-primary" onclick="saveFoodParForm()">Save</button>
@@ -1633,6 +1634,18 @@ function menuCountsListName(loc) {
   if (!l || l === 'all') return null;
   return 'BSC_' + l.replace(/[\s\/\\]/g, '_') + '_MenuCounts';
 }
+function foodParsListName(loc) {
+  const l = loc || currentLocation;
+  if (!l || l === 'all') return null;
+  return 'BSC_' + l.replace(/[\s\/\\]/g, '_') + '_FoodPars';
+}
+
+const FP_PAR_LIST_COLS = [
+  {name:'Mon',number:{decimalPlaces:'none'}},{name:'Tue',number:{decimalPlaces:'none'}},
+  {name:'Wed',number:{decimalPlaces:'none'}},{name:'Thu',number:{decimalPlaces:'none'}},
+  {name:'Fri',number:{decimalPlaces:'none'}},{name:'Sat',number:{decimalPlaces:'none'}},
+  {name:'Sun',number:{decimalPlaces:'none'}}
+];
 
 const LISTS = {
   inventory:      'BSC_Inventory',          // shared consumable item master
@@ -1717,7 +1730,8 @@ const cache = {
   merchInventory: [], merchCountHistory: [],
   equipInventory: [], equipCountHistory: [],
   labels: [],
-  foodPars: []
+  foodPars: [],
+  foodParValues: []
 };
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1977,7 +1991,50 @@ async function ensureList(listName, columns) {
   return listId;
 }
 
-const PROVISION_VERSION = '11';
+const PROVISION_VERSION = '12';
+
+// One-time migration: split single BSC_FoodPars into master + per-location lists
+async function migrateFoodParsToSplit() {
+  if (localStorage.getItem('bsc_fp_migrated') === '1') return;
+  try {
+    const siteId = await getSiteId();
+    const oldRows = await getListItems(siteId, LISTS.foodPars).catch(() => []);
+    // Group rows that have a Location + day values by location
+    const byLoc = {};
+    const seenMaster = new Set(); // deduplicate master items by Title+Category
+    for (const row of oldRows) {
+      const loc = row.Location;
+      const hasDays = FP_DAYS.some(d => row[d] != null && row[d] !== '');
+      if (loc && loc !== 'all' && hasDays) {
+        if (!byLoc[loc]) byLoc[loc] = [];
+        byLoc[loc].push(row);
+      }
+    }
+    // Create per-location par records
+    for (const [loc, rows] of Object.entries(byLoc)) {
+      const listName = 'BSC_' + loc.replace(/[\s\/\\]/g, '_') + '_FoodPars';
+      await ensureList(listName, FP_PAR_LIST_COLS).catch(() => {});
+      for (const r of rows) {
+        await addListItem(listName, {
+          Title: r.Title,
+          Mon: r.Mon || 0, Tue: r.Tue || 0, Wed: r.Wed || 0,
+          Thu: r.Thu || 0, Fri: r.Fri || 0, Sat: r.Sat || 0, Sun: r.Sun || 0
+        }).catch(() => {});
+      }
+    }
+    // Remove duplicate master rows (old list had one row per location)
+    // Keep only one master row per unique Title+Category
+    for (const row of oldRows) {
+      const key = ((row.Title||'') + '|' + (row.Category||'')).toLowerCase();
+      if (seenMaster.has(key)) {
+        await deleteListItem(LISTS.foodPars, row.id).catch(() => {});
+      } else {
+        seenMaster.add(key);
+      }
+    }
+  } catch(e) { console.warn('Food pars migration:', e); }
+  localStorage.setItem('bsc_fp_migrated', '1');
+}
 
 async function bootstrapApp() {
   setLoading(true,'Loading BSC Operations…');
@@ -1988,6 +2045,7 @@ async function bootstrapApp() {
     if (!provOk) {
       setLoading(true,'First-time setup…');
       await ensureAllLists();
+      await migrateFoodParsToSplit();
       localStorage.setItem('bsc_provision_v', PROVISION_VERSION);
     }
     await loadAllData();
@@ -2072,14 +2130,6 @@ async function ensureAllLists() {
   ]);
   await ensureList(LISTS.foodPars,[
     {name:'Category',  text:{}},
-    {name:'Location',  text:{}},
-    {name:'Mon',       number:{decimalPlaces:'none'}},
-    {name:'Tue',       number:{decimalPlaces:'none'}},
-    {name:'Wed',       number:{decimalPlaces:'none'}},
-    {name:'Thu',       number:{decimalPlaces:'none'}},
-    {name:'Fri',       number:{decimalPlaces:'none'}},
-    {name:'Sat',       number:{decimalPlaces:'none'}},
-    {name:'Sun',       number:{decimalPlaces:'none'}},
     {name:'SortOrder', number:{decimalPlaces:'none'}}
   ]);
   await ensureList(LISTS.staff,[
@@ -2119,6 +2169,7 @@ async function ensureAllLists() {
     await ensureList(`BSC_${slug}_MerchCounts`,     COUNTS_LIST_COLS).catch(()=>{});
     await ensureList(`BSC_${slug}_EquipCounts`,     COUNTS_LIST_COLS).catch(()=>{});
     await ensureList(`BSC_${slug}_MenuCounts`,      MENU_COUNTS_LIST_COLS).catch(()=>{});
+    await ensureList(`BSC_${slug}_FoodPars`,        FP_PAR_LIST_COLS).catch(()=>{});
   }
   // Coffee Bag Labels tracker
   await ensureList(LISTS.labels, [
@@ -2173,6 +2224,19 @@ async function loadAllData() {
   cache.clGroups=clGroups; cache.clCompletions=clCompletions;
   cache.labels = labelRows || [];
   cache.foodPars = foodParRows || [];
+  // Load per-location food par values
+  if (currentLocation === 'all') {
+    const fpArrays = await Promise.all(
+      getLocations().map(l => {
+        const ln = foodParsListName(l);
+        return ln ? getListItems(siteId, ln).catch(() => []) : Promise.resolve([]);
+      })
+    );
+    cache.foodParValues = fpArrays.flat();
+  } else {
+    const fpLn = foodParsListName(currentLocation);
+    cache.foodParValues = fpLn ? await getListItems(siteId, fpLn).catch(() => []) : [];
+  }
   // Load location-specific inventory and menu data, plus COGs
   const [cogsRecipes, cogSnapshots] = await Promise.all([
     getListItems(siteId, LISTS.cogs).catch(()=>[]),
@@ -5030,8 +5094,20 @@ async function setLocation(loc, btn) {
         cache[cfg.countKey] = await getCountHistoryForList(siteId, cn).catch(() => []);
       }
     }
-    // Reload food pars so location-specific items stay fresh
+    // Reload food pars master + per-location par values
     cache.foodPars = await getListItems(siteId, LISTS.foodPars).catch(() => []);
+    if (loc === 'all') {
+      const fpArrays = await Promise.all(
+        locs.map(l => {
+          const ln = foodParsListName(l);
+          return ln ? getListItems(siteId, ln).catch(() => []) : Promise.resolve([]);
+        })
+      );
+      cache.foodParValues = fpArrays.flat();
+    } else {
+      const fpLn = foodParsListName(loc);
+      cache.foodParValues = fpLn ? await getListItems(siteId, fpLn).catch(() => []) : [];
+    }
   } catch(e) { console.warn('Counts reload failed:', e); }
   renderInventory();
   renderDashboard();
@@ -5880,9 +5956,23 @@ function fpTodayKey() {
   return FP_JS_DAY_MAP[new Date().getDay()];
 }
 
-function fpLocFilter(p) {
-  if (currentLocation === 'all') return true;
-  return (p.Location || '') === currentLocation;
+function getMergedFoodPars(category) {
+  const valMap = {};
+  for (const v of cache.foodParValues) {
+    valMap[(v.Title || '').toLowerCase().trim()] = v;
+  }
+  return cache.foodPars
+    .filter(p => p.Category === category)
+    .map(master => {
+      const locData = valMap[(master.Title || '').toLowerCase().trim()] || {};
+      return {
+        ...master,
+        Mon: locData.Mon, Tue: locData.Tue, Wed: locData.Wed,
+        Thu: locData.Thu, Fri: locData.Fri, Sat: locData.Sat, Sun: locData.Sun,
+        _locId: locData.id || null
+      };
+    })
+    .sort((a,b) => ((a.SortOrder||999) - (b.SortOrder||999)) || (a.Title||'').localeCompare(b.Title||''));
 }
 
 function renderFoodParsInTab(category) {
@@ -5905,9 +5995,7 @@ function renderFoodParsInTab(category) {
   }
 
   // Today's at-a-glance banner
-  const todayItems = cache.foodPars
-    .filter(p => p.Category === category && fpLocFilter(p))
-    .sort((a,b) => ((a.SortOrder||999) - (b.SortOrder||999)) || (a.Title||'').localeCompare(b.Title||''))
+  const todayItems = getMergedFoodPars(category)
     .map(p => {
       const qty = p[todayKey] || 0;
       return qty > 0 ? `<span style="margin-right:10px"><b>${escHtml(p.Title||'?')}</b>: ${qty}</span>` : null;
@@ -5935,9 +6023,7 @@ function renderFoodParsTable(category) {
   const wrap = document.getElementById('fp-table-wrap');
   if (!wrap) return;
   const todayKey = fpTodayKey();
-  const rows = cache.foodPars
-    .filter(p => p.Category === category && fpLocFilter(p))
-    .sort((a,b) => ((a.SortOrder||999) - (b.SortOrder||999)) || (a.Title||'').localeCompare(b.Title||''));
+  const rows = getMergedFoodPars(category);
 
   if (!rows.length) {
     wrap.innerHTML = `<div class="no-data" style="padding:32px 0">No items yet. Click "+ Add" to create your first par.</div>`;
@@ -5979,12 +6065,13 @@ let _fpEditCategory = null;
 
 function openFoodParForm(id, category) {
   _fpEditCategory = category || _fpEditCategory;
-  const p = id ? cache.foodPars.find(x => x.id === id) : null;
+  const p = id ? getMergedFoodPars(_fpEditCategory).find(x => x.id === id) : null;
   const label = _fpEditCategory === 'pastries' ? 'Pastry' : 'Sandwich';
 
   document.getElementById('foodpar-modal-title').textContent = p ? `Edit ${label}` : `Add ${label}`;
   document.getElementById('fp-name').value    = p ? (p.Title || '') : '';
   document.getElementById('fp-edit-id').value = p ? p.id : '';
+  document.getElementById('fp-loc-id').value  = p ? (p._locId || '') : '';
   document.getElementById('fp-category').value = _fpEditCategory;
 
   FP_DAYS.forEach(d => {
@@ -6001,30 +6088,46 @@ async function saveFoodParForm() {
   const name = document.getElementById('fp-name').value.trim();
   if (!name) { toast('err','Item name is required'); return; }
   const editId  = document.getElementById('fp-edit-id').value;
+  const locId   = document.getElementById('fp-loc-id').value;
   const cat     = document.getElementById('fp-category').value;
-  const data = { Title: name, Category: cat, Location: currentLocation };
+
+  const masterData = { Title: name, Category: cat };
+  const parData = { Title: name };
   FP_DAYS.forEach(d => {
     const val = document.getElementById('fp-' + d.toLowerCase())?.value;
-    data[d] = val !== '' && val != null ? Number(val) : null;
+    parData[d] = val !== '' && val != null ? Number(val) : null;
   });
+
+  const locListName = foodParsListName(currentLocation);
+  if (!locListName) { toast('err','Select a location first'); return; }
 
   setLoading(true, editId ? 'Saving…' : 'Adding…');
   try {
     await ensureList(LISTS.foodPars, [
-      {name:'Category',text:{}},{name:'Location',text:{}},
-      {name:'Mon',number:{decimalPlaces:'none'}},{name:'Tue',number:{decimalPlaces:'none'}},
-      {name:'Wed',number:{decimalPlaces:'none'}},{name:'Thu',number:{decimalPlaces:'none'}},
-      {name:'Fri',number:{decimalPlaces:'none'}},{name:'Sat',number:{decimalPlaces:'none'}},
-      {name:'Sun',number:{decimalPlaces:'none'}},{name:'SortOrder',number:{decimalPlaces:'none'}}
+      {name:'Category',text:{}},{name:'SortOrder',number:{decimalPlaces:'none'}}
     ]);
+    await ensureList(locListName, FP_PAR_LIST_COLS);
+
+    // Save master item
     if (editId) {
-      await updateListItem(LISTS.foodPars, editId, data);
+      await updateListItem(LISTS.foodPars, editId, masterData);
       const idx = cache.foodPars.findIndex(x => x.id === editId);
-      if (idx >= 0) cache.foodPars[idx] = { ...cache.foodPars[idx], ...data };
+      if (idx >= 0) cache.foodPars[idx] = { ...cache.foodPars[idx], ...masterData };
     } else {
-      const item = await addListItem(LISTS.foodPars, data);
+      const item = await addListItem(LISTS.foodPars, masterData);
       cache.foodPars.push(item);
     }
+
+    // Save per-location par values
+    if (locId) {
+      await updateListItem(locListName, locId, parData);
+      const idx = cache.foodParValues.findIndex(x => x.id === locId);
+      if (idx >= 0) cache.foodParValues[idx] = { ...cache.foodParValues[idx], ...parData };
+    } else {
+      const locItem = await addListItem(locListName, parData);
+      cache.foodParValues.push(locItem);
+    }
+
     closeModal('modal-foodpar');
     renderFoodParsInTab(cat);
     toast('ok', editId ? '✓ Item updated' : '✓ Item added');
@@ -6034,6 +6137,7 @@ async function saveFoodParForm() {
 
 async function deleteFoodPar() {
   const editId = document.getElementById('fp-edit-id').value;
+  const locId  = document.getElementById('fp-loc-id').value;
   const cat    = document.getElementById('fp-category').value;
   if (!editId) return;
   if (!confirm('Delete this item and all its pars?')) return;
@@ -6041,6 +6145,11 @@ async function deleteFoodPar() {
   try {
     await deleteListItem(LISTS.foodPars, editId);
     cache.foodPars = cache.foodPars.filter(x => x.id !== editId);
+    if (locId) {
+      const locListName = foodParsListName(currentLocation);
+      await deleteListItem(locListName, locId).catch(() => {});
+      cache.foodParValues = cache.foodParValues.filter(x => x.id !== locId);
+    }
     closeModal('modal-foodpar');
     renderFoodParsInTab(cat);
     toast('ok', '🗑 Item deleted');
@@ -6088,10 +6197,10 @@ async function openFoodParSync(category) {
       return catName === 'food';
     });
 
-    // Find which names are already in this category + location's pars
+    // Find which names are already in this category's master list
     const existing = new Set(
       cache.foodPars
-        .filter(p => p.Category === category && fpLocFilter(p))
+        .filter(p => p.Category === category)
         .map(p => (p.Title || '').toLowerCase().trim())
     );
 
@@ -6144,20 +6253,24 @@ async function importSelectedFoodPars() {
 
   const btn = document.getElementById('fp-sync-import-btn');
   btn.disabled = true; btn.textContent = 'Importing…';
+  const locListName = foodParsListName(currentLocation);
+  if (!locListName) { toast('err','Select a location first'); return; }
   try {
     await ensureList(LISTS.foodPars, [
-      {name:'Category',text:{}},{name:'Location',text:{}},
-      {name:'Mon',number:{decimalPlaces:'none'}},{name:'Tue',number:{decimalPlaces:'none'}},
-      {name:'Wed',number:{decimalPlaces:'none'}},{name:'Thu',number:{decimalPlaces:'none'}},
-      {name:'Fri',number:{decimalPlaces:'none'}},{name:'Sat',number:{decimalPlaces:'none'}},
-      {name:'Sun',number:{decimalPlaces:'none'}},{name:'SortOrder',number:{decimalPlaces:'none'}}
+      {name:'Category',text:{}},{name:'SortOrder',number:{decimalPlaces:'none'}}
     ]);
+    await ensureList(locListName, FP_PAR_LIST_COLS);
     for (const name of selected) {
-      const item = await addListItem(LISTS.foodPars, {
-        Title: name, Category: _fpSyncCategory, Location: currentLocation,
-        Mon:0, Tue:0, Wed:0, Thu:0, Fri:0, Sat:0, Sun:0
+      // Add to master list
+      const masterItem = await addListItem(LISTS.foodPars, {
+        Title: name, Category: _fpSyncCategory
       });
-      cache.foodPars.push(item);
+      cache.foodPars.push(masterItem);
+      // Add to per-location par list with zeroes
+      const locItem = await addListItem(locListName, {
+        Title: name, Mon:0, Tue:0, Wed:0, Thu:0, Fri:0, Sat:0, Sun:0
+      });
+      cache.foodParValues.push(locItem);
     }
     closeModal('modal-foodpar-sync');
     renderFoodParsInTab(_fpSyncCategory);
