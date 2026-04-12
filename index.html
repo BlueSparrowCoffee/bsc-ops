@@ -8239,7 +8239,7 @@ async function syncMerchPricesFromSquare() {
     log('Fetching Square catalog…');
     let objects = [], cursor = null;
     do {
-      const params = `catalog/list?types=ITEM,CATEGORY,CATEGORY_V1${cursor ? '&cursor='+encodeURIComponent(cursor) : ''}`;
+      const params = `catalog/list?types=ITEM,CATEGORY${cursor ? '&cursor='+encodeURIComponent(cursor) : ''}`;
       const data = await squareAPI('GET', params);
       objects = objects.concat(data.objects || []);
       cursor = data.cursor || null;
@@ -8247,7 +8247,7 @@ async function syncMerchPricesFromSquare() {
 
     // Build category ID → name map (same logic as menu sync)
     const categories = {};
-    objects.filter(o => (o.type === 'CATEGORY' || o.type === 'CATEGORY_V1') && !o.is_deleted)
+    objects.filter(o => o.type === 'CATEGORY' && !o.is_deleted)
       .forEach(c => {
         const n = c.category_data?.name || c.category_v1_data?.name;
         if (n) categories[c.id] = n;
@@ -8287,7 +8287,7 @@ async function syncMerchPricesFromSquare() {
         if (prices.length > 1) multiVarItems.push({ name: d.name || obj.id, prices });
       }
     }
-    log(`Found ${Object.keys(priceMap).length} priced catalog entries, ${Object.keys(categories).length} categories`);
+    log(`Found ${Object.keys(priceMap).length} priced entries, ${Object.keys(categories).length} categories`);
     if (multiVarItems.length) {
       log(`ℹ️ ${multiVarItems.length} items have multiple price points — using first variation:`);
       multiVarItems.slice(0,5).forEach(i => log(`   ${i.name}: ${i.prices.map(p=>'$'+p.toFixed(2)).join(', ')}`));
@@ -8818,19 +8818,17 @@ async function syncSquareCatalog() {
     sqLog(logId, 'Fetching catalog from Square…');
     let objects = [], cursor = null;
     do {
-      // Request ITEM + both category object types (CATEGORY = legacy, CATEGORY_V1 = newer accounts)
-      const params = `catalog/list?types=ITEM,CATEGORY,CATEGORY_V1${cursor ? '&cursor='+encodeURIComponent(cursor) : ''}`;
+      const params = `catalog/list?types=ITEM,CATEGORY${cursor ? '&cursor='+encodeURIComponent(cursor) : ''}`;
       const data = await squareAPI('GET', params);
       objects = objects.concat(data.objects || []);
       cursor = data.cursor || null;
     } while (cursor);
 
-    // Build category ID → name map from both CATEGORY and CATEGORY_V1 objects
+    // Build category ID → name map from CATEGORY objects
     const categories = {};
-    const catObjects = objects.filter(o => (o.type === 'CATEGORY' || o.type === 'CATEGORY_V1') && !o.is_deleted);
+    const catObjects = objects.filter(o => o.type === 'CATEGORY' && !o.is_deleted);
     catObjects.forEach(c => {
-      // category_data.name works for both CATEGORY and CATEGORY_V1
-      const name = c.category_data?.name || c.category_v1_data?.name;
+      const name = c.category_data?.name;
       if (name) categories[c.id] = name;
     });
 
