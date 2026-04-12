@@ -1978,7 +1978,7 @@ async function ensureList(listName, columns) {
   return listId;
 }
 
-const PROVISION_VERSION = '9';
+const PROVISION_VERSION = '10';
 
 async function bootstrapApp() {
   setLoading(true,'Loading BSC Operations…');
@@ -2073,6 +2073,7 @@ async function ensureAllLists() {
   ]);
   await ensureList(LISTS.foodPars,[
     {name:'Category',  text:{}},
+    {name:'Location',  text:{}},
     {name:'Mon',       number:{decimalPlaces:'none'}},
     {name:'Tue',       number:{decimalPlaces:'none'}},
     {name:'Wed',       number:{decimalPlaces:'none'}},
@@ -4995,6 +4996,10 @@ async function setLocation(loc, btn) {
   } catch(e) { console.warn('Counts reload failed:', e); }
   renderInventory();
   renderDashboard();
+  // Re-render food pars if that panel is currently visible
+  if (document.getElementById('inv-tab-foodpars')?.style.display !== 'none' && _invType) {
+    renderFoodParsInTab(_invType);
+  }
 }
 
 // Returns map of itemName → most recent count { store, storage, total, weekOf, location }
@@ -5836,6 +5841,11 @@ function fpTodayKey() {
   return FP_JS_DAY_MAP[new Date().getDay()];
 }
 
+function fpLocFilter(p) {
+  if (currentLocation === 'all') return true;
+  return (p.Location || '') === currentLocation;
+}
+
 function renderFoodParsInTab(category) {
   const container = document.getElementById('inv-foodpars-content');
   if (!container) return;
@@ -5843,11 +5853,21 @@ function renderFoodParsInTab(category) {
   const todayIdx = FP_DAYS.indexOf(todayKey);
   const todayFull = FP_DAY_FULL[todayIdx] || todayKey;
   const label = category === 'pastries' ? 'Pastry' : 'Sandwich';
-  const emoji = category === 'pastries' ? '🥐' : '🥪';
+
+  // Prompt if no location selected
+  if (currentLocation === 'all') {
+    container.innerHTML = `
+      <div style="background:#fff8e1;border:1.5px solid #f0c040;border-radius:10px;padding:24px;text-align:center;margin-top:8px;">
+        <div style="font-size:24px;margin-bottom:8px;">📍</div>
+        <div style="font-weight:600;margin-bottom:4px;">Select a location</div>
+        <div style="font-size:13px;color:var(--muted);">Pars are tracked per location. Choose Blake, Platte, Sherman, or 17th above.</div>
+      </div>`;
+    return;
+  }
 
   // Today's at-a-glance banner
   const todayItems = cache.foodPars
-    .filter(p => p.Category === category)
+    .filter(p => p.Category === category && fpLocFilter(p))
     .sort((a,b) => ((a.SortOrder||999) - (b.SortOrder||999)) || (a.Title||'').localeCompare(b.Title||''))
     .map(p => {
       const qty = p[todayKey] || 0;
@@ -5857,7 +5877,7 @@ function renderFoodParsInTab(category) {
   container.innerHTML = `
     <div style="background:var(--brand-light,#fff8e7);border:1.5px solid var(--brand,#c8a951);border-radius:10px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;">
       <div>
-        <div style="font-size:12px;font-weight:700;color:var(--brand,#c8a951);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Today · ${escHtml(todayFull)}</div>
+        <div style="font-size:12px;font-weight:700;color:var(--brand,#c8a951);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Today · ${escHtml(todayFull)} · ${escHtml(currentLocation)}</div>
         <div style="font-size:14px;color:var(--text,#1a1a1a);line-height:1.7;">
           ${todayItems || '<span style="color:var(--muted)">No pars set yet — add items below.</span>'}
         </div>
@@ -5877,7 +5897,7 @@ function renderFoodParsTable(category) {
   if (!wrap) return;
   const todayKey = fpTodayKey();
   const rows = cache.foodPars
-    .filter(p => p.Category === category)
+    .filter(p => p.Category === category && fpLocFilter(p))
     .sort((a,b) => ((a.SortOrder||999) - (b.SortOrder||999)) || (a.Title||'').localeCompare(b.Title||''));
 
   if (!rows.length) {
@@ -5943,7 +5963,7 @@ async function saveFoodParForm() {
   if (!name) { toast('err','Item name is required'); return; }
   const editId  = document.getElementById('fp-edit-id').value;
   const cat     = document.getElementById('fp-category').value;
-  const data = { Title: name, Category: cat };
+  const data = { Title: name, Category: cat, Location: currentLocation };
   FP_DAYS.forEach(d => {
     const val = document.getElementById('fp-' + d.toLowerCase())?.value;
     data[d] = val !== '' && val != null ? Number(val) : null;
@@ -5952,7 +5972,7 @@ async function saveFoodParForm() {
   setLoading(true, editId ? 'Saving…' : 'Adding…');
   try {
     await ensureList(LISTS.foodPars, [
-      {name:'Category',text:{}},
+      {name:'Category',text:{}},{name:'Location',text:{}},
       {name:'Mon',number:{decimalPlaces:'none'}},{name:'Tue',number:{decimalPlaces:'none'}},
       {name:'Wed',number:{decimalPlaces:'none'}},{name:'Thu',number:{decimalPlaces:'none'}},
       {name:'Fri',number:{decimalPlaces:'none'}},{name:'Sat',number:{decimalPlaces:'none'}},
@@ -6029,10 +6049,10 @@ async function openFoodParSync(category) {
       return catName === 'food';
     });
 
-    // Find which names are already in this category's pars
+    // Find which names are already in this category + location's pars
     const existing = new Set(
       cache.foodPars
-        .filter(p => p.Category === category)
+        .filter(p => p.Category === category && fpLocFilter(p))
         .map(p => (p.Title || '').toLowerCase().trim())
     );
 
@@ -6087,7 +6107,7 @@ async function importSelectedFoodPars() {
   btn.disabled = true; btn.textContent = 'Importing…';
   try {
     await ensureList(LISTS.foodPars, [
-      {name:'Category',text:{}},
+      {name:'Category',text:{}},{name:'Location',text:{}},
       {name:'Mon',number:{decimalPlaces:'none'}},{name:'Tue',number:{decimalPlaces:'none'}},
       {name:'Wed',number:{decimalPlaces:'none'}},{name:'Thu',number:{decimalPlaces:'none'}},
       {name:'Fri',number:{decimalPlaces:'none'}},{name:'Sat',number:{decimalPlaces:'none'}},
@@ -6095,7 +6115,7 @@ async function importSelectedFoodPars() {
     ]);
     for (const name of selected) {
       const item = await addListItem(LISTS.foodPars, {
-        Title: name, Category: _fpSyncCategory,
+        Title: name, Category: _fpSyncCategory, Location: currentLocation,
         Mon:0, Tue:0, Wed:0, Thu:0, Fri:0, Sat:0, Sun:0
       });
       cache.foodPars.push(item);
