@@ -285,6 +285,18 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
 .days-pill.warn{background:#fff8e1;color:#9a7200;}
 .days-pill.ok{background:#e8f5e9;color:#2e7d32;}
 .order-qty{font-weight:700;color:var(--espresso);}
+/* ── MULTI-CATEGORY FILTER ── */
+.multi-cat-wrap{position:relative;display:inline-block;}
+.multi-cat-btn{padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:#fff;color:var(--text);cursor:pointer;font-family:inherit;white-space:nowrap;transition:border-color .15s;}
+.multi-cat-btn:focus{outline:none;border-color:var(--gold);}
+.multi-cat-btn.active{border-color:var(--gold);color:var(--gold);font-weight:600;}
+.multi-cat-panel{position:absolute;top:calc(100% + 4px);left:0;z-index:300;background:#fff;border:1.5px solid var(--border);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.12);padding:6px 0;min-width:190px;display:none;}
+.multi-cat-panel.open{display:block;}
+.multi-cat-item{display:flex;align-items:center;gap:9px;padding:7px 14px;font-size:13px;cursor:pointer;user-select:none;}
+.multi-cat-item:hover{background:var(--opal);}
+.multi-cat-item input[type=checkbox]{accent-color:var(--gold);width:15px;height:15px;cursor:pointer;flex-shrink:0;}
+.multi-cat-item label{cursor:pointer;flex:1;}
+.multi-cat-divider{border:none;border-top:1px solid var(--border);margin:4px 0;}
 /* ── RESPONSIVE ── */
 @media(max-width:768px){
   #sidebar{display:none;}
@@ -1252,9 +1264,10 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
             <input class="search-input" placeholder="Search menu items…" oninput="filterCogs(this.value)" id="cogs-search">
           </div>
-          <select class="filter" id="cogs-cat-filter" onchange="filterCogs(document.getElementById('cogs-search').value)">
-            <option value="">All Categories</option>
-          </select>
+          <div class="multi-cat-wrap" id="cogs-cat-wrap">
+            <button class="multi-cat-btn" id="cogs-cat-btn" onclick="toggleMultiCat('cogs')">All Categories ▾</button>
+            <div class="multi-cat-panel" id="cogs-cat-panel"></div>
+          </div>
           <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);cursor:pointer;white-space:nowrap;">
             <input type="checkbox" id="cogs-group-by-cat" onchange="renderCogCards()"> Group by category
           </label>
@@ -1281,9 +1294,10 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
             <input class="search-input" placeholder="Search merch items…" oninput="filterMerchCogs(this.value)" id="merch-cogs-search">
           </div>
-          <select class="filter" id="merch-cogs-cat-filter" onchange="filterMerchCogs(document.getElementById('merch-cogs-search').value)">
-            <option value="">All Categories</option>
-          </select>
+          <div class="multi-cat-wrap" id="merch-cogs-cat-wrap">
+            <button class="multi-cat-btn" id="merch-cogs-cat-btn" onclick="toggleMultiCat('merch-cogs')">All Categories ▾</button>
+            <div class="multi-cat-panel" id="merch-cogs-cat-panel"></div>
+          </div>
           <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);cursor:pointer;white-space:nowrap;">
             <input type="checkbox" id="merch-cogs-group-by-cat" onchange="renderMerchCogCards()"> Group by category
           </label>
@@ -8138,13 +8152,95 @@ async function snapshotCogs() {
 // -- Rendering ---------------------------------------------------------------
 
 let _cogsQuery = '';
-let _cogsCatFilter = '';
+let _cogsCatFilters = new Set();
 const _cogsActiveVar = {}; // itemId → active variation index, persists across re-renders
 let _cogsHiddenIds = new Set(JSON.parse(localStorage.getItem('bsc_cogs_hidden')||'[]'));
 
 let _cogsMerchQuery = '';
-let _cogsMerchCatFilter = '';
+let _cogsMerchCatFilters = new Set();
 let _cogsMerchHiddenIds = new Set(JSON.parse(localStorage.getItem('bsc_merch_cogs_hidden')||'[]'));
+
+// ── Multi-select category filter ─────────────────────────────────────────────
+
+function buildMultiCatPanel(which, cats, selectedSet) {
+  const panel = document.getElementById(`${which}-cat-panel`);
+  if (!panel) return;
+  panel.innerHTML = `
+    <div class="multi-cat-item" onclick="onMultiCatAll('${which}')">
+      <input type="checkbox" id="${which}-cat-all" ${selectedSet.size===0?'checked':''}> <label for="${which}-cat-all">All Categories</label>
+    </div>
+    <hr class="multi-cat-divider">
+    ${cats.map(c => `
+      <div class="multi-cat-item" onclick="onMultiCatChange('${which}','${escHtml(c)}')">
+        <input type="checkbox" id="${which}-cat-${escHtml(c)}" ${selectedSet.has(c)?'checked':''}> <label for="${which}-cat-${escHtml(c)}">${escHtml(c)}</label>
+      </div>`).join('')}
+  `;
+  updateMultiCatBtn(which, selectedSet);
+}
+
+function toggleMultiCat(which) {
+  const panel = document.getElementById(`${which}-cat-panel`);
+  if (!panel) return;
+  const isOpen = panel.classList.contains('open');
+  // Close all open panels first
+  document.querySelectorAll('.multi-cat-panel.open').forEach(p => p.classList.remove('open'));
+  document.querySelectorAll('.multi-cat-btn.open').forEach(b => b.classList.remove('open'));
+  if (!isOpen) {
+    panel.classList.add('open');
+    document.getElementById(`${which}-cat-btn`)?.classList.add('open');
+  }
+}
+
+function onMultiCatAll(which) {
+  const set = which === 'cogs' ? _cogsCatFilters : _cogsMerchCatFilters;
+  set.clear();
+  const panel = document.getElementById(`${which}-cat-panel`);
+  if (panel) {
+    panel.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = false);
+    const allCb = panel.querySelector(`#${which}-cat-all`);
+    if (allCb) allCb.checked = true;
+  }
+  updateMultiCatBtn(which, set);
+  which === 'cogs' ? renderCogCards() : renderMerchCogCards();
+}
+
+function onMultiCatChange(which, cat) {
+  const set = which === 'cogs' ? _cogsCatFilters : _cogsMerchCatFilters;
+  if (set.has(cat)) set.delete(cat);
+  else set.add(cat);
+  const panel = document.getElementById(`${which}-cat-panel`);
+  if (panel) {
+    const cb = panel.querySelector(`#${which}-cat-${CSS.escape(cat)}`);
+    if (cb) cb.checked = set.has(cat);
+    const allCb = panel.querySelector(`#${which}-cat-all`);
+    if (allCb) allCb.checked = set.size === 0;
+  }
+  updateMultiCatBtn(which, set);
+  which === 'cogs' ? renderCogCards() : renderMerchCogCards();
+}
+
+function updateMultiCatBtn(which, set) {
+  const btn = document.getElementById(`${which}-cat-btn`);
+  if (!btn) return;
+  if (set.size === 0) {
+    btn.textContent = 'All Categories ▾';
+    btn.classList.remove('active');
+  } else if (set.size === 1) {
+    btn.textContent = `${[...set][0]} ▾`;
+    btn.classList.add('active');
+  } else {
+    btn.textContent = `${set.size} Categories ▾`;
+    btn.classList.add('active');
+  }
+}
+
+// Close multi-cat panels when clicking outside
+document.addEventListener('click', e => {
+  if (!e.target.closest('.multi-cat-wrap')) {
+    document.querySelectorAll('.multi-cat-panel.open').forEach(p => p.classList.remove('open'));
+    document.querySelectorAll('.multi-cat-btn.open').forEach(b => b.classList.remove('open'));
+  }
+});
 
 function cogTab(tab) {
   document.getElementById('cogs-panel-recipes').style.display = tab==='recipes' ? '' : 'none';
@@ -8162,7 +8258,6 @@ function cogTab(tab) {
 
 function filterCogs(q) {
   _cogsQuery = (q||'').toLowerCase();
-  _cogsCatFilter = document.getElementById('cogs-cat-filter')?.value || '';
   renderCogCards();
 }
 
@@ -8175,22 +8270,11 @@ function renderCogs() {
   document.getElementById('cogs-access-denied').style.display = 'none';
   document.getElementById('cogs-content').style.display = '';
 
-  // Populate category filter
+  // Populate category filters (multi-select)
   const cats = [...new Set(cache.menu.map(i => i.Category || 'Uncategorized'))].sort();
-  const catSel = document.getElementById('cogs-cat-filter');
-  const prevCat = catSel?.value || '';
-  if (catSel) {
-    catSel.innerHTML = '<option value="">All Categories</option>'
-      + cats.map(c=>`<option value="${escHtml(c)}"${c===prevCat?' selected':''}>${escHtml(c)}</option>`).join('');
-  }
-  // Populate merch category filter
+  buildMultiCatPanel('cogs', cats, _cogsCatFilters);
   const merchCats = [...new Set(cache.merchInventory.map(i => i.Category || 'Uncategorized'))].sort();
-  const merchCatSel = document.getElementById('merch-cogs-cat-filter');
-  const prevMerchCat = merchCatSel?.value || '';
-  if (merchCatSel) {
-    merchCatSel.innerHTML = '<option value="">All Categories</option>'
-      + merchCats.map(c=>`<option value="${escHtml(c)}"${c===prevMerchCat?' selected':''}>${escHtml(c)}</option>`).join('');
-  }
+  buildMultiCatPanel('merch-cogs', merchCats, _cogsMerchCatFilters);
 
   // Populate history item filter
   const histSel = document.getElementById('cogs-hist-item');
@@ -8346,7 +8430,6 @@ async function syncMerchPricesFromSquare() {
 
 function filterMerchCogs(q) {
   _cogsMerchQuery = (q||'').toLowerCase();
-  _cogsMerchCatFilter = document.getElementById('merch-cogs-cat-filter')?.value || '';
   renderMerchCogCards();
 }
 
@@ -8381,8 +8464,8 @@ function renderMerchCogCards() {
   const groupByCat = document.getElementById('merch-cogs-group-by-cat')?.checked;
 
   let items = cache.merchInventory || [];
-  if (!showHidden)        items = items.filter(i => !_cogsMerchHiddenIds.has(i.id));
-  if (_cogsMerchCatFilter) items = items.filter(i => (i.Category||'Uncategorized') === _cogsMerchCatFilter);
+  if (!showHidden)              items = items.filter(i => !_cogsMerchHiddenIds.has(i.id));
+  if (_cogsMerchCatFilters.size) items = items.filter(i => _cogsMerchCatFilters.has(i.Category||'Uncategorized'));
   if (_cogsMerchQuery)     items = items.filter(i => (i.ItemName||i.Title||'').toLowerCase().includes(_cogsMerchQuery)
     || (i.ItemNo||'').toLowerCase().includes(_cogsMerchQuery));
   items = [...items].sort((a,b) => (a.ItemName||a.Title||'').localeCompare(b.ItemName||b.Title||''));
@@ -8497,8 +8580,8 @@ function renderCogCards() {
   const groupByCat    = document.getElementById('cogs-group-by-cat')?.checked;
 
   let items = cache.menu;
-  if (!showHidden)    items = items.filter(i => !_cogsHiddenIds.has(i.id));
-  if (_cogsCatFilter) items = items.filter(i => (i.Category||'Uncategorized') === _cogsCatFilter);
+  if (!showHidden)           items = items.filter(i => !_cogsHiddenIds.has(i.id));
+  if (_cogsCatFilters.size)  items = items.filter(i => _cogsCatFilters.has(i.Category||'Uncategorized'));
   if (_cogsQuery)     items = items.filter(i => (i.ItemName||i.Title||'').toLowerCase().includes(_cogsQuery));
   items = [...items].sort((a,b) => (a.ItemName||a.Title||'').localeCompare(b.ItemName||b.Title||''));
 
