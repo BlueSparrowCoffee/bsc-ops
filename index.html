@@ -2542,8 +2542,10 @@ function sortInvBy(col) {
 }
 
 function renderInventoryItems(query='', catFilter='', statusFilter='', supplierFilter='') {
+  const cfg = invCfg();
+  if (!cfg) return; // non-inventory type (food pars, labels, transfers)
   const countsMap = getLatestCountsMap(currentLocation);
-  let items = cache[invCfg().cacheKey] || []; // type-specific list
+  let items = cache[cfg.cacheKey] || []; // type-specific list
   if (query) items = items.filter(i=>(i.ItemName||'').toLowerCase().includes(query.toLowerCase())||
     (i.Category||'').toLowerCase().includes(query.toLowerCase())||
     (i.Supplier||'').toLowerCase().includes(query.toLowerCase()));
@@ -2599,7 +2601,7 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
   document.getElementById('inv-empty').style.display = items.length?'none':'block';
   document.getElementById('inv-count').textContent = `${items.length} items`;
 
-  const allItems = cache[invCfg().cacheKey] || [];
+  const allItems = cache[cfg.cacheKey] || [];
   const catSel = document.getElementById('inv-cat-filter');
   if (invHasCategory()) {
     const cats = [...new Set(allItems.map(i=>i.Category).filter(Boolean))].sort();
@@ -2658,6 +2660,7 @@ function renderCountSheet() {
 
   // find most recent count records for current location
   const cfg = invCfg();
+  if (!cfg) return;
   const loc = currentLocation === 'all' ? null : currentLocation;
   const recentMap = {}; // itemName → { store, storage, total, weekOf }
   const filtered = (cache[cfg.countKey] || []).filter(r => !loc || r.Location === loc);
