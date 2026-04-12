@@ -8836,11 +8836,21 @@ async function syncSquareCatalog() {
     const items    = allItems.filter(o => !o.item_data?.is_archived);
     const archived = allItems.filter(o =>  o.item_data?.is_archived);
     sqLog(logId, `Found ${items.length} active items, ${archived.length} archived, ${catObjects.length} categories`);
+
+    // ── Diagnostics: show raw Square data so we can debug category mismatches ──
     if (catObjects.length) {
-      sqLog(logId, `📂 Categories: ${catObjects.map(c=>'"'+categories[c.id]+'"').join(', ')}`);
+      sqLog(logId, `📂 Category objects: ${catObjects.slice(0,5).map(c=>`"${c.category_data?.name}" (id:...${c.id.slice(-8)})`).join(', ')}`);
     } else {
-      sqLog(logId, `⚠️ No category objects returned from Square`);
+      sqLog(logId, `⚠️ No CATEGORY objects returned — items may still have category IDs via item_data fields`);
     }
+    if (items.length) {
+      const d0 = items[0].item_data || {};
+      sqLog(logId, `🔍 Sample item: "${d0.name}"`);
+      sqLog(logId, `   categories[]:       ${JSON.stringify(d0.categories?.slice(0,2) || [])}`);
+      sqLog(logId, `   reporting_category: ${JSON.stringify(d0.reporting_category || null)}`);
+      sqLog(logId, `   category_id:        ${d0.category_id || '(none)'}`);
+    }
+    // ── End diagnostics ────────────────────────────────────────────────────────
 
     const siteId = await getSiteId();
     // Ensure BSC_Menu list exists
