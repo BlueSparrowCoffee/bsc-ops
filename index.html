@@ -412,12 +412,13 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
         style="padding:7px 18px;border-radius:20px;border:1.5px solid var(--border);background:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;">🛍️ Merch</button>
       <button class="inv-type-tab" data-type="equipment" onclick="switchInvType('equipment')"
         style="padding:7px 18px;border-radius:20px;border:1.5px solid var(--border);background:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;">🔧 Equipment &amp; Smallwares</button>
+      <button class="inv-type-tab" data-type="labels" onclick="switchInvType('labels')"
+        style="padding:7px 18px;border-radius:20px;border:1.5px solid var(--border);background:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;">🏷️ Bag Labels</button>
     </div>
     <div class="tab-bar">
       <button class="tab-btn active" onclick="switchInvTab('items',this)">📋 Items</button>
       <button class="tab-btn" onclick="switchInvTab('count',this)">✏️ Count Entry</button>
       <button class="tab-btn" onclick="switchInvTab('analytics',this)">📊 Analytics</button>
-      <button class="tab-btn" onclick="switchInvTab('labels',this)">🏷️ Bag Labels</button>
       <button class="tab-btn" onclick="switchInvTab('import',this)">📥 Import</button>
     </div>
 
@@ -2263,30 +2264,47 @@ function switchInvType(type) {
   document.querySelectorAll('#inv-type-tabs .inv-type-tab').forEach(b => {
     b.classList.toggle('active', b.dataset.type === type);
   });
-  // update page title
-  const cfg = invCfg();
-  const titleEl = document.querySelector('#page-inventory .page-title');
-  if (titleEl) titleEl.textContent = cfg.icon + ' ' + cfg.label;
-  // Reset to items tab and re-render
-  _invActiveTab = 'items';
-  document.querySelectorAll('#page-inventory .tab-bar .tab-btn').forEach((b,i) => b.classList.toggle('active', i===0));
-  ['items','count','analytics','labels','import'].forEach(t => {
-    const el = document.getElementById('inv-tab-'+t);
-    if (el) el.style.display = t==='items' ? '' : 'none';
-  });
-  renderInventory();
+
+  const tabBar   = document.querySelector('#page-inventory .tab-bar');
+  const labelsEl = document.getElementById('inv-tab-labels');
+  const titleEl  = document.querySelector('#page-inventory .page-title');
+
+  if (type === 'labels') {
+    // Labels has its own full-page UI — hide tab bar and all other tabs
+    if (tabBar) tabBar.style.display = 'none';
+    ['items','count','analytics','import'].forEach(t => {
+      const el = document.getElementById('inv-tab-'+t);
+      if (el) el.style.display = 'none';
+    });
+    if (labelsEl) labelsEl.style.display = '';
+    if (titleEl) titleEl.textContent = '🏷️ Bag Labels';
+    renderLabelsInTab();
+  } else {
+    // Standard inventory type — show tab bar, hide labels panel
+    if (tabBar) tabBar.style.display = '';
+    if (labelsEl) labelsEl.style.display = 'none';
+    const cfg = INV_TYPE_CFG[type];
+    if (titleEl && cfg) titleEl.textContent = cfg.icon + ' ' + cfg.label;
+    // Reset to items tab
+    _invActiveTab = 'items';
+    document.querySelectorAll('#page-inventory .tab-bar .tab-btn').forEach((b,i) => b.classList.toggle('active', i===0));
+    ['items','count','analytics','import'].forEach(t => {
+      const el = document.getElementById('inv-tab-'+t);
+      if (el) el.style.display = t==='items' ? '' : 'none';
+    });
+    renderInventory();
+  }
 }
 
 function switchInvTab(tab, btn) {
   _invActiveTab = tab;
   document.querySelectorAll('#page-inventory .tab-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  ['items','count','analytics','labels','import'].forEach(t => {
+  ['items','count','analytics','import'].forEach(t => {
     document.getElementById('inv-tab-'+t).style.display = t===tab ? '' : 'none';
   });
   if (tab==='count')     renderCountSheet();
   if (tab==='analytics') renderInventoryAnalytics();
-  if (tab==='labels')    renderLabelsInTab();
   if (tab==='import')    initImportTab();
 }
 
