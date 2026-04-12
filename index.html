@@ -4212,7 +4212,31 @@ function isEditableField(key, listName) {
   return true;
 }
 
+// Per-list label overrides — take priority over SharePoint display names
+const LIST_FIELD_LABELS = {
+  [LISTS && LISTS.vendors]: {
+    Title:         'Company',
+    VendorName:    'Company',
+    OrderDays:     'Order Days',
+    DeliveryDays:  'Delivery Days',
+    OrderDeadline: 'Order Deadline',
+    OrderMethod:   'Order Method',
+    ContactPerson: 'Contact',
+    PaymentMethod: 'Payment Method',
+    InvoiceMethod: 'Invoice Method',
+    CreditCard:    'Credit Card on File',
+    Active:        'Active',
+    Notes:         'Notes',
+    Product:       'Product / Category',
+    Tags:          'Tags',
+  }
+};
+
 function spFieldLabel(key, listName) {
+  // Check per-list label overrides first
+  if (listName && LIST_FIELD_LABELS[listName] && LIST_FIELD_LABELS[listName][key]) {
+    return LIST_FIELD_LABELS[listName][key];
+  }
   // Use SharePoint display name if available
   if (listName && _colDisplayNames[listName] && _colDisplayNames[listName][key]) {
     return _colDisplayNames[listName][key];
@@ -4250,6 +4274,8 @@ function renderDynamicTable(rows, thead, tbody, countEl) {
 // hidden columns stored per-list in localStorage
 const DEFAULT_HIDDEN_COLS = {
   vendors: [
+    // Title is shown as VendorName (Company) — no need to show both
+    'Title',
     'Terms','Split','PaymentTerms','SplitAmt',
     // SharePoint retention/compliance label system columns
     '_ComplianceTag','_ComplianceTagWrittenTime','_ComplianceTagUserId',
@@ -4332,8 +4358,11 @@ function renderVendors(query='') {
   // Tag filter
   if (tagFilter) rows = rows.filter(v=>(v.Tags||'').split(',').map(t=>t.trim()).includes(tagFilter));
 
-  // Tags column always visible — remove from hiddenCols treatment
-  const fields = Object.keys(sample).filter(k=>!SP_SYSTEM_FIELDS.has(k)&&!hiddenCols.has(k)&&k!=='Tags'&&rows.some(r=>r[k]!==undefined));
+  // Build the full ordered field list (excluding SP system fields, Title, Tags)
+  const allFields = Object.keys(sample).filter(k=>!SP_SYSTEM_FIELDS.has(k)&&k!=='Tags'&&k!=='Title');
+  const ordered = getColOrder('vendors', allFields);
+  // Apply hidden cols + only include fields that have any data across visible rows
+  const fields = ordered.filter(k=>!hiddenCols.has(k)&&rows.some(r=>r[k]!==undefined));
 
   thead.innerHTML = `<tr>${fields.map(f=>`<th>${spFieldLabel(f,LISTS.vendors)}</th>`).join('')}<th>Tags</th><th style="width:80px"></th></tr>`;
   tbody.innerHTML = rows.map(r=>`<tr>
@@ -4346,20 +4375,61 @@ function renderVendors(query='') {
   </tr>`).join('');
 
   countEl.textContent = rows.length+' records';
-  buildColPanel('vendors', Object.keys(sample).filter(k=>!SP_SYSTEM_FIELDS.has(k)&&k!=='Tags'));
+  buildColPanel('vendors', allFields);
   populateVendorTagFilter();
+}
+
+// ── Column ordering (per-list, persisted in localStorage) ─────────────────────
+function getColOrder(listKey, allFields) {
+  const stored = localStorage.getItem('colOrder_'+listKey);
+  if (stored) {
+    try {
+      const arr = JSON.parse(stored);
+      // merge: keep stored order for known fields, append any new ones at end
+      const ordered = arr.filter(f=>allFields.includes(f));
+      allFields.forEach(f=>{ if (!ordered.includes(f)) ordered.push(f); });
+      return ordered;
+    } catch { /* fall through */ }
+  }
+  return [...allFields];
+}
+function setColOrder(listKey, arr) {
+  localStorage.setItem('colOrder_'+listKey, JSON.stringify(arr));
+}
+function moveCol(listKey, field, direction, allFields) {
+  const order = getColOrder(listKey, allFields);
+  const idx = order.indexOf(field);
+  if (idx < 0) return;
+  const newIdx = idx + direction;
+  if (newIdx < 0 || newIdx >= order.length) return;
+  [order[idx], order[newIdx]] = [order[newIdx], order[idx]];
+  setColOrder(listKey, order);
+  renderVendors(document.querySelector('#page-vendors .search-input')?.value||'');
 }
 
 function buildColPanel(listKey, allFields) {
   const panel = document.getElementById('col-panel');
   if (!panel) return;
   const hidden = getHiddenCols(listKey);
-  panel.innerHTML = `<div style="font-weight:600;margin-bottom:8px;font-size:12px;color:var(--muted)">SHOW / HIDE COLUMNS</div>`
-    + allFields.map(f=>`
-    <label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer;">
-      <input type="checkbox" ${hidden.has(f)?'':'checked'} onchange="toggleCol('${listKey}','${f}',this.checked)" style="accent-color:var(--gold)">
-      ${spFieldLabel(f, listKey === 'vendors' ? LISTS.vendors : null)}
-    </label>`).join('');
+  const ordered = getColOrder(listKey, allFields);
+  const listName = listKey === 'vendors' ? LISTS.vendors : null;
+  panel.innerHTML = `
+    <div style="font-weight:600;margin-bottom:8px;font-size:12px;color:var(--muted);letter-spacing:.04em">COLUMNS</div>
+    ${ordered.map((f, idx) => `
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">
+      <div style="display:flex;flex-direction:column;gap:1px;">
+        <button onclick="moveCol('${listKey}','${escHtml(f)}',-1,${JSON.stringify(allFields)})"
+          style="background:none;border:none;cursor:pointer;font-size:10px;padding:0;line-height:1;color:var(--muted);${idx===0?'opacity:.25;pointer-events:none':''}"
+          title="Move up">▲</button>
+        <button onclick="moveCol('${listKey}','${escHtml(f)}',1,${JSON.stringify(allFields)})"
+          style="background:none;border:none;cursor:pointer;font-size:10px;padding:0;line-height:1;color:var(--muted);${idx===ordered.length-1?'opacity:.25;pointer-events:none':''}"
+          title="Move down">▼</button>
+      </div>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;flex:1;">
+        <input type="checkbox" ${hidden.has(f)?'':'checked'} onchange="toggleCol('${listKey}','${escHtml(f)}',this.checked)" style="accent-color:var(--gold)">
+        <span style="font-size:13px">${spFieldLabel(f, listName)}</span>
+      </label>
+    </div>`).join('')}`;
 }
 
 function toggleColPanel() {
@@ -4375,17 +4445,88 @@ function toggleCol(listKey, field, visible) {
   renderVendors(document.querySelector('#page-vendors .search-input')?.value||'');
 }
 
+// Vendor form field config — defines order, input type, and span for known fields.
+// Unknown fields from SP get appended automatically as plain text inputs.
+const VENDOR_FORM_FIELDS = [
+  { key:'VendorName',    span:true  },
+  { key:'Product',       span:false },
+  { key:'Active',        type:'select', options:['Yes','No'], span:false },
+  { key:'ContactPerson', span:false },
+  { key:'Email',         span:false },
+  { key:'Phone',         span:false },
+  { key:'Website',       span:false },
+  { key:'OrderMethod',   type:'select', options:['Email','Phone','Portal','App','Fax','In Person','Text'], span:false },
+  { key:'OrderDeadline', span:false },
+  { key:'OrderDays',     type:'days',   span:false },
+  { key:'DeliveryDays',  type:'days',   span:false },
+  { key:'Terms',         span:false },
+  { key:'PaymentMethod', span:false },
+  { key:'InvoiceMethod', span:false },
+  { key:'CreditCard',    span:false },
+  { key:'Notes',         type:'textarea', span:true  },
+];
+const DAYS_OF_WEEK = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+function vendorFieldInput(key, type, options, val, item) {
+  const id = 'vf_' + key;
+  const v = item ? (item[key]||'') : '';
+  if (type === 'select') {
+    const opts = options.map(o=>`<option ${(v||val)===o?'selected':''}>${escHtml(o)}</option>`).join('');
+    return `<select id="${id}" class="filter" style="width:100%"><option value="">—</option>${opts}</select>`;
+  }
+  if (type === 'days') {
+    // comma-separated day names stored as text; rendered as checkboxes
+    const selected = new Set((v||'').split(',').map(d=>d.trim()).filter(Boolean));
+    return `<div id="${id}" style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0">${
+      DAYS_OF_WEEK.map(d=>`<label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;white-space:nowrap;">
+        <input type="checkbox" class="vf-day-check" data-field="${key}" value="${d}" ${selected.has(d)?'checked':''}
+          onchange="syncDaysField('${key}')" style="accent-color:var(--gold)"> ${d.slice(0,3)}
+      </label>`).join('')
+    }</div>`;
+  }
+  if (type === 'textarea') {
+    return `<textarea id="${id}" rows="3" style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;resize:vertical">${escHtml(v)}</textarea>`;
+  }
+  return `<input id="${id}" value="${escHtml(v)}" placeholder="${spFieldLabel(key,LISTS.vendors)}">`;
+}
+
+function syncDaysField(key) {
+  // Collect checked days, write comma-separated value into hidden input
+  const checks = document.querySelectorAll(`.vf-day-check[data-field="${key}"]:checked`);
+  const val = [...checks].map(c=>c.value).join(',');
+  // We use the checkbox container as the "field" — read it back in saveVendorForm via getDaysValue
+  // Store in a hidden input alongside the div
+  let hidden = document.getElementById('vf_hidden_'+key);
+  if (!hidden) {
+    hidden = document.createElement('input');
+    hidden.type = 'hidden';
+    hidden.id = 'vf_hidden_'+key;
+    document.getElementById('vf_'+key)?.after(hidden);
+  }
+  hidden.value = val;
+}
+
 function openVendorForm(id) {
   _vendorEditId = id;
   const item = id ? cache.vendors.find(v=>v.id===id) : null;
   document.getElementById('vendor-modal-title').textContent = item ? 'Edit Vendor' : 'Add Vendor';
-  const fields = cache.vendors.length
-    ? Object.keys(cache.vendors[0]).filter(k=>isEditableField(k, LISTS.vendors) && k !== 'Tags')
-    : ['Title'];
-  document.getElementById('vendor-form-fields').innerHTML = fields.map(f=>`
-    <div class="form-group">
-      <label>${spFieldLabel(f,LISTS.vendors)}</label>
-      <input id="vf_${f}" value="${item?(escHtml(item[f]||'')):''}" placeholder="${spFieldLabel(f,LISTS.vendors)}">
+
+  // Build ordered field list: configured fields first, then any extra SP fields not in the list
+  const spFields = cache.vendors.length
+    ? Object.keys(cache.vendors[0]).filter(k=>isEditableField(k, LISTS.vendors) && k !== 'Tags' && k !== 'Title')
+    : ['VendorName'];
+  const configuredKeys = new Set(VENDOR_FORM_FIELDS.map(f=>f.key));
+  const extraKeys = spFields.filter(k=>!configuredKeys.has(k));
+
+  const formFields = [
+    ...VENDOR_FORM_FIELDS.filter(f => spFields.includes(f.key) || f.key === 'VendorName'),
+    ...extraKeys.map(k=>({ key:k, span:false }))
+  ];
+
+  document.getElementById('vendor-form-fields').innerHTML = formFields.map(f=>`
+    <div class="form-group" ${f.span?'style="grid-column:1/-1"':''}>
+      <label>${spFieldLabel(f.key,LISTS.vendors)}</label>
+      ${vendorFieldInput(f.key, f.type, f.options, '', item)}
     </div>`).join('')
     + `<div class="form-group" style="grid-column:1/-1">
       <label>Tags</label>
@@ -4398,11 +4539,14 @@ function openVendorForm(id) {
       </div>
       <div id="vf-tag-suggestions" style="display:none;position:absolute;background:#fff;border:1.5px solid var(--border);border-radius:8px;box-shadow:var(--shadow);z-index:300;max-height:160px;overflow-y:auto;min-width:180px;font-size:13px;"></div>
     </div>`;
-  // Populate existing tags
+
+  // Sync days fields hidden inputs after render
+  ['OrderDays','DeliveryDays'].forEach(k => { if (item?.[k]) syncDaysField(k); });
+
   _vendorFormTags = (item?.Tags||'').split(',').map(t=>t.trim()).filter(Boolean);
   renderVendorFormPills();
   openModal('modal-vendor');
-  setTimeout(()=>document.getElementById('vf_Title')?.focus(), 100);
+  setTimeout(()=>document.getElementById('vf_VendorName')?.focus(), 100);
 }
 
 let _vendorFormTags = [];
@@ -4460,11 +4604,25 @@ function showVendorTagSuggestions(val) {
 }
 
 async function saveVendorForm() {
-  const fields = cache.vendors.length
-    ? Object.keys(cache.vendors[0]).filter(k=>isEditableField(k, LISTS.vendors) && k !== 'Tags')
-    : ['Title'];
   const data = {};
-  fields.forEach(f=>{ const el=document.getElementById('vf_'+f); if(el) data[f]=el.value; });
+  // Collect all rendered vf_ inputs / selects / textareas
+  document.querySelectorAll('#vendor-form-fields [id^="vf_"]').forEach(el => {
+    const key = el.id.replace('vf_','');
+    if (el.tagName === 'DIV') {
+      // days checkbox container — read from hidden sibling
+      const hidden = document.getElementById('vf_hidden_'+key);
+      if (hidden) data[key] = hidden.value;
+      else {
+        // fallback: collect checked boxes
+        const checks = el.querySelectorAll('.vf-day-check:checked');
+        data[key] = [...checks].map(c=>c.value).join(',');
+      }
+    } else {
+      data[el.id.replace('vf_','')] = el.value;
+    }
+  });
+  // Sync Title = VendorName so SP search/display works
+  if (data.VendorName) data.Title = data.VendorName;
   data.Tags = _vendorFormTags.join(',');
   setLoading(true,'Saving vendor…');
   try {
