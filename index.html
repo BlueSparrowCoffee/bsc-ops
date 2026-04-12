@@ -1892,7 +1892,7 @@ async function ensureList(listName, columns) {
   return listId;
 }
 
-const PROVISION_VERSION = '4';
+const PROVISION_VERSION = '5';
 
 async function bootstrapApp() {
   setLoading(true,'Loading BSC Operations…');
@@ -2035,6 +2035,12 @@ async function ensureAllLists() {
     {name:'Notes',        text:{allowMultipleLines:true}},
     {name:'ReconcileBy',  text:{}},
     {name:'SquareData',   text:{allowMultipleLines:true}}
+  ]);
+  // Menu list — ensure Hidden column exists even if list predates this field
+  await ensureList(LISTS.menu, [
+    {name:'ItemName',text:{}},{name:'Category',text:{}},{name:'Description',text:{allowMultipleLines:true}},
+    {name:'Price',number:{decimalPlaces:'automatic'}},{name:'Variations',text:{allowMultipleLines:true}},
+    {name:'SquareId',text:{}},{name:'Hidden',text:{}}
   ]);
 }
 
@@ -5254,6 +5260,8 @@ function renderMenu(query='', catFilter='') {
 
 async function toggleMenuItemHidden(id, newVal) {
   try {
+    // Ensure the Hidden column exists (may be missing if list predates this feature)
+    await ensureList(LISTS.menu, [{name:'Hidden',text:{}}]);
     await updateListItem(LISTS.menu, id, { Hidden: newVal });
     const item = cache.menu.find(i => i.id === id);
     if (item) item.Hidden = newVal;
@@ -5261,6 +5269,7 @@ async function toggleMenuItemHidden(id, newVal) {
       document.getElementById('menu-search')?.value || '',
       document.getElementById('menu-cat-filter')?.value || ''
     );
+    toast('ok', newVal === 'Yes' ? '🙈 Item hidden from menu' : '👁 Item visible in menu');
   } catch(e) { toast('err', 'Failed to update visibility: ' + e.message); }
 }
 
