@@ -6015,8 +6015,8 @@ function renderFoodParsInTab(category) {
         </div>
       </div>
       <div style="display:flex;gap:8px;margin-left:auto;flex-shrink:0;">
-        <button class="btn btn-outline" style="white-space:nowrap;font-size:12px;" onclick="openFoodParSync('${category}')">↓ Sync from Square</button>
-        <button class="btn btn-primary" style="white-space:nowrap;" onclick="openFoodParForm(null,'${category}')">+ Add ${label}</button>
+        <button class="btn btn-outline" style="white-space:nowrap;font-size:12px;" onclick="openFoodParSync('${escHtml(category)}')">↓ Sync from Square</button>
+        <button class="btn btn-primary" style="white-space:nowrap;" onclick="openFoodParForm(null,'${escHtml(category)}')">+ Add ${escHtml(label)}</button>
       </div>
     </div>
     <div id="fp-table-wrap"></div>
