@@ -2769,7 +2769,7 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
     const costCase    = i.CostPerCase    != null ? '$'+Number(i.CostPerCase).toFixed(2)    : '—';
     const costServing = i.CostPerServing != null ? '$'+Number(i.CostPerServing).toFixed(4) : '—';
     const servings    = i.ServingsPerUnit!= null ? Number(i.ServingsPerUnit).toLocaleString()+' '+escHtml(i.ServingUnit||'')  : '—';
-    return `<tr>
+    return `<tr data-inv-id="${escHtml(i.id)}">
       <td class="fw">${escHtml(i.ItemName||'—')}</td>
       ${invHasCategory() ? `<td><span class="badge badge-teal">${escHtml(i.Category||'—')}</span></td>` : ''}
       <td style="font-size:12px">${i.Supplier ? `<a href="#" data-supplier="${escHtml(i.Supplier||'')}" onclick="nav('vendors');setTimeout(()=>{const s=document.querySelector('#page-vendors .search-input');if(s){s.value=this.dataset.supplier;filterVendors(s.value);}},300);return false;" style="color:var(--gold);text-decoration:none;">${escHtml(i.Supplier)}</a>` : '<span style="color:var(--muted)">—</span>'}</td>
@@ -6376,10 +6376,27 @@ function globalSearch(q) {
 
     // Search inventory
     (cache.inventory||[]).filter(i=>(i.ItemName||'').toLowerCase().includes(term)).slice(0,4)
-      .forEach(i=>results.push({icon:'📦',label:escHtml(i.ItemName),sub:'Inventory',action:()=>nav('inventory')}));
+      .forEach(i=>results.push({icon:'📦',label:escHtml(i.ItemName),sub:'Inventory',action:()=>{
+        nav('inventory');
+        switchInvType('consumable');
+        setTimeout(()=>{
+          const input = document.querySelector('#inv-tab-items .search-input');
+          if (input) { input.value = i.ItemName; filterInventory(i.ItemName); }
+          setTimeout(()=>{
+            const row = document.querySelector(`#inv-body tr[data-inv-id="${i.id}"]`);
+            if (row) {
+              row.scrollIntoView({behavior:'smooth',block:'center'});
+              row.style.transition='background .2s';
+              row.style.background='rgba(200,169,81,.25)';
+              setTimeout(()=>row.style.background='',1800);
+            }
+          },150);
+        },80);
+      }}));
 
-    // Search vendors
+    // Search vendors (includes tags)
     (cache.vendors||[]).filter(v=>(v.Title||v.Company||'').toLowerCase().includes(term)
+      ||(v.Tags||'').toLowerCase().includes(term)
       ||Object.values(v).some(val=>String(val||'').toLowerCase().includes(term))).slice(0,3)
       .forEach(v=>results.push({icon:'🤝',label:escHtml(v.Title||v.Company||'—'),sub:'Vendors',action:()=>nav('vendors')}));
 
