@@ -5108,17 +5108,26 @@ async function toggleMaintArchive(id) {
   const newVal = m.ArchiveStatus === '1' ? '' : '1';
   setLoading(true, newVal === '1' ? 'Archiving…' : 'Restoring…');
   try {
-    await updateListItem(LISTS.maintContacts, id, { ArchiveStatus: newVal });
+    // Detect actual internal column name — SP may rename it (e.g. ArchiveStatus0)
+    const siteId = await getSiteId();
+    const listCache = await getSpListCache(siteId);
+    const listId = listCache[LISTS.maintContacts];
+    const colsRes = await graph('GET', `/sites/${siteId}/lists/${listId}/columns?$select=name,displayName`);
+    const cols = colsRes.value || [];
+    const archiveCol = cols.find(c => c.name === 'ArchiveStatus' || c.displayName === 'ArchiveStatus' ||
+                                      c.name === 'ArchiveStatus0' || c.displayName === 'Archive Status');
+    if (!archiveCol) {
+      toast('err', 'ArchiveStatus column not found. Go to Settings → Run Provisioning.');
+      return;
+    }
+    await updateListItem(LISTS.maintContacts, id, { [archiveCol.name]: newVal });
     m.ArchiveStatus = newVal;
+    // Keep local cache key consistent
+    if (archiveCol.name !== 'ArchiveStatus') m['ArchiveStatus'] = newVal;
     renderMaintContacts(document.querySelector('#page-maint-contacts .search-input')?.value||'');
     toast('ok', newVal ? '📦 Contact archived' : '↩ Contact restored');
   } catch(e) {
-    // 400 usually means ArchiveStatus column doesn't exist yet — prompt re-provision
-    if (e.message?.includes('400') || e.message?.includes('invalid')) {
-      toast('err', 'Column not ready — go to Settings → Run Provisioning, then try again.');
-    } else {
-      toast('err', 'Failed: '+e.message);
-    }
+    toast('err', 'Archive failed: '+e.message);
   }
   finally { setLoading(false); }
 }
