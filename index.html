@@ -5106,27 +5106,20 @@ async function toggleMaintArchive(id) {
   const m = cache.maintContacts.find(x=>x.id===id);
   if (!m) return;
   const newVal = m.ArchiveStatus === '1' ? '' : '1';
-  const label = newVal === '1' ? 'Archiving…' : 'Restoring…';
-  setLoading(true, label);
+  setLoading(true, newVal === '1' ? 'Archiving…' : 'Restoring…');
   try {
-    await ensureList(LISTS.maintContacts, [{name:'ArchiveStatus',text:{}}]);
-    // Small delay to allow SharePoint column propagation if it was just created
-    await new Promise(r => setTimeout(r, 400));
-    let attempts = 0;
-    while (attempts < 3) {
-      try {
-        await updateListItem(LISTS.maintContacts, id, { ArchiveStatus: newVal });
-        break;
-      } catch(e2) {
-        attempts++;
-        if (attempts >= 3) throw e2;
-        await new Promise(r => setTimeout(r, 800 * attempts));
-      }
-    }
+    await updateListItem(LISTS.maintContacts, id, { ArchiveStatus: newVal });
     m.ArchiveStatus = newVal;
     renderMaintContacts(document.querySelector('#page-maint-contacts .search-input')?.value||'');
     toast('ok', newVal ? '📦 Contact archived' : '↩ Contact restored');
-  } catch(e) { toast('err', 'Failed: '+e.message); }
+  } catch(e) {
+    // 400 usually means ArchiveStatus column doesn't exist yet — prompt re-provision
+    if (e.message?.includes('400') || e.message?.includes('invalid')) {
+      toast('err', 'Column not ready — go to Settings → Run Provisioning, then try again.');
+    } else {
+      toast('err', 'Failed: '+e.message);
+    }
+  }
   finally { setLoading(false); }
 }
 
