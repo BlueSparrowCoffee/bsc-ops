@@ -5139,7 +5139,7 @@ function openMaintForm(id) {
 
   // Build form dynamically from SP columns — exclude Archived (controlled via button)
   const fields = cache.maintContacts.length
-    ? Object.keys(cache.maintContacts[0]).filter(k => isEditableField(k, LISTS.maintContacts) && k !== 'Archived')
+    ? Object.keys(cache.maintContacts[0]).filter(k => isEditableField(k, LISTS.maintContacts) && k !== 'Archived' && k !== 'ArchiveStatus')
     : ['Title'];
 
   document.getElementById('maint-form-fields').innerHTML = fields.map(f => {
@@ -5159,7 +5159,7 @@ function openMaintForm(id) {
   const archiveBtn = document.getElementById('maint-archive-btn');
   if (m) {
     archiveBtn.style.display = 'inline-flex';
-    archiveBtn.textContent = m.ArchiveStatus === '1' ? '↩ Restore' : '📦 Archive';
+    archiveBtn.textContent = cache.contactArchive.some(a => a.ContactId === m.id) ? '↩ Restore' : '📦 Archive';
   } else {
     archiveBtn.style.display = 'none';
   }
@@ -5176,7 +5176,7 @@ async function archiveMaintFromModal() {
 
 async function saveMaintForm() {
   const fields = cache.maintContacts.length
-    ? Object.keys(cache.maintContacts[0]).filter(k => isEditableField(k, LISTS.maintContacts) && k !== 'Archived')
+    ? Object.keys(cache.maintContacts[0]).filter(k => isEditableField(k, LISTS.maintContacts) && k !== 'Archived' && k !== 'ArchiveStatus')
     : ['Title'];
   const data = {};
   fields.forEach(f => { const el = document.getElementById('mf_'+f); if (el) data[f] = el.value; });
