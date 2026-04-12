@@ -451,7 +451,7 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
         <table>
           <thead><tr>
             <th onclick="sortInvBy('ItemName')">Item</th>
-            <th onclick="sortInvBy('Category')">Category</th>
+            <th id="inv-th-category" onclick="sortInvBy('Category')">Category</th>
             <th onclick="sortInvBy('Supplier')">Vendor</th>
             <th onclick="sortInvBy('ParLevel')">Par</th>
             <th onclick="sortInvBy('StoreCount')">Store</th>
@@ -1419,7 +1419,7 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
     <div class="modal-header"><div class="modal-title">Add Inventory Item</div><button class="modal-close" onclick="closeModal('modal-add-item')">×</button></div>
     <div class="form-grid">
       <div class="form-group" style="grid-column:1/-1"><label>Item Name *</label><input id="new-item-name" placeholder="e.g. Whole Milk"></div>
-      <div class="form-group"><label>Category *</label>
+      <div class="form-group" id="new-item-cat-group"><label>Category</label>
         <select id="new-item-cat">
           <option>China</option><option>Cleaning Supplies</option><option>Consumable Goods</option>
           <option>Dairy</option><option>Dry Goods</option><option>Event</option>
@@ -1677,7 +1677,8 @@ const INV_TYPE_CFG = {
     listKey:     'merchInventory',
     countsPrefix:'BSC_{loc}_MerchCounts',
     cacheKey:    'merchInventory',
-    countKey:    'merchCountHistory'
+    countKey:    'merchCountHistory',
+    hasCategory: false
   },
   equipment: {
     label:       'Equipment & Smallwares',
@@ -2107,8 +2108,8 @@ async function ensureAllLists() {
     {name:'GrossMargin',number:{decimalPlaces:'automatic'}},
     {name:'SnapshotDate',dateTime:{displayAs:'default'}}
   ]);
-  // Merch & Equipment item masters (same structure as consumable inventory)
-  await ensureList(LISTS.merchInventory, INV_LIST_COLS.map(c => ({name:c.name, ...c})));
+  // Merch item master — no Category column (deleted by user)
+  await ensureList(LISTS.merchInventory, INV_LIST_COLS.filter(c=>c.name!=='Category').map(c=>({name:c.name,...c})));
   await ensureList(LISTS.equipInventory, INV_LIST_COLS.map(c => ({name:c.name, ...c})));
   // Per-location counts lists — create for every known location so 404s never appear
   const locs = getLocations();
@@ -2356,6 +2357,18 @@ function invCountsListName(loc) {
   return invCfg().countsPrefix.replace('{loc}', l.replace(/[\s\/\\]/g, '_'));
 }
 
+function invHasCategory() { return invCfg()?.hasCategory !== false; }
+
+function applyInvCategoryVisibility() {
+  const show = invHasCategory();
+  const th = document.getElementById('inv-th-category');
+  const filter = document.getElementById('inv-cat-filter');
+  const catGroup = document.getElementById('new-item-cat-group');
+  if (th)       th.style.display       = show ? '' : 'none';
+  if (filter)   filter.style.display   = show ? '' : 'none';
+  if (catGroup) catGroup.style.display = show ? '' : 'none';
+}
+
 function switchInvType(type) {
   _invType = type;
   document.querySelectorAll('#inv-type-tabs .inv-type-tab').forEach(b => {
@@ -2405,6 +2418,7 @@ function switchInvType(type) {
       const el = document.getElementById('inv-tab-'+t);
       if (el) el.style.display = t==='items' ? '' : 'none';
     });
+    applyInvCategoryVisibility();
     renderInventory();
   }
 }
@@ -2486,7 +2500,7 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
     const servings    = i.ServingsPerUnit!= null ? Number(i.ServingsPerUnit).toLocaleString()+' '+escHtml(i.ServingUnit||'')  : '—';
     return `<tr>
       <td class="fw">${escHtml(i.ItemName||'—')}</td>
-      <td><span class="badge badge-teal">${escHtml(i.Category||'—')}</span></td>
+      ${invHasCategory() ? `<td><span class="badge badge-teal">${escHtml(i.Category||'—')}</span></td>` : ''}
       <td style="font-size:12px">${i.Supplier ? `<a href="#" data-supplier="${escHtml(i.Supplier||'')}" onclick="nav('vendors');setTimeout(()=>{const s=document.querySelector('#page-vendors .search-input');if(s){s.value=this.dataset.supplier;filterVendors(s.value);}},300);return false;" style="color:var(--gold);text-decoration:none;">${escHtml(i.Supplier)}</a>` : '<span style="color:var(--muted)">—</span>'}</td>
       <td>${par} <span style="font-size:11px;color:var(--muted)">${unit}</span></td>
       <td>${store}</td>
@@ -2509,11 +2523,13 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
   document.getElementById('inv-count').textContent = `${items.length} items`;
 
   const allItems = cache[invCfg().cacheKey] || [];
-  const cats = [...new Set(allItems.map(i=>i.Category).filter(Boolean))].sort();
   const catSel = document.getElementById('inv-cat-filter');
-  const curCat = catSel.value;
-  catSel.innerHTML = '<option value="">All Categories</option>' +
-    cats.map(c=>`<option value="${escHtml(c)}" ${c===curCat?'selected':''}>${escHtml(c)}</option>`).join('');
+  if (invHasCategory()) {
+    const cats = [...new Set(allItems.map(i=>i.Category).filter(Boolean))].sort();
+    const curCat = catSel.value;
+    catSel.innerHTML = '<option value="">All Categories</option>' +
+      cats.map(c=>`<option value="${escHtml(c)}" ${c===curCat?'selected':''}>${escHtml(c)}</option>`).join('');
+  }
 
   const suppliers = [...new Set(allItems.map(i=>i.Supplier).filter(Boolean))].sort();
   const supSel = document.getElementById('inv-supplier-filter');
@@ -2915,7 +2931,7 @@ async function saveInventoryItem() {
   const fields = {
     ItemName:        name,
     Title:           name,
-    Category:        document.getElementById('new-item-cat').value,
+    ...(invHasCategory() ? { Category: document.getElementById('new-item-cat').value } : {}),
     Supplier:        document.getElementById('new-item-supplier').value,
     OrderSize:       parseFloat(document.getElementById('new-item-order-size').value)||null,
     OrderUnit:       document.getElementById('new-item-unit').value,
