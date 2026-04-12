@@ -1290,7 +1290,9 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
           <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);cursor:pointer;white-space:nowrap;">
             <input type="checkbox" id="merch-cogs-show-hidden" onchange="renderMerchCogCards()"> Show hidden
           </label>
+          <button class="btn btn-primary" onclick="syncMerchPricesFromSquare()" id="merch-sq-sync-btn" style="font-size:12px;padding:6px 14px;" title="Pull selling prices from Square catalog">◼ Sync Prices from Square</button>
         </div>
+        <div id="merch-sq-sync-log" style="display:none;background:var(--cream);border-radius:8px;padding:10px 14px;font-size:12px;font-family:monospace;margin-bottom:14px;white-space:pre-wrap;max-height:160px;overflow-y:auto;"></div>
         <div id="merch-cogs-empty" style="display:none;text-align:center;padding:60px;color:var(--muted);">
           <div style="font-size:36px;margin-bottom:8px;">🛍️</div>
           <div style="font-weight:600;margin-bottom:4px;">No merch items found</div>
@@ -8226,6 +8228,70 @@ function toggleCogHidden(itemId) {
 
 // ── Merch Costs ──────────────────────────────────────────────────────────────
 
+async function syncMerchPricesFromSquare() {
+  const btn   = document.getElementById('merch-sq-sync-btn');
+  const logEl = document.getElementById('merch-sq-sync-log');
+  btn.disabled = true; btn.textContent = 'Syncing…';
+  logEl.style.display = ''; logEl.textContent = '';
+  const log = msg => { logEl.textContent += msg + '\n'; logEl.scrollTop = logEl.scrollHeight; };
+
+  try {
+    log('Fetching Square catalog…');
+    let objects = [], cursor = null;
+    do {
+      const params = `catalog/list?types=ITEM${cursor ? '&cursor='+encodeURIComponent(cursor) : ''}`;
+      const data = await squareAPI('GET', params);
+      objects = objects.concat(data.objects || []);
+      cursor = data.cursor || null;
+    } while (cursor);
+
+    // Build squareCatalogItemId → price map (first priced variation)
+    const priceMap = {};
+    const multiVarItems = [];
+    for (const obj of objects) {
+      if (obj.type !== 'ITEM' || obj.is_deleted) continue;
+      const vars = (obj.item_data?.variations || []);
+      const priced = vars.filter(v => v.item_variation_data?.price_money);
+      if (!priced.length) continue;
+      const price = priced[0].item_variation_data.price_money.amount / 100;
+      priceMap[obj.id] = price;
+      // Also map individual variation IDs for items where the variation ID is stored
+      for (const v of priced) priceMap[v.id] = v.item_variation_data.price_money.amount / 100;
+      if (priced.length > 1) {
+        const prices = [...new Set(priced.map(v => v.item_variation_data.price_money.amount / 100))];
+        if (prices.length > 1) multiVarItems.push({ name: obj.item_data?.name || obj.id, prices });
+      }
+    }
+    log(`Found ${Object.keys(priceMap).length} priced catalog entries`);
+    if (multiVarItems.length) {
+      log(`ℹ️ ${multiVarItems.length} items have multiple price points — using first variation:`);
+      multiVarItems.slice(0,5).forEach(i => log(`   ${i.name}: ${i.prices.map(p=>'$'+p.toFixed(2)).join(', ')}`));
+    }
+
+    // Match merch items by SquareCatalogItemId and update SellingPrice
+    let updated = 0, skipped = 0, notFound = 0;
+    for (const item of cache.merchInventory) {
+      const sqId = (item.SquareCatalogItemId || '').trim();
+      if (!sqId) { skipped++; continue; }
+      const price = priceMap[sqId];
+      if (price == null) { notFound++; log(`  ⚠ No price found for: ${item.ItemName||item.Title} (Square ID: ${sqId.slice(-8)})`); continue; }
+      if (item.SellingPrice === price) { log(`  = ${item.ItemName||item.Title}: $${price.toFixed(2)} (unchanged)`); continue; }
+      await updateListItem(LISTS.merchInventory, item.id, { SellingPrice: price });
+      log(`  ✓ ${item.ItemName||item.Title}: $${price.toFixed(2)}`);
+      item.SellingPrice = price;
+      updated++;
+    }
+
+    log(`\n✅ Done — ${updated} updated, ${skipped} skipped (no Square ID), ${notFound} not found in catalog`);
+    renderMerchCogCards();
+    toast('ok', `✓ Merch prices synced — ${updated} updated`);
+  } catch(e) {
+    log(`❌ Error: ${e.message}`);
+    toast('err', 'Sync failed: ' + e.message);
+  }
+  btn.disabled = false; btn.textContent = '◼ Sync Prices from Square';
+}
+
 function filterMerchCogs(q) {
   _cogsMerchQuery = (q||'').toLowerCase();
   _cogsMerchCatFilter = document.getElementById('merch-cogs-cat-filter')?.value || '';
@@ -8343,7 +8409,10 @@ function renderMerchCogCard(item) {
             </div>
           </div>
           <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-            <span style="font-size:13px;color:var(--muted);white-space:nowrap;">Selling price</span>
+            <span style="font-size:13px;color:var(--muted);white-space:nowrap;">
+              Selling price
+              ${item.SquareCatalogItemId ? '<span style="font-size:10px;background:#1a1a1a;color:#fff;padding:1px 5px;border-radius:8px;vertical-align:middle;margin-left:4px;">◼ Square</span>' : ''}
+            </span>
             <div style="display:flex;align-items:center;gap:4px;">
               <span style="color:var(--muted);font-size:13px;">$</span>
               <input type="number" step="0.01" min="0" placeholder="0.00"
