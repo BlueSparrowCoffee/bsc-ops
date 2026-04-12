@@ -414,6 +414,10 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
         style="padding:7px 18px;border-radius:20px;border:1.5px solid var(--border);background:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;">🔧 Equipment &amp; Smallwares</button>
       <button class="inv-type-tab" data-type="labels" onclick="switchInvType('labels')"
         style="padding:7px 18px;border-radius:20px;border:1.5px solid var(--border);background:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;">🏷️ Bag Labels</button>
+      <button class="inv-type-tab" data-type="pastries" onclick="switchInvType('pastries')"
+        style="padding:7px 18px;border-radius:20px;border:1.5px solid var(--border);background:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;">🥐 Pastries</button>
+      <button class="inv-type-tab" data-type="sandwiches" onclick="switchInvType('sandwiches')"
+        style="padding:7px 18px;border-radius:20px;border:1.5px solid var(--border);background:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;">🥪 Sandwiches</button>
     </div>
     <div class="tab-bar">
       <button class="tab-btn active" onclick="switchInvTab('items',this)">📋 Items</button>
@@ -496,6 +500,11 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
     <!-- Bag Labels tab -->
     <div id="inv-tab-labels" style="display:none">
       <div id="inv-labels-content"></div>
+    </div>
+
+    <!-- Food Pars tab (Pastries + Sandwiches) -->
+    <div id="inv-tab-foodpars" style="display:none">
+      <div id="inv-foodpars-content"></div>
     </div>
 
     <!-- Import tab -->
@@ -854,8 +863,48 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
       <div class="form-actions">
         <button class="btn btn-primary" onclick="saveMaintForm()">Save</button>
         <button class="btn btn-outline" onclick="closeModal('modal-maint')">Cancel</button>
-        <button id="maint-archive-btn" class="btn" style="display:none;" onclick="archiveMaintFromModal()">📦 Archive</button>
-        <button id="maint-delete-btn" class="btn" style="margin-left:auto;color:var(--red);border-color:var(--red);display:none;" onclick="deleteMaintContact()">Delete</button>
+        <button id="maint-archive-btn" class="btn" style="display:none;margin-left:auto;font-size:12px;color:var(--text-secondary);border-color:var(--border);" onclick="archiveMaintFromModal()">📦 Archive</button>
+        <button id="maint-delete-btn" class="btn" style="color:var(--red);border-color:var(--red);display:none;" onclick="deleteMaintContact()">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOD PARS — Add / Edit Modal -->
+  <div class="modal-overlay" id="modal-foodpar">
+    <div class="modal" style="max-width:520px;">
+      <div class="modal-header">
+        <div class="modal-title" id="foodpar-modal-title">Add Item</div>
+        <button class="modal-close" onclick="closeModal('modal-foodpar')">×</button>
+      </div>
+      <div style="padding:4px 0 16px;">
+        <label class="field-label">Item Name</label>
+        <input type="text" id="fp-name" class="field-input" placeholder="e.g. Butter Croissant" style="width:100%;margin-bottom:16px;">
+        <label class="field-label" style="margin-bottom:8px;display:block;">Daily Pars</label>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:4px;">
+          <div style="text-align:center;font-size:11px;font-weight:600;color:var(--muted);">Mon</div>
+          <div style="text-align:center;font-size:11px;font-weight:600;color:var(--muted);">Tue</div>
+          <div style="text-align:center;font-size:11px;font-weight:600;color:var(--muted);">Wed</div>
+          <div style="text-align:center;font-size:11px;font-weight:600;color:var(--muted);">Thu</div>
+          <div style="text-align:center;font-size:11px;font-weight:600;color:var(--muted);">Fri</div>
+          <div style="text-align:center;font-size:11px;font-weight:600;color:var(--muted);">Sat</div>
+          <div style="text-align:center;font-size:11px;font-weight:600;color:var(--muted);">Sun</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;">
+          <input type="number" id="fp-mon" class="field-input" min="0" placeholder="0" style="text-align:center;padding:8px 4px;">
+          <input type="number" id="fp-tue" class="field-input" min="0" placeholder="0" style="text-align:center;padding:8px 4px;">
+          <input type="number" id="fp-wed" class="field-input" min="0" placeholder="0" style="text-align:center;padding:8px 4px;">
+          <input type="number" id="fp-thu" class="field-input" min="0" placeholder="0" style="text-align:center;padding:8px 4px;">
+          <input type="number" id="fp-fri" class="field-input" min="0" placeholder="0" style="text-align:center;padding:8px 4px;">
+          <input type="number" id="fp-sat" class="field-input" min="0" placeholder="0" style="text-align:center;padding:8px 4px;">
+          <input type="number" id="fp-sun" class="field-input" min="0" placeholder="0" style="text-align:center;padding:8px 4px;">
+        </div>
+        <input type="hidden" id="fp-category">
+        <input type="hidden" id="fp-edit-id">
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="saveFoodParForm()">Save</button>
+        <button class="btn btn-outline" onclick="closeModal('modal-foodpar')">Cancel</button>
+        <button id="fp-delete-btn" class="btn" style="margin-left:auto;color:var(--red);border-color:var(--red);display:none;" onclick="deleteFoodPar()">Delete</button>
       </div>
     </div>
   </div>
@@ -1092,7 +1141,6 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
           <select class="filter" id="cogs-cat-filter" onchange="filterCogs(document.getElementById('cogs-search').value)">
             <option value="">All Categories</option>
           </select>
-          <button class="btn btn-outline" onclick="autoPopulateCogs()" style="font-size:12px;padding:6px 14px;" title="Auto-fill recipe guesses for all items">✨ Auto-populate Recipes</button>
           <button class="btn btn-primary" onclick="snapshotCogs()" style="font-size:12px;padding:6px 14px;" title="Save current COG & margin to history">📸 Snapshot Costs</button>
         </div>
         <div id="cogs-missing-costs" style="display:none;background:#fff8e1;border:1.5px solid #f59e0b;border-radius:10px;padding:12px 16px;font-size:13px;color:#92400e;margin-bottom:16px;">
@@ -1582,7 +1630,8 @@ const LISTS = {
   maintSchedule:  'BSC_MaintSchedule',
   maintLog:       'BSC_MaintLog',
   settings:       'BSC_Settings',
-  labels:         'BSC_CoffeeBagLabels'
+  labels:         'BSC_CoffeeBagLabels',
+  foodPars:       'BSC_FoodPars'
 };
 
 // Inventory type config — drives which list/cache key each inv type uses
@@ -1640,7 +1689,8 @@ const cache = {
   clGroups: [], clCompletions: [],
   merchInventory: [], merchCountHistory: [],
   equipInventory: [], equipCountHistory: [],
-  labels: []
+  labels: [],
+  foodPars: []
 };
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1900,7 +1950,7 @@ async function ensureList(listName, columns) {
   return listId;
 }
 
-const PROVISION_VERSION = '7';
+const PROVISION_VERSION = '9';
 
 async function bootstrapApp() {
   setLoading(true,'Loading BSC Operations…');
@@ -1993,6 +2043,17 @@ async function ensureAllLists() {
     {name:'Phone',text:{}},{name:'Email',text:{}},{name:'Notes',text:{}},
     {name:'ArchiveStatus',text:{}}
   ]);
+  await ensureList(LISTS.foodPars,[
+    {name:'Category',  text:{}},
+    {name:'Mon',       number:{decimalPlaces:0}},
+    {name:'Tue',       number:{decimalPlaces:0}},
+    {name:'Wed',       number:{decimalPlaces:0}},
+    {name:'Thu',       number:{decimalPlaces:0}},
+    {name:'Fri',       number:{decimalPlaces:0}},
+    {name:'Sat',       number:{decimalPlaces:0}},
+    {name:'Sun',       number:{decimalPlaces:0}},
+    {name:'SortOrder', number:{decimalPlaces:0}}
+  ]);
   await ensureList(LISTS.staff,[
     {name:'Role',text:{}},{name:'Location',text:{}},
     {name:'Email',text:{}},{name:'Phone',text:{}},{name:'Active',text:{}},
@@ -2057,7 +2118,7 @@ async function ensureAllLists() {
 // ════════════════════════════════════════════════════════════════════════════
 async function loadAllData() {
   const siteId = await getSiteId();
-  const [xfers, orders, cls, roles, vendors,,recipes,,contacts,staff,sched,log,appSettings,clGroups,clCompletions,labelRows] = await Promise.all([
+  const [xfers, orders, cls, roles, vendors,,recipes,,contacts,staff,sched,log,appSettings,clGroups,clCompletions,labelRows,foodParRows] = await Promise.all([
     getListItems(siteId, LISTS.transfers),
     getListItems(siteId, LISTS.orders),
     getListItems(siteId, LISTS.checklists),
@@ -2073,7 +2134,8 @@ async function loadAllData() {
     getListItems(siteId, LISTS.settings),
     getListItems(siteId, LISTS.clGroups).catch(()=>[]),
     getListItems(siteId, LISTS.clCompletions).catch(()=>[]),
-    getListItems(siteId, LISTS.labels).catch(()=>[])
+    getListItems(siteId, LISTS.labels).catch(()=>[]),
+    getListItems(siteId, LISTS.foodPars).catch(()=>[])
   ]);
   cache.transfers=xfers; cache.orders=orders;
   cache.checklists=cls; cache.roles=roles; cache.vendors=vendors;
@@ -2082,6 +2144,7 @@ async function loadAllData() {
   cache.settingsItems=appSettings;
   cache.clGroups=clGroups; cache.clCompletions=clCompletions;
   cache.labels = labelRows || [];
+  cache.foodPars = foodParRows || [];
   // Load location-specific inventory and menu data, plus COGs
   const [cogsRecipes, cogSnapshots] = await Promise.all([
     getListItems(siteId, LISTS.cogs).catch(()=>[]),
@@ -2272,24 +2335,40 @@ function switchInvType(type) {
     b.classList.toggle('active', b.dataset.type === type);
   });
 
-  const tabBar   = document.querySelector('#page-inventory .tab-bar');
-  const labelsEl = document.getElementById('inv-tab-labels');
-  const titleEl  = document.querySelector('#page-inventory .page-title');
+  const tabBar    = document.querySelector('#page-inventory .tab-bar');
+  const labelsEl  = document.getElementById('inv-tab-labels');
+  const foodParsEl = document.getElementById('inv-tab-foodpars');
+  const titleEl   = document.querySelector('#page-inventory .page-title');
+
+  const hideAllSpecial = () => {
+    if (labelsEl)   labelsEl.style.display   = 'none';
+    if (foodParsEl) foodParsEl.style.display = 'none';
+  };
 
   if (type === 'labels') {
-    // Labels has its own full-page UI — hide tab bar and all other tabs
     if (tabBar) tabBar.style.display = 'none';
     ['items','count','analytics','import'].forEach(t => {
       const el = document.getElementById('inv-tab-'+t);
       if (el) el.style.display = 'none';
     });
+    hideAllSpecial();
     if (labelsEl) labelsEl.style.display = '';
     if (titleEl) titleEl.textContent = '🏷️ Bag Labels';
     renderLabelsInTab();
+  } else if (type === 'pastries' || type === 'sandwiches') {
+    if (tabBar) tabBar.style.display = 'none';
+    ['items','count','analytics','import'].forEach(t => {
+      const el = document.getElementById('inv-tab-'+t);
+      if (el) el.style.display = 'none';
+    });
+    hideAllSpecial();
+    if (foodParsEl) foodParsEl.style.display = '';
+    if (titleEl) titleEl.textContent = type === 'pastries' ? '🥐 Pastry Pars' : '🥪 Sandwich Pars';
+    renderFoodParsInTab(type);
   } else {
-    // Standard inventory type — show tab bar, hide labels panel
+    // Standard inventory type — show tab bar, hide special panels
     if (tabBar) tabBar.style.display = '';
-    if (labelsEl) labelsEl.style.display = 'none';
+    hideAllSpecial();
     const cfg = INV_TYPE_CFG[type];
     if (titleEl && cfg) titleEl.textContent = cfg.icon + ' ' + cfg.label;
     // Reset to items tab
@@ -3956,7 +4035,7 @@ function renderMaintContacts(query='') {
 
     const archiveBtn = m.ArchiveStatus === '1'
       ? `<button class="btn btn-sm" style="margin-top:10px;" data-id="${escHtml(m.id)}" onclick="event.stopPropagation();toggleMaintArchive(this.dataset.id)">↩ Restore</button>`
-      : `<button class="btn btn-sm" style="margin-top:10px;color:var(--muted);" data-id="${escHtml(m.id)}" onclick="event.stopPropagation();toggleMaintArchive(this.dataset.id)">📦 Archive</button>`;
+      : `<button class="btn btn-sm" style="margin-top:10px;font-size:11px;border-color:var(--border);color:var(--text-secondary);" data-id="${escHtml(m.id)}" onclick="event.stopPropagation();toggleMaintArchive(this.dataset.id)">📦 Archive</button>`;
 
     return `<div class="card" style="cursor:pointer;" data-id="${escHtml(m.id)}" onclick="openMaintForm(this.dataset.id)">
       <div class="card-title">${icon} ${escHtml(m.Title||'Unnamed')}</div>
@@ -3978,6 +4057,7 @@ async function toggleMaintArchive(id) {
   const label = newVal === '1' ? 'Archiving…' : 'Restoring…';
   setLoading(true, label);
   try {
+    await ensureList(LISTS.maintContacts, [{name:'ArchiveStatus',text:{}}]);
     await updateListItem(LISTS.maintContacts, id, { ArchiveStatus: newVal });
     m.ArchiveStatus = newVal;
     renderMaintContacts(document.querySelector('#page-maint-contacts .search-input')?.value||'');
@@ -5702,6 +5782,168 @@ async function confirmLabelsReconcile() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// FOOD PARS (Pastries & Sandwiches)
+// ════════════════════════════════════════════════════════════════════════════
+const FP_DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const FP_DAY_FULL = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+// JS getDay() returns 0=Sun,1=Mon … 6=Sat — map to our day keys
+const FP_JS_DAY_MAP = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+function fpTodayKey() {
+  return FP_JS_DAY_MAP[new Date().getDay()];
+}
+
+function renderFoodParsInTab(category) {
+  const container = document.getElementById('inv-foodpars-content');
+  if (!container) return;
+  const todayKey = fpTodayKey();
+  const todayIdx = FP_DAYS.indexOf(todayKey);
+  const todayFull = FP_DAY_FULL[todayIdx] || todayKey;
+  const label = category === 'pastries' ? 'Pastry' : 'Sandwich';
+  const emoji = category === 'pastries' ? '🥐' : '🥪';
+
+  // Today's at-a-glance banner
+  const todayItems = cache.foodPars
+    .filter(p => p.Category === category)
+    .sort((a,b) => ((a.SortOrder||999) - (b.SortOrder||999)) || (a.Title||'').localeCompare(b.Title||''))
+    .map(p => {
+      const qty = p[todayKey] || 0;
+      return qty > 0 ? `<span style="margin-right:10px"><b>${escHtml(p.Title||'?')}</b>: ${qty}</span>` : null;
+    }).filter(Boolean).join('');
+
+  container.innerHTML = `
+    <div style="background:var(--brand-light,#fff8e7);border:1.5px solid var(--brand,#c8a951);border-radius:10px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--brand,#c8a951);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Today · ${escHtml(todayFull)}</div>
+        <div style="font-size:14px;color:var(--text,#1a1a1a);line-height:1.7;">
+          ${todayItems || '<span style="color:var(--muted)">No pars set yet — add items below.</span>'}
+        </div>
+      </div>
+      <button class="btn btn-primary" style="margin-left:auto;white-space:nowrap;" onclick="openFoodParForm(null,'${category}')">+ Add ${label}</button>
+    </div>
+    <div id="fp-table-wrap"></div>
+  `;
+  renderFoodParsTable(category);
+}
+
+function renderFoodParsTable(category) {
+  const wrap = document.getElementById('fp-table-wrap');
+  if (!wrap) return;
+  const todayKey = fpTodayKey();
+  const rows = cache.foodPars
+    .filter(p => p.Category === category)
+    .sort((a,b) => ((a.SortOrder||999) - (b.SortOrder||999)) || (a.Title||'').localeCompare(b.Title||''));
+
+  if (!rows.length) {
+    wrap.innerHTML = `<div class="no-data" style="padding:32px 0">No items yet. Click "+ Add" to create your first par.</div>`;
+    return;
+  }
+
+  const thStyle = (day) => {
+    const isToday = day === todayKey;
+    return `style="padding:8px 10px;text-align:center;font-size:12px;font-weight:700;background:${isToday ? 'var(--brand,#c8a951)' : 'var(--bg,#f5f5f5)'};color:${isToday ? '#fff' : 'var(--muted)'};border-bottom:1.5px solid var(--border);"`;
+  };
+  const tdStyle = (day) => {
+    const isToday = day === todayKey;
+    return `style="padding:10px;text-align:center;font-size:14px;font-weight:${isToday ? '700' : '400'};background:${isToday ? 'var(--brand-light,#fff8e7)' : 'transparent'};color:${isToday ? 'var(--brand,#c8a951)' : 'var(--text,#1a1a1a)'};border-bottom:1px solid var(--border);"`;
+  };
+
+  const thead = `<thead><tr>
+    <th style="padding:8px 12px;text-align:left;font-size:12px;font-weight:700;color:var(--muted);background:var(--bg,#f5f5f5);border-bottom:1.5px solid var(--border);">Item</th>
+    ${FP_DAYS.map(d => `<th ${thStyle(d)}>${d}</th>`).join('')}
+    <th style="padding:8px 6px;background:var(--bg,#f5f5f5);border-bottom:1.5px solid var(--border);width:32px;"></th>
+  </tr></thead>`;
+
+  const tbody = rows.map(p => `<tr>
+    <td style="padding:10px 12px;font-size:14px;font-weight:500;border-bottom:1px solid var(--border);">${escHtml(p.Title||'')}</td>
+    ${FP_DAYS.map(d => `<td ${tdStyle(d)}>${p[d] != null && p[d] !== '' ? p[d] : '<span style="color:var(--border)">—</span>'}</td>`).join('')}
+    <td style="padding:10px 6px;text-align:center;border-bottom:1px solid var(--border);">
+      <button class="btn btn-sm" style="font-size:11px;padding:3px 8px;" data-id="${escHtml(p.id)}" data-cat="${escHtml(category)}" onclick="openFoodParForm(this.dataset.id,this.dataset.cat)">Edit</button>
+    </td>
+  </tr>`).join('');
+
+  wrap.innerHTML = `
+    <div style="overflow-x:auto;border-radius:10px;border:1.5px solid var(--border);">
+      <table style="width:100%;border-collapse:collapse;min-width:540px;">
+        ${thead}<tbody>${tbody}</tbody>
+      </table>
+    </div>`;
+}
+
+let _fpEditCategory = null;
+
+function openFoodParForm(id, category) {
+  _fpEditCategory = category || _fpEditCategory;
+  const p = id ? cache.foodPars.find(x => x.id === id) : null;
+  const label = _fpEditCategory === 'pastries' ? 'Pastry' : 'Sandwich';
+
+  document.getElementById('foodpar-modal-title').textContent = p ? `Edit ${label}` : `Add ${label}`;
+  document.getElementById('fp-name').value    = p ? (p.Title || '') : '';
+  document.getElementById('fp-edit-id').value = p ? p.id : '';
+  document.getElementById('fp-category').value = _fpEditCategory;
+
+  FP_DAYS.forEach(d => {
+    const el = document.getElementById('fp-' + d.toLowerCase());
+    if (el) el.value = (p && p[d] != null && p[d] !== '') ? p[d] : '';
+  });
+
+  document.getElementById('fp-delete-btn').style.display = p ? 'inline-flex' : 'none';
+  openModal('modal-foodpar');
+  setTimeout(() => document.getElementById('fp-name')?.focus(), 100);
+}
+
+async function saveFoodParForm() {
+  const name = document.getElementById('fp-name').value.trim();
+  if (!name) { toast('err','Item name is required'); return; }
+  const editId  = document.getElementById('fp-edit-id').value;
+  const cat     = document.getElementById('fp-category').value;
+  const data = { Title: name, Category: cat };
+  FP_DAYS.forEach(d => {
+    const val = document.getElementById('fp-' + d.toLowerCase())?.value;
+    data[d] = val !== '' && val != null ? Number(val) : null;
+  });
+
+  setLoading(true, editId ? 'Saving…' : 'Adding…');
+  try {
+    await ensureList(LISTS.foodPars, [
+      {name:'Category',text:{}},
+      {name:'Mon',number:{decimalPlaces:0}},{name:'Tue',number:{decimalPlaces:0}},
+      {name:'Wed',number:{decimalPlaces:0}},{name:'Thu',number:{decimalPlaces:0}},
+      {name:'Fri',number:{decimalPlaces:0}},{name:'Sat',number:{decimalPlaces:0}},
+      {name:'Sun',number:{decimalPlaces:0}},{name:'SortOrder',number:{decimalPlaces:0}}
+    ]);
+    if (editId) {
+      await updateListItem(LISTS.foodPars, editId, data);
+      const idx = cache.foodPars.findIndex(x => x.id === editId);
+      if (idx >= 0) cache.foodPars[idx] = { ...cache.foodPars[idx], ...data };
+    } else {
+      const item = await addListItem(LISTS.foodPars, data);
+      cache.foodPars.push(item);
+    }
+    closeModal('modal-foodpar');
+    renderFoodParsInTab(cat);
+    toast('ok', editId ? '✓ Item updated' : '✓ Item added');
+  } catch(e) { toast('err', 'Save failed: ' + e.message); }
+  finally { setLoading(false); }
+}
+
+async function deleteFoodPar() {
+  const editId = document.getElementById('fp-edit-id').value;
+  const cat    = document.getElementById('fp-category').value;
+  if (!editId) return;
+  if (!confirm('Delete this item and all its pars?')) return;
+  setLoading(true, 'Deleting…');
+  try {
+    await deleteListItem(LISTS.foodPars, editId);
+    cache.foodPars = cache.foodPars.filter(x => x.id !== editId);
+    closeModal('modal-foodpar');
+    renderFoodParsInTab(cat);
+    toast('ok', '🗑 Item deleted');
+  } catch(e) { toast('err', 'Delete failed: ' + e.message); }
+  finally { setLoading(false); }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // SQUARE INTEGRATION
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -5920,113 +6162,6 @@ function getVariationNames(menuItem) {
   });
 }
 
-// -- Auto-populate -----------------------------------------------------------
-
-// Returns a guess at recipe ingredients based on item name
-// Each ingredient: { name, qty: [small,med,large], unit }
-const RECIPE_TEMPLATES = [
-  { test: /latte|flat white/i,         ings: [
-    { name:'Espresso', qty:[2,2,3], unit:'oz' },
-    { name:'Milk',     qty:[8,10,12], unit:'oz' }]},
-  { test: /cappuccino/i,               ings: [
-    { name:'Espresso', qty:[2,2,3], unit:'oz' },
-    { name:'Milk',     qty:[4,6,8],  unit:'oz' }]},
-  { test: /cortado/i,                  ings: [
-    { name:'Espresso', qty:[2,2,2], unit:'oz' },
-    { name:'Milk',     qty:[2,2,2], unit:'oz' }]},
-  { test: /macchiato/i,                ings: [
-    { name:'Espresso', qty:[2,2,3], unit:'oz' },
-    { name:'Milk',     qty:[1,2,2], unit:'oz' }]},
-  { test: /americano/i,                ings: [
-    { name:'Espresso', qty:[2,2,3], unit:'oz' },
-    { name:'Water',    qty:[4,8,12], unit:'oz' }]},
-  { test: /mocha/i,                    ings: [
-    { name:'Espresso',        qty:[2,2,3],   unit:'oz' },
-    { name:'Milk',            qty:[6,8,12],  unit:'oz' },
-    { name:'Chocolate Sauce', qty:[0.5,1,1], unit:'oz' }]},
-  { test: /cold brew/i,               ings: [
-    { name:'Cold Brew Concentrate', qty:[2,4,6], unit:'oz' },
-    { name:'Water',                 qty:[4,8,10], unit:'oz' }]},
-  { test: /matcha/i,                   ings: [
-    { name:'Matcha Powder', qty:[2,3,4], unit:'g' },
-    { name:'Milk',          qty:[6,8,12], unit:'oz' }]},
-  { test: /chai/i,                     ings: [
-    { name:'Chai Concentrate', qty:[2,3,4], unit:'oz' },
-    { name:'Milk',             qty:[6,8,12], unit:'oz' }]},
-  { test: /hot chocolate|hot cocoa/i,  ings: [
-    { name:'Chocolate Sauce', qty:[1,1.5,2], unit:'oz' },
-    { name:'Milk',            qty:[8,10,12], unit:'oz' }]},
-  { test: /pour over|filter coffee|drip/i, ings: [
-    { name:'Ground Coffee', qty:[15,20,25], unit:'g' },
-    { name:'Water',         qty:[8,12,16],  unit:'oz' }]},
-  { test: /espresso/i,                 ings: [
-    { name:'Espresso', qty:[1,2,3], unit:'oz' }]},
-  { test: /tea|matcha/i,               ings: [
-    { name:'Tea Bag', qty:[1,1,2], unit:'each' },
-    { name:'Water',   qty:[8,10,12], unit:'oz' }]},
-  { test: /smoothie/i,                 ings: [
-    { name:'Fruit Blend', qty:[4,6,8], unit:'oz' },
-    { name:'Milk',        qty:[4,6,8], unit:'oz' }]},
-  { test: /muffin|croissant|scone|cookie|pastry|brownie|cake|loaf|sandwich|wrap|bagel/i, ings: [
-    { name:'Pastry Item', qty:[1,1,1], unit:'each' }]},
-  { test: /juice|lemonade/i,           ings: [
-    { name:'Juice', qty:[8,10,12], unit:'oz' }]}
-];
-
-function guessIngredients(itemName) {
-  for (const tmpl of RECIPE_TEMPLATES) {
-    if (tmpl.test.test(itemName)) return tmpl.ings;
-  }
-  return [];
-}
-
-async function autoPopulateCogs() {
-  if (!confirm('Auto-populate will add ingredient guesses for any menu item that has no recipe yet. You can edit or remove them afterwards. Continue?')) return;
-  const btn = document.querySelector('[onclick="autoPopulateCogs()"]');
-  if (btn) { btn.disabled = true; btn.textContent = '✨ Working…'; }
-  try {
-    const siteId = await getSiteId();
-    let added = 0;
-    const cogMap = buildCogMap();
-    for (const item of cache.menu) {
-      const itemId   = item.SquareId || item.id;
-      const itemName = item.ItemName || item.Title || '';
-      const guesses  = guessIngredients(itemName);
-      if (!guesses.length) continue;
-
-      const variations = getVariationNames(item);
-      // Only populate variations that have no ingredients yet
-      for (let vi = 0; vi < variations.length; vi++) {
-        const vname = variations[vi].name;
-        const key   = itemId + ':' + vname;
-        if (cogMap[key] && cogMap[key].length > 0) continue; // already has data
-
-        const sizeIdx = Math.min(vi, 2); // 0=small,1=med,2=large
-        for (const ing of guesses) {
-          const fields = {
-            Title:          itemName + ' — ' + vname + ' — ' + ing.name,
-            MenuItemId:     itemId,
-            MenuItemName:   itemName,
-            VariationName:  vname,
-            IngredientName: ing.name,
-            Quantity:       ing.qty[sizeIdx],
-            Unit:           ing.unit
-          };
-          const saved = await addListItem(LISTS.cogs, fields);
-          cache.cogsRecipes.push(saved);
-          added++;
-        }
-      }
-    }
-    toast('ok', `✓ Auto-populated ${added} ingredient rows`);
-    renderCogs();
-  } catch(e) {
-    toast('err', 'Auto-populate failed: ' + e.message);
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '✨ Auto-populate Recipes'; }
-  }
-}
-
 // -- Snapshot ----------------------------------------------------------------
 
 async function snapshotCogs() {
@@ -6173,14 +6308,9 @@ function renderCogCard(item, cogMap, invMap) {
       <tr>
         <td style="padding:6px 8px;font-size:12px;">${escHtml(ing.IngredientName||'')}</td>
         <td style="padding:6px 8px;font-size:12px;text-align:right;">
-          <input type="number" step="0.01" value="${ing.Quantity||''}"
+          <input type="number" step="1" min="0" value="${ing.Quantity||''}"
             style="width:60px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;text-align:right;"
             onchange="updateCogIngredient(${ing.id},'Quantity',this.value)">
-        </td>
-        <td style="padding:6px 8px;font-size:12px;">
-          <input type="text" value="${escHtml(ing.Unit||'')}"
-            style="width:44px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;"
-            onchange="updateCogIngredient(${ing.id},'Unit',this.value)">
         </td>
         <td style="padding:6px 8px;font-size:12px;text-align:right;color:var(--muted);">
           ${ing.costPerServing != null ? '$'+ing.costPerServing.toFixed(3) : '<span style="color:#f59e0b" title="Add Cost Per Serving in Inventory">—</span>'}
@@ -6196,15 +6326,13 @@ function renderCogCard(item, cogMap, invMap) {
 
     const addRow = `
       <tr id="cog-add-row-${itemId}-${vi}">
-        <td colspan="6" style="padding:6px 8px;">
+        <td colspan="5" style="padding:6px 8px;">
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
             <input type="text" placeholder="Ingredient name…" id="cog-new-ing-${itemId}-${vi}"
               list="cog-ing-list-${itemId}"
               style="flex:1;min-width:130px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;">
-            <input type="number" step="0.01" placeholder="Qty" id="cog-new-qty-${itemId}-${vi}"
+            <input type="number" step="1" min="0" placeholder="Qty" id="cog-new-qty-${itemId}-${vi}"
               style="width:60px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;">
-            <input type="text" placeholder="Unit" id="cog-new-unit-${itemId}-${vi}"
-              style="width:50px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;">
             <button onclick="addCogIngredient('${escHtml(itemId)}','${escHtml(itemName)}','${escHtml(v.name)}',${vi})"
               style="padding:4px 10px;background:var(--gold);color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;white-space:nowrap;">+ Add</button>
           </div>
@@ -6213,12 +6341,12 @@ function renderCogCard(item, cogMap, invMap) {
 
     const summaryRow = `
       <tr style="border-top:2px solid var(--border);">
-        <td colspan="4" style="padding:8px;font-size:12px;font-weight:700;color:var(--muted);">TOTALS</td>
+        <td colspan="3" style="padding:8px;font-size:12px;font-weight:700;color:var(--muted);">TOTALS</td>
         <td style="padding:8px;font-size:13px;font-weight:700;text-align:right;">${!hasMissingCost ? '$'+cog.toFixed(2) : '—'}</td>
         <td></td>
       </tr>
       <tr>
-        <td colspan="3" style="padding:6px 8px;font-size:12px;color:var(--muted);">
+        <td colspan="2" style="padding:6px 8px;font-size:12px;color:var(--muted);">
           Selling Price${price ? ': $'+price.toFixed(2) : ': unknown'}
         </td>
         <td colspan="2" style="padding:6px 8px;text-align:right;">
@@ -6240,7 +6368,6 @@ function renderCogCard(item, cogMap, invMap) {
             <tr style="border-bottom:1.5px solid var(--border);">
               <th style="padding:5px 8px;font-size:11px;text-align:left;color:var(--muted);">INGREDIENT</th>
               <th style="padding:5px 8px;font-size:11px;text-align:right;color:var(--muted);">QTY</th>
-              <th style="padding:5px 8px;font-size:11px;color:var(--muted);">UNIT</th>
               <th style="padding:5px 8px;font-size:11px;text-align:right;color:var(--muted);">$/UNIT</th>
               <th style="padding:5px 8px;font-size:11px;text-align:right;color:var(--muted);">COST</th>
               <th></th>
@@ -6290,10 +6417,8 @@ function cogVarTab(itemId, activeIdx, total) {
 async function addCogIngredient(menuItemId, menuItemName, variationName, varIdx) {
   const ingEl  = document.getElementById(`cog-new-ing-${menuItemId}-${varIdx}`);
   const qtyEl  = document.getElementById(`cog-new-qty-${menuItemId}-${varIdx}`);
-  const unitEl = document.getElementById(`cog-new-unit-${menuItemId}-${varIdx}`);
   const ingName = (ingEl?.value || '').trim();
   const qty     = parseFloat(qtyEl?.value) || 0;
-  const unit    = (unitEl?.value || '').trim();
   if (!ingName) { toast('warn', 'Enter an ingredient name'); return; }
   try {
     const fields = {
@@ -6302,14 +6427,12 @@ async function addCogIngredient(menuItemId, menuItemName, variationName, varIdx)
       MenuItemName:   menuItemName,
       VariationName:  variationName,
       IngredientName: ingName,
-      Quantity:       qty || null,
-      Unit:           unit
+      Quantity:       qty || null
     };
     const saved = await addListItem(LISTS.cogs, fields);
     cache.cogsRecipes.push(saved);
-    if (ingEl)  ingEl.value  = '';
-    if (qtyEl)  qtyEl.value  = '';
-    if (unitEl) unitEl.value = '';
+    if (ingEl) ingEl.value = '';
+    if (qtyEl) qtyEl.value = '';
     renderCogCards();
   } catch(e) {
     toast('err', 'Failed to add ingredient: ' + e.message);
