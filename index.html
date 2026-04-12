@@ -353,6 +353,7 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
   <div class="nav-item" onclick="nav('cogs')"><span class="nav-icon">💰</span> Cost of Goods</div>
   <div class="nav-section">Admin</div>
   <div class="nav-item" onclick="nav('square')"><span class="nav-icon">◼</span> Square</div>
+  <div class="nav-item" onclick="nav('parking')" style="display:none"><span class="nav-icon">🅿️</span> Parking</div>
   <div class="nav-item" onclick="nav('settings')"><span class="nav-icon">⚙️</span> Settings</div>
 </div>
 
@@ -1273,6 +1274,50 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
     </div>
   </div>
 
+  <!-- PARKING -->
+  <div class="page" id="page-parking">
+    <div class="page-header">
+      <div class="page-title">🅿️ Circa Parking</div>
+      <div class="page-sub">Parking pass list — managed via ParkChirp (service@parkchirp.com)</div>
+    </div>
+    <div class="toolbar">
+      <div class="search-wrap">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input class="search-input" placeholder="Search by name or email…" oninput="renderParking(this.value)">
+      </div>
+      <select class="filter" id="parking-status-filter" onchange="renderParking(document.querySelector('#page-parking .search-input').value)">
+        <option value="">All Status</option>
+        <option value="Active">Active</option>
+        <option value="Inactive">Inactive</option>
+        <option value="Remove">Remove</option>
+      </select>
+      <select class="filter" id="parking-loc-filter" onchange="renderParking(document.querySelector('#page-parking .search-input').value)">
+        <option value="">All Locations</option>
+        <option value="Blue Sparrow Coffee">Blue Sparrow Coffee</option>
+        <option value="Mainspring">Mainspring</option>
+        <option value="Room for Milly">Room for Milly</option>
+      </select>
+      <span id="parking-count" style="font-size:13px;color:var(--muted);"></span>
+      <button class="btn btn-outline ml-auto" id="parking-seed-btn" onclick="seedParkingData()" style="font-size:12px;padding:5px 12px;">Seed from Spreadsheet</button>
+      <button class="btn btn-primary" onclick="openParkingForm(null)" style="font-size:12px;padding:5px 12px;">+ Add Entry</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>First Name</th>
+          <th>Last Name</th>
+          <th>Email</th>
+          <th>Location</th>
+          <th>Status</th>
+          <th>Notes</th>
+          <th style="width:72px"></th>
+        </tr></thead>
+        <tbody id="parking-body"></tbody>
+      </table>
+      <div class="no-data" id="parking-empty" style="display:none">No parking entries found.</div>
+    </div>
+  </div>
+
   <!-- SETTINGS -->
   <div class="page" id="page-settings">
     <div class="page-header">
@@ -1407,6 +1452,43 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
 </div><!-- /app -->
 
 <!-- ── MODALS ─────────────────────────────────────────────────────────────── -->
+
+<!-- Parking Add/Edit -->
+<div class="modal-overlay" id="modal-parking">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-header">
+      <div class="modal-title" id="parking-modal-title">Add Parking Entry</div>
+      <button class="modal-close" onclick="closeModal('modal-parking')">×</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group"><label>First Name *</label><input id="pk-first" placeholder="First name"></div>
+      <div class="form-group"><label>Last Name</label><input id="pk-last" placeholder="Last name"></div>
+      <div class="form-group" style="grid-column:1/-1"><label>Email *</label><input id="pk-email" type="email" placeholder="email@example.com"></div>
+      <div class="form-group"><label>Location</label>
+        <select id="pk-location" class="filter" style="width:100%">
+          <option value="">—</option>
+          <option>Blue Sparrow Coffee</option>
+          <option>Mainspring</option>
+          <option>Room for Milly</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Status</label>
+        <select id="pk-status" class="filter" style="width:100%">
+          <option>Active</option>
+          <option>Inactive</option>
+          <option>Remove</option>
+        </select>
+      </div>
+      <div class="form-group" style="grid-column:1/-1"><label>Notes</label>
+        <textarea id="pk-notes" rows="2" style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;resize:vertical" placeholder="Any notes…"></textarea>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="saveParkingEntry()">Save</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-parking')">Cancel</button>
+    </div>
+  </div>
+</div>
 
 <!-- Vendor Add/Edit -->
 <div class="modal-overlay" id="modal-vendor">
@@ -1694,7 +1776,8 @@ const LISTS = {
   maintLog:       'BSC_MaintLog',
   settings:       'BSC_Settings',
   labels:         'BSC_CoffeeBagLabels',
-  foodPars:       'BSC_FoodPars'
+  foodPars:       'BSC_FoodPars',
+  parking:        'BSC_Parking'
 };
 
 // Inventory type config — drives which list/cache key each inv type uses
@@ -1756,7 +1839,8 @@ const cache = {
   equipInventory: [], equipCountHistory: [],
   labels: [],
   foodPars: [],
-  foodParValues: []
+  foodParValues: [],
+  parking: []
 };
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -2215,6 +2299,12 @@ async function ensureAllLists() {
     {name:'Price',number:{decimalPlaces:'automatic'}},{name:'Variations',text:{allowMultipleLines:true}},
     {name:'SquareId',text:{}},{name:'Hidden',text:{}}
   ]);
+  // Circa Parking list
+  await ensureList(LISTS.parking, [
+    {name:'FirstName',text:{}},{name:'LastName',text:{}},
+    {name:'Email',text:{}},{name:'Location',text:{}},
+    {name:'ParkingStatus',text:{}},{name:'Notes',text:{allowMultipleLines:true}}
+  ]);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -2222,7 +2312,7 @@ async function ensureAllLists() {
 // ════════════════════════════════════════════════════════════════════════════
 async function loadAllData() {
   const siteId = await getSiteId();
-  const [xfers, orders, cls, roles, vendors,,recipes,,contacts,staff,sched,log,appSettings,clGroups,clCompletions,labelRows,foodParRows] = await Promise.all([
+  const [xfers, orders, cls, roles, vendors,,recipes,,contacts,staff,sched,log,appSettings,clGroups,clCompletions,labelRows,foodParRows,parkingRows] = await Promise.all([
     getListItems(siteId, LISTS.transfers),
     getListItems(siteId, LISTS.orders),
     getListItems(siteId, LISTS.checklists),
@@ -2239,7 +2329,8 @@ async function loadAllData() {
     getListItems(siteId, LISTS.clGroups).catch(()=>[]),
     getListItems(siteId, LISTS.clCompletions).catch(()=>[]),
     getListItems(siteId, LISTS.labels).catch(()=>[]),
-    getListItems(siteId, LISTS.foodPars).catch(()=>[])
+    getListItems(siteId, LISTS.foodPars).catch(()=>[]),
+    getListItems(siteId, LISTS.parking).catch(()=>[])
   ]);
   cache.transfers=xfers; cache.orders=orders;
   cache.checklists=cls; cache.roles=roles; cache.vendors=vendors;
@@ -2249,6 +2340,7 @@ async function loadAllData() {
   cache.clGroups=clGroups; cache.clCompletions=clCompletions;
   cache.labels = labelRows || [];
   cache.foodPars = foodParRows || [];
+  cache.parking = parkingRows || [];
   // Load per-location food par values
   if (currentLocation === 'all') {
     const fpArrays = await Promise.all(
@@ -4308,6 +4400,229 @@ function setHiddenCols(listKey, set) {
   localStorage.setItem('hiddenCols_'+listKey, JSON.stringify([...set]));
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// PARKING
+// ════════════════════════════════════════════════════════════════════════════
+
+const PARKING_STATUS_BADGE = {
+  Active:   'badge-green',
+  Inactive: 'badge-gray',
+  Remove:   'badge-red'
+};
+
+function renderParking(query='') {
+  if (!isOwnerOrAccounting()) return;
+  const tbody  = document.getElementById('parking-body');
+  const empty  = document.getElementById('parking-empty');
+  const countEl = document.getElementById('parking-count');
+  if (!tbody) return;
+
+  const q         = query.toLowerCase();
+  const statusF   = document.getElementById('parking-status-filter')?.value || '';
+  const locF      = document.getElementById('parking-loc-filter')?.value || '';
+
+  let rows = [...cache.parking];
+  if (q) rows = rows.filter(r =>
+    [r.FirstName,r.LastName,r.Email].filter(Boolean).join(' ').toLowerCase().includes(q));
+  if (statusF) rows = rows.filter(r => (r.ParkingStatus||'') === statusF);
+  if (locF)    rows = rows.filter(r => (r.Location||'') === locF);
+
+  // Sort: Active first, then Inactive, then Remove; within each alpha by last then first
+  const statusOrder = { Active:0, Inactive:1, Remove:2 };
+  rows.sort((a,b) => {
+    const so = (statusOrder[a.ParkingStatus||'']??3) - (statusOrder[b.ParkingStatus||'']??3);
+    if (so !== 0) return so;
+    const lc = (a.LastName||'').localeCompare(b.LastName||'');
+    return lc !== 0 ? lc : (a.FirstName||'').localeCompare(b.FirstName||'');
+  });
+
+  if (!rows.length) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    countEl.textContent = '0 entries';
+    return;
+  }
+  empty.style.display = 'none';
+  countEl.textContent = rows.length + ' entries';
+
+  tbody.innerHTML = rows.map(r => {
+    const badge = PARKING_STATUS_BADGE[r.ParkingStatus||''] || 'badge-gray';
+    return `<tr>
+      <td class="fw">${escHtml(r.FirstName||'—')}</td>
+      <td>${escHtml(r.LastName||'')}</td>
+      <td style="font-size:12px"><a href="mailto:${escHtml(r.Email||'')}" style="color:var(--gold)">${escHtml(r.Email||'—')}</a></td>
+      <td><span style="font-size:12px;color:var(--muted)">${escHtml(r.Location||'—')}</span></td>
+      <td><span class="badge ${badge}">${escHtml(r.ParkingStatus||'—')}</span></td>
+      <td style="font-size:12px;color:var(--muted);max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(r.Notes||'')}</td>
+      <td style="white-space:nowrap">
+        <button data-id="${escHtml(r.id)}" onclick="openParkingForm(this.dataset.id)"
+          style="background:none;border:none;cursor:pointer;color:var(--gold);font-size:13px;padding:2px 6px;" title="Edit">✏️</button>
+        <button data-id="${escHtml(r.id)}" onclick="deleteParkingEntry(this.dataset.id)"
+          style="background:none;border:none;cursor:pointer;color:var(--red);font-size:13px;padding:2px 6px;" title="Delete">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+let _parkingEditId = null;
+
+function openParkingForm(id) {
+  _parkingEditId = id;
+  const item = id ? cache.parking.find(r=>r.id===id) : null;
+  document.getElementById('parking-modal-title').textContent = item ? 'Edit Parking Entry' : 'Add Parking Entry';
+  document.getElementById('pk-first').value    = item?.FirstName || '';
+  document.getElementById('pk-last').value     = item?.LastName  || '';
+  document.getElementById('pk-email').value    = item?.Email     || '';
+  document.getElementById('pk-location').value = item?.Location  || '';
+  document.getElementById('pk-status').value   = item?.ParkingStatus || 'Active';
+  document.getElementById('pk-notes').value    = item?.Notes     || '';
+  openModal('modal-parking');
+  setTimeout(()=>document.getElementById('pk-first')?.focus(), 80);
+}
+
+async function saveParkingEntry() {
+  const first = document.getElementById('pk-first').value.trim();
+  const email = document.getElementById('pk-email').value.trim();
+  if (!first) { toast('err','First name is required'); return; }
+  if (!email) { toast('err','Email is required'); return; }
+  const data = {
+    Title:         first + ' ' + document.getElementById('pk-last').value.trim(),
+    FirstName:     first,
+    LastName:      document.getElementById('pk-last').value.trim(),
+    Email:         email,
+    Location:      document.getElementById('pk-location').value,
+    ParkingStatus: document.getElementById('pk-status').value,
+    Notes:         document.getElementById('pk-notes').value.trim()
+  };
+  setLoading(true,'Saving…');
+  try {
+    if (_parkingEditId) {
+      await updateListItem(LISTS.parking, _parkingEditId, data);
+      const idx = cache.parking.findIndex(r=>r.id===_parkingEditId);
+      if (idx!==-1) cache.parking[idx] = {...cache.parking[idx], ...data};
+      toast('ok','✓ Entry updated');
+    } else {
+      const item = await addListItem(LISTS.parking, data);
+      cache.parking.push(item);
+      toast('ok','✓ Entry added');
+    }
+    renderParking(document.querySelector('#page-parking .search-input')?.value||'');
+    closeModal('modal-parking');
+  } catch(e) { toast('err','Save failed: '+e.message); }
+  finally { setLoading(false); }
+}
+
+async function deleteParkingEntry(id) {
+  const item = cache.parking.find(r=>r.id===id);
+  if (!item) return;
+  if (!confirm(`Remove "${item.FirstName} ${item.LastName||''}" from the parking list?`)) return;
+  setLoading(true,'Deleting…');
+  try {
+    await deleteListItem(LISTS.parking, id);
+    cache.parking = cache.parking.filter(r=>r.id!==id);
+    renderParking(document.querySelector('#page-parking .search-input')?.value||'');
+    toast('ok','✓ Entry removed');
+  } catch(e) { toast('err','Delete failed: '+e.message); }
+  finally { setLoading(false); }
+}
+
+async function seedParkingData() {
+  const btn = document.getElementById('parking-seed-btn');
+  if (cache.parking.length > 0 &&
+      !confirm(`Parking list already has ${cache.parking.length} entry/entries. Seed will add any that are missing by email. Continue?`)) return;
+
+  const SEED = [
+    {FirstName:'Daniel',    LastName:'Deleon',      Email:'danieldeleon121700@gmail.com',  Location:'Blue Sparrow Coffee', ParkingStatus:'Active'},
+    {FirstName:'Jeffrey',   LastName:'Knott',        Email:'knotthead17@gmail.com',          Location:'Blue Sparrow Coffee', ParkingStatus:'Active'},
+    {FirstName:'Madison',   LastName:'Russell',      Email:'riptide0192@gmail.com',          Location:'Blue Sparrow Coffee', ParkingStatus:'Active'},
+    {FirstName:'Cisco',     LastName:'Marquez',      Email:'thefranciscomarquez@gmail.com',  Location:'Blue Sparrow Coffee', ParkingStatus:'Active'},
+    {FirstName:'Michael',   LastName:'Shapiro',      Email:'blakestreet@bluesparrowcoffee.com', Location:'Blue Sparrow Coffee', ParkingStatus:'Active'},
+    {FirstName:'Veronica',  LastName:'Allmon',       Email:'vallmon@harding.edu',            Location:'Blue Sparrow Coffee', ParkingStatus:'Active'},
+    {FirstName:'Jim',       LastName:'Adame',        Email:'shermanstreet@bluesparrowcoffee.com', Location:'Blue Sparrow Coffee', ParkingStatus:'Active'},
+    {FirstName:'Jesse',     LastName:'York',         Email:'jesse@mainspringco.com',         Location:'Mainspring',          ParkingStatus:'Active'},
+    {FirstName:'Fiona',     LastName:'Arnold',       Email:'fiona@mainspringco.com',         Location:'Mainspring',          ParkingStatus:'Active'},
+    {FirstName:'Norma',     LastName:'Lopez',        Email:'amalia_lopez@hotmail.com',       Location:'Mainspring',          ParkingStatus:'Active'},
+    {FirstName:'Ella',      LastName:'Wonder',       Email:'ellatwonder@gmail.com',          Location:'Room for Milly',      ParkingStatus:'Active'},
+    {FirstName:'Kyle',      LastName:'Fanfoni',      Email:'kyfoni@gmail.com',               Location:'Room for Milly',      ParkingStatus:'Active'},
+    {FirstName:'Chase',     LastName:'Arnold',       Email:'4chasearnold@gmail.com',         Location:'Room for Milly',      ParkingStatus:'Active'},
+    {FirstName:'Ned',       LastName:'Arnold',       Email:'ned.arnold.303@gmail.com',       Location:'Room for Milly',      ParkingStatus:'Active'},
+    {FirstName:'Alonzo',    LastName:'Kimble',       Email:'alonzokimblework98@gmail.com',   Location:'Blue Sparrow Coffee', ParkingStatus:'Active'},
+    {FirstName:'Kirby',     LastName:'Willow',       Email:'kirby@couldbemedia.com',         Location:'Blue Sparrow Coffee', ParkingStatus:'Active'},
+    {FirstName:'Ryyan',     LastName:'Chacra',       Email:'ryyan.chacra@columbia.edu',      Location:'Blue Sparrow Coffee', ParkingStatus:'Inactive'},
+    {FirstName:'Jamie',     LastName:'Cordova',      Email:'jamiecordova78@gmail.com',       Location:'Blue Sparrow Coffee', ParkingStatus:'Inactive'},
+    {FirstName:'Connor',    LastName:'Nichols',      Email:'info@connornich.com',            Location:'Blue Sparrow Coffee', ParkingStatus:'Inactive'},
+    {FirstName:'Ashley',    LastName:'Johnson',      Email:'ashjohns1477@gmail.com',         Location:'Blue Sparrow Coffee', ParkingStatus:'Inactive'},
+    {FirstName:'Audrey',    LastName:'Boyd',         Email:'hello.audreycb@gmail.com',       Location:'Blue Sparrow Coffee', ParkingStatus:'Inactive'},
+    {FirstName:'Jack',      LastName:'Hinton',       Email:'jackbhinton@gmail.com',          Location:'Blue Sparrow Coffee', ParkingStatus:'Inactive'},
+    {FirstName:'Akaisha',   LastName:'Randle',       Email:'kaisha789@gmail.com',            Location:'Blue Sparrow Coffee', ParkingStatus:'Inactive'},
+    {FirstName:'Ferris',    LastName:'Aldaco',       Email:'f3rrismadison@gmail.com',        Location:'Blue Sparrow Coffee', ParkingStatus:'Inactive'},
+    {FirstName:'Rosy',      LastName:'Huynh',        Email:'rosynwin@gmail.com',             Location:'Blue Sparrow Coffee', ParkingStatus:'Inactive'},
+    {FirstName:'Alexandria',LastName:'Gallizioli',   Email:'agallizioli@me.com',             Location:'Blue Sparrow Coffee', ParkingStatus:'Inactive'},
+    {FirstName:'Maggie',    LastName:'Gardner',      Email:'maggiegardnerr@gmail.com',       Location:'Blue Sparrow Coffee', ParkingStatus:'Inactive'},
+    {FirstName:'Kai',       LastName:'Jones',        Email:'Kjones19955@gmail.com',          Location:'Blue Sparrow Coffee', ParkingStatus:'Inactive'},
+    {FirstName:'Thalia',    LastName:'Weathers',     Email:'sthw26@gmail.com',               Location:'Blue Sparrow Coffee', ParkingStatus:'Inactive'},
+    {FirstName:'Justin',    LastName:'Dano',         Email:'justind@mainspringco.com',       Location:'Room for Milly',      ParkingStatus:'Inactive'},
+    {FirstName:'Andy',      LastName:'Schlauch',     Email:'andy@mainspringco.com',          Location:'Mainspring',          ParkingStatus:'Inactive'},
+    {FirstName:'Phil',      LastName:'Hua-Pham',     Email:'phil@mainspringco.com',          Location:'Mainspring',          ParkingStatus:'Inactive'},
+    {FirstName:'Landon',    LastName:'Burch',        Email:'lburch213@gmail.com',            Location:'Blue Sparrow Coffee', ParkingStatus:'Inactive'},
+    {FirstName:'Will',      LastName:'Blankenship',  Email:'Wblankenship757@gmail.com',      Location:'Room for Milly',      ParkingStatus:'Inactive', Notes:'Email will come from service@parkchirp.com'},
+    {FirstName:'Megan',     LastName:'Pieske',       Email:'mpieskephld@gmail.com',          Location:'Room for Milly',      ParkingStatus:'Inactive', Notes:'Email will come from service@parkchirp.com'},
+    {FirstName:'James',     LastName:'Andrew',       Email:'jastevens1990@gmail.com',        Location:'Room for Milly',      ParkingStatus:'Inactive'},
+    {FirstName:'Archer',    LastName:'Solenberg',    Email:'asolenberger311@gmail.com',      Location:'Room for Milly',      ParkingStatus:'Inactive'},
+    {FirstName:'Gabriella', LastName:'Strommen',     Email:'gabriellastrommen@gmail.com',    Location:'Room for Milly',      ParkingStatus:'Inactive'},
+    {FirstName:'Sarah',     LastName:'Smith',        Email:'Smith.g.Sarah030@gmail.com',     Location:'Room for Milly',      ParkingStatus:'Inactive'},
+    {FirstName:'Eric',      LastName:'Armenta',      Email:'Ezbronz@gmail.com',              Location:'Room for Milly',      ParkingStatus:'Inactive'},
+    {FirstName:'Nicholas',  LastName:'Morales',      Email:'n.m.morales91@gmail.com',        Location:'Room for Milly',      ParkingStatus:'Inactive'},
+    {FirstName:'David',     LastName:'Stallings',    Email:'oojiveturkey@icloud.com',        Location:'Room for Milly',      ParkingStatus:'Inactive'},
+    {FirstName:'Alec',      LastName:'Sturdy',       Email:'alecsturdy@yahoo.com',           Location:'Room for Milly',      ParkingStatus:'Inactive'},
+    {FirstName:'Itzel',     LastName:'Catarino',     Email:'itzelcpalomo@gmail.com',         Location:'Room for Milly',      ParkingStatus:'Inactive'},
+    {FirstName:'Quinn',     LastName:'Lucero',       Email:'quinn.lucero@yahoo.com',         Location:'Room for Milly',      ParkingStatus:'Inactive'},
+    {FirstName:'Jordan',    LastName:'Garelick',     Email:'jabird2000@gmail.com',           Location:'Room for Milly',      ParkingStatus:'Inactive'},
+    {FirstName:'Jack',      LastName:'Mello',        Email:'jtmsnow95@gmail.com',            Location:'Room for Milly',      ParkingStatus:'Inactive'},
+    {FirstName:'Josh',      LastName:'Johnston',     Email:'jjohnstoniv@students.ccu.edu',   Location:'Room for Milly',      ParkingStatus:'Inactive'},
+    {FirstName:'Miche',     LastName:'Glancey',      Email:'michelleglancey@gmail.com',      Location:'Room for Milly',      ParkingStatus:'Inactive'},
+    {FirstName:'Mikaela',   LastName:'Gerdes',       Email:'magerdes@comcast.net',           Location:'Room for Milly',      ParkingStatus:'Inactive'},
+    {FirstName:'Will',      LastName:'Conradt',      Email:'wfcoonradt@gmail.com',           Location:'Room for Milly',      ParkingStatus:'Inactive'},
+    {FirstName:'Nick',      LastName:'Quill',        Email:'nquill19@gmail.com',             Location:'Room for Milly',      ParkingStatus:'Inactive'},
+    {FirstName:'Caleb',     LastName:'Rocha',        Email:'Calebjrocha@gmail.com',          Location:'Room for Milly',      ParkingStatus:'Inactive'},
+    {FirstName:'Megan',     LastName:'Connolly',     Email:'megs.michelle@yahoo.com',        Location:'Room for Milly',      ParkingStatus:'Inactive'},
+    {FirstName:'Charli',    LastName:'Patrick',      Email:'charlipatrick5@gmail.com',       Location:'Room for Milly',      ParkingStatus:'Inactive'},
+    {FirstName:'Mason',     LastName:'Tully',        Email:'mason.tully@gmail.com',          Location:'Room for Milly',      ParkingStatus:'Inactive'},
+    {FirstName:'Liam',      LastName:'Gallagher',    Email:'lgallagher720@gmail.com',        Location:'Blue Sparrow Coffee', ParkingStatus:'Inactive'},
+    {FirstName:'Caleah',    LastName:'Hager',        Email:'caleah.ann@outlook.com',         Location:'Blue Sparrow Coffee', ParkingStatus:'Remove'},
+    {FirstName:'Jeremy',    LastName:'Duffy',        Email:'duffyjd10@gmail.com',            Location:'Room for Milly',      ParkingStatus:'Remove'},
+    {FirstName:'AJ',        LastName:'',             Email:'Apolanco05@gmail.com',           Location:'Room for Milly',      ParkingStatus:'Remove'},
+    {FirstName:'Hunter',    LastName:'Lindley',      Email:'hunterlindley@gmail.com',        Location:'Room for Milly',      ParkingStatus:'Remove'},
+    {FirstName:'Hannah',    LastName:'Abraham',      Email:'hannahabraham1312@gmail.com',    Location:'Blue Sparrow Coffee', ParkingStatus:'Remove'},
+    {FirstName:'Ethan',     LastName:'Hurd',         Email:'ethanch0627@gmail.com',          Location:'Room for Milly',      ParkingStatus:'Remove', Notes:'Remove Via Fiona'},
+  ];
+
+  const existingEmails = new Set(cache.parking.map(r=>(r.Email||'').toLowerCase().trim()));
+  const toAdd = SEED.filter(s => !existingEmails.has((s.Email||'').toLowerCase()));
+  if (!toAdd.length) { toast('ok','All entries already exist'); return; }
+
+  if (btn) btn.disabled = true;
+  setLoading(true, `Seeding ${toAdd.length} parking entries…`);
+  try {
+    for (let i=0; i<toAdd.length; i+=4) {
+      const batch = toAdd.slice(i,i+4);
+      const results = await Promise.all(batch.map(p => addListItem(LISTS.parking, {
+        Title:         (p.FirstName+' '+p.LastName).trim(),
+        FirstName:     p.FirstName,
+        LastName:      p.LastName||'',
+        Email:         p.Email,
+        Location:      p.Location,
+        ParkingStatus: p.ParkingStatus,
+        Notes:         p.Notes||''
+      })));
+      results.forEach(r => cache.parking.push(r));
+    }
+    toast('ok', `✓ Seeded ${toAdd.length} parking entries`);
+    renderParking();
+  } catch(e) { toast('err','Seed failed: '+e.message); }
+  finally { setLoading(false); if (btn) btn.disabled = false; }
+}
+
 let _vendorEditId = null;
 
 function getAllVendorTags() {
@@ -5651,6 +5966,9 @@ function applyLocationAccess() {
   // Hide Settings nav for non-owners
   const settingsNav = document.querySelector('.nav-item[onclick="nav(\'settings\')"]');
   if (settingsNav) settingsNav.style.display = isOwner() ? '' : 'none';
+  // Hide Parking nav for non-owner / non-accounting roles
+  const parkingNav = document.querySelector('.nav-item[onclick="nav(\'parking\')"]');
+  if (parkingNav) parkingNav.style.display = isOwnerOrAccounting() ? '' : 'none';
 }
 
 function renderLocations() {
@@ -5837,6 +6155,7 @@ function nav(page) {
   if (page==='square')   { renderSquarePage(); }
   if (page==='menu')     { renderMenu(); }
   if (page==='cogs')     { renderCogs(); }
+  if (page==='parking')  { renderParking(); }
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -7105,6 +7424,13 @@ function isOwner() {
   if (!currentStaffMember) return true; // unlinked login → allow during setup
   const role = (currentStaffMember.Role || '').toLowerCase();
   return role.includes('owner') || role.includes('admin');
+}
+
+function isOwnerOrAccounting() {
+  if (!currentUser) return false;
+  if (!currentStaffMember) return true; // unlinked login → allow during setup
+  const role = (currentStaffMember.Role || '').toLowerCase();
+  return role.includes('owner') || role.includes('admin') || role.includes('accounting');
 }
 
 // Build a lookup map: { [menuItemId+':'+variationName]: [cogRecipeRows] }
