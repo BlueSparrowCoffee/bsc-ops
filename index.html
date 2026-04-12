@@ -8239,30 +8239,55 @@ async function syncMerchPricesFromSquare() {
     log('Fetching Square catalog…');
     let objects = [], cursor = null;
     do {
-      const params = `catalog/list?types=ITEM${cursor ? '&cursor='+encodeURIComponent(cursor) : ''}`;
+      const params = `catalog/list?types=ITEM,CATEGORY,CATEGORY_V1${cursor ? '&cursor='+encodeURIComponent(cursor) : ''}`;
       const data = await squareAPI('GET', params);
       objects = objects.concat(data.objects || []);
       cursor = data.cursor || null;
     } while (cursor);
 
-    // Build squareCatalogItemId → price map (first priced variation)
+    // Build category ID → name map (same logic as menu sync)
+    const categories = {};
+    objects.filter(o => (o.type === 'CATEGORY' || o.type === 'CATEGORY_V1') && !o.is_deleted)
+      .forEach(c => {
+        const n = c.category_data?.name || c.category_v1_data?.name;
+        if (n) categories[c.id] = n;
+      });
+
+    // Helper to resolve category from an item
+    const resolveCategory = d => {
+      const catArr = d.categories || [];
+      if (catArr.length) {
+        const embedded = catArr[0]?.name || catArr[0]?.category_data?.name;
+        if (embedded) return embedded;
+        const id = catArr[0]?.id || catArr[0];
+        if (id && categories[id]) return categories[id];
+      }
+      if (d.reporting_category?.id) return categories[d.reporting_category.id] || d.reporting_category?.name || null;
+      if (d.category_id) return categories[d.category_id] || null;
+      return null;
+    };
+
+    // Build squareCatalogItemId → { price, category } map
     const priceMap = {};
+    const catMap   = {};
     const multiVarItems = [];
     for (const obj of objects) {
       if (obj.type !== 'ITEM' || obj.is_deleted) continue;
-      const vars = (obj.item_data?.variations || []);
+      const d    = obj.item_data || {};
+      const vars = d.variations || [];
       const priced = vars.filter(v => v.item_variation_data?.price_money);
+      const cat  = resolveCategory(d);
+      catMap[obj.id] = cat;
       if (!priced.length) continue;
       const price = priced[0].item_variation_data.price_money.amount / 100;
       priceMap[obj.id] = price;
-      // Also map individual variation IDs for items where the variation ID is stored
-      for (const v of priced) priceMap[v.id] = v.item_variation_data.price_money.amount / 100;
+      for (const v of priced) { priceMap[v.id] = v.item_variation_data.price_money.amount / 100; catMap[v.id] = cat; }
       if (priced.length > 1) {
         const prices = [...new Set(priced.map(v => v.item_variation_data.price_money.amount / 100))];
-        if (prices.length > 1) multiVarItems.push({ name: obj.item_data?.name || obj.id, prices });
+        if (prices.length > 1) multiVarItems.push({ name: d.name || obj.id, prices });
       }
     }
-    log(`Found ${Object.keys(priceMap).length} priced catalog entries`);
+    log(`Found ${Object.keys(priceMap).length} priced catalog entries, ${Object.keys(categories).length} categories`);
     if (multiVarItems.length) {
       log(`ℹ️ ${multiVarItems.length} items have multiple price points — using first variation:`);
       multiVarItems.slice(0,5).forEach(i => log(`   ${i.name}: ${i.prices.map(p=>'$'+p.toFixed(2)).join(', ')}`));
@@ -8275,10 +8300,14 @@ async function syncMerchPricesFromSquare() {
       if (!sqId) { skipped++; continue; }
       const price = priceMap[sqId];
       if (price == null) { notFound++; log(`  ⚠ No price found for: ${item.ItemName||item.Title} (Square ID: ${sqId.slice(-8)})`); continue; }
-      if (item.SellingPrice === price) { log(`  = ${item.ItemName||item.Title}: $${price.toFixed(2)} (unchanged)`); continue; }
-      await updateListItem(LISTS.merchInventory, item.id, { SellingPrice: price });
-      log(`  ✓ ${item.ItemName||item.Title}: $${price.toFixed(2)}`);
-      item.SellingPrice = price;
+      const cat = catMap[sqId] || null;
+      const fields = { SellingPrice: price };
+      if (cat && cat !== item.Category) fields.Category = cat;
+      const unchanged = item.SellingPrice === price && !fields.Category;
+      if (unchanged) { log(`  = ${item.ItemName||item.Title}: $${price.toFixed(2)} (unchanged)`); continue; }
+      await updateListItem(LISTS.merchInventory, item.id, fields);
+      log(`  ✓ ${item.ItemName||item.Title}: $${price.toFixed(2)}${fields.Category ? ' · cat → '+fields.Category : ''}`);
+      Object.assign(item, fields);
       updated++;
     }
 
@@ -8789,32 +8818,30 @@ async function syncSquareCatalog() {
     sqLog(logId, 'Fetching catalog from Square…');
     let objects = [], cursor = null;
     do {
-      const params = `catalog/list?types=ITEM,CATEGORY${cursor ? '&cursor='+encodeURIComponent(cursor) : ''}`;
+      // Request ITEM + both category object types (CATEGORY = legacy, CATEGORY_V1 = newer accounts)
+      const params = `catalog/list?types=ITEM,CATEGORY,CATEGORY_V1${cursor ? '&cursor='+encodeURIComponent(cursor) : ''}`;
       const data = await squareAPI('GET', params);
       objects = objects.concat(data.objects || []);
       cursor = data.cursor || null;
     } while (cursor);
 
+    // Build category ID → name map from both CATEGORY and CATEGORY_V1 objects
     const categories = {};
-    const catObjects = objects.filter(o => o.type === 'CATEGORY' && !o.is_deleted);
+    const catObjects = objects.filter(o => (o.type === 'CATEGORY' || o.type === 'CATEGORY_V1') && !o.is_deleted);
     catObjects.forEach(c => {
-      categories[c.id] = c.category_data?.name || c.category_data?.category_type || 'Uncategorized';
+      // category_data.name works for both CATEGORY and CATEGORY_V1
+      const name = c.category_data?.name || c.category_v1_data?.name;
+      if (name) categories[c.id] = name;
     });
-    // Separate active vs archived items
-    const allItems  = objects.filter(o => o.type === 'ITEM' && !o.is_deleted);
-    const items     = allItems.filter(o => !o.item_data?.is_archived);
-    const archived  = allItems.filter(o =>  o.item_data?.is_archived);
-    sqLog(logId, `Found ${items.length} active items, ${archived.length} archived, ${catObjects.length} categories`);
 
-    // Debug: show first few category objects and first item's category fields
+    const allItems = objects.filter(o => o.type === 'ITEM' && !o.is_deleted);
+    const items    = allItems.filter(o => !o.item_data?.is_archived);
+    const archived = allItems.filter(o =>  o.item_data?.is_archived);
+    sqLog(logId, `Found ${items.length} active items, ${archived.length} archived, ${catObjects.length} categories`);
     if (catObjects.length) {
-      sqLog(logId, `📂 Sample categories: ${catObjects.slice(0,3).map(c=>`${c.id.slice(-6)} → "${c.category_data?.name}"`).join(', ')}`);
+      sqLog(logId, `📂 Categories: ${catObjects.map(c=>'"'+categories[c.id]+'"').join(', ')}`);
     } else {
-      sqLog(logId, `⚠️ No CATEGORY objects returned — Square may be using a different type`);
-    }
-    if (items.length) {
-      const d0 = items[0].item_data || {};
-      sqLog(logId, `🔍 Sample item "${d0.name}" category fields: category_id="${d0.category_id||''}" categories=${JSON.stringify(d0.categories?.slice(0,2)||[])} reporting_category=${JSON.stringify(d0.reporting_category||{})}`);
+      sqLog(logId, `⚠️ No category objects returned from Square`);
     }
 
     const siteId = await getSiteId();
@@ -8832,11 +8859,27 @@ async function syncSquareCatalog() {
     for (const item of items) {
       const d = item.item_data || {};
       const name = d.name || item.id;
-      // Square newer API: item_data.categories is an array; legacy uses category_id; newest uses reporting_category
-      const catId = (d.categories && d.categories.length > 0)
-        ? (d.categories[0].id || d.categories[0])
-        : (d.reporting_category?.id || d.category_id || null);
-      const cat = catId ? (categories[catId] || catId.slice(-8)) : 'Uncategorized';
+      // Resolve category — try multiple Square API formats in order:
+      // 1. categories[] array (newer API) — may have name embedded directly
+      // 2. reporting_category (newest API)
+      // 3. category_id (legacy)
+      let cat = 'Uncategorized';
+      const catArr = d.categories || [];
+      if (catArr.length) {
+        // Some newer API responses embed the name directly on the category object
+        const embedded = catArr[0]?.name || catArr[0]?.category_data?.name;
+        if (embedded) {
+          cat = embedded;
+        } else {
+          const id = catArr[0]?.id || catArr[0];
+          cat = (id && categories[id]) ? categories[id] : (cat);
+        }
+      } else if (d.reporting_category?.id) {
+        const id = d.reporting_category.id;
+        cat = categories[id] || d.reporting_category?.name || cat;
+      } else if (d.category_id) {
+        cat = categories[d.category_id] || cat;
+      }
       const desc = d.description || '';
       // Build variations summary with prices
       const vars = (d.variations || []).map(v => {
@@ -8860,7 +8903,7 @@ async function syncSquareCatalog() {
         // Preserve Hidden flag — don't overwrite user's hide/show preference
         await updateListItem(LISTS.menu, existMap[item.id].id, fields);
         updated++;
-        sqLog(logId, `  ↻ ${name}`);
+        sqLog(logId, `  ↻ ${name} (${cat})`);
       } else {
         await addListItem(LISTS.menu, fields);
         created++;
