@@ -7218,79 +7218,117 @@ function openPastryOrderSync() {
   runPastryOrderSync();
 }
 
+// Convert 1-based column number to Excel letter(s): 1→A, 26→Z, 27→AA, 29→AC
+function excelCol(n) {
+  let s = '';
+  while (n > 0) { n--; s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26); }
+  return s;
+}
+
 async function runPastryOrderSync() {
-  const logEl  = document.getElementById('pastry-sync-log');
+  const logEl   = document.getElementById('pastry-sync-log');
   const againBtn = document.getElementById('pastry-sync-again-btn');
   logEl.textContent = 'Connecting to order spreadsheet…\n';
   againBtn.style.display = 'none';
   const log = msg => { logEl.textContent += msg + '\n'; logEl.scrollTop = logEl.scrollHeight; };
 
-  // Day mapping: app key → 0-based column offset from B (col B=Mon=0 … H=Sun=6)
-  const DAY_COLS = { Mon:0, Tue:1, Wed:2, Thu:3, Fri:4, Sat:5, Sun:6 };
+  const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
   try {
-    const wb = await getPastryOrderWorkbook();
+    const wb      = await getPastryOrderWorkbook();
+    const siteId  = await getSiteId();
+    const locations = getLocations(); // e.g. ['Blake','Platte','Sherman','17th']
 
-    // List all worksheet names once (handles case differences like "platte" vs "Platte")
-    const sheetsResp = await graph('GET', `${wb.base}?$select=name`);
-    const sheetNames = (sheetsResp.value || []).map(s => s.name);
-    log(`✓ Connected — tabs: ${sheetNames.join(', ')}\n`);
+    const masterPastries = cache.foodPars
+      .filter(p => p.Category === 'pastries')
+      .sort((a,b) => ((a.SortOrder||999)-(b.SortOrder||999)) || (a.Title||'').localeCompare(b.Title||''));
 
-    const siteId = await getSiteId();
-    const masterPastries = cache.foodPars.filter(p => p.Category === 'pastries');
     if (!masterPastries.length) { log('✗ No pastry items in master list.'); againBtn.style.display=''; return; }
 
-    // Build a quick-lookup set of known pastry names (lowercase)
-    const pastryNameSet = new Set(masterPastries.map(p => (p.Title||'').toLowerCase().trim()));
+    log(`Fetching par values for: ${locations.join(', ')}…`);
 
-    for (const loc of getLocations()) {
-      log(`── ${loc} ──`);
+    // Fetch all location SharePoint lists in parallel
+    const allLocVals = await Promise.all(
+      locations.map(loc => {
+        const ln = foodParsListName(loc);
+        return ln ? getListItems(siteId, ln).catch(() => []) : Promise.resolve([]);
+      })
+    );
 
-      // Find matching tab name (case-insensitive)
-      const sheetName = sheetNames.find(s => s.toLowerCase() === loc.toLowerCase());
-      if (!sheetName) { log(`  ✗ No tab found matching "${loc}", skipping\n`); continue; }
+    // Build a value map per location: lowercase item name → row
+    const locMaps = allLocVals.map(vals => {
+      const m = {};
+      for (const v of vals) m[(v.Title||'').toLowerCase().trim()] = v;
+      return m;
+    });
 
-      const fpLn = foodParsListName(loc);
-      if (!fpLn) { log(`  ✗ No SharePoint list for ${loc}, skipping\n`); continue; }
+    // ── Build the BSC_Data table ──────────────────────────────────────────
+    // Columns: Item | Blake Mon | Blake Tue | … | Blake Sun | Platte Mon | … | 17th Sun
+    const headers = ['Item'];
+    for (const loc of locations) for (const d of DAYS) headers.push(`${loc} ${d}`);
 
-      // Fetch this location's par values from SharePoint
-      const locVals = await getListItems(siteId, fpLn).catch(() => []);
-      const valMap = {};
-      for (const v of locVals) valMap[(v.Title||'').toLowerCase().trim()] = v;
-
-      // Read the full used range — we only WRITE back to matched rows B:H
-      const sheetEnc = encodeURIComponent(sheetName);
-      const used = await graph('GET', `${wb.base}/${sheetEnc}/usedRange`);
-      const rows = used.values || [];
-
-      // Scan every row; update B:H on rows whose col A matches a known pastry item
-      let updated = 0; let skipped = 0;
-      for (let ri = 0; ri < rows.length; ri++) {
-        const cellA = (rows[ri][0]||'').toString().trim();
-        if (!cellA) continue;
-        const key = cellA.toLowerCase();
-        if (!pastryNameSet.has(key)) continue; // category header, total row, etc.
-
-        const v = valMap[key] || {};
-        const rowNum = ri + 1; // Excel rows are 1-indexed
-        const dayVals = Object.keys(DAY_COLS)
-          .sort((a,b) => DAY_COLS[a] - DAY_COLS[b])
-          .map(d => typeof v[d] === 'number' ? v[d] : (parseInt(v[d])||0));
-
-        // Targeted write: only columns B–H, preserving column I (Total formula) and all else
-        await graph('PATCH',
-          `${wb.base}/${sheetEnc}/range(address='B${rowNum}:H${rowNum}')`,
-          { values: [dayVals] }
-        );
-        updated++;
+    const dataRows = masterPastries.map(p => {
+      const key = (p.Title||'').toLowerCase().trim();
+      const row = [p.Title||''];
+      for (const m of locMaps) {
+        const v = m[key] || {};
+        for (const d of DAYS) row.push(typeof v[d]==='number' ? v[d] : (parseInt(v[d])||0));
       }
+      return row;
+    });
 
-      if (updated === 0) skipped++;
-      log(`  ✓ ${updated} item${updated!==1?'s':''} updated${updated===0?' — check that item names match exactly':''}\n`);
+    const allRows  = [headers, ...dataRows];
+    const numCols  = headers.length;           // 1 + locations.length * 7
+    const lastCol  = excelCol(numCols);        // e.g. 'AC' for 4 locations
+
+    // ── Ensure BSC_Data sheet exists ─────────────────────────────────────
+    const DATA_SHEET = 'BSC_Data';
+    const sheetEnc   = encodeURIComponent(DATA_SHEET);
+    let sheetExists  = false;
+    try {
+      await graph('GET', `${wb.base}/${sheetEnc}`);
+      sheetExists = true;
+    } catch(_) {
+      log('Creating BSC_Data tab…');
+      await graph('POST', `${wb.base}/add`, { name: DATA_SHEET });
     }
 
-    log('✓ Sync complete — formulas and formatting preserved.');
-    toast('ok', '✓ Pastry pars synced to order sheet');
+    // Clear old content if sheet already existed
+    if (sheetExists) {
+      try {
+        const used = await graph('GET', `${wb.base}/${sheetEnc}/usedRange`);
+        const oldRows = (used.values||[]).length;
+        const oldCols = ((used.values||[[]])[0]||[]).length;
+        if (oldRows > 0) {
+          await graph('POST',
+            `${wb.base}/${sheetEnc}/range(address='A1:${excelCol(oldCols)}${oldRows}')/clear`, {});
+        }
+      } catch(_) { /* sheet was empty */ }
+    }
+
+    // Write the flat table in one call
+    log(`Writing ${masterPastries.length} items × ${locations.length} locations to BSC_Data…`);
+    await graph('PATCH',
+      `${wb.base}/${sheetEnc}/range(address='A1:${lastCol}${allRows.length}')`,
+      { values: allRows }
+    );
+
+    log(`\n✓ BSC_Data updated — ${masterPastries.length} items, ${locations.length} locations.\n`);
+
+    // ── Print VLOOKUP formulas for the user ───────────────────────────────
+    log('─── VLOOKUP formulas (paste into each location tab) ───');
+    log(`Range reference: BSC_Data!$A:$${lastCol}\n`);
+    locations.forEach((loc, li) => {
+      const baseIdx = 2 + li * 7; // 1-based column index for Mon of this location
+      log(`${loc} tab  (replace hard-coded numbers in B, C, D, E, F, G, H):`);
+      DAYS.forEach((d, di) => {
+        log(`  ${d}: =IFERROR(VLOOKUP($A4,BSC_Data!$A:$${lastCol},${baseIdx + di},0),0)`);
+      });
+      log('');
+    });
+    log('Note: change $A4 to match the row of your first item on each tab.');
+
+    toast('ok', '✓ BSC_Data synced — see log for VLOOKUP formulas');
   } catch(e) {
     log(`\n✗ Error: ${e.message}`);
     toast('err', 'Sync failed: ' + e.message);
