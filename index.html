@@ -1004,6 +1004,13 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
             <input type="number" id="fp-sun" min="0" placeholder="0" style="width:100%;text-align:center;padding:8px 2px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;box-sizing:border-box;">
           </div>
         </div>
+        <div style="margin-top:14px;">
+          <label class="field-label" style="margin-bottom:4px;display:block;">Price <span style="font-weight:400;color:var(--muted);">(per unit)</span></label>
+          <div style="position:relative;max-width:140px;">
+            <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:14px;">$</span>
+            <input type="number" id="fp-price" min="0" step="0.01" placeholder="0.00" style="width:100%;padding:8px 10px 8px 22px;border:1.5px solid var(--border);border-radius:7px;font-size:14px;box-sizing:border-box;">
+          </div>
+        </div>
         <input type="hidden" id="fp-category">
         <input type="hidden" id="fp-edit-id">
         <input type="hidden" id="fp-loc-id">
@@ -2401,7 +2408,8 @@ async function ensureAllLists() {
   await ensureList(LISTS.contactArchive, [{name:'ContactId',text:{}}]);
   await ensureList(LISTS.foodPars,[
     {name:'Category',  text:{}},
-    {name:'SortOrder', number:{decimalPlaces:'none'}}
+    {name:'SortOrder', number:{decimalPlaces:'none'}},
+    {name:'Price',     number:{decimalPlaces:'automatic'}}
   ]);
   await ensureList(LISTS.staff,[
     {name:'Role',text:{}},{name:'Location',text:{}},
@@ -7433,24 +7441,46 @@ function renderFoodParsTable(category) {
     return `style="padding:10px;text-align:center;font-size:14px;font-weight:${isToday ? '700' : '400'};background:${isToday ? 'var(--brand-light,#fff8e7)' : 'transparent'};color:${isToday ? 'var(--brand,#c8a951)' : 'var(--text,#1a1a1a)'};border-bottom:1px solid var(--border);"`;
   };
 
+  const thBase = `padding:8px 10px;font-size:12px;font-weight:700;background:var(--bg,#f5f5f5);border-bottom:1.5px solid var(--border);`;
   const thead = `<thead><tr>
-    <th style="padding:8px 12px;text-align:left;font-size:12px;font-weight:700;color:var(--muted);background:var(--bg,#f5f5f5);border-bottom:1.5px solid var(--border);">Item</th>
+    <th style="${thBase}text-align:left;">Item</th>
+    <th style="${thBase}text-align:right;color:var(--muted);">Price</th>
     ${FP_DAYS.map(d => `<th ${thStyle(d)}>${d}</th>`).join('')}
-    <th style="padding:8px 6px;background:var(--bg,#f5f5f5);border-bottom:1.5px solid var(--border);width:32px;"></th>
+    <th style="${thBase}text-align:right;color:#2e7d32;">Est. Weekly Rev</th>
+    <th style="${thBase}width:32px;"></th>
   </tr></thead>`;
 
-  const tbody = rows.map(p => `<tr>
-    <td style="padding:10px 12px;font-size:14px;font-weight:500;border-bottom:1px solid var(--border);">${escHtml(p.Title||'')}</td>
-    ${FP_DAYS.map(d => `<td ${tdStyle(d)}>${p[d] != null && p[d] !== '' ? p[d] : '<span style="color:var(--border)">—</span>'}</td>`).join('')}
-    <td style="padding:10px 6px;text-align:center;border-bottom:1px solid var(--border);">
-      <button class="btn btn-sm" style="font-size:11px;padding:3px 8px;" data-id="${escHtml(p.id)}" data-cat="${escHtml(category)}" onclick="openFoodParForm(this.dataset.id,this.dataset.cat)">Edit</button>
-    </td>
-  </tr>`).join('');
+  let totalRevenue = 0;
+  const tbody = rows.map(p => {
+    const price = parseFloat(p.Price) || 0;
+    const weekTotal = FP_DAYS.reduce((sum, d) => sum + (parseFloat(p[d]) || 0), 0);
+    const weekRev = price * weekTotal;
+    totalRevenue += weekRev;
+    const revCell = price > 0
+      ? `<span style="color:#2e7d32;font-weight:600;">$${weekRev.toFixed(2)}</span>`
+      : `<span style="color:var(--border)">—</span>`;
+    return `<tr>
+      <td style="padding:10px 12px;font-size:14px;font-weight:500;border-bottom:1px solid var(--border);">${escHtml(p.Title||'')}</td>
+      <td style="padding:10px 10px;text-align:right;font-size:13px;color:var(--muted);border-bottom:1px solid var(--border);">${price > 0 ? '$'+price.toFixed(2) : '<span style="color:var(--border)">—</span>'}</td>
+      ${FP_DAYS.map(d => `<td ${tdStyle(d)}>${p[d] != null && p[d] !== '' ? p[d] : '<span style="color:var(--border)">—</span>'}</td>`).join('')}
+      <td style="padding:10px 10px;text-align:right;border-bottom:1px solid var(--border);">${revCell}</td>
+      <td style="padding:10px 6px;text-align:center;border-bottom:1px solid var(--border);">
+        <button class="btn btn-sm" style="font-size:11px;padding:3px 8px;" data-id="${escHtml(p.id)}" data-cat="${escHtml(category)}" onclick="openFoodParForm(this.dataset.id,this.dataset.cat)">Edit</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  const tfoot = `<tfoot><tr>
+    <td colspan="2" style="padding:10px 12px;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">Weekly Total</td>
+    <td colspan="${FP_DAYS.length}" style="padding:10px;"></td>
+    <td style="padding:10px 10px;text-align:right;font-weight:700;font-size:14px;color:#2e7d32;">$${totalRevenue.toFixed(2)}</td>
+    <td></td>
+  </tr></tfoot>`;
 
   wrap.innerHTML = `
     <div style="overflow-x:auto;border-radius:10px;border:1.5px solid var(--border);">
-      <table style="width:100%;border-collapse:collapse;min-width:540px;">
-        ${thead}<tbody>${tbody}</tbody>
+      <table style="width:100%;border-collapse:collapse;min-width:600px;">
+        ${thead}<tbody>${tbody}</tbody>${tfoot}
       </table>
     </div>`;
 }
@@ -7463,9 +7493,10 @@ function openFoodParForm(id, category) {
   const label = _fpEditCategory === 'pastries' ? 'Pastry' : 'Sandwich';
 
   document.getElementById('foodpar-modal-title').textContent = p ? `Edit ${label}` : `Add ${label}`;
-  document.getElementById('fp-name').value    = p ? (p.Title || '') : '';
-  document.getElementById('fp-edit-id').value = p ? p.id : '';
-  document.getElementById('fp-loc-id').value  = p ? (p._locId || '') : '';
+  document.getElementById('fp-name').value     = p ? (p.Title || '') : '';
+  document.getElementById('fp-price').value    = p && p.Price != null ? p.Price : '';
+  document.getElementById('fp-edit-id').value  = p ? p.id : '';
+  document.getElementById('fp-loc-id').value   = p ? (p._locId || '') : '';
   document.getElementById('fp-category').value = _fpEditCategory;
 
   FP_DAYS.forEach(d => {
@@ -7485,7 +7516,8 @@ async function saveFoodParForm() {
   const locId   = document.getElementById('fp-loc-id').value;
   const cat     = document.getElementById('fp-category').value;
 
-  const masterData = { Title: name, Category: cat };
+  const priceVal = parseFloat(document.getElementById('fp-price').value);
+  const masterData = { Title: name, Category: cat, Price: isNaN(priceVal) ? null : priceVal };
   const parData = { Title: name };
   FP_DAYS.forEach(d => {
     const val = document.getElementById('fp-' + d.toLowerCase())?.value;
@@ -7498,7 +7530,7 @@ async function saveFoodParForm() {
   setLoading(true, editId ? 'Saving…' : 'Adding…');
   try {
     await ensureList(LISTS.foodPars, [
-      {name:'Category',text:{}},{name:'SortOrder',number:{decimalPlaces:'none'}}
+      {name:'Category',text:{}},{name:'SortOrder',number:{decimalPlaces:'none'}},{name:'Price',number:{decimalPlaces:'automatic'}}
     ]);
     await ensureList(locListName, FP_PAR_LIST_COLS);
 
@@ -7651,7 +7683,7 @@ async function importSelectedFoodPars() {
   if (!locListName) { toast('err','Select a location first'); return; }
   try {
     await ensureList(LISTS.foodPars, [
-      {name:'Category',text:{}},{name:'SortOrder',number:{decimalPlaces:'none'}}
+      {name:'Category',text:{}},{name:'SortOrder',number:{decimalPlaces:'none'}},{name:'Price',number:{decimalPlaces:'automatic'}}
     ]);
     await ensureList(locListName, FP_PAR_LIST_COLS);
     for (const name of selected) {
