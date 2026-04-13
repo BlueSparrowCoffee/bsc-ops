@@ -8541,7 +8541,7 @@ function calcCog(menuItemId, variationName, cogMap, invMap, prepMap) {
     const lineCost = costPerServing != null ? qty * costPerServing : null;
     if (lineCost == null || costPerServing == null) hasMissingCost = true;
     else cog += lineCost;
-    return { ...ing, costPerServing, lineCost, isPrepItem };
+    return { ...ing, costPerServing, lineCost, isPrepItem, servingUnit: source?.ServingUnit || '' };
   });
   return { cog, lines, hasMissingCost };
 }
@@ -9082,9 +9082,12 @@ function renderCogCard(item, cogMap, invMap, prepMap) {
       <tr>
         <td style="padding:6px 8px;font-size:12px;">${escHtml(ing.IngredientName||'')}${ing.isPrepItem?' <span style="font-size:10px;color:var(--teal);background:rgba(0,128,128,.1);padding:1px 5px;border-radius:8px;vertical-align:middle;">prep</span>':''}</td>
         <td style="padding:6px 8px;font-size:12px;text-align:right;">
-          <input type="number" step="1" min="0" value="${ing.Quantity||''}"
-            style="width:60px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;text-align:right;"
-            onchange="updateCogIngredient(${ing.id},'Quantity',this.value)">
+          <div style="display:inline-flex;align-items:center;gap:4px;">
+            <input type="number" step="1" min="0" value="${ing.Quantity||''}"
+              style="width:60px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;text-align:right;"
+              onchange="updateCogIngredient(${ing.id},'Quantity',this.value)">
+            ${ing.servingUnit ? `<span style="font-size:11px;color:var(--muted);white-space:nowrap;">${escHtml(ing.servingUnit)}</span>` : ''}
+          </div>
         </td>
         <td style="padding:6px 8px;font-size:12px;text-align:right;color:var(--muted);">
           ${ing.costPerServing != null ? '$'+ing.costPerServing.toFixed(3) : '<span style="color:#f59e0b" title="Add Cost Per Serving in Inventory">—</span>'}
