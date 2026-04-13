@@ -4896,14 +4896,14 @@ function renderVendors(query='') {
   // Apply hidden cols — show all known fields even if currently empty
   const fields = ordered.filter(k=>!hiddenCols.has(k));
 
-  const isArchived = tab === 'archived';
+  const isArchivedTab = tab === 'archived';
   thead.innerHTML = `<tr>${fields.map(f=>`<th>${spFieldLabel(f,LISTS.vendors)}</th>`).join('')}<th>Tags</th><th style="width:100px"></th></tr>`;
   tbody.innerHTML = rows.map(r=>`<tr>
     ${fields.map(f=>`<td>${spCellValue(f,r[f]??'')}</td>`).join('')}
     <td>${renderVendorTagPills(r.Tags, r.id)}</td>
     <td style="white-space:nowrap">
       <button data-id="${escHtml(r.id)}" onclick="openVendorForm(this.dataset.id)" style="background:none;border:none;cursor:pointer;color:var(--gold);font-size:13px;padding:2px 6px;" title="Edit">✏️</button>
-      ${isArchived
+      ${isArchivedTab
         ? `<button data-id="${escHtml(r.id)}" onclick="restoreVendor(this.dataset.id)" style="background:none;border:none;cursor:pointer;color:#16a34a;font-size:12px;padding:2px 6px;font-weight:600;" title="Restore">↩ Restore</button>`
         : `<button data-id="${escHtml(r.id)}" onclick="archiveVendor(this.dataset.id)" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:13px;padding:2px 6px;" title="Archive">🗃️</button>`
       }
