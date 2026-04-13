@@ -217,6 +217,8 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
 .recipe-body li{margin-bottom:3px;}
 .recipe-edit-btn{font-size:11px;color:var(--gold);border:1px solid var(--gold);border-radius:6px;padding:4px 10px;background:none;cursor:pointer;align-self:flex-start;margin-top:4px;}
 .recipe-edit-btn:hover{background:rgba(183,139,64,.08);}
+.inv-item-link{color:var(--gold);cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;transition:text-decoration-style .1s;}
+.inv-item-link:hover{text-decoration-style:solid;}
 .recipe-sections{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
 @media(max-width:520px){.recipe-sections{grid-template-columns:1fr;}}
 .recipe-section-label{font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--gold);text-transform:uppercase;margin-bottom:5px;}
@@ -5568,7 +5570,7 @@ function renderIngredientsHtml(ingredients) {
   const rows = ingredients.map(ing => {
     const qtyUnit = [ing.qty, ing.unit].filter(Boolean).join(' ');
     return `<tr>
-      <td>${escHtml(ing.name)}</td>
+      <td>${invItemLink(ing.name)}</td>
       <td class="ing-qty">${escHtml(qtyUnit)}</td>
     </tr>`;
   }).join('');
@@ -6503,6 +6505,47 @@ function navLowStock() {
   const sel = document.getElementById('inv-status-filter');
   if (sel) sel.value = 'low';
   nav('inventory');
+}
+
+// Navigate to the inventory page and highlight the row matching the given ingredient name.
+// Searches consumable → merch → equipment in order and switches to the right type.
+function navToInventoryItem(name) {
+  if (!name) return;
+  const typeMap = [
+    { type: 'consumable', arr: cache.inventory         || [] },
+    { type: 'merch',      arr: cache.merchInventory    || [] },
+    { type: 'equipment',  arr: cache.equipInventory    || [] },
+  ];
+  let foundType = 'consumable';
+  let foundId   = null;
+  for (const { type, arr } of typeMap) {
+    const match = arr.find(i => (i.ItemName||i.Title||'').toLowerCase() === name.toLowerCase());
+    if (match) { foundType = type; foundId = match.id; break; }
+  }
+  switchInvType(foundType);
+  nav('inventory');
+  setTimeout(() => {
+    const input = document.querySelector('#inv-tab-items .search-input');
+    if (input) { input.value = name; filterInventory(name); }
+    if (foundId) {
+      setTimeout(() => {
+        const row = document.querySelector(`#inv-body tr[data-inv-id="${foundId}"]`);
+        if (row) {
+          row.scrollIntoView({ behavior:'smooth', block:'center' });
+          row.style.transition = 'background .2s';
+          row.style.background = 'rgba(200,169,81,.25)';
+          setTimeout(() => row.style.background = '', 1800);
+        }
+      }, 150);
+    }
+  }, 50);
+}
+
+// Returns a clickable span that navigates to the matching inventory item.
+// suffix = optional HTML appended inside the span (e.g. a badge).
+function invItemLink(name, suffix='') {
+  if (!name) return '';
+  return `<span class="inv-item-link" data-inv-name="${escHtml(name)}" onclick="event.stopPropagation();navToInventoryItem(this.dataset.invName)" title="View in Inventory">${escHtml(name)}${suffix}</span>`;
 }
 
 // Map from page key → module name (for access checks in nav())
@@ -8200,16 +8243,18 @@ function renderPrepItemCard(item) {
 
   const ingRows = ings.map(ing => {
     let costLabel = '';
-    let nameHtml = escHtml(ing.IngredientName || '');
+    let nameHtml = '';
     let lineCost = null;
     const qty = parseFloat(ing.Qty) || 0;
     if (ing.IngredientType === 'inventory') {
       const invItem = cache.inventory.find(i => i.id === ing.IngredientId);
       const cp = invItem ? parseFloat(invItem.CostPerServing) : null;
-      nameHtml += ' <span style="font-size:10px;color:var(--teal);background:rgba(0,128,128,.1);padding:1px 5px;border-radius:8px;">inv</span>';
+      const badge = ' <span style="font-size:10px;color:var(--teal);background:rgba(0,128,128,.1);padding:1px 5px;border-radius:8px;">inv</span>';
+      nameHtml = invItemLink(ing.IngredientName || '', badge);
       costLabel = cp != null ? '$'+cp.toFixed(4) : '<span style="color:#f59e0b">no cost</span>';
       lineCost = cp != null ? qty * cp : null;
     } else {
+      nameHtml = escHtml(ing.IngredientName || '');
       const cp = parseFloat(ing.CostPerUnit);
       costLabel = !isNaN(cp) ? '$'+cp.toFixed(4) : '—';
       lineCost = !isNaN(cp) ? qty * cp : null;
@@ -9080,7 +9125,7 @@ function renderCogCard(item, cogMap, invMap, prepMap) {
 
     const ingRows = lines.map(ing => `
       <tr>
-        <td style="padding:6px 8px;font-size:12px;">${escHtml(ing.IngredientName||'')}${ing.isPrepItem?' <span style="font-size:10px;color:var(--teal);background:rgba(0,128,128,.1);padding:1px 5px;border-radius:8px;vertical-align:middle;">prep</span>':''}</td>
+        <td style="padding:6px 8px;font-size:12px;">${invItemLink(ing.IngredientName||'', ing.isPrepItem?' <span style="font-size:10px;color:var(--teal);background:rgba(0,128,128,.1);padding:1px 5px;border-radius:8px;vertical-align:middle;">prep</span>':'')}</td>
         <td style="padding:6px 8px;font-size:12px;text-align:right;">
           <div style="display:inline-flex;align-items:center;gap:4px;">
             <input type="number" step="1" min="0" value="${ing.Quantity||''}"
