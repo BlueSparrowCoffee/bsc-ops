@@ -7778,7 +7778,7 @@ function renderFoodParsTable(category) {
     const revCell = price > 0
       ? `<span style="color:#2e7d32;font-weight:600;">$${weekRev.toFixed(2)}</span>`
       : `<span style="color:var(--border)">—</span>`;
-    return `<tr draggable="true" data-id="${escHtml(p.id)}">
+    return `<tr data-id="${escHtml(p.id)}">
       <td class="fp-drag-handle" title="Drag to reorder">⠿</td>
       <td style="padding:10px 12px;font-size:14px;font-weight:500;border-bottom:1px solid var(--border);">${escHtml(p.Title||'')}</td>
       <td style="padding:10px 10px;text-align:right;font-size:13px;color:var(--muted);border-bottom:1px solid var(--border);">${price > 0 ? '$'+price.toFixed(2) : '<span style="color:var(--border)">—</span>'}</td>
@@ -7813,24 +7813,32 @@ function initFpDragDrop(category) {
   if (!tbody) return;
   let dragSrc = null;
 
+  // Enable draggable only when mousedown is on the grip handle, so
+  // clicking Edit / inputs never accidentally starts a drag.
+  tbody.addEventListener('mousedown', e => {
+    const row = e.target.closest('tr[data-id]');
+    if (!row) return;
+    row.draggable = !!e.target.closest('.fp-drag-handle');
+  });
+
   tbody.addEventListener('dragstart', e => {
-    // Only allow dragging from the grip handle
-    if (!e.target.closest('.fp-drag-handle')) { e.preventDefault(); return; }
-    dragSrc = e.target.closest('tr[draggable]');
+    dragSrc = e.target.closest('tr[data-id]');
     if (!dragSrc) return;
-    dragSrc.style.opacity = '0.45';
     e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', dragSrc.dataset.id);
+    // Delay opacity so the drag ghost captures the full row first
+    setTimeout(() => { if (dragSrc) dragSrc.style.opacity = '0.45'; }, 0);
   });
 
   tbody.addEventListener('dragend', () => {
-    if (dragSrc) dragSrc.style.opacity = '';
+    if (dragSrc) { dragSrc.style.opacity = ''; dragSrc.draggable = false; }
     tbody.querySelectorAll('tr.fp-drag-over').forEach(r => r.classList.remove('fp-drag-over'));
     dragSrc = null;
   });
 
   tbody.addEventListener('dragover', e => {
     e.preventDefault();
-    const target = e.target.closest('tr[draggable]');
+    const target = e.target.closest('tr[data-id]');
     if (!target || target === dragSrc) return;
     tbody.querySelectorAll('tr.fp-drag-over').forEach(r => r.classList.remove('fp-drag-over'));
     target.classList.add('fp-drag-over');
@@ -7839,10 +7847,9 @@ function initFpDragDrop(category) {
 
   tbody.addEventListener('drop', async e => {
     e.preventDefault();
-    const target = e.target.closest('tr[draggable]');
+    const target = e.target.closest('tr[data-id]');
     if (!target || target === dragSrc || !dragSrc) return;
     target.classList.remove('fp-drag-over');
-    // Insert dragged row before or after target based on cursor position
     const rect = target.getBoundingClientRect();
     const after = e.clientY > rect.top + rect.height / 2;
     after ? target.after(dragSrc) : target.before(dragSrc);
@@ -7851,7 +7858,7 @@ function initFpDragDrop(category) {
 }
 
 async function saveFpSortOrder(tbody, category) {
-  const rows = [...tbody.querySelectorAll('tr[draggable]')];
+  const rows = [...tbody.querySelectorAll('tr[data-id]')];
   const updates = rows
     .map((row, idx) => ({ id: row.dataset.id, sort: idx + 1 }))
     .filter(({ id, sort }) => {
