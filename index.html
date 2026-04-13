@@ -6302,6 +6302,9 @@ function applyLocationAccess() {
   // Hide Settings nav for non-owners
   const settingsNav = document.querySelector('.nav-item[onclick="nav(\'settings\')"]');
   if (settingsNav) settingsNav.style.display = isOwner() ? '' : 'none';
+  // Hide Square nav for non-owners
+  const squareNav = document.querySelector('.nav-item[onclick="nav(\'square\')"]');
+  if (squareNav) squareNav.style.display = isOwner() ? '' : 'none';
   // Hide Parking nav for non-owner / non-accounting roles
   const parkingNav = document.querySelector('.nav-item[onclick="nav(\'parking\')"]');
   if (parkingNav) parkingNav.style.display = isOwnerOrAccounting() ? '' : 'none';
@@ -6491,7 +6494,7 @@ function nav(page) {
     document.getElementById('settings-body').style.display = denied ? 'none' : '';
     if (!denied) { renderRoles(); renderLocations(); renderSlackSettings(); renderSquareSettings(); }
   }
-  if (page==='square')      { renderSquarePage(); }
+  if (page==='square')      { if (isOwner()) renderSquarePage(); else { toast('err','Access restricted to owners'); nav('dashboard'); } }
   if (page==='menu')        { renderMenu(); }
   if (page==='cogs')        { renderCogs(); }
   if (page==='parking')     { renderParking(); }
