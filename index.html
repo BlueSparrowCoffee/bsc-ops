@@ -1004,11 +1004,6 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
             <input type="number" id="fp-sun" min="0" placeholder="0" style="width:100%;text-align:center;padding:8px 2px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;box-sizing:border-box;">
           </div>
         </div>
-        <div style="margin-top:14px;">
-          <label class="field-label" style="margin-bottom:4px;display:block;">Order Sheet Name <span style="font-weight:400;color:var(--muted);">(optional — leave blank to use Item Name)</span></label>
-          <input type="text" id="fp-order-name" class="field-input" placeholder="e.g. Choco Chip" style="width:100%;">
-          <div style="font-size:11px;color:var(--muted);margin-top:4px;">Only needed if the vendor's spreadsheet uses a different name.</div>
-        </div>
         <input type="hidden" id="fp-category">
         <input type="hidden" id="fp-edit-id">
         <input type="hidden" id="fp-loc-id">
@@ -2405,9 +2400,8 @@ async function ensureAllLists() {
   ]);
   await ensureList(LISTS.contactArchive, [{name:'ContactId',text:{}}]);
   await ensureList(LISTS.foodPars,[
-    {name:'Category',      text:{}},
-    {name:'SortOrder',     number:{decimalPlaces:'none'}},
-    {name:'OrderSheetName',text:{}}
+    {name:'Category',  text:{}},
+    {name:'SortOrder', number:{decimalPlaces:'none'}}
   ]);
   await ensureList(LISTS.staff,[
     {name:'Role',text:{}},{name:'Location',text:{}},
@@ -7275,9 +7269,7 @@ async function runPastryOrderSync() {
 
     const dataRows = masterPastries.map(p => {
       const key = (p.Title||'').toLowerCase().trim();
-      // Use OrderSheetName if set — this is what the VLOOKUP matches against
-      const displayName = (p.OrderSheetName||'').trim() || p.Title||'';
-      const row = [displayName];
+      const row = [p.Title||''];
       for (const m of locMaps) {
         const v = m[key] || {};
         for (const d of DAYS) row.push(typeof v[d]==='number' ? v[d] : (parseInt(v[d])||0));
@@ -7471,11 +7463,10 @@ function openFoodParForm(id, category) {
   const label = _fpEditCategory === 'pastries' ? 'Pastry' : 'Sandwich';
 
   document.getElementById('foodpar-modal-title').textContent = p ? `Edit ${label}` : `Add ${label}`;
-  document.getElementById('fp-name').value       = p ? (p.Title || '') : '';
-  document.getElementById('fp-order-name').value = p ? (p.OrderSheetName || '') : '';
-  document.getElementById('fp-edit-id').value    = p ? p.id : '';
-  document.getElementById('fp-loc-id').value     = p ? (p._locId || '') : '';
-  document.getElementById('fp-category').value   = _fpEditCategory;
+  document.getElementById('fp-name').value    = p ? (p.Title || '') : '';
+  document.getElementById('fp-edit-id').value = p ? p.id : '';
+  document.getElementById('fp-loc-id').value  = p ? (p._locId || '') : '';
+  document.getElementById('fp-category').value = _fpEditCategory;
 
   FP_DAYS.forEach(d => {
     const el = document.getElementById('fp-' + d.toLowerCase());
@@ -7494,8 +7485,7 @@ async function saveFoodParForm() {
   const locId   = document.getElementById('fp-loc-id').value;
   const cat     = document.getElementById('fp-category').value;
 
-  const orderSheetName = document.getElementById('fp-order-name').value.trim();
-  const masterData = { Title: name, Category: cat, ...(orderSheetName ? { OrderSheetName: orderSheetName } : { OrderSheetName: '' }) };
+  const masterData = { Title: name, Category: cat };
   const parData = { Title: name };
   FP_DAYS.forEach(d => {
     const val = document.getElementById('fp-' + d.toLowerCase())?.value;
@@ -7508,7 +7498,7 @@ async function saveFoodParForm() {
   setLoading(true, editId ? 'Saving…' : 'Adding…');
   try {
     await ensureList(LISTS.foodPars, [
-      {name:'Category',text:{}},{name:'SortOrder',number:{decimalPlaces:'none'}},{name:'OrderSheetName',text:{}}
+      {name:'Category',text:{}},{name:'SortOrder',number:{decimalPlaces:'none'}}
     ]);
     await ensureList(locListName, FP_PAR_LIST_COLS);
 
@@ -7661,7 +7651,7 @@ async function importSelectedFoodPars() {
   if (!locListName) { toast('err','Select a location first'); return; }
   try {
     await ensureList(LISTS.foodPars, [
-      {name:'Category',text:{}},{name:'SortOrder',number:{decimalPlaces:'none'}},{name:'OrderSheetName',text:{}}
+      {name:'Category',text:{}},{name:'SortOrder',number:{decimalPlaces:'none'}}
     ]);
     await ensureList(locListName, FP_PAR_LIST_COLS);
     for (const name of selected) {
