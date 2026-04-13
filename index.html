@@ -219,6 +219,9 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
 .recipe-edit-btn:hover{background:rgba(183,139,64,.08);}
 .inv-item-link{color:var(--gold);cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;transition:text-decoration-style .1s;}
 .inv-item-link:hover{text-decoration-style:solid;}
+.fp-drag-handle{cursor:grab;color:var(--border);font-size:16px;padding:10px 6px 10px 10px;text-align:center;border-bottom:1px solid var(--border);user-select:none;transition:color .15s;}
+.fp-drag-handle:hover{color:var(--muted);}
+tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px solid var(--gold)!important;}
 .recipe-sections{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
 @media(max-width:520px){.recipe-sections{grid-template-columns:1fr;}}
 .recipe-section-label{font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--gold);text-transform:uppercase;margin-bottom:5px;}
@@ -7758,6 +7761,7 @@ function renderFoodParsTable(category) {
 
   const thBase = `padding:8px 10px;font-size:12px;font-weight:700;background:var(--bg,#f5f5f5);border-bottom:1.5px solid var(--border);`;
   const thead = `<thead><tr>
+    <th style="${thBase}width:28px;"></th>
     <th style="${thBase}text-align:left;">Item</th>
     <th style="${thBase}text-align:right;color:var(--muted);">Price</th>
     ${FP_DAYS.map(d => `<th ${thStyle(d)}>${d}</th>`).join('')}
@@ -7774,7 +7778,8 @@ function renderFoodParsTable(category) {
     const revCell = price > 0
       ? `<span style="color:#2e7d32;font-weight:600;">$${weekRev.toFixed(2)}</span>`
       : `<span style="color:var(--border)">—</span>`;
-    return `<tr>
+    return `<tr draggable="true" data-id="${escHtml(p.id)}">
+      <td class="fp-drag-handle" title="Drag to reorder">⠿</td>
       <td style="padding:10px 12px;font-size:14px;font-weight:500;border-bottom:1px solid var(--border);">${escHtml(p.Title||'')}</td>
       <td style="padding:10px 10px;text-align:right;font-size:13px;color:var(--muted);border-bottom:1px solid var(--border);">${price > 0 ? '$'+price.toFixed(2) : '<span style="color:var(--border)">—</span>'}</td>
       ${FP_DAYS.map(d => `<td ${tdStyle(d)}>${p[d] != null && p[d] !== '' ? p[d] : '<span style="color:var(--border)">—</span>'}</td>`).join('')}
@@ -7786,6 +7791,7 @@ function renderFoodParsTable(category) {
   }).join('');
 
   const tfoot = `<tfoot><tr>
+    <td></td>
     <td colspan="2" style="padding:10px 12px;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">Weekly Total</td>
     <td colspan="${FP_DAYS.length}" style="padding:10px;"></td>
     <td style="padding:10px 10px;text-align:right;font-weight:700;font-size:14px;color:#2e7d32;">$${totalRevenue.toFixed(2)}</td>
@@ -7795,9 +7801,72 @@ function renderFoodParsTable(category) {
   wrap.innerHTML = `
     <div style="overflow-x:auto;border-radius:10px;border:1.5px solid var(--border);">
       <table style="width:100%;border-collapse:collapse;min-width:600px;">
-        ${thead}<tbody>${tbody}</tbody>${tfoot}
+        ${thead}<tbody id="fp-tbody">${tbody}</tbody>${tfoot}
       </table>
     </div>`;
+
+  initFpDragDrop(category);
+}
+
+function initFpDragDrop(category) {
+  const tbody = document.getElementById('fp-tbody');
+  if (!tbody) return;
+  let dragSrc = null;
+
+  tbody.addEventListener('dragstart', e => {
+    // Only allow dragging from the grip handle
+    if (!e.target.closest('.fp-drag-handle')) { e.preventDefault(); return; }
+    dragSrc = e.target.closest('tr[draggable]');
+    if (!dragSrc) return;
+    dragSrc.style.opacity = '0.45';
+    e.dataTransfer.effectAllowed = 'move';
+  });
+
+  tbody.addEventListener('dragend', () => {
+    if (dragSrc) dragSrc.style.opacity = '';
+    tbody.querySelectorAll('tr.fp-drag-over').forEach(r => r.classList.remove('fp-drag-over'));
+    dragSrc = null;
+  });
+
+  tbody.addEventListener('dragover', e => {
+    e.preventDefault();
+    const target = e.target.closest('tr[draggable]');
+    if (!target || target === dragSrc) return;
+    tbody.querySelectorAll('tr.fp-drag-over').forEach(r => r.classList.remove('fp-drag-over'));
+    target.classList.add('fp-drag-over');
+    e.dataTransfer.dropEffect = 'move';
+  });
+
+  tbody.addEventListener('drop', async e => {
+    e.preventDefault();
+    const target = e.target.closest('tr[draggable]');
+    if (!target || target === dragSrc || !dragSrc) return;
+    target.classList.remove('fp-drag-over');
+    // Insert dragged row before or after target based on cursor position
+    const rect = target.getBoundingClientRect();
+    const after = e.clientY > rect.top + rect.height / 2;
+    after ? target.after(dragSrc) : target.before(dragSrc);
+    await saveFpSortOrder(tbody, category);
+  });
+}
+
+async function saveFpSortOrder(tbody, category) {
+  const rows = [...tbody.querySelectorAll('tr[draggable]')];
+  const updates = rows
+    .map((row, idx) => ({ id: row.dataset.id, sort: idx + 1 }))
+    .filter(({ id, sort }) => {
+      const item = cache.foodPars.find(p => p.id === id);
+      return item && item.SortOrder !== sort;
+    });
+  if (!updates.length) return;
+  try {
+    await Promise.all(updates.map(u => updateListItem(LISTS.foodPars, u.id, { SortOrder: u.sort })));
+    updates.forEach(u => {
+      const item = cache.foodPars.find(p => p.id === u.id);
+      if (item) item.SortOrder = u.sort;
+    });
+    toast('ok', '✓ Order saved');
+  } catch(e) { toast('err', 'Could not save order: ' + e.message); }
 }
 
 let _fpEditCategory = null;
