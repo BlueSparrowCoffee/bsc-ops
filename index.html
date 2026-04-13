@@ -1035,6 +1035,16 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
             <input type="number" id="fp-price" min="0" step="0.01" placeholder="0.00" style="width:100%;padding:8px 10px 8px 22px;border:1.5px solid var(--border);border-radius:7px;font-size:14px;box-sizing:border-box;">
           </div>
         </div>
+        <!-- Advanced toggle (export name for order sheet) -->
+        <div style="margin-top:14px;">
+          <button type="button" id="fp-advanced-toggle" onclick="toggleFpAdvanced()" style="background:none;border:none;cursor:pointer;font-size:12px;color:var(--muted);padding:0;font-family:inherit;display:flex;align-items:center;gap:4px;">
+            <span id="fp-advanced-arrow">▸</span> Advanced
+          </button>
+          <div id="fp-advanced-panel" style="display:none;margin-top:10px;padding:12px 14px;background:var(--milk);border-radius:8px;border:1px solid var(--border);">
+            <label class="field-label" style="margin-bottom:4px;display:block;">Export Name <span style="font-weight:400;color:var(--muted);">(vendor's name on the order sheet — leave blank to use item name above)</span></label>
+            <input type="text" id="fp-export-name" class="field-input" placeholder="e.g. Choco Chip" style="width:100%;">
+          </div>
+        </div>
         <input type="hidden" id="fp-category">
         <input type="hidden" id="fp-edit-id">
         <input type="hidden" id="fp-loc-id">
@@ -2333,7 +2343,7 @@ async function ensureList(listName, columns) {
   return listId;
 }
 
-const PROVISION_VERSION = '18';
+const PROVISION_VERSION = '19';
 
 // Pastry order spreadsheet (shared OneDrive file used by vendor for ordering)
 const PASTRY_ORDER_SHEET_URL = 'https://mainspringdevelopers-my.sharepoint.com/:x:/g/personal/plattestreet_bluesparrowcoffee_com/IQD4lfreJEqATZTjPUub-JmoAUDTaircsNPrwcyCR44bhYU';
@@ -2476,9 +2486,10 @@ async function ensureAllLists() {
   ]);
   await ensureList(LISTS.contactArchive, [{name:'ContactId',text:{}}]);
   await ensureList(LISTS.foodPars,[
-    {name:'Category',  text:{}},
-    {name:'SortOrder', number:{decimalPlaces:'none'}},
-    {name:'Price',     number:{decimalPlaces:'automatic'}}
+    {name:'Category',   text:{}},
+    {name:'SortOrder',  number:{decimalPlaces:'none'}},
+    {name:'Price',      number:{decimalPlaces:'automatic'}},
+    {name:'ExportName', text:{}}
   ]);
   await ensureList(LISTS.staff,[
     {name:'Role',text:{}},{name:'Location',text:{}},
@@ -7579,8 +7590,9 @@ async function runPastryOrderSync() {
     for (const loc of locations) for (const d of DAYS) headers.push(`${loc} ${d}`);
 
     const dataRows = masterPastries.map(p => {
-      const key = (p.Title||'').toLowerCase().trim();
-      const row = [p.Title||''];
+      const key        = (p.Title||'').toLowerCase().trim();          // always look up pars by internal name
+      const exportName = (p.ExportName||'').trim() || p.Title || ''; // vendor-facing name in col A
+      const row = [exportName];
       for (const m of locMaps) {
         const v = m[key] || {};
         for (const d of DAYS) row.push(typeof v[d]==='number' ? v[d] : (parseInt(v[d])||0));
@@ -7790,22 +7802,36 @@ function renderFoodParsTable(category) {
 
 let _fpEditCategory = null;
 
+function toggleFpAdvanced() {
+  const panel  = document.getElementById('fp-advanced-panel');
+  const arrow  = document.getElementById('fp-advanced-arrow');
+  const open   = panel.style.display === 'none';
+  panel.style.display = open ? 'block' : 'none';
+  arrow.textContent   = open ? '▾' : '▸';
+}
+
 function openFoodParForm(id, category) {
   _fpEditCategory = category || _fpEditCategory;
   const p = id ? getMergedFoodPars(_fpEditCategory).find(x => x.id === id) : null;
   const label = _fpEditCategory === 'pastries' ? 'Pastry' : 'Sandwich';
 
   document.getElementById('foodpar-modal-title').textContent = p ? `Edit ${label}` : `Add ${label}`;
-  document.getElementById('fp-name').value     = p ? (p.Title || '') : '';
-  document.getElementById('fp-price').value    = p && p.Price != null ? p.Price : '';
-  document.getElementById('fp-edit-id').value  = p ? p.id : '';
-  document.getElementById('fp-loc-id').value   = p ? (p._locId || '') : '';
-  document.getElementById('fp-category').value = _fpEditCategory;
+  document.getElementById('fp-name').value        = p ? (p.Title || '') : '';
+  document.getElementById('fp-price').value       = p && p.Price != null ? p.Price : '';
+  document.getElementById('fp-edit-id').value     = p ? p.id : '';
+  document.getElementById('fp-loc-id').value      = p ? (p._locId || '') : '';
+  document.getElementById('fp-category').value    = _fpEditCategory;
+  document.getElementById('fp-export-name').value = p ? (p.ExportName || '') : '';
 
   FP_DAYS.forEach(d => {
     const el = document.getElementById('fp-' + d.toLowerCase());
     if (el) el.value = (p && p[d] != null && p[d] !== '') ? p[d] : '';
   });
+
+  // Auto-open Advanced panel if an export name is already set
+  const hasExportName = !!(p?.ExportName);
+  document.getElementById('fp-advanced-panel').style.display = hasExportName ? 'block' : 'none';
+  document.getElementById('fp-advanced-arrow').textContent   = hasExportName ? '▾' : '▸';
 
   document.getElementById('fp-delete-btn').style.display = p ? 'inline-flex' : 'none';
   openModal('modal-foodpar');
@@ -7819,8 +7845,9 @@ async function saveFoodParForm() {
   const locId   = document.getElementById('fp-loc-id').value;
   const cat     = document.getElementById('fp-category').value;
 
-  const priceVal = parseFloat(document.getElementById('fp-price').value);
-  const masterData = { Title: name, Category: cat, Price: isNaN(priceVal) ? null : priceVal };
+  const priceVal    = parseFloat(document.getElementById('fp-price').value);
+  const exportName  = document.getElementById('fp-export-name').value.trim();
+  const masterData  = { Title: name, Category: cat, Price: isNaN(priceVal) ? null : priceVal, ExportName: exportName || null };
   const parData = { Title: name };
   FP_DAYS.forEach(d => {
     const val = document.getElementById('fp-' + d.toLowerCase())?.value;
@@ -7833,7 +7860,7 @@ async function saveFoodParForm() {
   setLoading(true, editId ? 'Saving…' : 'Adding…');
   try {
     await ensureList(LISTS.foodPars, [
-      {name:'Category',text:{}},{name:'SortOrder',number:{decimalPlaces:'none'}},{name:'Price',number:{decimalPlaces:'automatic'}}
+      {name:'Category',text:{}},{name:'SortOrder',number:{decimalPlaces:'none'}},{name:'Price',number:{decimalPlaces:'automatic'}},{name:'ExportName',text:{}}
     ]);
     await ensureList(locListName, FP_PAR_LIST_COLS);
 
@@ -7986,7 +8013,7 @@ async function importSelectedFoodPars() {
   if (!locListName) { toast('err','Select a location first'); return; }
   try {
     await ensureList(LISTS.foodPars, [
-      {name:'Category',text:{}},{name:'SortOrder',number:{decimalPlaces:'none'}},{name:'Price',number:{decimalPlaces:'automatic'}}
+      {name:'Category',text:{}},{name:'SortOrder',number:{decimalPlaces:'none'}},{name:'Price',number:{decimalPlaces:'automatic'}},{name:'ExportName',text:{}}
     ]);
     await ensureList(locListName, FP_PAR_LIST_COLS);
     for (const name of selected) {
