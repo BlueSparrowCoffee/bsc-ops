@@ -4880,12 +4880,13 @@ function renderVendors(query='') {
   document.getElementById('vendor-empty').style.display='none';
 
   const sample = cache.vendors[0];
-  const activeField = Object.keys(sample).find(k=>k.toLowerCase().includes('active'));
   const hiddenCols = getHiddenCols('vendors');
 
+  const isArchived = v => { const val = (v.Active||'').toString().toLowerCase(); return val==='no'||val==='false'||val==='0'; };
+
   let rows = cache.vendors.filter(v=>!q||JSON.stringify(v).toLowerCase().includes(q));
-  if (tab==='active' && activeField) rows = rows.filter(v=>{const val=(v[activeField]||'').toString().toLowerCase();return val==='yes'||val==='true'||val==='1';});
-  else if (tab==='archived' && activeField) rows = rows.filter(v=>{const val=(v[activeField]||'').toString().toLowerCase();return val==='no'||val==='false'||val==='0';});
+  if (tab==='active')   rows = rows.filter(v => !isArchived(v));
+  else if (tab==='archived') rows = rows.filter(v =>  isArchived(v));
   // Tag filter
   if (tagFilter) rows = rows.filter(v=>(v.Tags||'').split(',').map(t=>t.trim()).includes(tagFilter));
   rows = [...rows].sort((a,b) => (a.Title||a.VendorName||Object.values(a)[1]||'').toString().localeCompare((b.Title||b.VendorName||Object.values(b)[1]||'').toString()));
