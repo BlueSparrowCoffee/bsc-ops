@@ -7713,26 +7713,11 @@ function renderFoodParsInTab(category) {
     return;
   }
 
-  // Today's at-a-glance banner
-  const todayItems = getMergedFoodPars(category)
-    .map(p => {
-      const qty = p[todayKey] || 0;
-      return qty > 0 ? `<span style="margin-right:10px"><b>${escHtml(p.Title||'?')}</b>: ${qty}</span>` : null;
-    }).filter(Boolean).join('');
-
   container.innerHTML = `
-    <div style="background:var(--brand-light,#fff8e7);border:1.5px solid var(--brand,#c8a951);border-radius:10px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;">
-      <div>
-        <div style="font-size:12px;font-weight:700;color:var(--brand,#c8a951);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Today · ${escHtml(todayFull)} · ${escHtml(currentLocation)}</div>
-        <div style="font-size:14px;color:var(--text,#1a1a1a);line-height:1.7;">
-          ${todayItems || '<span style="color:var(--muted)">No pars set yet — add items below.</span>'}
-        </div>
-      </div>
-      <div style="display:flex;gap:8px;margin-left:auto;flex-shrink:0;flex-wrap:wrap;">
-        ${isOwner() ? `<button class="btn btn-outline" style="white-space:nowrap;font-size:12px;" onclick="openFoodParSync('${escHtml(category)}')">↓ Sync from Square</button>` : ''}
-        ${category === 'pastries' && isManagerOrOwner() ? `<button class="btn btn-outline" style="white-space:nowrap;font-size:12px;" onclick="openPastryOrderSync()">↑ Sync to Order Sheet</button>` : ''}
-        <button class="btn btn-primary" style="white-space:nowrap;" onclick="openFoodParForm(null,'${escHtml(category)}')">+ Add ${escHtml(label)}</button>
-      </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:14px;flex-wrap:wrap;">
+      ${isOwner() ? `<button class="btn btn-outline" style="white-space:nowrap;font-size:12px;" onclick="openFoodParSync('${escHtml(category)}')">↓ Sync from Square</button>` : ''}
+      ${category === 'pastries' && isManagerOrOwner() ? `<button class="btn btn-outline" style="white-space:nowrap;font-size:12px;" onclick="openPastryOrderSync()">↑ Sync to Order Sheet</button>` : ''}
+      <button class="btn btn-primary" style="white-space:nowrap;" onclick="openFoodParForm(null,'${escHtml(category)}')">+ Add ${escHtml(label)}</button>
     </div>
     <div id="fp-table-wrap"></div>
   `;
