@@ -8293,7 +8293,7 @@ function buildPrepItemMap() {
       }
       totalCost += qty * costPer;
     }
-    map[name] = { CostPerServing: yieldQty > 0 ? totalCost / yieldQty : 0, _isPrepItem: true };
+    map[name] = { CostPerServing: yieldQty > 0 ? totalCost / yieldQty : 0, _isPrepItem: true, YieldUnit: item.YieldUnit || '' };
   }
   return map;
 }
@@ -9222,12 +9222,12 @@ function renderCogCard(item, cogMap, invMap, prepMap) {
     const ingRows = lines.map(ing => `
       <tr>
         <td style="padding:6px 8px;font-size:12px;">${invItemLink(ing.IngredientName||'', ing.isPrepItem?' <span style="font-size:10px;color:var(--teal);background:rgba(0,128,128,.1);padding:1px 5px;border-radius:8px;vertical-align:middle;">prep</span>':'')}</td>
-        <td style="padding:6px 8px;font-size:12px;text-align:right;">
-          <div style="display:inline-flex;align-items:center;gap:4px;">
-            <input type="number" step="1" min="0" value="${ing.Quantity||''}"
-              style="width:60px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;text-align:right;"
-              onchange="updateCogIngredient(${ing.id},'Quantity',this.value)">
+        <td style="padding:6px 8px;font-size:12px;">
+          <div style="display:flex;align-items:center;justify-content:flex-end;gap:5px;">
             ${ing.servingUnit ? `<span style="font-size:11px;color:var(--muted);white-space:nowrap;">${escHtml(ing.servingUnit)}</span>` : ''}
+            <input type="number" step="1" min="0" value="${ing.Quantity||''}"
+              style="width:60px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;text-align:right;flex-shrink:0;"
+              onchange="updateCogIngredient(${ing.id},'Quantity',this.value)">
           </div>
         </td>
         <td style="padding:6px 8px;font-size:12px;text-align:right;color:var(--muted);">
@@ -9287,7 +9287,7 @@ function renderCogCard(item, cogMap, invMap, prepMap) {
           <thead>
             <tr style="border-bottom:1.5px solid var(--border);">
               <th style="padding:5px 8px;font-size:11px;text-align:left;color:var(--muted);">INGREDIENT</th>
-              <th style="padding:5px 8px;font-size:11px;text-align:right;color:var(--muted);white-space:nowrap;">QTY</th>
+              <th style="padding:5px 8px;font-size:11px;text-align:right;color:var(--muted);white-space:nowrap;padding-right:10px;width:60px;">QTY</th>
               <th style="padding:5px 8px;font-size:11px;text-align:right;color:var(--muted);white-space:nowrap;">$/UNIT</th>
               <th style="padding:5px 8px;font-size:11px;text-align:right;color:var(--muted);white-space:nowrap;">COST</th>
               <th></th>
