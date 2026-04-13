@@ -4904,8 +4904,7 @@ function renderVendors(query='') {
     <td style="white-space:nowrap">
       <button data-id="${escHtml(r.id)}" onclick="openVendorForm(this.dataset.id)" style="background:none;border:none;cursor:pointer;color:var(--gold);font-size:13px;padding:2px 6px;" title="Edit">✏️</button>
       ${isArchived
-        ? `<button data-id="${escHtml(r.id)}" onclick="restoreVendor(this.dataset.id)" style="background:none;border:none;cursor:pointer;color:#16a34a;font-size:12px;padding:2px 6px;font-weight:600;" title="Restore">↩ Restore</button>
-           <button data-id="${escHtml(r.id)}" onclick="deleteVendor(this.dataset.id)" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:13px;padding:2px 6px;" title="Delete permanently">🗑</button>`
+        ? `<button data-id="${escHtml(r.id)}" onclick="restoreVendor(this.dataset.id)" style="background:none;border:none;cursor:pointer;color:#16a34a;font-size:12px;padding:2px 6px;font-weight:600;" title="Restore">↩ Restore</button>`
         : `<button data-id="${escHtml(r.id)}" onclick="archiveVendor(this.dataset.id)" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:13px;padding:2px 6px;" title="Archive">🗃️</button>`
       }
     </td>
