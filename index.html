@@ -217,6 +217,16 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
 .recipe-body li{margin-bottom:3px;}
 .recipe-edit-btn{font-size:11px;color:var(--gold);border:1px solid var(--gold);border-radius:6px;padding:4px 10px;background:none;cursor:pointer;align-self:flex-start;margin-top:4px;}
 .recipe-edit-btn:hover{background:rgba(183,139,64,.08);}
+.recipe-sections{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+@media(max-width:520px){.recipe-sections{grid-template-columns:1fr;}}
+.recipe-section-label{font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--gold);text-transform:uppercase;margin-bottom:5px;}
+.recipe-ing-table{width:100%;border-collapse:collapse;font-size:12px;}
+.recipe-ing-table td{padding:3px 6px 3px 0;vertical-align:top;}
+.recipe-ing-table td:first-child{font-weight:600;color:var(--ink);}
+.recipe-ing-table td.ing-qty{color:var(--muted);white-space:nowrap;padding-right:4px;}
+.recipe-ing-row-edit{display:flex;gap:6px;align-items:center;}
+.recipe-ing-row-edit input{border:1.5px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;font-family:inherit;}
+.recipe-ing-row-edit input:focus{outline:none;border-color:var(--gold);}
 
 /* ── TABS ── */
 .tab-bar{display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid var(--border);}
@@ -746,7 +756,7 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
 
   <!-- RECIPE MODAL -->
   <div class="modal-overlay" id="modal-recipe">
-    <div class="modal" style="max-width:680px;">
+    <div class="modal" style="max-width:780px;">
       <div class="modal-header">
         <div class="modal-title" id="recipe-modal-title">Add Recipe</div>
         <button class="modal-close" onclick="closeModal('modal-recipe')">×</button>
@@ -756,10 +766,22 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
           <label>Recipe Name</label>
           <input id="rf-title" placeholder="e.g. Iced Lavender Latte" style="font-size:16px;font-weight:600;">
         </div>
-        <div class="form-group">
-          <label>Recipe Content</label>
-          <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Write paragraphs normally. Start a line with <code>-</code> for a bullet point.</div>
-          <textarea id="rf-content" rows="14" placeholder="e.g.&#10;2oz espresso, pulled at 200°F&#10;&#10;Ingredients:&#10;- 2 pumps lavender syrup&#10;- 4oz oat milk&#10;- Ice" style="width:100%;font-family:inherit;font-size:13px;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;resize:vertical;line-height:1.6;"></textarea>
+        <!-- Two-section layout: Ingredients + Steps -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
+          <!-- Ingredients -->
+          <div>
+            <div style="font-weight:600;font-size:13px;margin-bottom:6px;color:var(--ink);">🧂 Ingredients</div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Link each ingredient to your inventory — include quantity and unit.</div>
+            <div id="rf-ingredients-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;min-height:32px;"></div>
+            <button type="button" onclick="addIngredientRow()" style="font-size:12px;color:var(--gold);border:1.5px dashed var(--gold);background:none;border-radius:6px;padding:5px 12px;cursor:pointer;width:100%;font-weight:600;">+ Add Ingredient</button>
+            <datalist id="recipe-inv-datalist"></datalist>
+          </div>
+          <!-- Steps -->
+          <div>
+            <div style="font-weight:600;font-size:13px;margin-bottom:6px;color:var(--ink);">📋 Steps</div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Number each step or start a line with <code>-</code> for bullets.</div>
+            <textarea id="rf-steps" rows="12" placeholder="e.g.&#10;1. Pull 2oz espresso at 200°F&#10;2. Add 2 pumps lavender syrup to cup&#10;3. Pour espresso over syrup&#10;4. Add ice and top with oat milk" style="width:100%;font-family:inherit;font-size:13px;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;resize:vertical;line-height:1.6;box-sizing:border-box;"></textarea>
+          </div>
         </div>
         <div class="form-group">
           <label>Notes <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
@@ -2309,7 +2331,7 @@ async function ensureList(listName, columns) {
   return listId;
 }
 
-const PROVISION_VERSION = '17';
+const PROVISION_VERSION = '18';
 
 // Pastry order spreadsheet (shared OneDrive file used by vendor for ordering)
 const PASTRY_ORDER_SHEET_URL = 'https://mainspringdevelopers-my.sharepoint.com/:x:/g/personal/plattestreet_bluesparrowcoffee_com/IQD4lfreJEqATZTjPUub-JmoAUDTaircsNPrwcyCR44bhYU';
@@ -2442,7 +2464,9 @@ async function ensureAllLists() {
   await ensureList(LISTS.recipes,[
     {name:'Category',text:{}},
     {name:'Content',text:{allowMultipleLines:true,linesForEditing:10}},
-    {name:'Notes',text:{}}
+    {name:'Notes',text:{}},
+    {name:'Steps',text:{allowMultipleLines:true,linesForEditing:10}},
+    {name:'Ingredients',text:{allowMultipleLines:true,linesForEditing:4}}
   ]);
   await ensureList(LISTS.maintContacts,[
     {name:'Service',text:{}},{name:'Contact',text:{}},
@@ -5442,26 +5466,113 @@ async function deleteMaintContact() {
 // RECIPES
 // ════════════════════════════════════════════════════════════════════════════
 
-// Convert plain text with "- " bullets into HTML
+// Convert plain text with "- " bullets or numbered steps into HTML
 function recipeContentToHtml(text) {
   if (!text) return '';
   const lines = text.split('\n');
   let html = '';
-  let inList = false;
+  let listType = null; // 'ul' or 'ol'
   for (const raw of lines) {
     const line = raw.trimEnd();
-    const isBullet = /^[-•]\s+/.test(line);
+    const isBullet  = /^[-•]\s+/.test(line);
+    const isNumered = /^\d+[\.\)]\s+/.test(line);
     if (isBullet) {
-      if (!inList) { html += '<ul>'; inList = true; }
+      if (listType !== 'ul') { if (listType) html += `</${listType}>`; html += '<ul>'; listType = 'ul'; }
       html += `<li>${escHtml(line.replace(/^[-•]\s+/,''))}</li>`;
+    } else if (isNumered) {
+      if (listType !== 'ol') { if (listType) html += `</${listType}>`; html += '<ol>'; listType = 'ol'; }
+      html += `<li>${escHtml(line.replace(/^\d+[\.\)]\s+/,''))}</li>`;
     } else {
-      if (inList) { html += '</ul>'; inList = false; }
+      if (listType) { html += `</${listType}>`; listType = null; }
       if (line.trim()) html += `<p>${escHtml(line)}</p>`;
       else html += '<p style="margin:4px 0;"></p>';
     }
   }
-  if (inList) html += '</ul>';
+  if (listType) html += `</${listType}>`;
   return html;
+}
+
+// Populate the ingredient autocomplete datalist from all inventory caches
+function populateRecipeInvDatalist() {
+  const names = new Set();
+  const add = (arr, ...keys) => {
+    (arr||[]).forEach(item => {
+      for (const k of keys) { const v = item[k]; if (v) { names.add(v); break; } }
+    });
+  };
+  add(cache.inventory,       'ItemName', 'Title');
+  add(cache.foodPars,        'Title',    'ItemName');
+  add(cache.merchInventory,  'ItemName', 'Title');
+  add(cache.foodInventory,   'ItemName', 'Title');
+  add(cache.groceryInventory,'ItemName', 'Title');
+  const dl = document.getElementById('recipe-inv-datalist');
+  if (dl) dl.innerHTML = [...names].sort((a,b)=>a.localeCompare(b)).map(n=>`<option value="${escHtml(n)}">`).join('');
+}
+
+// Add a single ingredient row to the modal form
+function addIngredientRow(name='', qty='', unit='') {
+  const list = document.getElementById('rf-ingredients-list');
+  if (!list) return;
+  const row = document.createElement('div');
+  row.className = 'recipe-ing-row-edit';
+  // name input
+  const nameIn = document.createElement('input');
+  nameIn.setAttribute('list','recipe-inv-datalist');
+  nameIn.placeholder = 'Ingredient';
+  nameIn.value = name;
+  nameIn.style.flex = '2';
+  // qty input
+  const qtyIn = document.createElement('input');
+  qtyIn.type = 'text';
+  qtyIn.placeholder = 'Qty';
+  qtyIn.value = qty;
+  qtyIn.style.width = '52px';
+  qtyIn.style.textAlign = 'center';
+  // unit input
+  const unitIn = document.createElement('input');
+  unitIn.type = 'text';
+  unitIn.placeholder = 'Unit';
+  unitIn.value = unit;
+  unitIn.style.width = '60px';
+  // remove button
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.textContent = '×';
+  removeBtn.style.cssText = 'color:var(--muted);background:none;border:none;cursor:pointer;font-size:18px;line-height:1;padding:0 2px;flex-shrink:0;';
+  removeBtn.onclick = () => row.remove();
+  row.appendChild(nameIn);
+  row.appendChild(qtyIn);
+  row.appendChild(unitIn);
+  row.appendChild(removeBtn);
+  list.appendChild(row);
+  nameIn.focus();
+}
+
+// Collect ingredient rows from the modal form
+function collectIngredients() {
+  const rows = document.querySelectorAll('#rf-ingredients-list .recipe-ing-row-edit');
+  const result = [];
+  rows.forEach(row => {
+    const inputs = row.querySelectorAll('input');
+    const name = inputs[0]?.value?.trim() || '';
+    const qty  = inputs[1]?.value?.trim() || '';
+    const unit = inputs[2]?.value?.trim() || '';
+    if (name) result.push({ name, qty, unit });
+  });
+  return result;
+}
+
+// Render ingredients array as a compact table for recipe cards
+function renderIngredientsHtml(ingredients) {
+  if (!ingredients || !ingredients.length) return '';
+  const rows = ingredients.map(ing => {
+    const qtyUnit = [ing.qty, ing.unit].filter(Boolean).join(' ');
+    return `<tr>
+      <td>${escHtml(ing.name)}</td>
+      <td class="ing-qty">${escHtml(qtyUnit)}</td>
+    </tr>`;
+  }).join('');
+  return `<table class="recipe-ing-table">${rows}</table>`;
 }
 
 function timeAgo(dateStr) {
@@ -5495,7 +5606,7 @@ function renderRecipes(query='') {
   const q = (query||document.getElementById('recipe-search')?.value||'').toLowerCase();
 
   let rows = cache.recipes;
-  if (q) rows = rows.filter(r=>[r.Title,r.Content,r.Notes].filter(Boolean).join(' ').toLowerCase().includes(q));
+  if (q) rows = rows.filter(r=>[r.Title,r.Content,r.Steps,r.Notes].filter(Boolean).join(' ').toLowerCase().includes(q));
   rows = [...rows].sort((a,b) => (a.Title||'').localeCompare(b.Title||''));
 
   if (!rows.length) {
@@ -5508,12 +5619,35 @@ function renderRecipes(query='') {
 
   grid.innerHTML = rows.map(r=>{
     const meta = recipeMetaLine(r);
-    const bodyHtml = recipeContentToHtml(r.Content||'');
     const notesHtml = r.Notes ? `<div style="margin-top:8px;padding:8px 10px;background:var(--cream);border-radius:6px;font-size:11px;color:var(--muted)">${escHtml(r.Notes)}</div>` : '';
+
+    // Parse structured ingredients (new format)
+    let ingredients = [];
+    if (r.Ingredients) {
+      try { ingredients = JSON.parse(r.Ingredients); } catch(e) {}
+    }
+    const hasIngredients = ingredients.length > 0;
+    const hasSteps = !!(r.Steps && r.Steps.trim());
+    // Legacy content fallback for older recipes
+    const hasLegacyContent = !!(r.Content && r.Content.trim() && !hasSteps && !hasIngredients);
+
+    let bodyHtml = '';
+    if (hasIngredients || hasSteps) {
+      const ingHtml = hasIngredients
+        ? `<div><div class="recipe-section-label">🧂 Ingredients</div>${renderIngredientsHtml(ingredients)}</div>`
+        : '';
+      const stepsHtml = hasSteps
+        ? `<div><div class="recipe-section-label">📋 Steps</div><div class="recipe-body">${recipeContentToHtml(r.Steps)}</div></div>`
+        : '';
+      bodyHtml = `<div class="recipe-sections">${ingHtml}${stepsHtml}</div>`;
+    } else if (hasLegacyContent) {
+      bodyHtml = `<div class="recipe-body">${recipeContentToHtml(r.Content)}</div>`;
+    }
+
     return `<div class="recipe-card" data-gs-id="${escHtml(r.id)}" onclick="openRecipeForm('${r.id}')">
       <div class="recipe-card-title">${escHtml(r.Title||'Untitled Recipe')}</div>
       ${meta ? `<div class="recipe-meta">${meta}</div>` : ''}
-      <div class="recipe-body">${bodyHtml}</div>
+      ${bodyHtml}
       ${notesHtml}
       <button class="recipe-edit-btn" onclick="event.stopPropagation();openRecipeForm('${r.id}')">✏️ Edit</button>
     </div>`;
@@ -5527,8 +5661,25 @@ function openRecipeForm(id) {
   const item = id ? cache.recipes.find(r=>r.id===id) : null;
   document.getElementById('recipe-modal-title').textContent = item ? 'Edit Recipe' : 'Add Recipe';
   document.getElementById('rf-title').value = item ? (item.Title||'') : '';
-  document.getElementById('rf-content').value = item ? (item.Content||'') : '';
+  document.getElementById('rf-steps').value = item ? (item.Steps||'') : '';
   document.getElementById('rf-notes').value = item ? (item.Notes||'') : '';
+
+  // Populate ingredient rows
+  const ingList = document.getElementById('rf-ingredients-list');
+  ingList.innerHTML = '';
+  let ingredients = [];
+  if (item?.Ingredients) {
+    try { ingredients = JSON.parse(item.Ingredients); } catch(e) {}
+  }
+  // For legacy recipes with no structured ingredients, seed from Content if it looks ingredient-like
+  ingredients.forEach(ing => addIngredientRow(ing.name||'', ing.qty||'', ing.unit||''));
+  if (!ingredients.length) {
+    addIngredientRow(); // start with one blank row for convenience
+  }
+
+  // Populate inventory datalist
+  populateRecipeInvDatalist();
+
   const isEdit = !!item;
   document.getElementById('recipe-delete-btn').style.display = isEdit ? 'inline-flex' : 'none';
   document.getElementById('recipe-history-btn').style.display = isEdit ? 'inline-flex' : 'none';
@@ -5539,10 +5690,12 @@ function openRecipeForm(id) {
 async function saveRecipeForm() {
   const title = document.getElementById('rf-title').value.trim();
   if (!title) { toast('err','Recipe name is required'); return; }
+  const ingredients = collectIngredients();
   const data = {
-    Title:   title,
-    Content: document.getElementById('rf-content').value,
-    Notes:   document.getElementById('rf-notes').value
+    Title:       title,
+    Steps:       document.getElementById('rf-steps').value,
+    Notes:       document.getElementById('rf-notes').value,
+    Ingredients: JSON.stringify(ingredients)
   };
   setLoading(true,'Saving recipe…');
   try {
@@ -5553,7 +5706,7 @@ async function saveRecipeForm() {
       toast('ok','✓ Recipe updated');
     } else {
       const item = await addListItem(LISTS.recipes, data);
-      cache.recipes.push({...item, _modifiedBy: currentUser?.name||'', _modifiedAt: new Date().toISOString()});
+      cache.recipes.push({...item, ...data, _modifiedBy: currentUser?.name||'', _modifiedAt: new Date().toISOString()});
       toast('ok','✓ Recipe added');
     }
     renderRecipes();
@@ -5624,7 +5777,7 @@ async function restoreRecipeVersion(itemId, versionId) {
     const siteId = await getSiteId();
     const ver = await graph('GET',`/sites/${siteId}/lists/${LISTS.recipes}/items/${itemId}/versions/${versionId}`);
     const f = ver.fields || {};
-    const data = { Title: f.Title||'', Content: f.Content||'', Notes: f.Notes||'' };
+    const data = { Title: f.Title||'', Content: f.Content||'', Notes: f.Notes||'', Steps: f.Steps||'', Ingredients: f.Ingredients||'' };
     await updateListItem(LISTS.recipes, itemId, data);
     const i = cache.recipes.findIndex(r=>r.id===itemId);
     if (i!==-1) cache.recipes[i] = {...cache.recipes[i], ...data, _modifiedBy: currentUser?.name||'', _modifiedAt: new Date().toISOString()};
