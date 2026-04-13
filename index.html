@@ -8613,7 +8613,7 @@ function calcCog(menuItemId, variationName, cogMap, invMap, prepMap) {
     const lineCost = costPerServing != null ? qty * costPerServing : null;
     if (lineCost == null || costPerServing == null) hasMissingCost = true;
     else cog += lineCost;
-    return { ...ing, costPerServing, lineCost, isPrepItem, servingUnit: source?.ServingUnit || '' };
+    return { ...ing, costPerServing, lineCost, isPrepItem, servingUnit: isPrepItem ? (source?.YieldUnit || '') : (source?.ServingUnit || '') };
   });
   return { cog, lines, hasMissingCost };
 }
