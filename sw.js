@@ -1,4 +1,4 @@
-const CACHE = 'bsc-ops-v1';
+const CACHE = 'bsc-ops-v2';
 const SHELL = ['/', '/index.html', '/manifest.json'];
 
 self.addEventListener('install', e => {
@@ -14,8 +14,11 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  // Only cache same-origin requests; let all external URLs go straight to network
-  if (!e.request.url.startsWith(self.location.origin)) return;
+  const url = new URL(e.request.url);
+  // Never intercept API calls, SignalR, or external requests —
+  // dynamic/authenticated requests must go straight to the network
+  if (!url.origin.startsWith(self.location.origin)) return;
+  if (url.pathname.startsWith('/api/')) return;
   e.respondWith(
     caches.match(e.request).then(cached => cached || fetch(e.request))
   );
