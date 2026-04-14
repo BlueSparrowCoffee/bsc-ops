@@ -766,9 +766,15 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
         <button class="modal-close" onclick="closeModal('modal-recipe')">×</button>
       </div>
       <div style="display:flex;flex-direction:column;gap:16px;padding:4px 0;">
-        <div class="form-group">
-          <label>Recipe Name</label>
-          <input id="rf-title" placeholder="e.g. Iced Lavender Latte" style="font-size:16px;font-weight:600;">
+        <div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:end;">
+          <div class="form-group" style="margin:0;">
+            <label>Recipe Name</label>
+            <input id="rf-title" placeholder="e.g. Iced Lavender Latte" style="font-size:16px;font-weight:600;">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>Yield</label>
+            <input id="rf-yield" placeholder="e.g. 2 drinks" style="width:140px;">
+          </div>
         </div>
         <!-- Two-section layout: Ingredients + Steps -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
@@ -2345,7 +2351,7 @@ async function ensureList(listName, columns) {
   return listId;
 }
 
-const PROVISION_VERSION = '19';
+const PROVISION_VERSION = '20';
 
 // Pastry order spreadsheet (shared OneDrive file used by vendor for ordering)
 const PASTRY_ORDER_SHEET_URL = 'https://mainspringdevelopers-my.sharepoint.com/:x:/g/personal/plattestreet_bluesparrowcoffee_com/IQD4lfreJEqATZTjPUub-JmoAUDTaircsNPrwcyCR44bhYU';
@@ -2483,7 +2489,8 @@ async function ensureAllLists() {
     {name:'Content',text:{allowMultipleLines:true,linesForEditing:10}},
     {name:'Notes',text:{}},
     {name:'Steps',text:{allowMultipleLines:true,linesForEditing:10}},
-    {name:'Ingredients',text:{allowMultipleLines:true,linesForEditing:4}}
+    {name:'Ingredients',text:{allowMultipleLines:true,linesForEditing:4}},
+    {name:'Yield',text:{}}
   ]);
   await ensureList(LISTS.maintContacts,[
     {name:'Service',text:{}},{name:'Contact',text:{}},
@@ -5870,6 +5877,7 @@ function renderRecipes(query='') {
 
     return `<div class="recipe-card" data-gs-id="${escHtml(r.id)}" onclick="openRecipeForm('${r.id}')">
       <div class="recipe-card-title">${escHtml(r.Title||'Untitled Recipe')}</div>
+      ${r.Yield ? `<div style="font-size:11px;color:var(--gold);font-weight:600;margin-top:2px;">Yields ${escHtml(r.Yield)}</div>` : ''}
       ${meta ? `<div class="recipe-meta">${meta}</div>` : ''}
       ${bodyHtml}
       ${notesHtml}
@@ -5885,6 +5893,7 @@ function openRecipeForm(id) {
   const item = id ? cache.recipes.find(r=>r.id===id) : null;
   document.getElementById('recipe-modal-title').textContent = item ? 'Edit Recipe' : 'Add Recipe';
   document.getElementById('rf-title').value = item ? (item.Title||'') : '';
+  document.getElementById('rf-yield').value = item ? (item.Yield||'') : '';
   document.getElementById('rf-steps').value = item ? (item.Steps||'') : '';
   document.getElementById('rf-notes').value = item ? (item.Notes||'') : '';
 
@@ -5917,6 +5926,7 @@ async function saveRecipeForm() {
   const ingredients = collectIngredients();
   const data = {
     Title:       title,
+    Yield:       document.getElementById('rf-yield').value.trim(),
     Steps:       document.getElementById('rf-steps').value,
     Notes:       document.getElementById('rf-notes').value,
     Ingredients: JSON.stringify(ingredients)
