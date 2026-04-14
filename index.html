@@ -781,7 +781,7 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
           <!-- Ingredients -->
           <div>
-            <div style="font-weight:600;font-size:13px;margin-bottom:6px;color:var(--ink);">✓ Ingredients</div>
+            <div style="font-weight:600;font-size:13px;margin-bottom:6px;color:var(--ink);">✅ Ingredients</div>
             <hr style="border:none;border-top:1px solid var(--border);margin:0 0 8px;">
             <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Link each ingredient to your inventory — include quantity and unit.</div>
             <div id="rf-ingredients-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;min-height:32px;"></div>
@@ -790,7 +790,7 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
           </div>
           <!-- Steps -->
           <div>
-            <div style="font-weight:600;font-size:13px;margin-bottom:6px;color:var(--ink);">⏱️ Steps</div>
+            <div style="font-weight:600;font-size:13px;margin-bottom:6px;color:var(--ink);">📋 Steps</div>
             <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Number each step or start a line with <code>-</code> for bullets.</div>
             <textarea id="rf-steps" rows="12" placeholder="e.g.&#10;1. Pull 2oz espresso at 200°F&#10;2. Add 2 pumps lavender syrup to cup&#10;3. Pour espresso over syrup&#10;4. Add ice and top with oat milk" style="width:100%;font-family:inherit;font-size:13px;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;resize:vertical;line-height:1.6;box-sizing:border-box;"></textarea>
           </div>
@@ -5942,13 +5942,13 @@ function renderRecipes(query='') {
     let bodyHtml = '';
     if (hasIngredients || hasSteps) {
       const ingHtml = hasIngredients
-        ? `<div><div class="recipe-section-label">✓ Ingredients</div><hr style="border:none;border-top:1px solid var(--border);margin:4px 0 6px;">${renderIngredientsHtml(ingredients)}</div>`
+        ? `<div><div class="recipe-section-label">✅ Ingredients</div><hr style="border:none;border-top:1px solid var(--border);margin:4px 0 6px;">${renderIngredientsHtml(ingredients)}</div>`
         : '';
       const divider = hasIngredients && hasSteps
         ? `<hr style="border:none;border-top:1px solid var(--border);margin:10px 0;">`
         : '';
       const stepsHtml = hasSteps
-        ? `<div><div class="recipe-section-label">⏱️ Steps</div><div class="recipe-body">${recipeContentToHtml(r.Steps)}</div></div>`
+        ? `<div><div class="recipe-section-label">📋 Steps</div><div class="recipe-body">${recipeContentToHtml(r.Steps)}</div></div>`
         : '';
       bodyHtml = `<div>${ingHtml}${divider}${stepsHtml}</div>`;
     } else if (hasLegacyContent) {
