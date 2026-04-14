@@ -1412,8 +1412,10 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
             <input type="checkbox" id="grocery-cogs-show-hidden" onchange="renderInvCogCards('grocery')"> Show hidden
           </label>
           <button class="btn btn-primary" onclick="syncInvPricesFromSquare('grocery')" id="grocery-sq-sync-btn" style="font-size:12px;padding:6px 14px;">◼ Sync from Square</button>
+          <button class="btn btn-outline" onclick="syncGroceryCostFromInventory()" id="grocery-inv-sync-btn" style="font-size:12px;padding:6px 14px;">📦 Sync Cost from Inventory</button>
         </div>
         <div id="grocery-sq-sync-log" style="display:none;background:var(--cream);border-radius:8px;padding:10px 14px;font-size:12px;font-family:monospace;margin-bottom:14px;white-space:pre-wrap;max-height:160px;overflow-y:auto;"></div>
+        <div id="grocery-inv-sync-log" style="display:none;background:var(--cream);border-radius:8px;padding:10px 14px;font-size:12px;font-family:monospace;margin-bottom:14px;white-space:pre-wrap;max-height:160px;overflow-y:auto;"></div>
         <div id="grocery-cogs-empty" style="display:none;text-align:center;padding:60px;color:var(--muted);">
           <div style="font-size:36px;margin-bottom:8px;">🛒</div>
           <div style="font-weight:600;margin-bottom:4px;">No grocery items yet</div>
@@ -9395,6 +9397,46 @@ function toggleCogHidden(itemId) {
 }
 
 // ── Merch Costs ──────────────────────────────────────────────────────────────
+
+async function syncGroceryCostFromInventory() {
+  const btn   = document.getElementById('grocery-inv-sync-btn');
+  const logEl = document.getElementById('grocery-inv-sync-log');
+  btn.disabled = true; btn.textContent = 'Syncing…';
+  logEl.style.display = ''; logEl.textContent = '';
+  const log = msg => { logEl.textContent += msg + '\n'; logEl.scrollTop = logEl.scrollHeight; };
+
+  try {
+    // Build name → CostPerServing map from consumable inventory
+    const invCostMap = {};
+    for (const item of (cache.inventory || [])) {
+      const name = (item.ItemName || item.Title || '').toLowerCase().trim();
+      const cost = parseFloat(item.CostPerServing);
+      if (name && !isNaN(cost) && cost > 0) invCostMap[name] = { cost, raw: item.ItemName || item.Title };
+    }
+    log(`Found ${Object.keys(invCostMap).length} costed items in consumable inventory`);
+
+    let updated = 0, unchanged = 0, notFound = 0;
+    for (const item of (cache.groceryInventory || [])) {
+      const itemName = (item.ItemName || item.Title || '').toLowerCase().trim();
+      const match = invCostMap[itemName];
+      if (!match) { notFound++; log(`  ⚠ Not in inventory: ${item.ItemName || item.Title}`); continue; }
+      if (item.CostPerUnit === match.cost) { unchanged++; continue; }
+      await updateListItem(LISTS.groceryInventory, item.id, { CostPerUnit: match.cost });
+      item.CostPerUnit = match.cost;
+      updated++;
+      log(`  ✓ ${item.ItemName || item.Title}: $${match.cost.toFixed(4)}`);
+    }
+
+    log(`\n✅ Done — ${updated} updated, ${unchanged} unchanged, ${notFound} not found in inventory`);
+    renderInvCogCards('grocery');
+    toast('ok', `✓ Grocery cost synced from inventory (${updated} updated)`);
+  } catch(e) {
+    log('Error: ' + e.message);
+    toast('err', 'Sync failed: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '📦 Sync Cost from Inventory';
+  }
+}
 
 async function syncFoodCostFromPars() {
   const btn   = document.getElementById('food-pars-sync-btn');
