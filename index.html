@@ -1389,8 +1389,10 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
             <input type="checkbox" id="food-cogs-show-hidden" onchange="renderInvCogCards('food')"> Show hidden
           </label>
           <button class="btn btn-primary" onclick="syncInvPricesFromSquare('food')" id="food-sq-sync-btn" style="font-size:12px;padding:6px 14px;">◼ Sync from Square</button>
+          <button class="btn btn-outline" onclick="syncFoodCostFromPars()" id="food-pars-sync-btn" style="font-size:12px;padding:6px 14px;">🥐 Sync Cost from Pars</button>
         </div>
         <div id="food-sq-sync-log" style="display:none;background:var(--cream);border-radius:8px;padding:10px 14px;font-size:12px;font-family:monospace;margin-bottom:14px;white-space:pre-wrap;max-height:160px;overflow-y:auto;"></div>
+        <div id="food-pars-sync-log" style="display:none;background:var(--cream);border-radius:8px;padding:10px 14px;font-size:12px;font-family:monospace;margin-bottom:14px;white-space:pre-wrap;max-height:160px;overflow-y:auto;"></div>
         <div id="food-cogs-empty" style="display:none;text-align:center;padding:60px;color:var(--muted);">
           <div style="font-size:36px;margin-bottom:8px;">🥗</div>
           <div style="font-weight:600;margin-bottom:4px;">No food items yet</div>
@@ -9375,6 +9377,52 @@ function toggleCogHidden(itemId) {
 }
 
 // ── Merch Costs ──────────────────────────────────────────────────────────────
+
+async function syncFoodCostFromPars() {
+  const btn   = document.getElementById('food-pars-sync-btn');
+  const logEl = document.getElementById('food-pars-sync-log');
+  btn.disabled = true; btn.textContent = 'Syncing…';
+  logEl.style.display = ''; logEl.textContent = '';
+  const log = msg => { logEl.textContent += msg + '\n'; logEl.scrollTop = logEl.scrollHeight; };
+
+  try {
+    // Build name → cost map from pastry + sandwich par master items
+    const parItems = (cache.foodPars || []).filter(p => {
+      const cat = (p.Category || '').toLowerCase();
+      return cat === 'pastries' || cat === 'sandwiches';
+    });
+    log(`Found ${parItems.length} pastry/sandwich par items`);
+
+    // Build a normalised name map: lowercase + trim
+    const parCostMap = {};
+    for (const p of parItems) {
+      const name = (p.Title || p.ItemName || '').toLowerCase().trim();
+      const cost = parseFloat(p.Price);
+      if (name && !isNaN(cost)) parCostMap[name] = { cost, raw: p.Title || p.ItemName || '' };
+    }
+
+    let updated = 0, unchanged = 0, notFound = 0;
+    for (const item of (cache.foodInventory || [])) {
+      const itemName = (item.ItemName || item.Title || '').toLowerCase().trim();
+      const match = parCostMap[itemName];
+      if (!match) { notFound++; log(`  ⚠ No par match: ${item.ItemName || item.Title}`); continue; }
+      if (item.CostPerUnit === match.cost) { unchanged++; continue; }
+      await updateListItem(LISTS.foodInventory, item.id, { CostPerUnit: match.cost });
+      item.CostPerUnit = match.cost;
+      updated++;
+      log(`  ✓ ${item.ItemName || item.Title}: $${match.cost.toFixed(2)}`);
+    }
+
+    log(`\n✅ Done — ${updated} updated, ${unchanged} unchanged, ${notFound} not found in pars`);
+    renderInvCogCards('food');
+    toast('ok', `✓ Cost synced from pars (${updated} updated)`);
+  } catch(e) {
+    log('Error: ' + e.message);
+    toast('err', 'Sync failed: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '🥐 Sync Cost from Pars';
+  }
+}
 
 async function syncInvPricesFromSquare(tabKey) {
   const cfg   = INV_COG_CFG[tabKey];
