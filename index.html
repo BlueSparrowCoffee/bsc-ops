@@ -2352,7 +2352,7 @@ async function ensureList(listName, columns) {
   return listId;
 }
 
-const PROVISION_VERSION = '21';
+const PROVISION_VERSION = '22';
 
 // Pastry order spreadsheet (shared OneDrive file used by vendor for ordering)
 const PASTRY_ORDER_SHEET_URL = 'https://mainspringdevelopers-my.sharepoint.com/:x:/g/personal/plattestreet_bluesparrowcoffee_com/IQD4lfreJEqATZTjPUub-JmoAUDTaircsNPrwcyCR44bhYU';
@@ -2478,7 +2478,7 @@ async function ensureAllLists() {
     {name:'RoleName',text:{}},{name:'Permissions',text:{}},{name:'LocationAccess',text:{}}
   ]);
   await ensureList(LISTS.vendors,[
-    {name:'VendorName',text:{}},{name:'Product',text:{}},{name:'OrderDeadline',text:{}},
+    {name:'VendorName',text:{}},{name:'Category',text:{}},{name:'Product',text:{}},{name:'OrderDeadline',text:{}},
     {name:'OrderDays',text:{}},{name:'DeliveryDays',text:{}},{name:'ContactPerson',text:{}},
     {name:'Email',text:{}},{name:'Website',text:{}},{name:'Phone',text:{}},
     {name:'OrderMethod',text:{}},{name:'Terms',text:{}},{name:'InvoiceMethod',text:{}},
@@ -5182,6 +5182,7 @@ function toggleCol(listKey, field, visible) {
 // Unknown fields from SP get appended automatically as plain text inputs.
 const VENDOR_FORM_FIELDS = [
   { key:'VendorName',    span:true  },
+  { key:'Category',      type:'category', span:false },
   { key:'Product',       span:false },
   { key:'Active',        type:'select', options:['Yes','No'], span:false },
   { key:'ContactPerson', type:'multi', span:false },
@@ -5219,6 +5220,12 @@ function vendorFieldInput(key, type, options, val, item) {
   }
   if (type === 'textarea') {
     return `<textarea id="${id}" rows="3" style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;resize:vertical">${escHtml(v)}</textarea>`;
+  }
+  if (type === 'category') {
+    const cats = [...new Set((cache.vendors||[]).map(v=>v.Category||'').filter(Boolean))].sort();
+    const datalistId = id + '_dl';
+    return `<input id="${id}" value="${escHtml(v)}" class="field-input" list="${datalistId}" placeholder="Type or choose a category" autocomplete="off">
+      <datalist id="${datalistId}">${cats.map(c=>`<option value="${escHtml(c)}">`).join('')}</datalist>`;
   }
   if (type === 'multi') {
     const values = (v||'').split('\n').map(s=>s.trim()).filter(Boolean);
