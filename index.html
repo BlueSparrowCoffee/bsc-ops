@@ -6764,9 +6764,9 @@ function filterByLocation(items) {
 // NAVIGATION
 // ════════════════════════════════════════════════════════════════════════════
 function navLowStock() {
-  const sel = document.getElementById('inv-status-filter');
-  if (sel) sel.value = 'low';
   nav('inventory');
+  const sel = document.getElementById('inv-status-filter');
+  if (sel) { sel.value = 'low'; filterInventory(''); }
 }
 
 // Navigate to the inventory page and highlight the row matching the given ingredient name.
