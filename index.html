@@ -348,16 +348,18 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
     <button class="loc-btn" onclick="setLocation('Sherman',this)">Sherman</button>
     <button class="loc-btn" onclick="setLocation('17th',this)">17th</button>
   </div>
-  <div class="topbar-right">
-    <div id="user-info" style="display:flex;align-items:center;gap:8px;">
-      <div style="text-align:right;line-height:1.4;">
-        <div id="user-label" style="font-size:13px;font-weight:600;color:#fff;"></div>
-        <div id="user-role-label" style="font-size:11px;color:rgba(185,223,227,.7);"></div>
-        <div id="sync-label" style="font-size:10px;color:rgba(255,255,255,.5);"></div>
+  <div class="topbar-right" style="flex-direction:column;align-items:flex-end;gap:3px;">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div id="user-info" style="display:flex;align-items:center;gap:8px;">
+        <div style="text-align:right;line-height:1.4;">
+          <div id="user-label" style="font-size:13px;font-weight:600;color:#fff;"></div>
+          <div id="user-role-label" style="font-size:11px;color:rgba(185,223,227,.7);"></div>
+        </div>
+        <div id="user-avatar" style="display:none;"></div>
       </div>
-      <div id="user-avatar" style="display:none;"></div>
+      <button class="btn-signout" onclick="signOut()">Sign out</button>
     </div>
-    <button class="btn-signout" onclick="signOut()">Sign out</button>
+    <div id="sync-label" style="font-size:10px;color:rgba(255,255,255,.4);"></div>
   </div>
 </div>
 
