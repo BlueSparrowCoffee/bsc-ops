@@ -780,7 +780,8 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
           <!-- Ingredients -->
           <div>
-            <div style="font-weight:600;font-size:13px;margin-bottom:6px;color:var(--ink);">🧂 Ingredients</div>
+            <div style="font-weight:600;font-size:13px;margin-bottom:6px;color:var(--ink);">✓ Ingredients</div>
+            <hr style="border:none;border-top:1px solid var(--border);margin:0 0 8px;">
             <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Link each ingredient to your inventory — include quantity and unit.</div>
             <div id="rf-ingredients-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;min-height:32px;"></div>
             <button type="button" onclick="addIngredientRow()" style="font-size:12px;color:var(--gold);border:1.5px dashed var(--gold);background:none;border-radius:6px;padding:5px 12px;cursor:pointer;width:100%;font-weight:600;">+ Add Ingredient</button>
@@ -5920,7 +5921,7 @@ function renderRecipes(query='') {
     let bodyHtml = '';
     if (hasIngredients || hasSteps) {
       const ingHtml = hasIngredients
-        ? `<div><div class="recipe-section-label">🧂 Ingredients</div>${renderIngredientsHtml(ingredients)}</div>`
+        ? `<div><div class="recipe-section-label">✓ Ingredients</div><hr style="border:none;border-top:1px solid var(--border);margin:4px 0 6px;">${renderIngredientsHtml(ingredients)}</div>`
         : '';
       const divider = hasIngredients && hasSteps
         ? `<hr style="border:none;border-top:1px solid var(--border);margin:10px 0;">`
