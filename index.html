@@ -4062,6 +4062,10 @@ async function saveInventoryItem() {
   const name = document.getElementById('new-item-name').value.trim();
   if (!name) { toast('err','Item name is required'); return; }
 
+  // Flush pending category custom input if user typed but didn't blur
+  const catNewInp = document.getElementById('new-item-cat-custom');
+  if (catNewInp && catNewInp.style.display !== 'none') finishInvCatNew(catNewInp);
+
   // Auto-create vendor if user typed a new name but didn't click Add
   const supSel = document.getElementById('new-item-supplier');
   if (supSel && supSel.value === '__new__') {
