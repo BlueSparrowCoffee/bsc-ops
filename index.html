@@ -4572,6 +4572,9 @@ function updateDashChecklist() {
 const SP_SYSTEM_FIELDS = new Set([
   'id','Created','Modified','AuthorLookupId','EditorLookupId','AppAuthorLookupId',
   'AppEditorLookupId','_UIVersionString','_ComplianceFlags','_ComplianceTag',
+  '_ComplianceTagWrittenTime','_ComplianceTagUserId',
+  'LabelApplied','LabelAppliedBy','RetentionLabel',
+  'Label_x0020_Applied','Label_x0020_Applied_x0020_By','_LabelApplied','_LabelAppliedBy',
   'Attachments','ContentType','ContentTypeId','FolderChildCount','ItemChildCount',
   '@odata.etag','LinkTitle','LinkTitleNoMenu','_ColorTag','Edit','DocIcon',
   'FileSystemObjectType','ServerRedirectedEmbedUri','ServerRedirectedEmbedUrl',
@@ -4661,6 +4664,13 @@ function renderDynamicTable(rows, thead, tbody, countEl) {
   if (countEl) countEl.textContent = rows.length+' records';
 }
 
+// Bump this when DEFAULT_HIDDEN_COLS changes to force a reset of stored prefs
+const HIDDEN_COLS_VERSION = '2';
+if (localStorage.getItem('hiddenColsVer') !== HIDDEN_COLS_VERSION) {
+  localStorage.removeItem('hiddenCols_vendors');
+  localStorage.setItem('hiddenColsVer', HIDDEN_COLS_VERSION);
+}
+
 // hidden columns stored per-list in localStorage
 const DEFAULT_HIDDEN_COLS = {
   vendors: [
@@ -4676,12 +4686,18 @@ const DEFAULT_HIDDEN_COLS = {
 };
 function getHiddenCols(listKey) {
   const storageKey = 'hiddenCols_'+listKey;
+  const defaults = DEFAULT_HIDDEN_COLS[listKey] || [];
   const stored = localStorage.getItem(storageKey);
+  // Always union with defaults so system/compliance fields are always hidden
+  // even if localStorage was saved before they were added to defaults
   if (stored !== null) {
-    try { return new Set(JSON.parse(stored)); } catch { return new Set(); }
+    try {
+      const userSet = new Set(JSON.parse(stored));
+      defaults.forEach(f => userSet.add(f));
+      return userSet;
+    } catch { return new Set(defaults); }
   }
   // First visit — apply defaults
-  const defaults = DEFAULT_HIDDEN_COLS[listKey] || [];
   setHiddenCols(listKey, new Set(defaults));
   return new Set(defaults);
 }
