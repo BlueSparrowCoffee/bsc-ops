@@ -4045,6 +4045,24 @@ async function deleteInvItem(id) {
 async function saveInventoryItem() {
   const name = document.getElementById('new-item-name').value.trim();
   if (!name) { toast('err','Item name is required'); return; }
+
+  // Auto-create vendor if user typed a new name but didn't click Add
+  const supSel = document.getElementById('new-item-supplier');
+  if (supSel && supSel.value === '__new__') {
+    const newVendorName = document.getElementById('new-item-supplier-name')?.value?.trim() || '';
+    if (newVendorName) {
+      try {
+        const vItem = await addListItem(LISTS.vendors, { Title: newVendorName, VendorName: newVendorName, Active: 'Yes' });
+        const norm = { ...vItem, Title: vItem.Title || newVendorName, VendorName: vItem.VendorName || newVendorName, Active: 'Yes' };
+        cache.vendors.push(norm);
+        populateInvVendorSelect(newVendorName);
+        renderVendors();
+      } catch(e) { toast('err', 'Could not create vendor: ' + e.message); return; }
+    } else {
+      supSel.value = ''; // nothing typed, clear the __new__ sentinel
+    }
+  }
+
   const cfg = invCfg();
   let fields;
   if (cfg.isMerch) {
