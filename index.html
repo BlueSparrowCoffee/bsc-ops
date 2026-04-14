@@ -5640,18 +5640,12 @@ function renderMaintContacts(query='') {
         return maintFieldRow(k, m[k], label);
       }).filter(Boolean).join('');
 
-    const isArchived = archivedIds.has(m.id);
-    const archiveBtn = isArchived
-      ? `<button class="btn btn-sm" style="margin-top:10px;" data-id="${escHtml(m.id)}" onclick="event.stopPropagation();toggleMaintArchive(this.dataset.id)">↩ Restore</button>`
-      : `<button class="btn btn-sm" style="margin-top:10px;font-size:11px;border-color:var(--border);color:var(--text-secondary);" data-id="${escHtml(m.id)}" onclick="event.stopPropagation();toggleMaintArchive(this.dataset.id)">📦 Archive</button>`;
-
     return `<div class="card" style="cursor:pointer;" data-id="${escHtml(m.id)}" data-gs-id="${escHtml(m.id)}" onclick="openMaintForm(this.dataset.id)">
       <div class="card-title">${icon} ${escHtml(m.Title||'Unnamed')}</div>
       ${serviceVal ? `<div style="font-size:12px;color:var(--muted);margin-top:-8px;margin-bottom:10px">${escHtml(serviceVal)}</div>` : ''}
       <div style="font-size:13px;display:flex;flex-direction:column;gap:6px;">${fieldRows}</div>
       <div style="display:flex;gap:8px;margin-top:10px;">
         <button class="recipe-edit-btn" data-id="${escHtml(m.id)}" onclick="event.stopPropagation();openMaintForm(this.dataset.id)">✏️ Edit</button>
-        ${archiveBtn}
       </div>
     </div>`;
   }).join('');
