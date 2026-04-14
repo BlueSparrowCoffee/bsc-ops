@@ -5071,6 +5071,7 @@ function renderVendors(query='') {
         ? `<button data-id="${escHtml(r.id)}" onclick="restoreVendor(this.dataset.id)" style="background:none;border:none;cursor:pointer;color:#16a34a;font-size:12px;padding:2px 6px;font-weight:600;" title="Restore">↩ Restore</button>`
         : `<button data-id="${escHtml(r.id)}" onclick="archiveVendor(this.dataset.id)" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:13px;padding:2px 6px;" title="Archive">🗃️</button>`
       }
+      ${isOwner() ? `<button data-id="${escHtml(r.id)}" data-name="${escHtml(r.Title||r.VendorName||'')}" onclick="deleteVendor(this.dataset.id,this.dataset.name)" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:13px;padding:2px 6px;" title="Delete">🗑️</button>` : ''}
     </td>
   </tr>`).join('');
 
@@ -5362,6 +5363,18 @@ async function restoreVendor(id) {
     renderVendors(); populateSelects();
     toast('ok','✓ Vendor restored');
   } catch(e) { toast('err','Restore failed: '+e.message); }
+  finally { setLoading(false); }
+}
+
+async function deleteVendor(id, name) {
+  if (!confirm(`Permanently delete "${name}"? This cannot be undone.`)) return;
+  setLoading(true,'Deleting…');
+  try {
+    await deleteListItem(LISTS.vendors, id);
+    cache.vendors = cache.vendors.filter(v => v.id !== id);
+    renderVendors(); populateSelects();
+    toast('ok','✓ Vendor deleted');
+  } catch(e) { toast('err','Delete failed: '+e.message); }
   finally { setLoading(false); }
 }
 
