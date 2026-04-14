@@ -5235,10 +5235,16 @@ function vendorFieldInput(key, type, options, val, item) {
     return `<textarea id="${id}" rows="3" style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;resize:vertical">${escHtml(v)}</textarea>`;
   }
   if (type === 'category') {
-    const cats = [...new Set((cache.vendors||[]).map(v=>v.Category||'').filter(Boolean))].sort();
-    const datalistId = id + '_dl';
-    return `<input id="${id}" value="${escHtml(v)}" class="field-input" list="${datalistId}" placeholder="Type or choose a category" autocomplete="off">
-      <datalist id="${datalistId}">${cats.map(c=>`<option value="${escHtml(c)}">`).join('')}</datalist>`;
+    const cats = [...new Set((cache.vendors||[]).map(vv=>vv.Category||'').filter(Boolean))].sort();
+    if (v && !cats.includes(v)) cats.push(v);
+    return `<select id="${id}" class="filter" style="width:100%;" onchange="onVendorCatSelectChange(this)">
+      <option value="">— Select category —</option>
+      ${cats.map(c=>`<option value="${escHtml(c)}" ${v===c?'selected':''}>${escHtml(c)}</option>`).join('')}
+      <option value="__new__">＋ New category…</option>
+    </select>
+    <input class="vendor-cat-new-inp field-input" placeholder="New category name" style="display:none;margin-top:5px;width:100%;"
+      onblur="finishVendorCatNew(this)"
+      onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">`;
   }
   if (type === 'multi') {
     const values = (v||'').split('\n').map(s=>s.trim()).filter(Boolean);
@@ -5382,6 +5388,10 @@ function showVendorTagSuggestions(val) {
 }
 
 async function saveVendorForm() {
+  // Flush any in-progress new category entry before reading form
+  const catNewInp = document.querySelector('#vendor-form-fields .vendor-cat-new-inp');
+  if (catNewInp && catNewInp.style.display !== 'none') finishVendorCatNew(catNewInp);
+
   const data = {};
   // Collect all rendered vf_ inputs / selects / textareas
   document.querySelectorAll('#vendor-form-fields [id^="vf_"]').forEach(el => {
@@ -5402,6 +5412,8 @@ async function saveVendorForm() {
       data[el.id.replace('vf_','')] = el.value;
     }
   });
+  // Clean up sentinel values
+  if (data.Category === '__new__') data.Category = '';
   // Sync Title = VendorName so SP search/display works
   if (data.VendorName) data.Title = data.VendorName;
   data.Tags = _vendorFormTags.join(',');
@@ -6722,6 +6734,35 @@ function populateInvVendorSelect(currentVal) {
   if (inline) inline.style.display = 'none';
   const nameInput = document.getElementById('new-item-supplier-name');
   if (nameInput) nameInput.value = '';
+}
+
+function onVendorCatSelectChange(sel) {
+  const inp = sel.parentElement.querySelector('.vendor-cat-new-inp');
+  if (!inp) return;
+  if (sel.value === '__new__') {
+    inp.style.display = '';
+    inp.focus();
+  } else {
+    inp.style.display = 'none';
+    inp.value = '';
+  }
+}
+
+function finishVendorCatNew(inp) {
+  const val = inp.value.trim();
+  const sel = inp.parentElement.querySelector('select');
+  if (!sel) return;
+  if (!val) {
+    sel.value = '';
+  } else {
+    let opt = [...sel.options].find(o => o.value === val);
+    if (!opt) {
+      opt = new Option(val, val);
+      sel.insertBefore(opt, sel.querySelector('option[value="__new__"]'));
+    }
+    sel.value = val;
+  }
+  inp.style.display = 'none';
 }
 
 function onInvVendorChange(sel) {
