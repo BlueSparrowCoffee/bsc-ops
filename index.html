@@ -9528,8 +9528,13 @@ function renderCogCards() {
   if (!showHidden) items = items.filter(i => !_cogsHiddenIds.has(i.id));
   if (_cogsQuery)  items = items.filter(i => (i.ItemName||i.Title||'').toLowerCase().includes(_cogsQuery));
   if (_cogsMissingOnly) items = items.filter(i => {
-    const ings = cogMap[i.id] || [];
-    return ings.length === 0 || ings.some(ing => !ing.costPerServing);
+    const itemId = i.SquareId || i.id;
+    const variations = getVariationNames(i);
+    // Item is "missing info" if any variation has no ingredients or has missing costs
+    return variations.some(v => {
+      const { lines, hasMissingCost } = calcCog(itemId, v.name, cogMap, invMap, prepMap);
+      return lines.length === 0 || hasMissingCost;
+    });
   });
   items = [...items].sort((a,b) => (a.ItemName||a.Title||'').localeCompare(b.ItemName||b.Title||''));
 
