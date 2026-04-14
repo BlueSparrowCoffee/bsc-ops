@@ -1739,7 +1739,7 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
     <div class="form-grid">
       <div class="form-group" style="grid-column:1/-1"><label>Item Name *</label><input id="new-item-name" placeholder="e.g. Whole Milk"></div>
       <div class="form-group" id="new-item-cat-group"><label>Category</label>
-        <select id="new-item-cat">
+        <select id="new-item-cat" onchange="onInvCatChange(this)">
           <!-- consumable categories -->
           <option class="inv-cons-only">China</option><option class="inv-cons-only">Cleaning Supplies</option><option class="inv-cons-only">Consumable Goods</option>
           <option class="inv-cons-only">Dairy</option><option class="inv-cons-only">Dry Goods</option><option class="inv-cons-only">Event</option>
@@ -1754,7 +1754,11 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
           <option class="inv-merch-only" style="display:none">Drinkware</option>
           <option class="inv-merch-only" style="display:none">Lifestyle</option>
           <option class="inv-merch-only" style="display:none">Packaging</option>
+          <option value="__new__">＋ New category…</option>
         </select>
+        <input id="new-item-cat-custom" class="field-input" placeholder="New category name" style="display:none;margin-top:5px;width:100%;"
+          onblur="finishInvCatNew(this)"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
       </div>
       <!-- Merch-only fields -->
       <div class="form-group inv-merch-only" style="display:none"><label>Item No.</label><input id="new-item-no" placeholder="e.g. BSC001"></div>
@@ -3987,6 +3991,8 @@ function openAddInvModal() {
     const firstVisible = catSel.querySelector('option:not([style*="display: none"]):not([style*="display:none"])');
     if (firstVisible) catSel.value = firstVisible.value;
   }
+  const catCustom = document.getElementById('new-item-cat-custom');
+  if (catCustom) { catCustom.style.display = 'none'; catCustom.value = ''; }
   calcCostPerServing();
   openModal('modal-add-item');
 }
@@ -4005,7 +4011,15 @@ function openEditInvItem(id) {
     const isMerch = !!(cfg?.isMerch);
     catSel.querySelectorAll('.inv-cons-only').forEach(o => o.style.display = isMerch ? 'none' : '');
     catSel.querySelectorAll('.inv-merch-only').forEach(o => o.style.display = isMerch ? '' : 'none');
-    catSel.value = item.Category || '';
+    // If the stored category isn't in the list, inject it as a custom option
+    const cat = item.Category || '';
+    const catCustom = document.getElementById('new-item-cat-custom');
+    if (catCustom) { catCustom.style.display = 'none'; catCustom.value = ''; }
+    if (cat && !([...catSel.options].some(o => o.value === cat && o.value !== '__new__'))) {
+      const opt = new Option(cat, cat);
+      catSel.insertBefore(opt, catSel.querySelector('option[value="__new__"]'));
+    }
+    catSel.value = cat;
   }
   if (cfg.isMerch) {
     document.getElementById('new-item-no').value          = item.ItemNo || '';
@@ -4069,7 +4083,7 @@ async function saveInventoryItem() {
     fields = {
       ItemName:            name,
       Title:               name,
-      Category:            document.getElementById('new-item-cat').value,
+      Category:            (() => { const s = document.getElementById('new-item-cat'); return s.value === '__new__' ? (document.getElementById('new-item-cat-custom')?.value?.trim()||'') : s.value; })(),
       ItemNo:              document.getElementById('new-item-no').value.trim()||null,
       CostPerUnit:         parseFloat(document.getElementById('new-item-cost-unit').value)||null,
       SquareCatalogItemId: document.getElementById('new-item-square-id').value.trim()||null,
@@ -4078,7 +4092,7 @@ async function saveInventoryItem() {
     fields = {
       ItemName:        name,
       Title:           name,
-      ...(invHasCategory() ? { Category: document.getElementById('new-item-cat').value } : {}),
+      ...(invHasCategory() ? { Category: (() => { const s = document.getElementById('new-item-cat'); return s.value === '__new__' ? (document.getElementById('new-item-cat-custom')?.value?.trim()||'') : s.value; })() } : {}),
       Supplier:        (() => { const s = document.getElementById('new-item-supplier'); return s.value === '__new__' ? (document.getElementById('new-item-supplier-name')?.value?.trim()||'') : s.value; })(),
       OrderSize:       parseFloat(document.getElementById('new-item-order-size').value)||null,
       OrderUnit:       document.getElementById('new-item-unit').value,
@@ -6752,6 +6766,37 @@ function populateInvVendorSelect(currentVal) {
   if (inline) inline.style.display = 'none';
   const nameInput = document.getElementById('new-item-supplier-name');
   if (nameInput) nameInput.value = '';
+}
+
+function onInvCatChange(sel) {
+  const inp = document.getElementById('new-item-cat-custom');
+  if (!inp) return;
+  if (sel.value === '__new__') {
+    inp.style.display = '';
+    inp.focus();
+  } else {
+    inp.style.display = 'none';
+    inp.value = '';
+  }
+}
+
+function finishInvCatNew(inp) {
+  const val = inp.value.trim();
+  const sel = document.getElementById('new-item-cat');
+  if (!sel) return;
+  if (!val) {
+    // revert to first visible option
+    const firstVisible = [...sel.options].find(o => o.value !== '__new__' && o.style.display !== 'none');
+    sel.value = firstVisible ? firstVisible.value : '';
+  } else {
+    let opt = [...sel.options].find(o => o.value === val);
+    if (!opt) {
+      opt = new Option(val, val);
+      sel.insertBefore(opt, sel.querySelector('option[value="__new__"]'));
+    }
+    sel.value = val;
+  }
+  inp.style.display = 'none';
 }
 
 function onVendorCatSelectChange(sel) {
