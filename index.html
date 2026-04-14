@@ -5298,7 +5298,7 @@ function openVendorForm(id) {
   const extraKeys = spFields.filter(k=>!configuredKeys.has(k));
 
   const formFields = [
-    ...VENDOR_FORM_FIELDS.filter(f => spFields.includes(f.key) || f.key === 'VendorName'),
+    ...VENDOR_FORM_FIELDS,
     ...extraKeys.map(k=>({ key:k, span:false }))
   ];
 
