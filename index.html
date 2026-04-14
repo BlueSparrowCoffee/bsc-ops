@@ -2881,14 +2881,23 @@ async function initSignalR() {
     _signalRConn = new signalR.HubConnectionBuilder()
       .withUrl(`${window.location.origin}/api`)
       .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
-      .configureLogging(signalR.LogLevel.Warning)
+      .configureLogging(signalR.LogLevel.None)
       .build();
     _signalRConn.on('listChanged', ({ listKey }) => handleListChanged(listKey));
+    // If all automatic retries are exhausted, schedule a full restart after 60 s
+    _signalRConn.onclose(() => {
+      console.warn('[BSC] SignalR closed — will retry in 60 s');
+      _signalRConn = null;
+      setTimeout(initSignalR, 60_000);
+    });
+    _signalRConn.onreconnecting(() => console.log('[BSC] SignalR reconnecting…'));
+    _signalRConn.onreconnected(() => console.log('[BSC] SignalR reconnected'));
     await _signalRConn.start();
     console.log('[BSC] Real-time sync connected');
   } catch(e) {
-    console.warn('[BSC] SignalR unavailable — running without real-time sync:', e.message);
+    console.warn('[BSC] SignalR unavailable — will retry in 60 s:', e.message);
     _signalRConn = null;
+    setTimeout(initSignalR, 60_000);
   }
 }
 
