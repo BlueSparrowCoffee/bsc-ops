@@ -502,7 +502,7 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
             <th onclick="sortInvBy('StorageCount')">Storage</th>
             <th onclick="sortInvBy('CurrentStock')">Total</th>
             <th>Status</th>
-            <th onclick="sortInvBy('CostPerCase')">Cost/Case</th>
+            <th onclick="sortInvBy('CostPerCase')">Cost</th>
             <th onclick="sortInvBy('CostPerServing')">Cost/Serving</th>
             <th onclick="sortInvBy('ServingsPerUnit')">Servings/Unit</th>
             <th style="width:72px"></th>
@@ -1793,16 +1793,11 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
           </div>
         </div>
       </div>
-      <div class="form-group inv-cons-only"><label>Order Size</label><input id="new-item-order-size" type="number" placeholder="e.g. 12"></div>
-      <div class="form-group inv-cons-only"><label>Order Unit</label><input id="new-item-unit" placeholder="e.g. gallon, case, bag"></div>
-      <div class="form-group inv-cons-only"><label>Order Frequency</label>
-        <select id="new-item-freq">
-          <option value="">—</option><option>Weekly</option><option>Monthly</option><option>Bi Annually</option>
-        </select>
-      </div>
+      <div class="form-group inv-cons-only"><label>Item Size</label><input id="new-item-order-size" type="number" placeholder="e.g. 12"></div>
+      <div class="form-group inv-cons-only"><label>Item Units</label><input id="new-item-unit" placeholder="e.g. gallon, case, bag"></div>
       <div class="form-group inv-cons-only"><label>Par Level</label><input id="new-item-par" type="number" placeholder="0"></div>
-      <div class="form-group inv-cons-only"><label>Cost / Case</label><input id="new-item-cost" type="number" step="0.01" placeholder="0.00" oninput="calcCostPerServing()"></div>
-      <div class="form-group inv-cons-only"><label>Serving Unit</label><input id="new-item-serving-unit" placeholder="e.g. oz, shot, cup"></div>
+      <div class="form-group inv-cons-only"><label>Cost</label><input id="new-item-cost" type="number" step="0.01" placeholder="0.00" oninput="calcCostPerServing()"></div>
+      <div class="form-group inv-cons-only"><label>Single Serving Unit</label><input id="new-item-serving-unit" placeholder="e.g. oz, shot, cup"></div>
       <div class="form-group inv-cons-only"><label>Servings / Unit</label><input id="new-item-servings" type="number" step="0.01" placeholder="0" oninput="calcCostPerServing()"></div>
       <div class="form-group inv-cons-only"><label>Cost / Serving <span style="font-size:10px;color:var(--muted)">(auto)</span></label><div id="cost-per-serving-preview" style="padding:7px 10px;background:var(--cream);border-radius:7px;font-size:13px;color:var(--muted);border:1.5px solid var(--border);">—</div></div>
       <div class="form-group" style="grid-column:1/-1"><label>Tags</label><div id="inv-item-tags-editor"></div></div>
