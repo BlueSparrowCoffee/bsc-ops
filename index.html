@@ -5040,7 +5040,14 @@ function renderVendors(query='') {
 
   const isArchived = v => { const val = (v.Active||'').toString().toLowerCase(); return val==='no'||val==='false'||val==='0'; };
 
-  let rows = cache.vendors.filter(v=>!q||JSON.stringify(v).toLowerCase().includes(q));
+  let rows = cache.vendors.filter(v => {
+    if (!q) return true;
+    const fieldMatch = Object.entries(v).some(([k, val]) =>
+      !SP_SYSTEM_FIELDS.has(k) && typeof val === 'string' && val.toLowerCase().includes(q)
+    );
+    const tagMatch = (v.Tags||'').split(',').some(t => t.trim().toLowerCase().includes(q));
+    return fieldMatch || tagMatch;
+  });
   if (tab==='active')   rows = rows.filter(v => !isArchived(v));
   else if (tab==='archived') rows = rows.filter(v =>  isArchived(v));
   // Tag filter
