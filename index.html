@@ -990,7 +990,7 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
         <button class="btn btn-primary" onclick="saveMaintForm()">Save</button>
         <button class="btn btn-outline" onclick="closeModal('modal-maint')">Cancel</button>
         <button id="maint-archive-btn" class="btn" style="display:none;margin-left:auto;font-size:12px;color:var(--text-secondary);border-color:var(--border);" onclick="archiveMaintFromModal()">📦 Archive</button>
-        <button id="maint-delete-btn" class="btn" style="color:var(--red);border-color:var(--red);display:none;" onclick="deleteMaintContact()">Delete</button>
+        <button id="maint-delete-btn" class="btn" style="color:var(--red);border-color:var(--red);display:none;align-items:center;justify-content:center;" onclick="deleteMaintContact()">Delete</button>
       </div>
     </div>
   </div>
@@ -2351,7 +2351,7 @@ async function ensureList(listName, columns) {
   return listId;
 }
 
-const PROVISION_VERSION = '20';
+const PROVISION_VERSION = '21';
 
 // Pastry order spreadsheet (shared OneDrive file used by vendor for ordering)
 const PASTRY_ORDER_SHEET_URL = 'https://mainspringdevelopers-my.sharepoint.com/:x:/g/personal/plattestreet_bluesparrowcoffee_com/IQD4lfreJEqATZTjPUub-JmoAUDTaircsNPrwcyCR44bhYU';
@@ -2494,7 +2494,9 @@ async function ensureAllLists() {
   ]);
   await ensureList(LISTS.maintContacts,[
     {name:'Service',text:{}},{name:'Contact',text:{}},
-    {name:'Phone',text:{}},{name:'Email',text:{}},{name:'Notes',text:{}}
+    {name:'Phone',text:{}},{name:'Email',text:{}},
+    {name:'Website',text:{}},{name:'Location',text:{}},
+    {name:'Tags',text:{}},{name:'Notes',text:{}}
   ]);
   await ensureList(LISTS.contactArchive, [{name:'ContactId',text:{}}]);
   await ensureList(LISTS.foodPars,[
@@ -4755,6 +4757,9 @@ function isEditableField(key, listName) {
 
 // Per-list label overrides — take priority over SharePoint display names
 const LIST_FIELD_LABELS = {
+  [LISTS && LISTS.maintContacts]: {
+    Title: 'Company',
+  },
   [LISTS && LISTS.vendors]: {
     Title:         'Company',
     VendorName:    'Company',
@@ -5647,19 +5652,25 @@ function openMaintForm(id) {
 
   // Build form dynamically from SP columns — exclude Archived (controlled via button)
   const fields = cache.maintContacts.length
-    ? Object.keys(cache.maintContacts[0]).filter(k => isEditableField(k, LISTS.maintContacts) && k !== 'Archived' && k !== 'ArchiveStatus')
+    ? Object.keys(cache.maintContacts[0]).filter(k => isEditableField(k, LISTS.maintContacts) && k !== 'Archived' && k !== 'ArchiveStatus' && k !== 'Responsibility')
     : ['Title'];
 
   document.getElementById('maint-form-fields').innerHTML = fields.map(f => {
     const label = spFieldLabel(f, LISTS.maintContacts) || f;
     const val = m ? (m[f] || '') : '';
-    const lk = label.toLowerCase();
+    const lk = f.toLowerCase();
     const isLong = lk.includes('note') || lk.includes('comment') || lk.includes('description');
+    if (f === 'Location') {
+      const opts = ['', ...CFG.locations].map(l =>
+        `<option value="${escHtml(l)}" ${val===l?'selected':''}>${l||'—'}</option>`
+      ).join('');
+      return `<div class="form-group"><label>Location</label><select id="mf_Location" class="filter" style="width:100%;">${opts}</select></div>`;
+    }
     return `<div class="form-group">
       <label>${label}${f==='Title'?' *':''}</label>
       ${isLong
-        ? `<textarea id="mf_${f}" rows="3" style="width:100%;font-family:inherit;font-size:13px;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;resize:vertical;">${val}</textarea>`
-        : `<input id="mf_${f}" value="${val}" placeholder="${label}" ${lk.includes('email')?'type="email"':''}>`
+        ? `<textarea id="mf_${f}" rows="3" style="width:100%;font-family:inherit;font-size:13px;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;resize:vertical;">${escHtml(val)}</textarea>`
+        : `<input id="mf_${f}" value="${escHtml(val)}" placeholder="${escHtml(label)}" ${lk.includes('email')?'type="email"':lk.includes('website')?'type="url"':''}>`
       }
     </div>`;
   }).join('');
@@ -5684,7 +5695,7 @@ async function archiveMaintFromModal() {
 
 async function saveMaintForm() {
   const fields = cache.maintContacts.length
-    ? Object.keys(cache.maintContacts[0]).filter(k => isEditableField(k, LISTS.maintContacts) && k !== 'Archived' && k !== 'ArchiveStatus')
+    ? Object.keys(cache.maintContacts[0]).filter(k => isEditableField(k, LISTS.maintContacts) && k !== 'Archived' && k !== 'ArchiveStatus' && k !== 'Responsibility')
     : ['Title'];
   const data = {};
   fields.forEach(f => { const el = document.getElementById('mf_'+f); if (el) data[f] = el.value; });
