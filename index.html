@@ -4793,6 +4793,11 @@ function spFieldLabel(key, listName) {
 function spCellValue(key, val) {
   if (!val || val==='') return '—';
   const k = key.toLowerCase();
+  // Multi-value fields stored as newline-separated — render each on its own line
+  if (String(val).includes('\n')) {
+    const parts = String(val).split('\n').map(s=>s.trim()).filter(Boolean);
+    return parts.map(p=>spCellValue(key, p)).join('<br>');
+  }
   const safe = escHtml(String(val));
   if (k.includes('phone')||k.includes('tel')) return `<a href="tel:${val.toString().replace(/\D/g,'')}">${safe}</a>`;
   if (k.includes('email')||k.includes('mail')) return `<a href="mailto:${safe}">${safe}</a>`;
@@ -5159,9 +5164,9 @@ const VENDOR_FORM_FIELDS = [
   { key:'VendorName',    span:true  },
   { key:'Product',       span:false },
   { key:'Active',        type:'select', options:['Yes','No'], span:false },
-  { key:'ContactPerson', span:false },
-  { key:'Email',         span:false },
-  { key:'Phone',         span:false },
+  { key:'ContactPerson', type:'multi', span:false },
+  { key:'Email',         type:'multi', span:false },
+  { key:'Phone',         type:'multi', span:false },
   { key:'Website',       span:false },
   { key:'OrderMethod',   type:'select', options:['Email','Phone','Portal','App','Fax','In Person','Text'], span:false },
   { key:'OrderDeadline', span:false },
@@ -5195,6 +5200,20 @@ function vendorFieldInput(key, type, options, val, item) {
   if (type === 'textarea') {
     return `<textarea id="${id}" rows="3" style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;resize:vertical">${escHtml(v)}</textarea>`;
   }
+  if (type === 'multi') {
+    const values = (v||'').split('\n').map(s=>s.trim()).filter(Boolean);
+    if (!values.length) values.push('');
+    const inputType = key.toLowerCase().includes('email') ? 'email' : key.toLowerCase().includes('phone') ? 'tel' : 'text';
+    const rows = values.map(val=>`
+      <div style="display:flex;gap:5px;align-items:center;">
+        <input type="${inputType}" value="${escHtml(val)}" class="vf-multi-input field-input" style="flex:1;">
+        <button type="button" onclick="this.closest('div').remove()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:0 4px;" title="Remove">×</button>
+      </div>`).join('');
+    return `<div id="${id}" data-type="multi" style="display:flex;flex-direction:column;gap:5px;">
+      ${rows}
+      <button type="button" onclick="addVendorMultiRow(this)" style="align-self:flex-start;background:none;border:none;cursor:pointer;color:var(--gold);font-size:12px;font-weight:600;padding:2px 0;margin-top:2px;">+ add another</button>
+    </div>`;
+  }
   return `<input id="${id}" value="${escHtml(v)}" placeholder="${spFieldLabel(key,LISTS.vendors)}">`;
 }
 
@@ -5212,6 +5231,17 @@ function syncDaysField(key) {
     document.getElementById('vf_'+key)?.after(hidden);
   }
   hidden.value = val;
+}
+
+function addVendorMultiRow(btn) {
+  const container = btn.closest('[data-type="multi"]');
+  const key = (container.id||'').replace('vf_','').toLowerCase();
+  const inputType = key.includes('email') ? 'email' : key.includes('phone') ? 'tel' : 'text';
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:5px;align-items:center;';
+  row.innerHTML = `<input type="${inputType}" class="vf-multi-input field-input" style="flex:1;"><button type="button" onclick="this.closest('div').remove()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:0 4px;" title="Remove">×</button>`;
+  btn.before(row);
+  row.querySelector('input').focus();
 }
 
 function openVendorForm(id) {
@@ -5316,7 +5346,10 @@ async function saveVendorForm() {
   // Collect all rendered vf_ inputs / selects / textareas
   document.querySelectorAll('#vendor-form-fields [id^="vf_"]').forEach(el => {
     const key = el.id.replace('vf_','');
-    if (el.tagName === 'DIV') {
+    if (el.tagName === 'DIV' && el.dataset.type === 'multi') {
+      // multi-value field — collect all inputs, join with newlines
+      data[key] = [...el.querySelectorAll('.vf-multi-input')].map(i=>i.value.trim()).filter(Boolean).join('\n');
+    } else if (el.tagName === 'DIV') {
       // days checkbox container — read from hidden sibling
       const hidden = document.getElementById('vf_hidden_'+key);
       if (hidden) data[key] = hidden.value;
