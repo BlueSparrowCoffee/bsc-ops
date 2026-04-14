@@ -1346,8 +1346,8 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
           </label>
           <button class="btn btn-primary" onclick="snapshotCogs()" style="font-size:12px;padding:6px 14px;" title="Save current COG & margin to history">📸 Snapshot Costs</button>
         </div>
-        <div id="cogs-missing-costs" style="display:none;background:#fff8e1;border:1.5px solid #f59e0b;border-radius:10px;padding:12px 16px;font-size:13px;color:#92400e;margin-bottom:16px;">
-          ⚠️ Some inventory items are missing <strong>Cost Per Serving</strong>. Go to <strong>Inventory → Edit Item</strong> to add serving costs for accurate margin calculations.
+        <div id="cogs-missing-costs" style="display:none;background:#fff8e1;border:1.5px solid #f59e0b;border-radius:10px;padding:12px 16px;font-size:13px;color:#92400e;margin-bottom:16px;cursor:pointer;user-select:none;" onclick="toggleCogsMissingFilter()">
+          ⚠️ Some ingredients are missing <strong>Cost Per Serving</strong>. <span id="cogs-missing-filter-label" style="text-decoration:underline;font-weight:600;">Filter to affected items</span>
         </div>
         <div id="cogs-empty" style="display:none;text-align:center;padding:60px;color:var(--muted)">
           <div style="font-size:36px;margin-bottom:8px">☕</div>
@@ -9029,6 +9029,23 @@ let _cogsQuery = '';
 let _cogsCatFilters = new Set();
 const _cogsActiveVar = {}; // itemId → active variation index, persists across re-renders
 let _cogsHiddenIds = new Set(JSON.parse(localStorage.getItem('bsc_cogs_hidden')||'[]'));
+let _cogsMissingOnly = false;
+
+function toggleCogsMissingFilter() {
+  _cogsMissingOnly = !_cogsMissingOnly;
+  const banner = document.getElementById('cogs-missing-costs');
+  const label  = document.getElementById('cogs-missing-filter-label');
+  if (_cogsMissingOnly) {
+    banner.style.background   = '#fef3c7';
+    banner.style.borderColor  = '#d97706';
+    label.textContent = 'Show all items';
+  } else {
+    banner.style.background   = '#fff8e1';
+    banner.style.borderColor  = '#f59e0b';
+    label.textContent = 'Filter to affected items';
+  }
+  renderCogCards();
+}
 
 // ── Inventory COG tab config & state ─────────────────────────────────────────
 const INV_COG_CFG = {
@@ -9426,9 +9443,17 @@ function renderCogCards() {
   const showHidden    = document.getElementById('cogs-show-hidden')?.checked;
   const groupByCat    = document.getElementById('cogs-group-by-cat')?.checked;
 
+  const cogMap  = buildCogMap();
+  const invMap  = buildInvMap();
+  const prepMap = buildPrepItemMap();
+
   let items = cache.menu.filter(i => (i.Category||'').toLowerCase() === 'coffee bar');
   if (!showHidden) items = items.filter(i => !_cogsHiddenIds.has(i.id));
   if (_cogsQuery)  items = items.filter(i => (i.ItemName||i.Title||'').toLowerCase().includes(_cogsQuery));
+  if (_cogsMissingOnly) items = items.filter(i => {
+    const ings = cogMap[i.id] || [];
+    return ings.length === 0 || ings.some(ing => !ing.costPerServing);
+  });
   items = [...items].sort((a,b) => (a.ItemName||a.Title||'').localeCompare(b.ItemName||b.Title||''));
 
   if (!items.length) {
@@ -9437,10 +9462,6 @@ function renderCogCards() {
     return;
   }
   empty.style.display = 'none';
-
-  const cogMap = buildCogMap();
-  const invMap = buildInvMap();
-  const prepMap = buildPrepItemMap();
 
   if (groupByCat) {
     const byCategory = {};
