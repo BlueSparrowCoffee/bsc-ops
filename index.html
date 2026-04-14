@@ -48,12 +48,11 @@ h1,h2,h3,.stat-value{font-family:'IvyPresto Display','Hoefler Text',Georgia,seri
 #topbar{background:var(--dark-blue);color:#fff;height:56px;display:flex;align-items:center;padding:0 20px;gap:16px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.25);}
 .topbar-logo{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:600;}
 .topbar-logo span{font-size:22px;}
-.topbar-logo small{font-size:10px;color:rgba(255,255,255,.7);font-weight:400;display:block;margin-top:-2px;}
+.topbar-logo small{font-size:10px;color:rgba(255,255,255,.7);font-weight:400;display:block;margin-top:1px;}
 .location-switcher{display:flex;gap:4px;margin-left:24px;}
 .loc-btn{padding:4px 12px;border:1.5px solid rgba(255,255,255,.3);border-radius:20px;background:transparent;color:#fff;font-size:12px;cursor:pointer;font-family:inherit;transition:all .15s;}
 .loc-btn:hover,.loc-btn.active{background:var(--gold);border-color:var(--gold);color:#fff;}
 .topbar-right{margin-left:auto;display:flex;align-items:center;gap:12px;}
-#sync-label{font-size:11px;color:rgba(255,255,255,.7);}
 .topbar-user{font-size:12px;color:#fff;}
 .btn-signout{font-size:11px;padding:3px 10px;border:1px solid rgba(255,255,255,.35);border-radius:5px;background:transparent;color:rgba(255,255,255,.85);cursor:pointer;font-family:inherit;}
 .btn-signout:hover{border-color:#fff;color:#fff;}
@@ -340,7 +339,7 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
 <div id="topbar">
   <div class="topbar-logo">
     <img src="/feather.png" alt="BSC" style="height:32px;width:auto;">
-    <div>Blue Sparrow Coffee <small>Operations Platform</small></div>
+    <div><div>Blue Sparrow Coffee</div><small>Operations Platform</small></div>
   </div>
   <div class="location-switcher" id="loc-switcher">
     <button class="loc-btn active" onclick="setLocation('all',this)">All</button>
@@ -350,13 +349,13 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
     <button class="loc-btn" onclick="setLocation('17th',this)">17th</button>
   </div>
   <div class="topbar-right">
-    <span id="sync-label"></span>
     <div id="user-info" style="display:flex;align-items:center;gap:8px;">
-      <div style="text-align:right;line-height:1.3;">
+      <div style="text-align:right;line-height:1.4;">
         <div id="user-label" style="font-size:13px;font-weight:600;color:#fff;"></div>
         <div id="user-role-label" style="font-size:11px;color:rgba(185,223,227,.7);"></div>
+        <div id="sync-label" style="font-size:10px;color:rgba(255,255,255,.5);"></div>
       </div>
-      <div id="user-avatar" style="width:32px;height:32px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;flex-shrink:0;"></div>
+      <div id="user-avatar" style="display:none;"></div>
     </div>
     <button class="btn-signout" onclick="signOut()">Sign out</button>
   </div>
