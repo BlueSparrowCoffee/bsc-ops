@@ -2671,6 +2671,7 @@ async function loadAllData() {
   cache.cogsRecipes = cogsRecipes;
   cache.cogSnapshots = cogSnapshots;
   resolveCurrentStaffMember(); // match login email → BSC_Staff record
+  applyHiddenSettings(); // sync hidden IDs from SharePoint before first render
   renderAll();
   applyLocationAccess();
 }
@@ -7092,6 +7093,20 @@ function getSetting(key) {
   return cache.settingsItems.find(i => i.Title === key)?.Value || '';
 }
 
+// Re-init all hidden-ID sets from SharePoint settings (falls back to localStorage).
+// Called once after initial data load so hide state persists across devices/browsers.
+function applyHiddenSettings() {
+  const parse = str => { try { return JSON.parse(str); } catch { return []; } };
+  // Menu COGs
+  const cogsStr = getSetting('cogs_hidden') || localStorage.getItem('bsc_cogs_hidden');
+  if (cogsStr) _cogsHiddenIds = new Set(parse(cogsStr));
+  // Inventory COGs (merch / food / grocery)
+  for (const [tabKey, cfg] of Object.entries(INV_COG_CFG)) {
+    const str = getSetting(cfg.hiddenKey) || localStorage.getItem(cfg.hiddenKey);
+    if (str) _invCogState[tabKey].hiddenIds = new Set(parse(str));
+  }
+}
+
 async function saveSetting(key, value) {
   const siteId = await getSiteId();
   const existing = cache.settingsItems.find(i => i.Title === key);
@@ -9371,12 +9386,11 @@ function renderCogs() {
 }
 
 function toggleCogHidden(itemId) {
-  if (_cogsHiddenIds.has(itemId)) {
-    _cogsHiddenIds.delete(itemId);
-  } else {
-    _cogsHiddenIds.add(itemId);
-  }
-  localStorage.setItem('bsc_cogs_hidden', JSON.stringify([..._cogsHiddenIds]));
+  if (_cogsHiddenIds.has(itemId)) _cogsHiddenIds.delete(itemId);
+  else _cogsHiddenIds.add(itemId);
+  const json = JSON.stringify([..._cogsHiddenIds]);
+  localStorage.setItem('bsc_cogs_hidden', json);
+  saveSetting('cogs_hidden', json).catch(() => {});
   renderCogCards();
 }
 
@@ -9546,7 +9560,9 @@ function toggleInvCogHidden(itemId, tabKey) {
   const cfg   = INV_COG_CFG[tabKey];
   if (state.hiddenIds.has(itemId)) state.hiddenIds.delete(itemId);
   else state.hiddenIds.add(itemId);
-  localStorage.setItem(cfg.hiddenKey, JSON.stringify([...state.hiddenIds]));
+  const json = JSON.stringify([...state.hiddenIds]);
+  localStorage.setItem(cfg.hiddenKey, json);
+  saveSetting(cfg.hiddenKey, json).catch(() => {});
   renderInvCogCards(tabKey);
 }
 
