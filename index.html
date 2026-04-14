@@ -5214,6 +5214,7 @@ const VENDOR_FORM_FIELDS = [
   { key:'Notes',         type:'textarea', span:true  },
 ];
 const DAYS_OF_WEEK = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const MAINT_FORM_FIELDS = ['Title','Service','Contact','Phone','Email','Website','Location','Tags','Notes'];
 
 function vendorFieldInput(key, type, options, val, item) {
   const id = 'vf_' + key;
@@ -5686,10 +5687,7 @@ function openMaintForm(id) {
   const m = id ? cache.maintContacts.find(x=>x.id===id) : null;
   document.getElementById('maint-modal-title').textContent = m ? 'Edit Contact' : 'Add Contact';
 
-  // Build form dynamically from SP columns — exclude Archived (controlled via button)
-  const fields = cache.maintContacts.length
-    ? Object.keys(cache.maintContacts[0]).filter(k => isEditableField(k, LISTS.maintContacts) && k !== 'Archived' && k !== 'ArchiveStatus' && k !== 'Responsibility')
-    : ['Title'];
+  const fields = MAINT_FORM_FIELDS;
 
   document.getElementById('maint-form-fields').innerHTML = fields.map(f => {
     const label = spFieldLabel(f, LISTS.maintContacts) || f;
@@ -5730,9 +5728,7 @@ async function archiveMaintFromModal() {
 }
 
 async function saveMaintForm() {
-  const fields = cache.maintContacts.length
-    ? Object.keys(cache.maintContacts[0]).filter(k => isEditableField(k, LISTS.maintContacts) && k !== 'Archived' && k !== 'ArchiveStatus' && k !== 'Responsibility')
-    : ['Title'];
+  const fields = MAINT_FORM_FIELDS;
   const data = {};
   fields.forEach(f => { const el = document.getElementById('mf_'+f); if (el) data[f] = el.value; });
   if (!data.Title?.trim()) { toast('err','Company/name is required'); return; }
