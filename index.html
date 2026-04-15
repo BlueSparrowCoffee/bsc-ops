@@ -714,7 +714,10 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
       <select class="filter" id="vendor-tag-filter" onchange="renderVendors(document.querySelector('#page-vendors .search-input').value)">
         <option value="">All Tags</option>
       </select>
-      <button class="btn btn-outline" onclick="openVendorForm(null)" style="font-size:12px;padding:5px 12px;">+ Add Vendor</button>
+      <button id="vendor-add-btn" class="btn btn-outline" onclick="openVendorForm(null)" style="font-size:12px;padding:5px 12px;">+ Add Vendor</button>
+      <button id="vendor-edit-btn" class="btn btn-outline" onclick="toggleVendorEditMode()" style="font-size:12px;padding:5px 12px;">✏️ Edit</button>
+      <button id="vendor-save-btn" class="btn btn-primary" onclick="saveAllVendors()" style="display:none;font-size:12px;padding:5px 12px;">Save All</button>
+      <button id="vendor-cancel-btn" class="btn btn-outline" onclick="cancelVendorEditMode()" style="display:none;font-size:12px;padding:5px 12px;">Cancel</button>
       <div style="position:relative;display:inline-block;">
         <button class="btn btn-outline" onclick="toggleColPanel()" style="font-size:12px;padding:5px 12px;">⚙ Columns</button>
         <div id="col-panel" style="display:none;position:absolute;right:0;top:32px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:12px;min-width:200px;z-index:200;box-shadow:var(--shadow);max-height:320px;overflow-y:auto;font-size:13px;"></div>
@@ -5347,16 +5350,24 @@ function renderVendors(query='') {
 
   const isArchivedTab = tab === 'archived';
   thead.innerHTML = `<tr>${fields.map(f=>`<th onclick="sortVendorBy('${f}')" class="${_vendorSort.col===f?(_vendorSort.dir===1?'sort-asc':'sort-desc'):''}">${spFieldLabel(f,LISTS.vendors)}</th>`).join('')}<th>Tags</th><th style="width:100px"></th></tr>`;
+
+  const vendorCellInput = (f, r) => {
+    const val = escHtml((r[f]??'').toString());
+    if (f === 'Active') return `<select data-vfield="${f}" style="font-size:12px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;width:70px;"><option value="Yes"${r[f]==='Yes'?' selected':''}>Yes</option><option value="No"${r[f]==='No'?' selected':''}>No</option></select>`;
+    return `<input data-vfield="${escHtml(f)}" value="${val}" style="font-size:12px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;width:100%;min-width:80px;box-sizing:border-box;">`;
+  };
+
   tbody.innerHTML = rows.map(r=>`<tr data-gs-id="${escHtml(r.id)}">
-    ${fields.map(f=>`<td>${spCellValue(f,r[f]??'')}</td>`).join('')}
+    ${fields.map(f=>`<td style="${_vendorEditMode?'padding:4px 6px;':''}">${_vendorEditMode ? vendorCellInput(f,r) : spCellValue(f,r[f]??'')}</td>`).join('')}
     <td>${renderVendorTagPills(r.Tags, r.id)}</td>
     <td style="white-space:nowrap">
-      <button data-id="${escHtml(r.id)}" onclick="openVendorForm(this.dataset.id)" style="background:none;border:none;cursor:pointer;color:var(--gold);font-size:13px;padding:2px 6px;" title="Edit">✏️</button>
+      ${_vendorEditMode ? '' : `<button data-id="${escHtml(r.id)}" onclick="openVendorForm(this.dataset.id)" style="background:none;border:none;cursor:pointer;color:var(--gold);font-size:13px;padding:2px 6px;" title="Edit">✏️</button>`}
       ${isArchivedTab
-        ? `<button data-id="${escHtml(r.id)}" onclick="restoreVendor(this.dataset.id)" style="background:none;border:none;cursor:pointer;color:#16a34a;font-size:12px;padding:2px 6px;font-weight:600;" title="Restore">↩ Restore</button>`
-        : `<button data-id="${escHtml(r.id)}" onclick="archiveVendor(this.dataset.id)" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:13px;padding:2px 6px;" title="Archive">🗃️</button>`
-      }
-      ${isOwner() ? `<button data-id="${escHtml(r.id)}" data-name="${escHtml(r.Title||'')}" onclick="deleteVendor(this.dataset.id,this.dataset.name)" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:13px;padding:2px 6px;" title="Delete">🗑️</button>` : ''}
+        ${!_vendorEditMode ? (isArchivedTab
+          ? `<button data-id="${escHtml(r.id)}" onclick="restoreVendor(this.dataset.id)" style="background:none;border:none;cursor:pointer;color:#16a34a;font-size:12px;padding:2px 6px;font-weight:600;" title="Restore">↩ Restore</button>`
+          : `<button data-id="${escHtml(r.id)}" onclick="archiveVendor(this.dataset.id)" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:13px;padding:2px 6px;" title="Archive">🗃️</button>`)
+        : ''}
+        ${!_vendorEditMode && isOwner() ? `<button data-id="${escHtml(r.id)}" data-name="${escHtml(r.Title||'')}" onclick="deleteVendor(this.dataset.id,this.dataset.name)" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:13px;padding:2px 6px;" title="Delete">🗑️</button>` : ''}
     </td>
   </tr>`).join('');
 
@@ -5670,6 +5681,59 @@ async function deleteVendor(id, name) {
 
 function filterVendors(q) { renderVendors(q); }
 document.getElementById('vendor-tab').addEventListener('change',()=>renderVendors());
+
+let _vendorEditMode = false;
+let _vendorOriginals = {};
+
+function toggleVendorEditMode() {
+  _vendorEditMode = true;
+  _vendorOriginals = {};
+  cache.vendors.forEach(v => { _vendorOriginals[v.id] = { ...v }; });
+  document.getElementById('vendor-edit-btn').style.display   = 'none';
+  document.getElementById('vendor-add-btn').style.display    = 'none';
+  document.getElementById('vendor-save-btn').style.display   = '';
+  document.getElementById('vendor-cancel-btn').style.display = '';
+  renderVendors(document.querySelector('#page-vendors .search-input')?.value||'');
+}
+
+function cancelVendorEditMode() {
+  _vendorEditMode = false;
+  _vendorOriginals = {};
+  document.getElementById('vendor-edit-btn').style.display   = '';
+  document.getElementById('vendor-add-btn').style.display    = '';
+  document.getElementById('vendor-save-btn').style.display   = 'none';
+  document.getElementById('vendor-cancel-btn').style.display = 'none';
+  renderVendors(document.querySelector('#page-vendors .search-input')?.value||'');
+}
+
+async function saveAllVendors() {
+  const rows = document.querySelectorAll('#vendor-body tr[data-gs-id]');
+  const updates = [];
+  rows.forEach(row => {
+    const id = row.dataset.gsId;
+    const orig = _vendorOriginals[id] || {};
+    const changed = {};
+    row.querySelectorAll('[data-vfield]').forEach(input => {
+      const field = input.dataset.vfield;
+      const newVal = input.tagName === 'SELECT' ? input.value : input.value;
+      const origVal = (orig[field] ?? '').toString();
+      if (newVal !== origVal) changed[field] = newVal;
+    });
+    if (Object.keys(changed).length) updates.push({ id, changed });
+  });
+  if (!updates.length) { toast('ok', 'No changes'); cancelVendorEditMode(); return; }
+  setLoading(true, `Saving ${updates.length} vendor${updates.length>1?'s':''}…`);
+  try {
+    await Promise.all(updates.map(u => updateListItem(LISTS.vendors, u.id, u.changed)));
+    updates.forEach(u => {
+      const v = cache.vendors.find(v => v.id === u.id);
+      if (v) Object.assign(v, u.changed);
+    });
+    toast('ok', `✓ Saved ${updates.length} vendor${updates.length>1?'s':''}`);
+    cancelVendorEditMode();
+  } catch(e) { toast('err', 'Save failed: ' + e.message); }
+  finally { setLoading(false); }
+}
 
 
 // ════════════════════════════════════════════════════════════════════════════
