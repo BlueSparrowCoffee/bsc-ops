@@ -9933,6 +9933,7 @@ async function snapshotCogs() {
     const now = new Date().toISOString();
     for (const item of cache.menu) {
       const itemId   = item.SquareId || item.id;
+      if (_cogsHiddenIds.has(itemId)) continue; // skip hidden items
       const itemName = item.ItemName || item.Title || '';
       const variations = getVariationNames(item);
       for (const v of variations) {
@@ -10084,7 +10085,7 @@ function renderCogs() {
   // Populate history item filter
   const histSel = document.getElementById('cogs-hist-item');
   if (histSel) {
-    const names = [...new Set(cache.menu.map(i => i.ItemName||i.Title||'').filter(Boolean))].sort();
+    const names = [...new Set(cache.menu.filter(i=>!_cogsHiddenIds.has(i.SquareId||i.id)).map(i => i.ItemName||i.Title||'').filter(Boolean))].sort();
     histSel.innerHTML = '<option value="">All Items</option>'
       + names.map(n=>`<option value="${escHtml(n)}">${escHtml(n)}</option>`).join('');
   }
@@ -11068,6 +11069,8 @@ function renderCogHistory() {
 
   const filterItem = document.getElementById('cogs-hist-item')?.value || '';
   let snaps = [...cache.cogSnapshots].sort((a,b) => new Date(b.SnapshotDate||0) - new Date(a.SnapshotDate||0));
+  // Exclude hidden items — match by MenuItemId against _cogsHiddenIds
+  snaps = snaps.filter(s => !_cogsHiddenIds.has(s.MenuItemId));
   if (filterItem) snaps = snaps.filter(s => s.MenuItemName === filterItem);
 
   if (count) count.textContent = snaps.length ? `${snaps.length} records` : '';
