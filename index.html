@@ -494,7 +494,7 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
         <table>
           <thead><tr id="inv-thead-row">
             <th onclick="sortInvBy('ItemName')">Item</th>
-            <th id="inv-th-category" onclick="sortInvBy('Category')">Category</th>
+            <th onclick="sortInvBy('Category')">Category</th>
             <th onclick="sortInvBy('Supplier')">Vendor</th>
             <th onclick="sortInvBy('ParLevel')">Par</th>
             <th onclick="sortInvBy('StoreCount')">Store</th>
@@ -3659,7 +3659,7 @@ function renderMerchCountSheet() {
       </div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <button class="btn btn-outline" id="merch-sq-btn" onclick="pullMerchSalesFromSquare()">Pull from Square</button>
-        <span id="count-submit-progress" style="font-size:13px;color:var(--muted)"></span>
+        <span id="merch-count-submit-progress" style="font-size:13px;color:var(--muted)"></span>
         <button class="btn btn-outline" onclick="clearMerchCountSheet()">Clear</button>
         <button class="btn btn-primary" onclick="submitMerchCount()">Submit Count</button>
       </div>`;
@@ -3797,7 +3797,7 @@ async function submitMerchCount() {
   const cntList = cfg.countsPrefix.replace('{loc}', (loc||'').replace(/[\s\/\\]/g,'_'));
   if (!cntList) { toast('err','Could not resolve counts list'); return; }
 
-  const prog = document.getElementById('count-submit-progress');
+  const prog = document.getElementById('merch-count-submit-progress');
   const btn = document.querySelector('#inv-tab-count .btn-primary');
   btn.disabled = true;
 
