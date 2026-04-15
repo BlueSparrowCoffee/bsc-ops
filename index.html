@@ -1976,6 +1976,12 @@ const CFG = {
 const SCOPES = ['Sites.ReadWrite.All','Files.ReadWrite','User.Read'];
 // Admin-only scopes — only requested when owner runs staff access sync
 const ADMIN_SCOPES = [...SCOPES, 'Sites.FullControl.All','User.Invite.All','User.Read.All','User.ReadWrite.All'];
+
+// ── TIMING & OPERATIONAL CONSTANTS ──────────────────────────────────────────
+const SP_PAGE_SIZE          = 500;  // Graph API $top — max items per list fetch
+const WEBHOOK_EXPIRY_DAYS   = 170;  // SharePoint webhook max lifetime (days)
+const MODAL_FOCUS_DELAY_MS  = 100;  // ms to wait before focusing first field in a modal
+const NAV_SETTLE_MS         = 80;   // ms to wait after nav() before querying newly rendered DOM
 const MODULES = ['Dashboard','Inventory','Transfers','Ordering','Checklists','Vendors','Recipes','Staff','Maintenance','Contacts','Menu','Prep','Square','COGs','Settings'];
 const EQUIPMENT_LIST = ['Slayer Espresso Machine','Grinders','Glycol Chiller','Refrigerators','Ice Machine','Fetco Batch Brewer','Cold Brew System','Keg Lines / Draft','Water Filtration','Dishwasher','POS Terminals','HVAC / Ventilation','Plumbing / Sinks','Hood / Exhaust'];
 const FREQ_DAYS = {Monthly:30, Quarterly:90, Annually:365};
@@ -2312,7 +2318,7 @@ async function getSpListCache(siteId) {
   if (_spListCache) return _spListCache;
   _spListCache = {};
   // Follow all pages so we never miss a list
-  let url = `/sites/${siteId}/lists?$select=name,displayName,id&$top=500`;
+  let url = `/sites/${siteId}/lists?$select=name,displayName,id&$top=${SP_PAGE_SIZE}`;
   while (url) {
     const res = await graph('GET', url);
     (res.value || []).forEach(l => {
@@ -2692,7 +2698,7 @@ async function loadAllData() {
 
 async function getListItems(siteId, listName) {
   try {
-    const res = await graph('GET',`/sites/${siteId}/lists/${listName}/items?expand=fields&$top=500`);
+    const res = await graph('GET',`/sites/${siteId}/lists/${listName}/items?expand=fields&$top=${SP_PAGE_SIZE}`);
     return (res.value||[]).map(i=>({id:i.id,...i.fields}));
   } catch { return []; }
 }
@@ -2746,7 +2752,7 @@ async function loadInventoryData(siteId) {
 
 async function getRecipeItems(siteId) {
   try {
-    const res = await graph('GET',`/sites/${siteId}/lists/${LISTS.recipes}/items?expand=fields,lastModifiedBy&$top=500`);
+    const res = await graph('GET',`/sites/${siteId}/lists/${LISTS.recipes}/items?expand=fields,lastModifiedBy&$top=${SP_PAGE_SIZE}`);
     return (res.value||[]).map(i=>({
       id: i.id,
       ...i.fields,
@@ -2909,7 +2915,7 @@ async function registerWebhooks() {
   const siteId        = await getSiteId();
   const listCache     = await getSpListCache(siteId);
   const notifyUrl     = `${window.location.origin}/api/sp-webhook`;
-  const expiry        = new Date(Date.now() + 170 * 24 * 60 * 60 * 1000).toISOString();
+  const expiry        = new Date(Date.now() + WEBHOOK_EXPIRY_DAYS * 24 * 60 * 60 * 1000).toISOString();
   for (const [listKey, listName] of Object.entries(LISTS)) {
     try {
       const listId = listCache[listName];
@@ -4249,7 +4255,7 @@ async function saveTransfer() {
     const getLatestTotal = async (listName, iName) => {
       if (!listName) return 0;
       try {
-        const res = await graph('GET', `/sites/${siteId}/lists/${listName}/items?expand=fields&$top=500`);
+        const res = await graph('GET', `/sites/${siteId}/lists/${listName}/items?expand=fields&$top=${SP_PAGE_SIZE}`);
         const rows = (res.value||[]).map(r=>({...r.fields}))
           .filter(r=>(r.Title||'').trim().toLowerCase()===iName.toLowerCase())
           .sort((a,b)=>new Date(b.WeekOf||0)-new Date(a.WeekOf||0));
@@ -5389,7 +5395,7 @@ function openVendorForm(id) {
 
   initTagEditor('vendor', item?.Tags||'');
   openModal('modal-vendor');
-  setTimeout(()=>document.getElementById('vf_VendorName')?.focus(), 100);
+  setTimeout(()=>document.getElementById('vf_VendorName')?.focus(), MODAL_FOCUS_DELAY_MS);
 }
 
 let _vendorFormTags = [];
@@ -5785,7 +5791,7 @@ function openMaintForm(id) {
   }
   document.getElementById('maint-delete-btn').style.display = m ? 'inline-flex' : 'none';
   openModal('modal-maint');
-  setTimeout(()=>document.getElementById('mf_Title')?.focus(), 100);
+  setTimeout(()=>document.getElementById('mf_Title')?.focus(), MODAL_FOCUS_DELAY_MS);
 }
 
 async function archiveMaintFromModal() {
@@ -6063,7 +6069,7 @@ function openRecipeForm(id) {
   document.getElementById('recipe-delete-btn').style.display = isEdit ? 'inline-flex' : 'none';
   document.getElementById('recipe-history-btn').style.display = isEdit ? 'inline-flex' : 'none';
   openModal('modal-recipe');
-  setTimeout(()=>document.getElementById('rf-title').focus(),100);
+  setTimeout(()=>document.getElementById('rf-title').focus(),MODAL_FOCUS_DELAY_MS);
 }
 
 async function saveRecipeForm() {
@@ -6280,7 +6286,7 @@ function openStaffForm(id) {
     emailInput?.parentElement?.appendChild(note);
   }
   openModal('modal-staff');
-  setTimeout(()=>document.getElementById('sf-name').focus(),100);
+  setTimeout(()=>document.getElementById('sf-name').focus(),MODAL_FOCUS_DELAY_MS);
 }
 function toggleAllLocAccess(cb) {
   document.querySelectorAll('.sf-access-loc').forEach(c => {
@@ -6413,7 +6419,7 @@ function openMaintTaskForm(id) {
   document.getElementById('maint-task-tags-editor').innerHTML = tagEditorHTML('maint-task');
   initTagEditor('maint-task', t?.Tags||'');
   openModal('modal-maint-task');
-  setTimeout(()=>document.getElementById('mt-title').focus(),100);
+  setTimeout(()=>document.getElementById('mt-title').focus(),MODAL_FOCUS_DELAY_MS);
 }
 async function saveMaintTaskForm() {
   const title=document.getElementById('mt-title').value.trim();
@@ -6630,7 +6636,7 @@ function openRoleForm(id) {
       <input type="checkbox" name="perm-${m}" ${currentPerms.has(m)?'checked':''} style="accent-color:var(--gold);width:15px;height:15px;"> ${m}
     </label>`).join('');
   openModal('modal-role');
-  setTimeout(()=>document.getElementById('role-name').focus(),100);
+  setTimeout(()=>document.getElementById('role-name').focus(),MODAL_FOCUS_DELAY_MS);
 }
 
 async function runProvisioning() {
@@ -7549,7 +7555,7 @@ function globalSearch(q) {
           setTimeout(()=>{
             highlightAndScroll(document.querySelector(`#inv-body tr[data-inv-id="${i.id}"]`));
           },150);
-        },80);
+        },NAV_SETTLE_MS);
       }}));
 
     // Search vendors (includes tags)
@@ -7562,7 +7568,7 @@ function globalSearch(q) {
           setTimeout(()=>{
             highlightAndScroll(document.querySelector(`tr[data-gs-id="${v.id}"]`));
           },300);
-        },80);
+        },NAV_SETTLE_MS);
       }}));
 
     // Search staff
@@ -7581,7 +7587,7 @@ function globalSearch(q) {
           setTimeout(()=>{
             highlightAndScroll(document.querySelector(`[data-gs-id="${m.id}"]`));
           },400);
-        },80);
+        },NAV_SETTLE_MS);
       }}));
 
     // Search recipes
@@ -7594,7 +7600,7 @@ function globalSearch(q) {
           setTimeout(()=>{
             highlightAndScroll(document.querySelector(`[data-gs-id="${r.id}"]`));
           },200);
-        },80);
+        },NAV_SETTLE_MS);
       }}));
 
     // Search maintenance tasks
@@ -7605,7 +7611,7 @@ function globalSearch(q) {
           setTimeout(()=>{
             highlightAndScroll(document.querySelector(`[data-gs-id="${t.id}"]`));
           },200);
-        },80);
+        },NAV_SETTLE_MS);
       }}));
 
     // Search menu items
@@ -7618,7 +7624,7 @@ function globalSearch(q) {
           setTimeout(()=>{
             highlightAndScroll(document.querySelector(`#menu-body tr[data-gs-id="${i.id}"]`));
           },200);
-        },80);
+        },NAV_SETTLE_MS);
       }}));
 
     // Search cost of goods
@@ -7631,7 +7637,7 @@ function globalSearch(q) {
           setTimeout(()=>{
             highlightAndScroll(document.querySelector(`#cogs-cards [data-gs-id="${i.id}"]`));
           },200);
-        },80);
+        },NAV_SETTLE_MS);
       }}));
 
     // Search prep items
@@ -7642,7 +7648,7 @@ function globalSearch(q) {
           setTimeout(()=>{
             highlightAndScroll(document.querySelector(`#pi-cards [data-gs-id="${p.id}"]`));
           },200);
-        },80);
+        },NAV_SETTLE_MS);
       }}));
 
     // Search checklists
@@ -7653,7 +7659,7 @@ function globalSearch(q) {
           setTimeout(()=>{
             highlightAndScroll(document.querySelector(`[data-gs-id="${g.id}"]`));
           },200);
-        },80);
+        },NAV_SETTLE_MS);
       }}));
 
     if (!results.length) {
@@ -8528,7 +8534,7 @@ function openFoodParForm(id, category) {
 
   document.getElementById('fp-delete-btn').style.display = p ? 'inline-flex' : 'none';
   openModal('modal-foodpar');
-  setTimeout(() => document.getElementById('fp-name')?.focus(), 100);
+  setTimeout(() => document.getElementById('fp-name')?.focus(), MODAL_FOCUS_DELAY_MS);
 }
 
 async function saveFoodParForm() {
