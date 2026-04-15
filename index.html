@@ -2028,7 +2028,6 @@ const FP_PAR_LIST_COLS = [
 
 const LISTS = {
   inventory:      'BSC_Inventory',          // shared consumable item master
-  counts:         'BSC_InventoryCounts',    // legacy fallback only
   merchInventory: 'BSC_MerchInventory',     // merch item master
   equipInventory: 'BSC_EquipInventory',     // equipment & smallwares item master
   menu:           'BSC_Menu',
@@ -7837,54 +7836,6 @@ function setLoading(on,msg=''){
   if(msg) document.getElementById('loading-msg').textContent=msg;
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-// SEED DATA (vendor & maintenance — migrated from BSC Vendor Master)
-// ════════════════════════════════════════════════════════════════════════════
-const SEED_VENDORS = {
-  active: [
-    ['DAR Chocolate','Chocolate','3–7 days','3–7 days','Gila','720-229-2450','Email','Card'],
-    ['Espresso Parts','Equipment','Shipped','Shipped','—','—','Online','—'],
-    ['Foxx Equipment','Keg Parts','Pickup','Pickup','Tony','800-525-2484','Phone','—'],
-    ['General Air','CO2','Weekdays','Weekdays','—','303-892-7003','Phone','—'],
-    ['Golden Root','Golden Latte','Mon–Fri','Mon–Fri','Andrea Slinde','720-593-8654','CC at order','CC at order'],
-    ['Hearth Bakery','Pastries','Daily','Daily','Matthew Quinlisk','—','Google Sheet','—'],
-    ['Image First Linen','Linen','Friday','Friday','Stuart Young','303-968-4164','With Driver','CC auto-pay'],
-    ['Morning Fresh','Dairy','Tue & Thu','Tuesday','Sarah Marcikonis','970-482-5789','With Driver','CC auto-pay'],
-    ['Strava','Coffee','Tuesday','Tuesday','Kevin Crowley','800-204-6803','Email','Check'],
-    ['Tea with Tae','Tea','Weekdays','Weekdays','Betsy Tanner','1-888-832-9823','Online','—'],
-    ['Toddy','Cold Brew','Shipped','Shipped','—','1-888-863-3974','Online','Online'],
-    ['Wingtip','Supplies','—','Wednesday','Jon Pearson','410-802-4469','Email','Bank ACH'],
-    ['Old Town Spice Shop','Spices','Weekdays','Weekdays','—','—','—','—']
-  ],
-  ap: [
-    ['Wingtip','QuickBooks Online','Bank Account Online','Danny / Thalia','—','—','Net 30 · Jon Pearson'],
-    ['Rishi','Email','CC over phone','—','50%','50%','Charge at order · Jocelyn Ridgely'],
-    ['Green CO2','Email','CC auto-pay','Danny / Thalia','36%','—','Net 30 · Stacey Bayne'],
-    ['Hamilton (ImageFirst)','Paper','CC auto-pay','Danny / Thalia','36%','—','Net 30 · Stuart Young'],
-    ['Strava','Email & Paper','Check','Danny / Thalia','—','—','Net 30 · Kevin Crowley'],
-    ['Upstart','Paper','CC auto-pay','—','—','—','Net 15 · Phil Sun'],
-    ['Morning Fresh','Paper','CC auto-pay','Danny / Thalia','—','—','Net 30 · Sarah Marcikonis'],
-    ['Toddy','Order online','Order Online','—','50%','50%','Charge at order'],
-    ['Xcel Energy','Online account','ACH','Thalia','—','—','Due on the 4th'],
-    ['Savory Spice','Paper','CC auto-pay','Jeffrey','50%','50%','Net 20 · Melinda'],
-    ['Auto-Chlor','Email','ACH','Room for Milly CC','36%','—','Net 30 · Zoe Cantrelle'],
-    ['Odeko','Email','CC at order','Daniel','40%','60%','Charge at order · Eric'],
-    ['Tea with Tae','Email','CC at order','Danny / Thalia','—','—','Charge at order · Betzy'],
-    ['DAR Chocolate','Email & Paper','Card','Danny / Thalia','—','—','Joel Dar']
-  ],
-  archived: [
-    ['Barista Pro Shop','Backup Oat Milk','Jessica Brown','970-342-2118','jessica_brown@baristaproshop.com','Backup oat milk'],
-    ['La Fillette','Backup Pastries','Keturah Fleming','(303) 355-0022','lafillettebakery@gmail.com','Backup pastry provider'],
-    ['Miir','To-go tumblers','—','855-217-5603','hello@miir.com','—'],
-    ['Rishi','Backup Matcha','Mel Kat Wood','509-218-7928','melkat.wood@rishi-tea.com','Legacy 35 pricing, min 50 units'],
-    ['Savory Spice','Backup spices','Melinda','720-939-3533','foodservices@savoryspiceshop.com','—'],
-    ['Tekla (Duralex)','Cortado & 16oz glasses','Teky Inglese','303-674-7572','tialtd@msn.com','Cortado & 16oz glasses'],
-    ['Upstart','Kombucha','Phil Sun','650-804-9087','phil@drinkupstart.com','—'],
-    ['Webstaurant','Water filters','—','727-392-7472','help@webstaurantstore.com','—'],
-    ['Gold Seal','Backup oat milk & paper','Christopher Sanford','—','christopher.sanford@goldsealdistributing.com','—'],
-    ['Green CO2','CO2 (old)','—','970-482-0203','sales@greenco2systems.com','Self-managed']
-  ]
-};
 
 
 // PWA service worker
