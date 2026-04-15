@@ -490,7 +490,7 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
         </select>
         <span id="inv-count" style="font-size:13px;color:var(--muted);"></span>
         <button id="inv-seed-btn" class="btn btn-outline ml-auto inv-merch-only" style="display:none" onclick="seedMerchItems()">Seed Items</button>
-        <button class="btn btn-primary" onclick="openAddInvModal()">+ Add Item</button>
+        <button class="btn btn-primary" onclick="openAddInvForm()">+ Add Item</button>
       </div>
       <div class="table-wrap">
         <table>
@@ -672,7 +672,7 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
           💡 Suggestions <span id="cl-suggestions-badge" style="background:var(--red);color:#fff;border-radius:10px;padding:1px 6px;font-size:11px;margin-left:4px;display:none;"></span>
         </button>
       </div>
-      <button class="btn btn-primary" id="cl-new-btn" style="display:none;" onclick="openChecklistGroupModal(null)">+ New Checklist</button>
+      <button class="btn btn-primary" id="cl-new-btn" style="display:none;" onclick="openChecklistGroupForm(null)">+ New Checklist</button>
     </div>
     <!-- Suggestions panel (manager only) -->
     <div id="cl-suggestions-panel" style="display:none;background:#fff8e1;border:1.5px solid #f59e0b;border-radius:12px;padding:16px 20px;margin-bottom:20px;">
@@ -4002,7 +4002,7 @@ function renderInventoryAnalytics() {
 
 let _editInvId = null;
 
-function openAddInvModal() {
+function openAddInvForm() {
   _editInvId = null;
   const cfg = invCfg();
   document.querySelector('#modal-add-item .modal-title').textContent = 'Add ' + cfg.label + ' Item';
@@ -4498,7 +4498,7 @@ function renderChecklistCard(group, userIsMgr) {
           </div>
           <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
             ${due.badge}
-            ${userIsMgr ? `<button onclick="openChecklistGroupModal('${gid}')" title="Edit checklist" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:15px;padding:2px 4px;">✏️</button>` : ''}
+            ${userIsMgr ? `<button onclick="openChecklistGroupForm('${gid}')" title="Edit checklist" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:15px;padding:2px 4px;">✏️</button>` : ''}
           </div>
         </div>
         ${tasks.length ? `
@@ -4650,7 +4650,7 @@ async function deleteChecklistTask(taskId, groupId) {
 }
 
 // ── Create / Edit checklist group ─────────────────────────────────────────
-function openChecklistGroupModal(groupId) {
+function openChecklistGroupForm(groupId) {
   _clGroupEditId = groupId;
   const grp = groupId ? cache.clGroups.find(g => g.id === groupId) : null;
   document.getElementById('cl-group-modal-title').textContent = grp ? 'Edit Checklist' : 'New Checklist';
@@ -6240,9 +6240,9 @@ function populateStaffSelects() {
   });
   const equipOpts = EQUIPMENT_LIST.map(e=>`<option value="${escHtml(e)}">${escHtml(e)}</option>`).join('');
   const eqEl=document.getElementById('mt-equipment'); if(eqEl){const v=eqEl.value;eqEl.innerHTML='<option value="">Select equipment…</option>'+equipOpts;eqEl.value=v;}
-  const fLocEl=document.getElementById('maint-filter-loc'); if(fLocEl) fLocEl.innerHTML='<option value="">All Locations</option>'+locOpts;
-  const fEqEl=document.getElementById('maint-filter-equip'); if(fEqEl) fEqEl.innerHTML='<option value="">All Equipment</option>'+EQUIPMENT_LIST.map(e=>`<option value="${escHtml(e)}">${escHtml(e)}</option>`).join('');
-  const lEqEl=document.getElementById('maint-log-filter-equip'); if(lEqEl) lEqEl.innerHTML='<option value="">All Equipment</option>'+EQUIPMENT_LIST.map(e=>`<option value="${escHtml(e)}">${escHtml(e)}</option>`).join('');
+  const filterLocEl=document.getElementById('maint-filter-loc'); if(filterLocEl) filterLocEl.innerHTML='<option value="">All Locations</option>'+locOpts;
+  const filterEquipEl=document.getElementById('maint-filter-equip'); if(filterEquipEl) filterEquipEl.innerHTML='<option value="">All Equipment</option>'+EQUIPMENT_LIST.map(e=>`<option value="${escHtml(e)}">${escHtml(e)}</option>`).join('');
+  const logEquipEl=document.getElementById('maint-log-filter-equip'); if(logEquipEl) logEquipEl.innerHTML='<option value="">All Equipment</option>'+EQUIPMENT_LIST.map(e=>`<option value="${escHtml(e)}">${escHtml(e)}</option>`).join('');
 }
 
 let _staffEditId = null;
