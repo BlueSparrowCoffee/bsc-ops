@@ -1823,9 +1823,15 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
       <button class="modal-close" onclick="closeModal('modal-vendor')">×</button>
     </div>
     <div id="vendor-form-fields" class="form-grid"></div>
-    <div class="form-actions">
-      <button class="btn btn-primary" onclick="saveVendorForm()">Save</button>
-      <button class="btn btn-outline" onclick="closeModal('modal-vendor')">Cancel</button>
+    <div class="form-actions" style="justify-content:space-between;">
+      <div style="display:flex;gap:8px;">
+        <button id="vendor-modal-archive-btn" class="btn btn-outline" onclick="modalArchiveVendor()" style="display:none;"></button>
+        <button id="vendor-modal-delete-btn" class="btn btn-outline" onclick="modalDeleteVendor()" style="display:none;color:var(--red);">🗑️ Delete</button>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-primary" onclick="saveVendorForm()">Save</button>
+        <button class="btn btn-outline" onclick="closeModal('modal-vendor')">Cancel</button>
+      </div>
     </div>
   </div>
 </div>
@@ -5377,7 +5383,7 @@ function renderVendors(query='') {
   const fields = ordered.filter(k=>!hiddenCols.has(k));
 
   const isArchivedTab = tab === 'archived';
-  thead.innerHTML = `<tr>${fields.map(f=>`<th onclick="sortVendorBy('${f}')" class="${_vendorSort.col===f?(_vendorSort.dir===1?'sort-asc':'sort-desc'):''}">${spFieldLabel(f,LISTS.vendors)}</th>`).join('')}<th>Tags</th><th style="width:100px"></th></tr>`;
+  thead.innerHTML = `<tr>${fields.map(f=>`<th onclick="sortVendorBy('${f}')" class="${_vendorSort.col===f?(_vendorSort.dir===1?'sort-asc':'sort-desc'):''}"${f==='Phone'?' style="min-width:130px"':''}>${spFieldLabel(f,LISTS.vendors)}</th>`).join('')}<th>Tags</th></tr>`;
 
   const vendorCellInput = (f, r) => {
     const val = escHtml((r[f]??'').toString());
@@ -5385,17 +5391,9 @@ function renderVendors(query='') {
     return `<input data-vfield="${escHtml(f)}" value="${val}" style="font-size:12px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;width:100%;min-width:80px;box-sizing:border-box;">`;
   };
 
-  tbody.innerHTML = rows.map(r=>`<tr data-gs-id="${escHtml(r.id)}">
+  tbody.innerHTML = rows.map(r=>`<tr data-gs-id="${escHtml(r.id)}"${!_vendorEditMode?` onclick="openVendorForm('${escHtml(r.id)}')" style="cursor:pointer;"`:''}>
     ${fields.map(f=>`<td style="${_vendorEditMode?'padding:4px 6px;':''}">${_vendorEditMode ? vendorCellInput(f,r) : spCellValue(f,r[f]??'')}</td>`).join('')}
-    <td>${renderVendorTagPills(r.Tags, r.id)}</td>
-    <td style="white-space:nowrap">
-      ${_vendorEditMode ? '' : `<button data-id="${escHtml(r.id)}" onclick="openVendorForm(this.dataset.id)" style="background:none;border:none;cursor:pointer;color:var(--gold);font-size:13px;padding:2px 6px;" title="Edit">✏️</button>`}
-      ${!_vendorEditMode ? (isArchivedTab
-          ? `<button data-id="${escHtml(r.id)}" onclick="restoreVendor(this.dataset.id)" style="background:none;border:none;cursor:pointer;color:#16a34a;font-size:12px;padding:2px 6px;font-weight:600;" title="Restore">↩ Restore</button>`
-          : `<button data-id="${escHtml(r.id)}" onclick="archiveVendor(this.dataset.id)" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:13px;padding:2px 6px;" title="Archive">🗃️</button>`)
-        : ''}
-        ${!_vendorEditMode && isOwner() ? `<button data-id="${escHtml(r.id)}" data-name="${escHtml(r.Title||'')}" onclick="deleteVendor(this.dataset.id,this.dataset.name)" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:13px;padding:2px 6px;" title="Delete">🗑️</button>` : ''}
-    </td>
+    <td onclick="event.stopPropagation()">${renderVendorTagPills(r.Tags, r.id)}</td>
   </tr>`).join('');
 
   countEl.textContent = rows.length+' records';
@@ -5594,6 +5592,17 @@ function openVendorForm(id) {
   // (days checkboxes are populated directly in vendorFieldInput — no sync needed)
 
   initTagEditor('vendor', item?.Tags||'');
+  // Show archive/delete in footer for edit mode
+  const archBtn = document.getElementById('vendor-modal-archive-btn');
+  const delBtn  = document.getElementById('vendor-modal-delete-btn');
+  if (item) {
+    const isArchived = item.Active === 'No';
+    if (archBtn) { archBtn.style.display = ''; archBtn.textContent = isArchived ? '↩ Restore' : '🗃️ Archive'; }
+    if (delBtn && isOwner())  { delBtn.style.display = ''; }
+  } else {
+    if (archBtn) archBtn.style.display = 'none';
+    if (delBtn)  delBtn.style.display  = 'none';
+  }
   openModal('modal-vendor');
   setTimeout(()=>document.getElementById('vf_ContactPerson')?.querySelector('input')?.focus(), MODAL_FOCUS_DELAY_MS);
 }
@@ -5665,6 +5674,19 @@ async function saveVendorForm() {
   finally { setLoading(false); }
 }
 
+function modalArchiveVendor() {
+  if (!_vendorEditId) return;
+  const v = cache.vendors.find(v=>v.id===_vendorEditId);
+  if (!v) return;
+  closeModal('modal-vendor');
+  v.Active === 'No' ? restoreVendor(_vendorEditId) : archiveVendor(_vendorEditId);
+}
+function modalDeleteVendor() {
+  if (!_vendorEditId) return;
+  const v = cache.vendors.find(v=>v.id===_vendorEditId);
+  closeModal('modal-vendor');
+  deleteVendor(_vendorEditId, v?.Title||'');
+}
 async function archiveVendor(id) {
   setLoading(true,'Archiving…');
   try {
