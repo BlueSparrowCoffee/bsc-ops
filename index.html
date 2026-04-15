@@ -5596,7 +5596,7 @@ function openVendorForm(id) {
 
   initTagEditor('vendor', item?.Tags||'');
   openModal('modal-vendor');
-  setTimeout(()=>document.getElementById('vf_VendorName')?.focus(), MODAL_FOCUS_DELAY_MS);
+  setTimeout(()=>document.getElementById('vf_ContactPerson')?.querySelector('input')?.focus(), MODAL_FOCUS_DELAY_MS);
 }
 
 let _vendorFormTags = [];
@@ -5651,8 +5651,9 @@ async function saveVendorForm() {
       data[el.id.replace('vf_','')] = el.value;
     }
   });
-  // Clean up sentinel values
-  if (data.Category === '__new__') data.Category = '';
+  // Only send fields defined in VENDOR_FORM_FIELDS — prevents patching deleted/unknown SP columns
+  const allowedKeys = new Set(VENDOR_FORM_FIELDS.map(f=>f.key));
+  Object.keys(data).forEach(k => { if (!allowedKeys.has(k)) delete data[k]; });
   data.Tags = getTagEditorValue('vendor');
   setLoading(true,'Saving vendor…');
   try {
