@@ -6200,7 +6200,7 @@ function renderStaff(query='') {
     const isInt = (s.Email||'').toLowerCase().endsWith('@'+CFG.internalDomain);
     const grantLbl = isInt ? '🔑 Grant' : '📨 Invite';
     return `
-    <div class="card" style="cursor:pointer;" onclick="openStaffForm('${s.id}')">
+    <div class="card" data-gs-id="${escHtml(s.id)}" style="cursor:pointer;" onclick="openStaffForm('${s.id}')">
       <div class="card-title">👤 ${escHtml(s.Title||'Unnamed')}</div>
       ${s.Role?`<div style="font-size:12px;color:var(--muted);margin-top:-8px;margin-bottom:8px;">${escHtml(s.Role)}</div>`:''}
       <div style="font-size:13px;display:flex;flex-direction:column;gap:5px;">
@@ -7575,7 +7575,14 @@ function globalSearch(q) {
 
     // Search staff
     (cache.staff||[]).filter(s=>(s.Title||'').toLowerCase().includes(term)||(s.Email||'').toLowerCase().includes(term)).slice(0,3)
-      .forEach(s=>results.push({icon:'👤',label:escHtml(s.Title||'—'),sub:'Staff',action:()=>nav('staff')}));
+      .forEach(s=>results.push({icon:'👤',label:escHtml(s.Title||'—'),sub:'Staff',action:()=>{
+        nav('staff');
+        setTimeout(()=>{
+          setTimeout(()=>{
+            highlightAndScroll(document.querySelector(`[data-gs-id="${s.id}"]`));
+          },300);
+        },NAV_SETTLE_MS);
+      }}));
 
     // Search orders
     (cache.orders||[]).filter(o=>(o.Vendor||'').toLowerCase().includes(term)||(o.Notes||'').toLowerCase().includes(term)).slice(0,3)
