@@ -10083,7 +10083,7 @@ function renderCogs() {
     const name = (r.IngredientName||'').toLowerCase().trim();
     const inv  = invMap[name];
     const prep = prepMap[name];
-    if ((!inv || !inv.CostPerServing) && !prep) { missingCosts = true; break; }
+    if (inv && !inv.CostPerServing) { missingCosts = true; break; }
   }
   document.getElementById('cogs-missing-costs').style.display = missingCosts ? '' : 'none';
 
@@ -10552,7 +10552,7 @@ function renderCogCard(item, cogMap, invMap, prepMap) {
                 oninput="showCogIngDrop('${escHtml(itemId)}',${vi},this.value)"
                 onkeydown="cogIngDropKey(event,'${escHtml(itemId)}',${vi})"
                 onblur="setTimeout(()=>hideCogIngDrop('${escHtml(itemId)}',${vi}),180)">
-              <div id="cog-ing-drop-${itemId}-${vi}" style="display:none;position:absolute;top:100%;left:0;right:0;margin-top:2px;background:var(--dark-blue);border-radius:8px;box-shadow:0 6px 20px rgba(2,61,74,.25);z-index:400;max-height:180px;overflow-y:auto;font-size:12px;"></div>
+              <div id="cog-ing-drop-${itemId}-${vi}" style="display:none;position:fixed;background:var(--dark-blue);border-radius:8px;box-shadow:0 6px 20px rgba(2,61,74,.25);z-index:400;max-height:180px;overflow-y:auto;font-size:12px;"></div>
             </div>
             <input type="number" step="1" min="0" placeholder="Qty" id="cog-new-qty-${itemId}-${vi}"
               style="width:60px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;">
@@ -10717,6 +10717,14 @@ function showCogIngDrop(itemId, vi, q) {
       onmouseout="this.style.background=''">
       ${escHtml(n)}
     </div>`).join('');
+  // Position fixed relative to input
+  const inp = document.getElementById(`cog-new-ing-${itemId}-${vi}`);
+  if (inp) {
+    const r = inp.getBoundingClientRect();
+    drop.style.top   = (r.bottom + 2) + 'px';
+    drop.style.left  = r.left + 'px';
+    drop.style.width = r.width + 'px';
+  }
   drop.style.display = '';
 }
 
