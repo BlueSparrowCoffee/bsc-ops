@@ -2390,6 +2390,33 @@ async function ensureList(listName, columns) {
 
 const PROVISION_VERSION = '23';
 
+// ── Session data cache (localStorage, keyed by provision version) ─────────
+const CACHE_KEY     = 'bsc_data_v' + PROVISION_VERSION;
+const CACHE_MAX_AGE = 4 * 60 * 60 * 1000; // 4 hours — safety TTL
+
+function saveCachedData() {
+  try {
+    // clProgress is session-only runtime state — don't persist it
+    const { clProgress, ...rest } = cache;
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data: rest }));
+  } catch { /* quota exceeded or private browsing — ignore */ }
+}
+
+function tryLoadCachedData() {
+  try {
+    const stored = localStorage.getItem(CACHE_KEY);
+    if (!stored) return false;
+    const { ts, data } = JSON.parse(stored);
+    if (Date.now() - ts > CACHE_MAX_AGE) return false;
+    Object.assign(cache, data);
+    resolveCurrentStaffMember();
+    applyHiddenSettings();
+    renderAll();
+    applyLocationAccess();
+    return true;
+  } catch { return false; }
+}
+
 // Pastry order spreadsheet (shared OneDrive file used by vendor for ordering)
 const PASTRY_ORDER_SHEET_URL = 'https://mainspringdevelopers-my.sharepoint.com/:x:/g/personal/plattestreet_bluesparrowcoffee_com/IQD4lfreJEqATZTjPUub-JmoAUDTaircsNPrwcyCR44bhYU';
 
@@ -2448,13 +2475,31 @@ async function bootstrapApp() {
       await migrateFoodParsToSplit();
       localStorage.setItem('bsc_provision_v', PROVISION_VERSION);
     }
-    await loadAllData();
-    setLoading(false);
-    document.getElementById('sync-label').textContent =
-      'Synced '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-    // Start real-time sync — non-blocking, app works fine if either fails
-    initSignalR();
-    registerWebhooks();
+    if (tryLoadCachedData()) {
+      // Rendered from cache instantly — refresh data in background
+      setLoading(false);
+      document.getElementById('sync-label').textContent = 'Refreshing…';
+      loadAllData()
+        .then(() => {
+          document.getElementById('sync-label').textContent =
+            'Synced '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+          initSignalR();
+          registerWebhooks();
+        })
+        .catch(e => {
+          document.getElementById('sync-label').textContent = '⚠ Refresh failed';
+          console.warn('Background data refresh failed:', e);
+        });
+    } else {
+      // No cache — full blocking load
+      await loadAllData();
+      setLoading(false);
+      document.getElementById('sync-label').textContent =
+        'Synced '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+      // Start real-time sync — non-blocking, app works fine if either fails
+      initSignalR();
+      registerWebhooks();
+    }
   } catch(e) {
     setLoading(false);
     // 403 = user is authenticated but doesn't have SharePoint access
@@ -2697,6 +2742,7 @@ async function loadAllData() {
   applyHiddenSettings(); // sync hidden IDs from SharePoint before first render
   renderAll();
   applyLocationAccess();
+  saveCachedData(); // persist to localStorage for next session's instant render
 }
 
 async function getListItems(siteId, listName) {
