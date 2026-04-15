@@ -344,13 +344,15 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
   <div class="topbar-right">
     <div id="user-info" style="display:flex;align-items:center;gap:8px;">
       <div style="text-align:right;line-height:1.4;">
-        <div id="user-label" style="font-size:13px;font-weight:600;color:#fff;"></div>
         <div id="user-role-label" style="font-size:11px;color:rgba(185,223,227,.7);"></div>
         <div id="sync-label" style="font-size:10px;color:rgba(255,255,255,.4);"></div>
       </div>
       <div id="user-avatar" style="display:none;"></div>
     </div>
-    <button class="btn-signout" onclick="signOut()">Sign out</button>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
+      <div id="user-label" style="font-size:11px;font-weight:600;color:rgba(255,255,255,.85);"></div>
+      <button class="btn-signout" onclick="signOut()">Sign out</button>
+    </div>
   </div>
 </div>
 
