@@ -174,7 +174,7 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
 .gs-item{padding:8px 14px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;color:var(--text);border-bottom:1px solid var(--cream);}
 .gs-item:hover{background:var(--cream);}
 .gs-item:last-child{border-bottom:none;}
-.gs-label{font-size:10px;color:var(--muted);margin-left:auto;white-space:nowrap;}
+.gs-label{font-size:10px;color:var(--muted);margin-left:auto;white-space:nowrap;max-width:90px;overflow:hidden;text-overflow:ellipsis;}
 .gs-empty{padding:14px;font-size:13px;color:var(--muted);text-align:center;}
 
 /* ── TOAST ── */
@@ -5173,7 +5173,7 @@ function renderVendors(query='') {
 
   const isArchivedTab = tab === 'archived';
   thead.innerHTML = `<tr>${fields.map(f=>`<th onclick="sortVendorBy('${f}')" class="${_vendorSort.col===f?(_vendorSort.dir===1?'sort-asc':'sort-desc'):''}">${spFieldLabel(f,LISTS.vendors)}</th>`).join('')}<th>Tags</th><th style="width:100px"></th></tr>`;
-  tbody.innerHTML = rows.map(r=>`<tr>
+  tbody.innerHTML = rows.map(r=>`<tr data-gs-id="${escHtml(r.id)}">
     ${fields.map(f=>`<td>${spCellValue(f,r[f]??'')}</td>`).join('')}
     <td>${renderVendorTagPills(r.Tags, r.id)}</td>
     <td style="white-space:nowrap">
@@ -7556,7 +7556,14 @@ function globalSearch(q) {
     (cache.vendors||[]).filter(v=>(v.Title||v.Company||'').toLowerCase().includes(term)
       ||(v.Tags||'').toLowerCase().includes(term)
       ||Object.values(v).some(val=>String(val||'').toLowerCase().includes(term))).slice(0,3)
-      .forEach(v=>results.push({icon:'🤝',label:escHtml(v.Title||v.Company||'—'),sub:'Vendors',action:()=>nav('vendors')}));
+      .forEach(v=>results.push({icon:'🤝',label:escHtml(v.Title||v.Company||'—'),sub:'Vendors',action:()=>{
+        nav('vendors');
+        setTimeout(()=>{
+          setTimeout(()=>{
+            highlightAndScroll(document.querySelector(`tr[data-gs-id="${v.id}"]`));
+          },300);
+        },80);
+      }}));
 
     // Search staff
     (cache.staff||[]).filter(s=>(s.Title||'').toLowerCase().includes(term)||(s.Email||'').toLowerCase().includes(term)).slice(0,3)
@@ -7573,7 +7580,7 @@ function globalSearch(q) {
         setTimeout(()=>{
           setTimeout(()=>{
             highlightAndScroll(document.querySelector(`[data-gs-id="${m.id}"]`));
-          },200);
+          },400);
         },80);
       }}));
 
