@@ -1682,6 +1682,11 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
         <div id="provision-log" style="margin-top:14px;font-size:12px;line-height:1.9;color:#444;background:#f9f9f9;border-radius:8px;padding:12px 14px;display:none;max-height:240px;overflow-y:auto;font-family:monospace;"></div>
       </div>
       <div class="card" style="grid-column:1/-1">
+        <div class="card-title" style="margin-bottom:4px">🗑 Clear Local Data</div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Wipes all cached app data from this browser (session cache, column preferences, notification settings, Square sync timestamps). The page will reload and re-fetch everything from SharePoint.</p>
+        <button class="btn btn-danger" onclick="clearLocalDataAndReload()">Clear Local Data &amp; Reload</button>
+      </div>
+      <div class="card" style="grid-column:1/-1">
         <div class="card-title" style="margin-bottom:4px">🗂 Column Manager</div>
         <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">View and permanently delete columns from SharePoint lists. Remove the column from app code first, then delete it here.</p>
         <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
@@ -2137,6 +2142,12 @@ const APP_VERSION = '2026-04-12f';
     }
   } catch(e) { /* private browsing / storage blocked — ignore */ }
 })();
+
+function clearLocalDataAndReload() {
+  if (!confirm('Clear all local data and reload?')) return;
+  localStorage.clear();
+  location.reload();
+}
 
 window.addEventListener('DOMContentLoaded', async () => {
   const _now = new Date();
