@@ -5392,7 +5392,8 @@ function getColOrder(listKey, allFields) {
 function setColOrder(listKey, arr) {
   localStorage.setItem('colOrder_'+listKey, JSON.stringify(arr));
 }
-function moveCol(listKey, field, direction, allFields) {
+function moveCol(listKey, field, direction) {
+  const allFields = _colPanelFields[listKey] || [];
   const order = getColOrder(listKey, allFields);
   const idx = order.indexOf(field);
   if (idx < 0) return;
@@ -5406,6 +5407,7 @@ function moveCol(listKey, field, direction, allFields) {
 function buildColPanel(listKey, allFields) {
   const panel = document.getElementById('col-panel');
   if (!panel) return;
+  _colPanelFields[listKey] = allFields; // store for moveCol
   const hidden = getHiddenCols(listKey);
   const ordered = getColOrder(listKey, allFields);
   const listName = listKey === 'vendors' ? LISTS.vendors : null;
@@ -5414,10 +5416,10 @@ function buildColPanel(listKey, allFields) {
     ${ordered.map((f, idx) => `
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">
       <div style="display:flex;flex-direction:column;gap:1px;">
-        <button onclick="moveCol('${listKey}','${escHtml(f)}',-1,${JSON.stringify(allFields)})"
+        <button onclick="moveCol('${listKey}','${escHtml(f)}',-1)"
           style="background:none;border:none;cursor:pointer;font-size:10px;padding:0;line-height:1;color:var(--muted);${idx===0?'opacity:.25;pointer-events:none':''}"
           title="Move up">▲</button>
-        <button onclick="moveCol('${listKey}','${escHtml(f)}',1,${JSON.stringify(allFields)})"
+        <button onclick="moveCol('${listKey}','${escHtml(f)}',1)"
           style="background:none;border:none;cursor:pointer;font-size:10px;padding:0;line-height:1;color:var(--muted);${idx===ordered.length-1?'opacity:.25;pointer-events:none':''}"
           title="Move down">▼</button>
       </div>
@@ -5683,6 +5685,7 @@ document.getElementById('vendor-tab').addEventListener('change',()=>renderVendor
 
 let _vendorEditMode = false;
 let _vendorOriginals = {};
+let _colPanelFields = {}; // listKey -> allFields, set by buildColPanel
 
 function toggleVendorEditMode() {
   _vendorEditMode = true;
