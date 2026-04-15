@@ -237,8 +237,10 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
 .tab-btn{padding:9px 18px;border:none;background:none;font-family:inherit;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;}
 .tab-btn.active{color:var(--gold);border-bottom-color:var(--gold);}
 .tab-btn:hover:not(.active){color:var(--ink);}
+.inv-type-tab{padding:7px 18px;border-radius:20px;border:1.5px solid var(--border);background:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;}
 .inv-type-tab.active{background:var(--gold)!important;border-color:var(--gold)!important;color:#fff!important;}
 .inv-type-tab:hover:not(.active){border-color:var(--gold);color:var(--gold);}
+.text-hint{font-size:11px;color:var(--muted);}
 
 /* ── MAINTENANCE STATUS BADGES ── */
 .maint-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;letter-spacing:.04em;padding:3px 9px;border-radius:20px;}
@@ -447,19 +449,19 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
     <!-- Inventory type switcher -->
     <div id="inv-type-tabs" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
       <button class="inv-type-tab active" data-type="consumable" onclick="switchInvType('consumable')"
-        style="padding:7px 18px;border-radius:20px;border:1.5px solid var(--border);background:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;">📦 Consumable</button>
+>📦 Consumable</button>
       <button class="inv-type-tab" data-type="merch" onclick="switchInvType('merch')"
-        style="padding:7px 18px;border-radius:20px;border:1.5px solid var(--border);background:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;">🛍️ Merch</button>
+>🛍️ Merch</button>
       <button class="inv-type-tab" data-type="equipment" onclick="switchInvType('equipment')"
-        style="padding:7px 18px;border-radius:20px;border:1.5px solid var(--border);background:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;">🔧 Equipment &amp; Smallwares</button>
+>🔧 Equipment &amp; Smallwares</button>
       <button id="inv-tab-labels-btn" class="inv-type-tab" data-type="labels" onclick="switchInvType('labels')"
-        style="padding:7px 18px;border-radius:20px;border:1.5px solid var(--border);background:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;">🏷️ Bag Labels</button>
+>🏷️ Bag Labels</button>
       <button class="inv-type-tab" data-type="pastries" onclick="switchInvType('pastries')"
-        style="padding:7px 18px;border-radius:20px;border:1.5px solid var(--border);background:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;">🥐 Pastries</button>
+>🥐 Pastries</button>
       <button class="inv-type-tab" data-type="sandwiches" onclick="switchInvType('sandwiches')"
-        style="padding:7px 18px;border-radius:20px;border:1.5px solid var(--border);background:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;">🥪 Sandwiches</button>
+>🥪 Sandwiches</button>
       <button class="inv-type-tab" data-type="transfers" onclick="switchInvType('transfers')"
-        style="padding:7px 18px;border-radius:20px;border:1.5px solid var(--border);background:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;">🔄 Transfers</button>
+>🔄 Transfers</button>
     </div>
     <div class="tab-bar">
       <button class="tab-btn active" onclick="switchInvTab('items',this)">📋 Items</button>
@@ -590,15 +592,15 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
           <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
             <div style="background:#f9f9f9;border-radius:8px;padding:10px 16px;text-align:center;flex:1">
               <div style="font-size:20px;font-weight:700" id="imp-stat-items">—</div>
-              <div style="font-size:11px;color:var(--muted)">Items</div>
+              <div class="text-hint">Items</div>
             </div>
             <div style="background:#f9f9f9;border-radius:8px;padding:10px 16px;text-align:center;flex:1">
               <div style="font-size:20px;font-weight:700" id="imp-stat-weeks">—</div>
-              <div style="font-size:11px;color:var(--muted)">Weeks</div>
+              <div class="text-hint">Weeks</div>
             </div>
             <div style="background:#f9f9f9;border-radius:8px;padding:10px 16px;text-align:center;flex:1">
               <div style="font-size:20px;font-weight:700" id="imp-stat-records">—</div>
-              <div style="font-size:11px;color:var(--muted)">Count Records</div>
+              <div class="text-hint">Count Records</div>
             </div>
           </div>
           <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:8px">
@@ -4523,7 +4525,7 @@ function renderLegacyTasksCard(tasks) {
   const rows = tasks.map(t => `
     <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--opal);font-size:13px;">
       <span style="flex:1;">${escHtml(t.TaskName||'')}</span>
-      <span style="font-size:11px;color:var(--muted);">${escHtml(t.Frequency||'')} · ${escHtml(t.Type||'')}</span>
+      <span class="text-hint">${escHtml(t.Frequency||'')} · ${escHtml(t.Type||'')}</span>
       <button onclick="deleteChecklistTask('${t.id}',null)" title="Delete" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;">×</button>
     </div>`).join('');
   return `
@@ -7837,7 +7839,7 @@ function renderMenu(query='', catFilter='') {
       <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${escHtml(i.Category||'—')}</span></td>
       <td style="font-size:12px;color:var(--muted);max-width:220px">${escHtml(i.Description||'')}</td>
       <td>${i.Price != null ? '$'+Number(i.Price).toFixed(2) : '—'}</td>
-      <td style="font-size:11px;color:var(--muted)">${vars.slice(0,3).map(v=>escHtml(v)).join('<br>')}${vars.length>3?`<br>+${vars.length-3} more`:''}</td>
+      <td class="text-hint">${vars.slice(0,3).map(v=>escHtml(v)).join('<br>')}${vars.length>3?`<br>+${vars.length-3} more`:''}</td>
       <td style="font-weight:600;color:${stock!=null&&stock<5?'var(--red)':stock!=null&&stock<10?'var(--orange)':'var(--text)'}">${stockDisplay}</td>
       <td style="text-align:center;">
         <button onclick="toggleMenuItemHidden('${i.id}','${isHidden?'No':'Yes'}')"
@@ -7959,8 +7961,8 @@ function renderLabelsPage() {
     <td><b>${r.EndBalance != null ? (+r.EndBalance).toLocaleString() : '—'}</b></td>
     <td>${r.CostPerLabel != null ? '$'+parseFloat(r.CostPerLabel).toFixed(4) : '—'}</td>
     <td>${r.TotalValue != null ? '$'+parseFloat(r.TotalValue).toFixed(2) : '—'}</td>
-    <td style="font-size:11px;color:var(--muted)">${escHtml(r.Notes||'')}</td>
-    <td style="font-size:11px;color:var(--muted)">${escHtml(r.ReconcileBy||'')}</td>
+    <td class="text-hint">${escHtml(r.Notes||'')}</td>
+    <td class="text-hint">${escHtml(r.ReconcileBy||'')}</td>
   </tr>`).join('');
 }
 
@@ -9829,7 +9831,7 @@ function renderInvCogCard(item, tabKey) {
           <div style="flex:1;min-width:0;">
             <div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(item.ItemName||item.Title||'Untitled')}</div>
             <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;">
-              ${item.Category?`<span style="font-size:11px;color:var(--muted);">${escHtml(item.Category)}</span>`:''}
+              ${item.Category?`<span class="text-hint">${escHtml(item.Category)}</span>`:''}
               ${item.ItemNo?`<span style="font-size:11px;color:var(--muted);">· ${escHtml(item.ItemNo)}</span>`:''}
             </div>
           </div>
