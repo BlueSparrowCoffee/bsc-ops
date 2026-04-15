@@ -5342,8 +5342,13 @@ function renderVendors(query='') {
     return av.localeCompare(bv) * _vSortDir;
   });
 
-  // Build the full ordered field list (excluding SP system fields, Title, Tags)
-  const allFields = Object.keys(sample).filter(k=>!SP_SYSTEM_FIELDS.has(k)&&k!=='Tags'&&k!=='VendorName');
+  // Build the full ordered field list — union cache keys with known vendor fields
+  // so columns appear even if all vendor items currently have empty custom fields
+  const KNOWN_VENDOR_FIELDS = ['Title','Category','Product','Active','ContactPerson','Email','Phone',
+    'Website','OrderMethod','OrderDeadline','OrderDays','DeliveryDays','Terms',
+    'InvoiceMethod','PaymentMethod','CreditCard','Split','Notes'];
+  const cacheFields = Object.keys(sample).filter(k=>!SP_SYSTEM_FIELDS.has(k)&&k!=='Tags'&&k!=='VendorName');
+  const allFields = [...new Set([...cacheFields, ...KNOWN_VENDOR_FIELDS])].filter(k=>!SP_SYSTEM_FIELDS.has(k)&&k!=='Tags'&&k!=='VendorName');
   const ordered = getColOrder('vendors', allFields);
   // Apply hidden cols — show all known fields even if currently empty
   const fields = ordered.filter(k=>!hiddenCols.has(k));
@@ -6789,11 +6794,12 @@ function renderRolePerms() {} // kept for nav() compatibility
 // ── Column Manager ────────────────────────────────────────────────────────
 function initColMgr() {
   const sel = document.getElementById('col-mgr-list');
-  if (!sel || sel.options.length > 1) return;
+  if (!sel) return;
+  const prev = sel.value;
   sel.innerHTML = '<option value="">Select a list…</option>' +
     Object.entries(LISTS)
       .sort(([a],[b]) => a.localeCompare(b))
-      .map(([k,v]) => `<option value="${escHtml(v)}">${escHtml(k)} — ${escHtml(v)}</option>`)
+      .map(([k,v]) => `<option value="${escHtml(v)}"${v===prev?' selected':''}>${escHtml(k)} — ${escHtml(v)}</option>`)
       .join('');
 }
 
@@ -6880,8 +6886,53 @@ async function renameColMgrColumn(listName, colId, currentDisplay) {
   }
 }
 
+// All column names defined in ensureAllLists — deleting these will cause them to be re-created on next provision
+const PROVISIONED_COL_NAMES = new Set([
+  // INV_LIST_COLS + MERCH_LIST_COLS + COUNTS + MENU_COUNTS + MERCH_COUNTS_EXTRA + FP_PAR
+  'ItemName','Category','Supplier','OrderSize','OrderUnit','ParLevel','CostPerCase','ServingsPerUnit',
+  'CostPerServing','ServingUnit','Unit','Tags','Archived',
+  'ItemNo','CostPerUnit','SellingPrice','SquareCatalogItemId','Received','ReceivedNotes',
+  'WeekOf','StoreCount','StorageCount','TotalCount','Location','CountedBy','ChangesSinceLastCount','Quantity',
+  // Transfers
+  'FromLocation','ToLocation','TransferredBy','InventoryType',
+  // Orders
+  'Vendor','Items','Status','OrderedBy','ExpectedDelivery',
+  // Checklists
+  'TaskName','Frequency','Type','AssignedRole','GroupId','SortOrder','SuggestedBy',
+  'GroupName','CompletedBy','CompletedDate','TaskId','RecurEveryDays','RecurTime','Description','StartDate',
+  // Roles
+  'RoleName','Permissions','LocationAccess',
+  // Vendors
+  'VendorName','Product','OrderDeadline','OrderDays','DeliveryDays','ContactPerson','Email','Website','Phone',
+  'OrderMethod','Terms','InvoiceMethod','PaymentMethod','CreditCard','Split','Active','Notes',
+  // Recipes
+  'Content','Steps','Ingredients','Yield',
+  // Maint
+  'Service','Contact','ContactId','Equipment','AssignedTo','NextDue','PhotoName','ScheduleId',
+  // Food pars
+  'Price','ExportName',
+  // Staff
+  'Role',
+  // Labels
+  'Month','StartBalance','BagsSold','Adjustment','EndBalance','CostPerLabel','TotalValue','ReconcileBy','SquareData',
+  // Menu
+  'SquareId','Hidden','Variations','Price',
+  // COGs
+  'MenuItemId','MenuItemName','VariationName','IngredientName','COG','GrossMargin','SnapshotDate',
+  // Parking
+  'FirstName','LastName',
+  // Merch months/received
+  'CostSnapshot','ClosedBy','ClosedAt',
+  // Tags
+  'Color',
+]);
+
 async function deleteColMgrColumn(listName, colId, colName) {
-  if (!confirm(`Delete column "${colName}" from ${listName}?\n\nThis permanently removes the column and ALL its data from SharePoint. Make sure it is no longer referenced in app code first.`)) return;
+  const isProvisioned = PROVISIONED_COL_NAMES.has(colName);
+  const warning = isProvisioned
+    ? `⚠️ WARNING: "${colName}" is defined in the app's provision config and will be automatically re-created on the next load.\n\nDelete it from SharePoint anyway?`
+    : `Delete column "${colName}" from ${listName}?\n\nThis permanently removes the column and ALL its data from SharePoint.`;
+  if (!confirm(warning)) return;
   try {
     const siteId = await getSiteId();
     await graph('DELETE', `/sites/${siteId}/lists/${listName}/columns/${colId}`);
