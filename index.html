@@ -2422,7 +2422,6 @@ const PASTRY_ORDER_SHEET_URL = 'https://mainspringdevelopers-my.sharepoint.com/:
 
 // One-time migration: split single BSC_FoodPars into master + per-location lists
 async function migrateFoodParsToSplit() {
-  if (localStorage.getItem('bsc_fp_migrated') === '1') return;
   try {
     const siteId = await getSiteId();
     const oldRows = await getListItems(siteId, LISTS.foodPars).catch(() => []);
@@ -2460,7 +2459,6 @@ async function migrateFoodParsToSplit() {
       }
     }
   } catch(e) { console.warn('Food pars migration:', e); }
-  localStorage.setItem('bsc_fp_migrated', '1');
 }
 
 async function bootstrapApp() {
