@@ -1687,6 +1687,17 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
         <button class="btn btn-primary" onclick="runProvisioning()" id="provision-run-btn">▶ Run Provisioning</button>
         <div id="provision-log" style="margin-top:14px;font-size:12px;line-height:1.9;color:#444;background:#f9f9f9;border-radius:8px;padding:12px 14px;display:none;max-height:240px;overflow-y:auto;font-family:monospace;"></div>
       </div>
+      <div class="card" style="grid-column:1/-1">
+        <div class="card-title" style="margin-bottom:4px">🗂 Column Manager</div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">View and permanently delete columns from SharePoint lists. Remove the column from app code first, then delete it here.</p>
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
+          <select id="col-mgr-list" class="filter" style="min-width:220px;" onchange="loadColMgrColumns()">
+            <option value="">Select a list…</option>
+          </select>
+          <span id="col-mgr-status" style="font-size:12px;color:var(--muted);"></span>
+        </div>
+        <div id="col-mgr-body"></div>
+      </div>
     </div>
   </div><!-- /settings-body -->
   </div><!-- /page-settings -->
@@ -2850,7 +2861,7 @@ const PAGE_RENDER_FN = {
   menu:             () => renderMenu(),
   'maint-contacts': () => renderMaintContacts(),
   'maint-schedule': () => renderMaintSchedule(),
-  settings:         () => { renderRoles(); renderTagsSettings(); },
+  settings:         () => { renderRoles(); renderTagsSettings(); initColMgr(); },
   parking:          () => renderParking(),
 };
 
@@ -6674,6 +6685,93 @@ async function runProvisioning() {
 }
 
 function renderRolePerms() {} // kept for nav() compatibility
+
+// ── Column Manager ────────────────────────────────────────────────────────
+function initColMgr() {
+  const sel = document.getElementById('col-mgr-list');
+  if (!sel || sel.options.length > 1) return;
+  sel.innerHTML = '<option value="">Select a list…</option>' +
+    Object.entries(LISTS)
+      .sort(([a],[b]) => a.localeCompare(b))
+      .map(([k,v]) => `<option value="${escHtml(v)}">${escHtml(k)} — ${escHtml(v)}</option>`)
+      .join('');
+}
+
+async function loadColMgrColumns() {
+  const sel    = document.getElementById('col-mgr-list');
+  const body   = document.getElementById('col-mgr-body');
+  const status = document.getElementById('col-mgr-status');
+  const listName = sel.value;
+  if (!listName) { body.innerHTML = ''; status.textContent = ''; return; }
+  status.textContent = 'Loading…';
+  body.innerHTML = '';
+  try {
+    const siteId = await getSiteId();
+    const res = await graph('GET', `/sites/${siteId}/lists/${listName}/columns`);
+    const cols = (res.value || []).filter(c => !c.readOnly && !c.hidden);
+    status.textContent = `${cols.length} custom column${cols.length !== 1 ? 's' : ''}`;
+    if (!cols.length) {
+      body.innerHTML = '<div style="font-size:13px;color:var(--muted);">No custom columns found.</div>';
+      return;
+    }
+    body.innerHTML = `
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+          <tr style="border-bottom:2px solid var(--border);">
+            <th style="text-align:left;padding:8px 10px;font-weight:600;">Internal Name</th>
+            <th style="text-align:left;padding:8px 10px;font-weight:600;">Display Name</th>
+            <th style="text-align:left;padding:8px 10px;font-weight:600;">Type</th>
+            <th style="text-align:left;padding:8px 10px;font-weight:600;">Required</th>
+            <th style="width:90px;"></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${cols.map(c => `
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:8px 10px;font-family:monospace;font-size:12px;">${escHtml(c.name)}</td>
+              <td style="padding:8px 10px;">${escHtml(c.displayName)}</td>
+              <td style="padding:8px 10px;color:var(--muted);">${escHtml(colMgrType(c))}</td>
+              <td style="padding:8px 10px;color:var(--muted);">${c.required ? 'Yes' : '—'}</td>
+              <td style="padding:6px 10px;">
+                <button class="btn btn-danger" style="font-size:12px;padding:4px 10px;"
+                  data-list="${escHtml(listName)}" data-id="${escHtml(c.id)}" data-name="${escHtml(c.name)}"
+                  onclick="deleteColMgrColumn(this.dataset.list,this.dataset.id,this.dataset.name)">
+                  Delete
+                </button>
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+  } catch(e) {
+    status.textContent = '';
+    body.innerHTML = `<div style="font-size:13px;color:#dc2626;">Error: ${escHtml(e.message)}</div>`;
+  }
+}
+
+function colMgrType(col) {
+  if (col.text)          return 'Text';
+  if (col.number)        return 'Number';
+  if (col.dateTime)      return 'Date/Time';
+  if (col.boolean)       return 'Yes/No';
+  if (col.choice)        return 'Choice';
+  if (col.lookup)        return 'Lookup';
+  if (col.personOrGroup) return 'Person';
+  if (col.calculated)    return 'Calculated';
+  if (col.currency)      return 'Currency';
+  return 'Other';
+}
+
+async function deleteColMgrColumn(listName, colId, colName) {
+  if (!confirm(`Delete column "${colName}" from ${listName}?\n\nThis permanently removes the column and ALL its data from SharePoint. Make sure it is no longer referenced in app code first.`)) return;
+  try {
+    const siteId = await getSiteId();
+    await graph('DELETE', `/sites/${siteId}/lists/${listName}/columns/${colId}`);
+    toast('ok', `✓ "${colName}" deleted from ${listName}`);
+    loadColMgrColumns();
+  } catch(e) {
+    toast('err', 'Delete failed: ' + e.message);
+  }
+}
 
 async function saveRole() {
   const name = document.getElementById('role-name').value.trim();
