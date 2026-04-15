@@ -2401,25 +2401,29 @@ async function ensureList(listName, columns) {
 
 const PROVISION_VERSION = '23';
 
-// ── Session data cache (localStorage, keyed by provision version) ─────────
-const CACHE_KEY     = 'bsc_data_v' + PROVISION_VERSION;
+// ── Session data cache (localStorage, keyed by provision version + location) ─
 const CACHE_MAX_AGE = 4 * 60 * 60 * 1000; // 4 hours — safety TTL
+function cacheKey(loc) { return `bsc_data_v${PROVISION_VERSION}_${loc||'all'}`; }
 
 function saveCachedData() {
   try {
+    const loc = currentLocation || 'all';
     // clProgress is session-only runtime state — don't persist it
     const { clProgress, ...rest } = cache;
-    localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data: rest }));
+    localStorage.setItem('bsc_last_loc', loc);
+    localStorage.setItem(cacheKey(loc), JSON.stringify({ ts: Date.now(), data: rest }));
   } catch { /* quota exceeded or private browsing — ignore */ }
 }
 
 function tryLoadCachedData() {
   try {
-    const stored = localStorage.getItem(CACHE_KEY);
+    const loc = localStorage.getItem('bsc_last_loc') || 'all';
+    const stored = localStorage.getItem(cacheKey(loc));
     if (!stored) return false;
     const { ts, data } = JSON.parse(stored);
     if (Date.now() - ts > CACHE_MAX_AGE) return false;
     Object.assign(cache, data);
+    currentLocation = loc; // restore last location before first render
     resolveCurrentStaffMember();
     applyHiddenSettings();
     renderAll();
@@ -2731,14 +2735,14 @@ async function getCountHistoryForList(siteId, listName) {
   // Skip fetch entirely if list isn't in the cache — avoids 404 console noise
   if (_spListCache && !_spListCache[listName]) return [];
   try {
-    const token = await getToken();
-    const res = await fetch(
-      `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listName}/items?expand=fields&$top=2000`,
-      { headers: { Authorization: 'Bearer '+token } }
-    );
-    if (!res.ok) return [];
-    const data = await res.json();
-    return (data.value||[]).map(i=>({id:i.id,...i.fields}));
+    const items = [];
+    let url = `/sites/${siteId}/lists/${listName}/items?expand=fields&$top=${SP_PAGE_SIZE}`;
+    while (url) {
+      const res = await graph('GET', url);
+      items.push(...(res.value||[]).map(i=>({id:i.id,...i.fields})));
+      url = res['@odata.nextLink']?.replace('https://graph.microsoft.com/v1.0','') ?? null;
+    }
+    return items;
   } catch { return []; }
 }
 
