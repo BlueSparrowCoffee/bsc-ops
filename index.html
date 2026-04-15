@@ -5462,6 +5462,14 @@ function toggleColPanel() {
 }
 document.addEventListener('click', e=>{ const p=document.getElementById('col-panel'); if(p&&!p.contains(e.target)&&!e.target.closest('[onclick="toggleColPanel()"]')) p.style.display='none'; });
 
+// Block browser/extension autofill across all dynamic inputs
+document.addEventListener('focus', e => {
+  const el = e.target;
+  if (el.matches('input:not([type=checkbox]):not([type=radio]):not([type=submit]):not([type=button]), textarea')) {
+    el.setAttribute('autocomplete', 'new-password');
+  }
+}, true);
+
 function toggleCol(listKey, field, visible) {
   const hidden = getHiddenCols(listKey);
   visible ? hidden.delete(field) : hidden.add(field);
