@@ -6680,17 +6680,22 @@ async function loadColMgrColumns() {
             <th style="text-align:left;padding:8px 10px;font-weight:600;">Display Name</th>
             <th style="text-align:left;padding:8px 10px;font-weight:600;">Type</th>
             <th style="text-align:left;padding:8px 10px;font-weight:600;">Required</th>
-            <th style="width:90px;"></th>
+            <th style="width:160px;"></th>
           </tr>
         </thead>
         <tbody>
           ${cols.map(c => `
-            <tr style="border-bottom:1px solid var(--border);">
+            <tr style="border-bottom:1px solid var(--border);" id="col-row-${escHtml(c.id)}">
               <td style="padding:8px 10px;font-family:monospace;font-size:12px;">${escHtml(c.name)}</td>
-              <td style="padding:8px 10px;">${escHtml(c.displayName)}</td>
+              <td style="padding:8px 10px;" id="col-display-${escHtml(c.id)}">${escHtml(c.displayName)}</td>
               <td style="padding:8px 10px;color:var(--muted);">${escHtml(colMgrType(c))}</td>
               <td style="padding:8px 10px;color:var(--muted);">${c.required ? 'Yes' : '—'}</td>
-              <td style="padding:6px 10px;">
+              <td style="padding:6px 10px;display:flex;gap:6px;">
+                <button class="btn" style="font-size:12px;padding:4px 10px;"
+                  data-list="${escHtml(listName)}" data-id="${escHtml(c.id)}" data-display="${escHtml(c.displayName)}"
+                  onclick="renameColMgrColumn(this.dataset.list,this.dataset.id,this.dataset.display)">
+                  Rename
+                </button>
                 <button class="btn btn-danger" style="font-size:12px;padding:4px 10px;"
                   data-list="${escHtml(listName)}" data-id="${escHtml(c.id)}" data-name="${escHtml(c.name)}"
                   onclick="deleteColMgrColumn(this.dataset.list,this.dataset.id,this.dataset.name)">
@@ -6717,6 +6722,20 @@ function colMgrType(col) {
   if (col.calculated)    return 'Calculated';
   if (col.currency)      return 'Currency';
   return 'Other';
+}
+
+async function renameColMgrColumn(listName, colId, currentDisplay) {
+  const newName = prompt('New display name:', currentDisplay);
+  if (!newName || newName.trim() === currentDisplay) return;
+  try {
+    const siteId = await getSiteId();
+    await graph('PATCH', `/sites/${siteId}/lists/${listName}/columns/${colId}`, { displayName: newName.trim() });
+    document.getElementById('col-display-' + colId).textContent = newName.trim();
+    document.querySelector(`#col-row-${colId} button[data-id="${colId}"]`).dataset.display = newName.trim();
+    toast('ok', `✓ Renamed to "${newName.trim()}"`);
+  } catch(e) {
+    toast('err', 'Rename failed: ' + e.message);
+  }
 }
 
 async function deleteColMgrColumn(listName, colId, colName) {
