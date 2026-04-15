@@ -7040,6 +7040,15 @@ function navLowStock() {
   if (sel) { sel.value = 'low'; filterInventory(''); }
 }
 
+// Smoothly scroll an element into view and briefly flash a gold highlight.
+function highlightAndScroll(el) {
+  if (!el) return;
+  el.scrollIntoView({behavior:'smooth',block:'center'});
+  el.style.transition='background .2s';
+  el.style.background='rgba(200,169,81,.25)';
+  setTimeout(()=>el.style.background='',1800);
+}
+
 // Navigate to the inventory page and highlight the row matching the given ingredient name.
 // Searches consumable → merch → equipment in order and switches to the right type.
 function navToInventoryItem(name) {
@@ -7062,13 +7071,7 @@ function navToInventoryItem(name) {
     if (input) { input.value = name; filterInventory(name); }
     if (foundId) {
       setTimeout(() => {
-        const row = document.querySelector(`#inv-body tr[data-inv-id="${foundId}"]`);
-        if (row) {
-          row.scrollIntoView({ behavior:'smooth', block:'center' });
-          row.style.transition = 'background .2s';
-          row.style.background = 'rgba(200,169,81,.25)';
-          setTimeout(() => row.style.background = '', 1800);
-        }
+        highlightAndScroll(document.querySelector(`#inv-body tr[data-inv-id="${foundId}"]`));
       }, 150);
     }
   }, 50);
@@ -7544,13 +7547,7 @@ function globalSearch(q) {
           const input = document.querySelector('#inv-tab-items .search-input');
           if (input) { input.value = i.ItemName; filterInventory(i.ItemName); }
           setTimeout(()=>{
-            const row = document.querySelector(`#inv-body tr[data-inv-id="${i.id}"]`);
-            if (row) {
-              row.scrollIntoView({behavior:'smooth',block:'center'});
-              row.style.transition='background .2s';
-              row.style.background='rgba(200,169,81,.25)';
-              setTimeout(()=>row.style.background='',1800);
-            }
+            highlightAndScroll(document.querySelector(`#inv-body tr[data-inv-id="${i.id}"]`));
           },150);
         },80);
       }}));
@@ -7575,13 +7572,7 @@ function globalSearch(q) {
         nav('maint-contacts');
         setTimeout(()=>{
           setTimeout(()=>{
-            const el = document.querySelector(`[data-gs-id="${m.id}"]`);
-            if (el) {
-              el.scrollIntoView({behavior:'smooth',block:'center'});
-              el.style.transition='background .2s';
-              el.style.background='rgba(200,169,81,.25)';
-              setTimeout(()=>el.style.background='',1800);
-            }
+            highlightAndScroll(document.querySelector(`[data-gs-id="${m.id}"]`));
           },200);
         },80);
       }}));
@@ -7594,13 +7585,7 @@ function globalSearch(q) {
           const input = document.querySelector('#recipe-search');
           if (input) { input.value = r.Title; filterRecipes(r.Title); }
           setTimeout(()=>{
-            const el = document.querySelector(`[data-gs-id="${r.id}"]`);
-            if (el) {
-              el.scrollIntoView({behavior:'smooth',block:'center'});
-              el.style.transition='background .2s';
-              el.style.background='rgba(200,169,81,.25)';
-              setTimeout(()=>el.style.background='',1800);
-            }
+            highlightAndScroll(document.querySelector(`[data-gs-id="${r.id}"]`));
           },200);
         },80);
       }}));
@@ -7611,13 +7596,7 @@ function globalSearch(q) {
         nav('maint-schedule');
         setTimeout(()=>{
           setTimeout(()=>{
-            const el = document.querySelector(`[data-gs-id="${t.id}"]`);
-            if (el) {
-              el.scrollIntoView({behavior:'smooth',block:'center'});
-              el.style.transition='background .2s';
-              el.style.background='rgba(200,169,81,.25)';
-              setTimeout(()=>el.style.background='',1800);
-            }
+            highlightAndScroll(document.querySelector(`[data-gs-id="${t.id}"]`));
           },200);
         },80);
       }}));
@@ -7630,13 +7609,7 @@ function globalSearch(q) {
           const input = document.getElementById('menu-search');
           if (input) { input.value = i.ItemName; filterMenu(i.ItemName); }
           setTimeout(()=>{
-            const el = document.querySelector(`#menu-body tr[data-gs-id="${i.id}"]`);
-            if (el) {
-              el.scrollIntoView({behavior:'smooth',block:'center'});
-              el.style.transition='background .2s';
-              el.style.background='rgba(200,169,81,.25)';
-              setTimeout(()=>el.style.background='',1800);
-            }
+            highlightAndScroll(document.querySelector(`#menu-body tr[data-gs-id="${i.id}"]`));
           },200);
         },80);
       }}));
@@ -7649,13 +7622,7 @@ function globalSearch(q) {
           const input = document.getElementById('cogs-search');
           if (input) { input.value = i.ItemName; filterCogs(i.ItemName); }
           setTimeout(()=>{
-            const el = document.querySelector(`#cogs-cards [data-gs-id="${i.id}"]`);
-            if (el) {
-              el.scrollIntoView({behavior:'smooth',block:'center'});
-              el.style.transition='background .2s';
-              el.style.background='rgba(200,169,81,.25)';
-              setTimeout(()=>el.style.background='',1800);
-            }
+            highlightAndScroll(document.querySelector(`#cogs-cards [data-gs-id="${i.id}"]`));
           },200);
         },80);
       }}));
@@ -7666,13 +7633,7 @@ function globalSearch(q) {
         nav('prep-items');
         setTimeout(()=>{
           setTimeout(()=>{
-            const el = document.querySelector(`#pi-cards [data-gs-id="${p.id}"]`);
-            if (el) {
-              el.scrollIntoView({behavior:'smooth',block:'center'});
-              el.style.transition='background .2s';
-              el.style.background='rgba(200,169,81,.25)';
-              setTimeout(()=>el.style.background='',1800);
-            }
+            highlightAndScroll(document.querySelector(`#pi-cards [data-gs-id="${p.id}"]`));
           },200);
         },80);
       }}));
@@ -7683,13 +7644,7 @@ function globalSearch(q) {
         nav('checklists');
         setTimeout(()=>{
           setTimeout(()=>{
-            const el = document.querySelector(`[data-gs-id="${g.id}"]`);
-            if (el) {
-              el.scrollIntoView({behavior:'smooth',block:'center'});
-              el.style.transition='background .2s';
-              el.style.background='rgba(200,169,81,.25)';
-              setTimeout(()=>el.style.background='',1800);
-            }
+            highlightAndScroll(document.querySelector(`[data-gs-id="${g.id}"]`));
           },200);
         },80);
       }}));
