@@ -143,6 +143,7 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
 .badge-gray{background:#e8e8e8;color:#444;}
 .badge-teal{background:var(--opal);color:var(--dark-blue);}
 .badge-orange{background:#fce4d0;color:#7a3000;}
+.sq-badge{display:inline-block;background:#006aff;color:#fff;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;vertical-align:middle;margin-left:5px;letter-spacing:.3px;}
 
 /* ── FORMS ── */
 .form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;margin-bottom:20px;}
@@ -456,6 +457,8 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
 >🥪 Sandwiches</button>
       <button class="inv-type-tab" data-type="transfers" onclick="switchInvType('transfers')"
 >🔄 Transfers</button>
+      <button class="inv-type-tab" data-type="merch-monthly" onclick="switchInvType('merch-monthly')"
+>📊 Merch Cost</button>
     </div>
     <div class="tab-bar">
       <button class="tab-btn active" onclick="switchInvTab('items',this)">📋 Items</button>
@@ -562,6 +565,11 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
         </table>
         <div class="no-data" id="transfer-empty" style="display:none">No transfers yet.</div>
       </div>
+    </div>
+
+    <!-- Merch Monthly Cost tab -->
+    <div id="inv-tab-merch-monthly" style="display:none">
+      <div id="inv-merch-monthly-content" style="padding-top:4px"></div>
     </div>
 
     <!-- Import tab -->
@@ -2054,7 +2062,9 @@ const LISTS = {
   prepItemIngredients: 'BSC_PrepItemIngredients',
   foodInventory:       'BSC_FoodInventory',
   groceryInventory:    'BSC_GroceryInventory',
-  tags:                'BSC_Tags'
+  tags:                'BSC_Tags',
+  merchReceived:       'BSC_MerchReceived',
+  merchMonths:         'BSC_MerchMonths'
 };
 
 // Inventory type config — drives which list/cache key each inv type uses
@@ -2123,7 +2133,9 @@ const cache = {
   prepItemIngredients: [],
   foodInventory: [],
   groceryInventory: [],
-  tags: []
+  tags: [],
+  merchReceived: [],
+  merchMonths: []
 };
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -2403,7 +2415,7 @@ async function ensureList(listName, columns) {
   return listId;
 }
 
-const PROVISION_VERSION = '23';
+const PROVISION_VERSION = '24';
 
 // ── Session data cache (localStorage, keyed by provision version + location) ─
 const CACHE_MAX_AGE = 4 * 60 * 60 * 1000; // 4 hours — safety TTL
@@ -2647,6 +2659,22 @@ async function ensureAllLists() {
     {name:'Unit',           text:{}},
     {name:'CostPerUnit',    number:{decimalPlaces:'automatic'}}
   ]);
+  // Merch monthly cost tracking
+  await ensureList(LISTS.merchReceived, [
+    {name:'ItemName',     text:{}},
+    {name:'Month',        text:{}},
+    {name:'Location',     text:{}},
+    {name:'Quantity',     number:{decimalPlaces:'none'}},
+    {name:'CostSnapshot', number:{decimalPlaces:'automatic'}},
+    {name:'Notes',        text:{allowMultipleLines:true}}
+  ]);
+  await ensureList(LISTS.merchMonths, [
+    {name:'Month',    text:{}},
+    {name:'Location', text:{}},
+    {name:'Status',   text:{}},
+    {name:'ClosedBy', text:{}},
+    {name:'ClosedAt', text:{}}
+  ]);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -2654,7 +2682,7 @@ async function ensureAllLists() {
 // ════════════════════════════════════════════════════════════════════════════
 async function loadAllData() {
   const siteId = await getSiteId();
-  const [xfers, orders, cls, roles, vendors,,recipes,,contacts,staff,sched,log,appSettings,clGroups,clCompletions,labelRows,foodParRows,parkingRows,contactArchiveRows,prepItemsRows,prepItemIngsRows,tagsRows] = await Promise.all([
+  const [xfers, orders, cls, roles, vendors,,recipes,,contacts,staff,sched,log,appSettings,clGroups,clCompletions,labelRows,foodParRows,parkingRows,contactArchiveRows,prepItemsRows,prepItemIngsRows,tagsRows,merchReceivedRows,merchMonthsRows] = await Promise.all([
     getListItems(siteId, LISTS.transfers),
     getListItems(siteId, LISTS.orders),
     getListItems(siteId, LISTS.checklists),
@@ -2676,7 +2704,9 @@ async function loadAllData() {
     getListItems(siteId, LISTS.contactArchive).catch(()=>[]),
     getListItems(siteId, LISTS.prepItems).catch(()=>[]),
     getListItems(siteId, LISTS.prepItemIngredients).catch(()=>[]),
-    getListItems(siteId, LISTS.tags).catch(()=>[])
+    getListItems(siteId, LISTS.tags).catch(()=>[]),
+    getListItems(siteId, LISTS.merchReceived).catch(()=>[]),
+    getListItems(siteId, LISTS.merchMonths).catch(()=>[])
   ]);
   cache.transfers=xfers; cache.orders=orders;
   cache.checklists=cls; cache.roles=roles; cache.vendors=vendors;
@@ -2691,6 +2721,8 @@ async function loadAllData() {
   cache.prepItems = prepItemsRows || [];
   cache.prepItemIngredients = prepItemIngsRows || [];
   cache.tags = tagsRows || [];
+  cache.merchReceived = merchReceivedRows || [];
+  cache.merchMonths   = merchMonthsRows   || [];
   migrateTagsToRegistry(); // fire-and-forget: seed BSC_Tags from existing vendor/contact tags
   // Load per-location food par values
   if (currentLocation === 'all') {
@@ -3084,6 +3116,7 @@ function renderInvTableHeader() {
       <th onclick="sortInvBy('StorageCount')">Storage</th>
       <th onclick="sortInvBy('TotalCount')">Total</th>
       <th onclick="sortInvBy('TotalValue')">Value</th>
+      <th style="min-width:90px">Received</th>
       <th style="width:72px"></th>`;
   } else {
     tr.innerHTML = `
@@ -3116,11 +3149,13 @@ function switchInvType(type) {
   const foodParsEl = document.getElementById('inv-tab-foodpars');
   const titleEl   = document.querySelector('#page-inventory .page-title');
 
-  const transfersEl = document.getElementById('inv-tab-transfers');
+  const transfersEl    = document.getElementById('inv-tab-transfers');
+  const merchMonthlyEl = document.getElementById('inv-tab-merch-monthly');
   const hideAllSpecial = () => {
-    if (labelsEl)    labelsEl.style.display    = 'none';
-    if (foodParsEl)  foodParsEl.style.display  = 'none';
-    if (transfersEl) transfersEl.style.display = 'none';
+    if (labelsEl)        labelsEl.style.display        = 'none';
+    if (foodParsEl)      foodParsEl.style.display      = 'none';
+    if (transfersEl)     transfersEl.style.display     = 'none';
+    if (merchMonthlyEl)  merchMonthlyEl.style.display  = 'none';
   };
 
   if (type === 'labels') {
@@ -3145,6 +3180,17 @@ function switchInvType(type) {
     if (titleEl) titleEl.textContent = '🔄 Transfers';
     populateTransferItemSelect();
     renderTransfers();
+  } else if (type === 'merch-monthly') {
+    if (!isOwnerOrAccounting()) { toast('err','Access restricted to owner and accounting roles'); return; }
+    if (tabBar) tabBar.style.display = 'none';
+    ['items','count','analytics','import'].forEach(t => {
+      const el = document.getElementById('inv-tab-'+t);
+      if (el) el.style.display = 'none';
+    });
+    hideAllSpecial();
+    if (merchMonthlyEl) merchMonthlyEl.style.display = '';
+    if (titleEl) titleEl.textContent = '📊 Monthly Merch Cost';
+    renderMerchMonthlyCost();
   } else if (type === 'pastries' || type === 'sandwiches') {
     if (tabBar) tabBar.style.display = 'none';
     ['items','count','analytics','import'].forEach(t => {
@@ -3259,7 +3305,7 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
     const costServing = i.CostPerServing != null ? '$'+Number(i.CostPerServing).toFixed(4) : '—';
     const servings    = i.ServingsPerUnit!= null ? Number(i.ServingsPerUnit).toLocaleString()+' '+escHtml(i.ServingUnit||'')  : '—';
     return `<tr data-inv-id="${escHtml(i.id)}">
-      <td class="fw">${escHtml(i.ItemName||'—')}${i.Tags?renderTagPills(i.Tags):''}</td>
+      <td class="fw">${escHtml(i.ItemName||'—')}${i.SquareId?'<span class="sq-badge" title="Synced with Square">SQ</span>':''}${i.Tags?renderTagPills(i.Tags):''}</td>
       ${invHasCategory() ? `<td><span class="badge badge-teal">${escHtml(i.Category||'—')}</span></td>` : ''}
       <td style="font-size:12px">${i.Supplier ? `<a href="#" data-supplier="${escHtml(i.Supplier||'')}" onclick="nav('vendors');setTimeout(()=>{const s=document.querySelector('#page-vendors .search-input');if(s){s.value=this.dataset.supplier;filterVendors(s.value);}},300);return false;" style="color:var(--gold);text-decoration:none;">${escHtml(i.Supplier)}</a>` : '<span style="color:var(--muted)">—</span>'}</td>
       <td><div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;"><span style="text-align:right;">${par}</span><span style="font-size:11px;color:var(--muted);width:44px;text-align:left;">${unit}</span></div></td>
@@ -3332,15 +3378,31 @@ function renderMerchInventoryItems(query='', catFilter='') {
     const totalNum = counts.total  != null ? counts.total   : null;
     const cost    = i.CostPerUnit  != null ? i.CostPerUnit  : null;
     const value   = (cost != null && totalNum != null) ? '$'+(cost*totalNum).toFixed(2) : '—';
+    const canEditRcv = isOwnerOrAccounting();
+    const rcvQty = i.Received != null ? i.Received : 0;
     return `<tr>
       <td style="font-size:12px;color:var(--muted)">${escHtml(i.ItemNo||'—')}</td>
-      <td class="fw">${escHtml(i.ItemName||'—')}</td>
+      <td class="fw">${escHtml(i.ItemName||'—')}${i.SquareId?'<span class="sq-badge" title="Synced with Square">SQ</span>':''}</td>
       <td><span class="badge badge-teal">${escHtml(i.Category||'—')}</span></td>
       <td>${cost != null ? '$'+Number(cost).toFixed(2) : '—'}</td>
       <td>${store}</td>
       <td>${storage}</td>
       <td style="font-weight:600">${total}</td>
       <td style="font-size:12px;color:var(--muted)">${value}</td>
+      <td style="padding:4px 8px;">
+        ${canEditRcv
+          ? `<div style="display:flex;align-items:center;gap:4px;">
+               <input type="number" value="${rcvQty}" step="1"
+                 style="width:56px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;text-align:right;"
+                 data-id="${escHtml(i.id)}" data-name="${escHtml(i.ItemName||'')}"
+                 onchange="saveMerchReceivedItem(this.dataset.id,this.dataset.name,this.value,this)">
+               <button title="${escHtml(i.ReceivedNotes||'Add notes…')}"
+                 data-id="${escHtml(i.id)}" data-name="${escHtml(i.ItemName||'')}" data-notes="${escHtml(i.ReceivedNotes||'')}"
+                 onclick="editMerchReceivedNotes(this.dataset.id,this.dataset.name,this.dataset.notes)"
+                 style="background:none;border:none;cursor:pointer;font-size:13px;color:${i.ReceivedNotes?'var(--gold)':'var(--muted)'}">📝</button>
+             </div>`
+          : `<span style="font-size:13px">${rcvQty||'—'}</span>`}
+      </td>
       <td style="white-space:nowrap;">
         <button onclick="openEditInvItem('${i.id}')" title="Edit"
           style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:15px;padding:2px 4px;">✏️</button>
@@ -5526,17 +5588,6 @@ async function deleteVendor(id, name) {
   finally { setLoading(false); }
 }
 
-async function deleteVendor(id) {
-  if (!confirm('Permanently delete this vendor? This cannot be undone.')) return;
-  setLoading(true,'Deleting…');
-  try {
-    await deleteListItem(LISTS.vendors, id);
-    cache.vendors = cache.vendors.filter(v=>v.id!==id);
-    renderVendors(); populateSelects();
-    toast('ok','✓ Vendor deleted');
-  } catch(e) { toast('err','Delete failed: '+e.message); }
-  finally { setLoading(false); }
-}
 
 function filterVendors(q) { renderVendors(q); }
 document.getElementById('vendor-tab').addEventListener('change',()=>renderVendors());
@@ -7219,6 +7270,314 @@ function nav(page) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// MERCH MONTHLY COST
+// ════════════════════════════════════════════════════════════════════════════
+
+let _merchMonthView = null; // 'YYYY-MM', null = current month
+
+function _currentMonthStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+
+// Returns itemName → totalCount for latest count per item strictly before cutoffDate
+function getMerchCountsAtDate(loc, cutoffDate) {
+  const cutoff = cutoffDate.toISOString().split('T')[0];
+  const filtered = cache.merchCountHistory.filter(r =>
+    (loc === 'all' || r.Location === loc) && (r.WeekOf||'') < cutoff + 'T'
+  );
+  const map = {};
+  [...filtered].sort((a,b) => (a.WeekOf||'') > (b.WeekOf||'') ? 1 : -1).forEach(r => {
+    const name = (r.Title||r.ItemName||'').trim();
+    if (name) map[name] = r.TotalCount || 0;
+  });
+  return map;
+}
+
+async function fetchSquareSalesForMerchMonth(monthStr, loc) {
+  try {
+    const [year, month] = monthStr.split('-').map(Number);
+    const startAt = new Date(year, month-1, 1).toISOString();
+    const endAt   = new Date(year, month, 0, 23, 59, 59).toISOString();
+    const catalogMap = {};
+    cache.merchInventory.forEach(i => {
+      if (i.SquareCatalogItemId) catalogMap[i.SquareCatalogItemId.trim()] = i.ItemName;
+    });
+    if (!Object.keys(catalogMap).length) return {};
+    const locMap = getSquareLocMap();
+    const squareLocId = loc !== 'all' ? locMap[loc] : Object.values(locMap)[0];
+    if (!squareLocId) return {};
+    let cursor = null;
+    const salesMap = {}; // itemName → {qty, revenue (dollars)}
+    do {
+      const body = {
+        location_ids: [squareLocId],
+        query: { filter: {
+          date_time_filter: { created_at: { start_at: startAt, end_at: endAt } },
+          state_filter: { states: ['COMPLETED'] }
+        }},
+        ...(cursor ? { cursor } : {})
+      };
+      const resp = await squareAPI('POST', 'orders/search', body);
+      (resp.orders||[]).forEach(order => {
+        (order.line_items||[]).forEach(li => {
+          const name = catalogMap[li.catalog_object_id];
+          if (!name) return;
+          const qty  = parseInt(li.quantity||0, 10);
+          const rev  = ((li.base_price_money?.amount||0) * qty) / 100;
+          if (!salesMap[name]) salesMap[name] = {qty:0, revenue:0};
+          salesMap[name].qty     += qty;
+          salesMap[name].revenue += rev;
+        });
+      });
+      cursor = resp.cursor || null;
+    } while (cursor);
+    return salesMap;
+  } catch(e) {
+    console.warn('Square sales fetch failed:', e);
+    return null; // null = fetch error (distinct from empty = no sales)
+  }
+}
+
+async function renderMerchMonthlyCost() {
+  const container = document.getElementById('inv-merch-monthly-content');
+  if (!container) return;
+  if (!_merchMonthView) _merchMonthView = _currentMonthStr();
+
+  const [year, month] = _merchMonthView.split('-').map(Number);
+  const loc = (currentLocation && currentLocation !== 'all') ? currentLocation : (getLocations()[0] || 'all');
+  const curMonthStr = _currentMonthStr();
+  const isCurrentMonth = _merchMonthView === curMonthStr;
+
+  const monthRecord = cache.merchMonths.find(m => m.Month === _merchMonthView && m.Location === loc);
+  const isClosed = monthRecord?.Status === 'closed';
+
+  const monthStart = new Date(year, month-1, 1);
+  const monthEnd   = new Date(year, month,   1);
+  const startingMap = getMerchCountsAtDate(loc, monthStart);
+  const endingMap   = getMerchCountsAtDate(loc, monthEnd);
+
+  // Received data — from live inventory for current open month, from log for closed/past
+  let receivedMap = {}; // itemName → {qty, cost, notes}
+  if (isClosed || !isCurrentMonth) {
+    cache.merchReceived
+      .filter(r => r.Month === _merchMonthView && r.Location === loc)
+      .forEach(r => { receivedMap[r.ItemName] = { qty: r.Quantity||0, cost: r.CostSnapshot, notes: r.Notes||'' }; });
+  } else {
+    cache.merchInventory.forEach(i => {
+      receivedMap[i.ItemName] = { qty: i.Received||0, cost: i.CostPerUnit||0, notes: i.ReceivedNotes||'' };
+    });
+  }
+
+  const monthLabel = new Date(year, month-1, 1).toLocaleDateString('en-US', {month:'long', year:'numeric'});
+  container.innerHTML = `<div style="text-align:center;padding:40px;color:var(--muted)">Loading Square sales for ${escHtml(monthLabel)}…</div>`;
+
+  const salesMap = await fetchSquareSalesForMerchMonth(_merchMonthView, loc);
+  const sqFailed = salesMap === null;
+
+  // Build item rows — all current inventory + any closed-month received items not in current inventory
+  const allNames = new Set([
+    ...cache.merchInventory.map(i => i.ItemName),
+    ...Object.keys(receivedMap)
+  ]);
+
+  let totalConsumedCost = 0, totalSqRevenue = 0, totalDiffCost = 0;
+  const rows = [...allNames].filter(Boolean).sort().map(name => {
+    const item     = cache.merchInventory.find(i => i.ItemName === name) || {};
+    const starting = startingMap[name] ?? null;
+    const ending   = endingMap[name]   ?? null;
+    const rcv      = receivedMap[name] || { qty: 0, cost: item.CostPerUnit||0 };
+    const cost     = rcv.cost ?? item.CostPerUnit ?? 0;
+    const consumed = (starting !== null && ending !== null)
+      ? (starting + rcv.qty - ending)
+      : null;
+    const consumedCost = (consumed !== null && cost) ? consumed * cost : null;
+    const sq     = sqFailed ? null : (salesMap[name] || {qty:0, revenue:0});
+    const diffQty  = (consumed !== null && sq !== null) ? consumed - sq.qty : null;
+    const diffCost = (consumed !== null && sq !== null && cost) ? diffQty * cost : null;
+
+    if (consumedCost != null) totalConsumedCost += consumedCost;
+    if (sq?.revenue)          totalSqRevenue    += sq.revenue;
+    if (diffCost != null && diffCost > 0) totalDiffCost += diffCost;
+
+    const estLabel = (!isClosed && isCurrentMonth && ending === null) ? ' <span style="font-size:10px;color:var(--muted)">(est)</span>' : '';
+    const fmt = n => n != null ? n.toFixed(0) : '—';
+    const fmtD = n => n != null ? '$'+Math.abs(n).toFixed(2)+(n<0?' CR':'') : '—';
+    const diffStyle = diffQty != null && diffQty > 0 ? 'color:var(--red)' : diffQty != null && diffQty < 0 ? 'color:var(--orange)' : '';
+    return `<tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:7px 10px;font-weight:500">${escHtml(name)}</td>
+      <td style="padding:7px 10px;text-align:right">${fmt(starting)}</td>
+      <td style="padding:7px 10px;text-align:right">${fmt(rcv.qty)}</td>
+      <td style="padding:7px 10px;text-align:right">${fmt(ending)}${estLabel}</td>
+      <td style="padding:7px 10px;text-align:right">${fmt(consumed)}</td>
+      <td style="padding:7px 10px;text-align:right;color:var(--muted);font-size:12px">${cost ? '$'+Number(cost).toFixed(2) : '—'}</td>
+      <td style="padding:7px 10px;text-align:right;font-weight:600">${fmtD(consumedCost)}</td>
+      <td style="padding:7px 10px;text-align:right">${sqFailed ? '<span style="color:var(--muted)">—</span>' : fmt(sq?.qty)}</td>
+      <td style="padding:7px 10px;text-align:right">${sqFailed ? '<span style="color:var(--muted)">—</span>' : fmtD(sq?.revenue)}</td>
+      <td style="padding:7px 10px;text-align:right;${diffStyle}">${sqFailed ? '<span style="color:var(--muted)">—</span>' : fmt(diffQty)}</td>
+      <td style="padding:7px 10px;text-align:right;${diffStyle}">${sqFailed ? '<span style="color:var(--muted)">—</span>' : fmtD(diffCost)}</td>
+    </tr>`;
+  });
+
+  const statusPill = isClosed
+    ? `<span style="background:#d4edda;color:#155724;padding:2px 10px;border-radius:10px;font-size:12px;font-weight:600">Closed</span>`
+    : `<span style="background:#fff3cd;color:#856404;padding:2px 10px;border-radius:10px;font-size:12px;font-weight:600">Open</span>`;
+  const closedInfo = isClosed
+    ? `<span style="font-size:11px;color:var(--muted)">by ${escHtml(monthRecord.ClosedBy||'')} · ${monthRecord.ClosedAt ? new Date(monthRecord.ClosedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : ''}</span>`
+    : '';
+  const canAct = isOwnerOrAccounting();
+
+  container.innerHTML = `
+    <!-- Summary card -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;">
+      <div class="card" style="padding:14px 18px;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Total Consumed</div>
+        <div style="font-size:22px;font-weight:700">$${totalConsumedCost.toFixed(2)}</div>
+      </div>
+      <div class="card" style="padding:14px 18px;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Square Sales</div>
+        <div style="font-size:22px;font-weight:700">${sqFailed ? '<span style="color:var(--muted);font-size:14px">Unavailable</span>' : '$'+totalSqRevenue.toFixed(2)}</div>
+      </div>
+      <div class="card" style="padding:14px 18px;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Shrinkage/Loss</div>
+        <div style="font-size:22px;font-weight:700;color:${totalDiffCost>0?'var(--red)':'var(--text)'}">$${totalDiffCost.toFixed(2)}</div>
+      </div>
+      <div class="card" style="padding:14px 18px;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Status</div>
+        <div style="margin-top:4px;display:flex;flex-direction:column;gap:4px;">${statusPill}${closedInfo}</div>
+      </div>
+    </div>
+
+    <!-- Month nav + actions -->
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button class="btn btn-outline" style="padding:4px 12px;" onclick="navigateMerchMonth(-1)">◀</button>
+        <span style="font-size:15px;font-weight:600;min-width:160px;text-align:center">${escHtml(monthLabel)}</span>
+        <button class="btn btn-outline" style="padding:4px 12px;" onclick="navigateMerchMonth(1)" ${isCurrentMonth?'disabled':''}>▶</button>
+      </div>
+      <span style="font-size:12px;color:var(--muted)">${escHtml(loc)}</span>
+      ${canAct && !isClosed && isCurrentMonth ? `<button class="btn btn-primary" style="margin-left:auto" onclick="closeMerchMonth()">Close Month</button>` : ''}
+      ${sqFailed ? `<span style="font-size:12px;color:var(--orange)">⚠ Square data unavailable</span>` : ''}
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrap">
+      <table style="font-size:13px;">
+        <thead>
+          <tr style="border-bottom:2px solid var(--border);">
+            <th style="text-align:left;padding:8px 10px;">Item</th>
+            <th style="text-align:right;padding:8px 10px;">Starting</th>
+            <th style="text-align:right;padding:8px 10px;">Received</th>
+            <th style="text-align:right;padding:8px 10px;">Ending</th>
+            <th style="text-align:right;padding:8px 10px;">Consumed</th>
+            <th style="text-align:right;padding:8px 10px;">Cost/Unit</th>
+            <th style="text-align:right;padding:8px 10px;">Consumed $</th>
+            <th style="text-align:right;padding:8px 10px;">SQ Units</th>
+            <th style="text-align:right;padding:8px 10px;">SQ $</th>
+            <th style="text-align:right;padding:8px 10px;">Diff Units</th>
+            <th style="text-align:right;padding:8px 10px;">Diff $</th>
+          </tr>
+        </thead>
+        <tbody>${rows.join('')}
+          <tr style="border-top:2px solid var(--border);font-weight:700;background:var(--cream);">
+            <td style="padding:8px 10px;">Total</td>
+            <td colspan="5"></td>
+            <td style="padding:8px 10px;text-align:right;">$${totalConsumedCost.toFixed(2)}</td>
+            <td colspan="1"></td>
+            <td style="padding:8px 10px;text-align:right;">${sqFailed ? '—' : '$'+totalSqRevenue.toFixed(2)}</td>
+            <td colspan="1"></td>
+            <td style="padding:8px 10px;text-align:right;color:${totalDiffCost>0?'var(--red)':'inherit'};">${sqFailed ? '—' : '$'+totalDiffCost.toFixed(2)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function navigateMerchMonth(dir) {
+  if (!_merchMonthView) _merchMonthView = _currentMonthStr();
+  const [year, month] = _merchMonthView.split('-').map(Number);
+  const d = new Date(year, month-1+dir, 1);
+  const next = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  if (next > _currentMonthStr()) return;
+  _merchMonthView = next;
+  renderMerchMonthlyCost();
+}
+
+async function saveMerchReceivedItem(id, name, rawVal, inputEl) {
+  const qty = parseInt(rawVal, 10);
+  if (isNaN(qty)) return;
+  try {
+    await updateListItem(LISTS.merchInventory, id, { Received: qty });
+    const item = cache.merchInventory.find(i => i.id === id);
+    if (item) item.Received = qty;
+  } catch(e) {
+    toast('err', 'Save failed: ' + e.message);
+    if (inputEl) inputEl.value = cache.merchInventory.find(i=>i.id===id)?.Received || 0;
+  }
+}
+
+async function editMerchReceivedNotes(id, name, currentNotes) {
+  const notes = prompt(`Received notes for "${name}":`, currentNotes);
+  if (notes === null) return; // cancelled
+  try {
+    await updateListItem(LISTS.merchInventory, id, { ReceivedNotes: notes });
+    const item = cache.merchInventory.find(i => i.id === id);
+    if (item) item.ReceivedNotes = notes;
+    renderInventory();
+  } catch(e) {
+    toast('err', 'Save failed: ' + e.message);
+  }
+}
+
+async function closeMerchMonth() {
+  if (!isOwnerOrAccounting()) return;
+  const monthStr = _merchMonthView || _currentMonthStr();
+  const loc = (currentLocation && currentLocation !== 'all') ? currentLocation : (getLocations()[0] || 'all');
+  const monthLabel = new Date(...monthStr.split('-').map((v,i)=>i===1?Number(v)-1:Number(v))).toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  if (!confirm(`Close ${monthLabel} for ${loc}?\n\nThis snapshots all received quantities and costs. The month can still be edited by owner/accounting after closing.`)) return;
+  setLoading(true, 'Closing month…');
+  try {
+    // Write received records for all items that have received qty or notes
+    const toWrite = cache.merchInventory.filter(i => (i.Received||0) !== 0 || i.ReceivedNotes);
+    await Promise.all(toWrite.map(item =>
+      addListItem(LISTS.merchReceived, {
+        Title:        item.ItemName,
+        ItemName:     item.ItemName,
+        Month:        monthStr,
+        Location:     loc,
+        Quantity:     item.Received || 0,
+        CostSnapshot: item.CostPerUnit || 0,
+        Notes:        item.ReceivedNotes || ''
+      }).then(row => cache.merchReceived.push(row))
+    ));
+    // Write month close record
+    const closedAt = new Date().toISOString();
+    const closedBy = currentUser?.name || currentUser?.username || '';
+    const monthRec = await addListItem(LISTS.merchMonths, {
+      Title:    `${monthStr} ${loc}`,
+      Month:    monthStr,
+      Location: loc,
+      Status:   'closed',
+      ClosedBy: closedBy,
+      ClosedAt: closedAt
+    });
+    cache.merchMonths.push(monthRec);
+    // Zero out working Received fields
+    await Promise.all(cache.merchInventory.map(item =>
+      updateListItem(LISTS.merchInventory, item.id, { Received: 0, ReceivedNotes: '' })
+    ));
+    cache.merchInventory.forEach(i => { i.Received = 0; i.ReceivedNotes = ''; });
+    await sendSlackAlert(`📦 *Merch monthly cost closed — ${monthLabel} · ${loc}* by ${closedBy}`);
+    toast('ok', `✓ ${monthLabel} closed for ${loc}`);
+    renderMerchMonthlyCost();
+  } catch(e) {
+    toast('err', 'Close failed: ' + e.message);
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // SLACK
 // ════════════════════════════════════════════════════════════════════════════
 const DEFAULT_NOTIF_RULES = [
@@ -7879,7 +8238,7 @@ function renderMenu(query='', catFilter='') {
     const stockDisplay = stock != null ? stock : '—';
     const vars = (i.Variations||'').split('\n').filter(Boolean);
     return `<tr data-gs-id="${escHtml(i.id)}" style="${isHidden?'opacity:0.45;':''}">
-      <td style="font-weight:600">${escHtml(i.ItemName||'—')}</td>
+      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<span class="sq-badge" title="Synced with Square">SQ</span>':''}</td>
       <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${escHtml(i.Category||'—')}</span></td>
       <td style="font-size:12px;color:var(--muted);max-width:220px">${escHtml(i.Description||'')}</td>
       <td>${i.Price != null ? '$'+Number(i.Price).toFixed(2) : '—'}</td>
@@ -10508,7 +10867,9 @@ const MERCH_LIST_COLS = [
   {name:'ItemName',text:{}},{name:'Category',text:{}},{name:'ItemNo',text:{}},
   {name:'CostPerUnit',number:{decimalPlaces:'automatic'}},
   {name:'SellingPrice',number:{decimalPlaces:'automatic'}},
-  {name:'SquareCatalogItemId',text:{}},{name:'Tags',text:{}}
+  {name:'SquareCatalogItemId',text:{}},{name:'Tags',text:{}},
+  {name:'Received',number:{decimalPlaces:'none'}},
+  {name:'ReceivedNotes',text:{allowMultipleLines:true}}
 ];
 const MERCH_COUNTS_EXTRA_COLS = [
   {name:'ChangesSinceLastCount',number:{decimalPlaces:'automatic'}}
