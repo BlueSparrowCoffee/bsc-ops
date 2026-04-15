@@ -3619,7 +3619,10 @@ function renderCountSheet() {
   const loc = currentLocation === 'all' ? null : currentLocation;
   const recentMap = {}; // itemName → { store, storage, total, weekOf }
   const filtered = (cache[cfg.countKey] || []).filter(r => !loc || r.Location === loc);
-  filtered.sort((a,b)=>(a.WeekOf||'')>(b.WeekOf||'')?1:-1); // sort asc so newest overwrites oldest
+  filtered.sort((a,b)=>{
+    const wDiff = (a.WeekOf||'') < (b.WeekOf||'') ? -1 : (a.WeekOf||'') > (b.WeekOf||'') ? 1 : 0;
+    return wDiff !== 0 ? wDiff : Number(a.id||0) - Number(b.id||0); // tiebreak by SP item id (higher = newer)
+  });
   filtered.forEach(r => {
     const name = r.Title || r.ItemName;
     if (name) recentMap[name] = {
@@ -4260,17 +4263,20 @@ function openEditInvItem(id) {
 }
 
 function modalArchiveInvItem() {
-  if (!_editInvId) return;
+  const id = _editInvId;
+  if (!id) return;
   const cfg = invCfg();
-  const item = cfg && cache[cfg.cacheKey]?.find(i => i.id === _editInvId);
+  const item = cfg && cache[cfg.cacheKey]?.find(i => i.id === id);
   if (!item) return;
+  const isArchived = !!item.Archived;
   closeModal('modal-add-item');
-  toggleArchiveInvItem(_editInvId, !!item.Archived);
+  toggleArchiveInvItem(id, isArchived);
 }
 function modalDeleteInvItem() {
-  if (!_editInvId) return;
+  const id = _editInvId;
+  if (!id) return;
   closeModal('modal-add-item');
-  deleteInvItem(_editInvId);
+  deleteInvItem(id);
 }
 async function toggleArchiveInvItem(id, isArchived) {
   if (!isOwner()) { toast('err', 'Owner access required'); return; }
