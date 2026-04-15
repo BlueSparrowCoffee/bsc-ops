@@ -475,17 +475,17 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
       <div class="toolbar">
         <div class="search-wrap">
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          <input class="search-input" placeholder="Search items…" oninput="debounceFilter('inv',filterInventory,this.value)">
+          <input class="search-input" id="inv-search-input" placeholder="Search items…" oninput="debounceFilter('inv',filterInventory,this.value)">
         </div>
-        <select class="filter" id="inv-cat-filter" onchange="filterInventory(document.querySelector('#inv-tab-items .search-input').value)">
+        <select class="filter" id="inv-cat-filter" onchange="filterInventory(document.getElementById('inv-search-input')?.value||'')">
           <option value="">All Categories</option>
         </select>
-        <select class="filter" id="inv-status-filter" onchange="filterInventory(document.querySelector('#inv-tab-items .search-input').value)">
+        <select class="filter" id="inv-status-filter" onchange="filterInventory(document.getElementById('inv-search-input')?.value||'')">
           <option value="">All Status</option>
           <option value="low">Low / Out</option>
           <option value="ok">In Stock</option>
         </select>
-        <select class="filter" id="inv-supplier-filter" onchange="filterInventory(document.querySelector('#inv-tab-items .search-input').value)">
+        <select class="filter" id="inv-supplier-filter" onchange="filterInventory(document.getElementById('inv-search-input')?.value||'')">
           <option value="">All Vendors</option>
         </select>
         <span id="inv-count" style="font-size:13px;color:var(--muted);"></span>
@@ -1984,7 +1984,7 @@ const SP_PAGE_SIZE          = 500;  // Graph API $top — max items per list fet
 const WEBHOOK_EXPIRY_DAYS   = 170;  // SharePoint webhook max lifetime (days)
 const MODAL_FOCUS_DELAY_MS  = 100;  // ms to wait before focusing first field in a modal
 const NAV_SETTLE_MS         = 80;   // ms to wait after nav() before querying newly rendered DOM
-const SEARCH_DEBOUNCE_MS    = 300;  // ms to debounce search/filter inputs
+const SEARCH_DEBOUNCE_MS    = 150;  // ms to debounce search/filter inputs
 const MODULES = ['Dashboard','Inventory','Transfers','Ordering','Checklists','Vendors','Recipes','Staff','Maintenance','Contacts','Menu','Prep','Square','COGs','Settings'];
 const EQUIPMENT_LIST = ['Slayer Espresso Machine','Grinders','Glycol Chiller','Refrigerators','Ice Machine','Fetco Batch Brewer','Cold Brew System','Keg Lines / Draft','Water Filtration','Dishwasher','POS Terminals','HVAC / Ventilation','Plumbing / Sinks','Hood / Exhaust'];
 const FREQ_DAYS = {Monthly:30, Quarterly:90, Annually:365};
@@ -3170,7 +3170,7 @@ function switchInvTab(tab, btn) {
 
 function renderInventory() {
   renderInventoryItems(
-    document.querySelector('#inv-tab-items .search-input')?.value||'',
+    document.getElementById('inv-search-input')?.value||'',
     document.getElementById('inv-cat-filter')?.value||'',
     document.getElementById('inv-status-filter')?.value||'',
     document.getElementById('inv-supplier-filter')?.value||''
@@ -3192,7 +3192,7 @@ function sortInvBy(col) {
     }
   });
   renderInventoryItems(
-    document.querySelector('#inv-tab-items .search-input')?.value||'',
+    document.getElementById('inv-search-input')?.value||'',
     document.getElementById('inv-cat-filter')?.value||'',
     document.getElementById('inv-status-filter')?.value||''
   );
@@ -3346,8 +3346,8 @@ function renderMerchInventoryItems(query='', catFilter='') {
 
 function filterInventory(query) {
   renderInventoryItems(query,
-    document.getElementById('inv-cat-filter').value,
-    document.getElementById('inv-status-filter').value,
+    document.getElementById('inv-cat-filter')?.value || '',
+    document.getElementById('inv-status-filter')?.value || '',
     document.getElementById('inv-supplier-filter')?.value || ''
   );
 }
@@ -7082,7 +7082,7 @@ function navToInventoryItem(name) {
   switchInvType(foundType);
   nav('inventory');
   setTimeout(() => {
-    const input = document.querySelector('#inv-tab-items .search-input');
+    const input = document.getElementById('inv-search-input');
     if (input) { input.value = name; filterInventory(name); }
     if (foundId) {
       setTimeout(() => {
@@ -7564,7 +7564,7 @@ function globalSearch(q) {
         nav('inventory');
         switchInvType('consumable');
         setTimeout(()=>{
-          const input = document.querySelector('#inv-tab-items .search-input');
+          const input = document.getElementById('inv-search-input');
           if (input) { input.value = i.ItemName; filterInventory(i.ItemName); }
           setTimeout(()=>{
             highlightAndScroll(document.querySelector(`#inv-body tr[data-inv-id="${i.id}"]`));
