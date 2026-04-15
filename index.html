@@ -2601,11 +2601,10 @@ async function ensureAllLists() {
     {name:'RoleName',text:{}},{name:'Permissions',text:{}},{name:'LocationAccess',text:{}}
   ]);
   await ensureList(LISTS.vendors,[
-    {name:'VendorName',text:{}},{name:'Category',text:{}},{name:'Product',text:{}},{name:'OrderDeadline',text:{}},
     {name:'OrderDays',text:{}},{name:'DeliveryDays',text:{}},{name:'ContactPerson',text:{}},
     {name:'Email',text:{}},{name:'Website',text:{}},{name:'Phone',text:{}},
     {name:'OrderMethod',text:{}},{name:'Terms',text:{}},
-    {name:'PaymentMethod',text:{}},{name:'Split',text:{}},
+    {name:'PaymentMethod',text:{}},
     {name:'Active',text:{}},{name:'Tags',text:{}}
   ]);
   await ensureList(LISTS.recipes,[
@@ -4284,8 +4283,8 @@ async function saveInventoryItem() {
     const newVendorName = document.getElementById('new-item-supplier-name')?.value?.trim() || '';
     if (newVendorName) {
       try {
-        const vItem = await addListItem(LISTS.vendors, { Title: newVendorName, VendorName: newVendorName, Active: 'Yes' });
-        const norm = { ...vItem, Title: vItem.Title || newVendorName, VendorName: vItem.VendorName || newVendorName, Active: 'Yes' };
+        const vItem = await addListItem(LISTS.vendors, { Title: newVendorName, Active: 'Yes' });
+        const norm = { ...vItem, Title: vItem.Title || newVendorName, Active: 'Yes' };
         cache.vendors.push(norm);
         populateInvVendorSelect(newVendorName);
         renderVendors();
@@ -5027,15 +5026,13 @@ const LIST_FIELD_LABELS = {
   },
   [LISTS && LISTS.vendors]: {
     Title:         'Company',
-    VendorName:    'Company',
     OrderDays:     'Order Days',
     DeliveryDays:  'Delivery Days',
-    OrderDeadline: 'Order Deadline',
+
     OrderMethod:   'Order Method',
     ContactPerson: 'Contact',
     PaymentMethod: 'Payment Method',
     Active:        'Active',
-    Product:       'Product / Category',
     Tags:          'Tags',
   }
 };
@@ -5086,9 +5083,8 @@ if (localStorage.getItem('hiddenColsVer') !== HIDDEN_COLS_VERSION) {
 // hidden columns stored per-list in localStorage
 const DEFAULT_HIDDEN_COLS = {
   vendors: [
-    // VendorName is a background sync field — Title is the visible "Company" column
     'VendorName',
-    'Terms','Split','PaymentTerms','SplitAmt',
+    'Terms','PaymentTerms','SplitAmt',
     // SharePoint retention/compliance label system columns
     '_ComplianceTag','_ComplianceTagWrittenTime','_ComplianceTagUserId',
     'LabelApplied','LabelAppliedBy','RetentionLabel',
@@ -5341,11 +5337,10 @@ function renderVendors(query='') {
 
   // Build the full ordered field list — union cache keys with known vendor fields
   // so columns appear even if all vendor items currently have empty custom fields
-  const KNOWN_VENDOR_FIELDS = ['Title','Category','Product','Active','ContactPerson','Email','Phone',
-    'Website','OrderMethod','OrderDeadline','OrderDays','DeliveryDays','Terms',
-    'PaymentMethod','Split'];
-  const cacheFields = Object.keys(sample).filter(k=>!SP_SYSTEM_FIELDS.has(k)&&k!=='Tags'&&k!=='VendorName');
-  const allFields = [...new Set([...cacheFields, ...KNOWN_VENDOR_FIELDS])].filter(k=>!SP_SYSTEM_FIELDS.has(k)&&k!=='Tags'&&k!=='VendorName');
+  const KNOWN_VENDOR_FIELDS = ['Title','Active','ContactPerson','Email','Phone',
+    'Website','OrderMethod','OrderDays','DeliveryDays','Terms','PaymentMethod'];
+  const cacheFields = Object.keys(sample).filter(k=>!SP_SYSTEM_FIELDS.has(k)&&k!=='Tags'&&k!=='VendorName'&&k!=='Category'&&k!=='Product'&&k!=='Split');
+  const allFields = [...new Set([...cacheFields, ...KNOWN_VENDOR_FIELDS])].filter(k=>!SP_SYSTEM_FIELDS.has(k)&&k!=='Tags'&&k!=='VendorName'&&k!=='Category'&&k!=='Product'&&k!=='Split');
   const ordered = getColOrder('vendors', allFields);
   // Apply hidden cols — show all known fields even if currently empty
   const fields = ordered.filter(k=>!hiddenCols.has(k));
@@ -5361,7 +5356,7 @@ function renderVendors(query='') {
         ? `<button data-id="${escHtml(r.id)}" onclick="restoreVendor(this.dataset.id)" style="background:none;border:none;cursor:pointer;color:#16a34a;font-size:12px;padding:2px 6px;font-weight:600;" title="Restore">↩ Restore</button>`
         : `<button data-id="${escHtml(r.id)}" onclick="archiveVendor(this.dataset.id)" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:13px;padding:2px 6px;" title="Archive">🗃️</button>`
       }
-      ${isOwner() ? `<button data-id="${escHtml(r.id)}" data-name="${escHtml(r.Title||r.VendorName||'')}" onclick="deleteVendor(this.dataset.id,this.dataset.name)" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:13px;padding:2px 6px;" title="Delete">🗑️</button>` : ''}
+      ${isOwner() ? `<button data-id="${escHtml(r.id)}" data-name="${escHtml(r.Title||'')}" onclick="deleteVendor(this.dataset.id,this.dataset.name)" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:13px;padding:2px 6px;" title="Delete">🗑️</button>` : ''}
     </td>
   </tr>`).join('');
 
@@ -5439,16 +5434,12 @@ function toggleCol(listKey, field, visible) {
 // Vendor form field config — defines order, input type, and span for known fields.
 // Unknown fields from SP get appended automatically as plain text inputs.
 const VENDOR_FORM_FIELDS = [
-  { key:'VendorName',    span:true  },
-  { key:'Category',      type:'category', span:false },
-  { key:'Product',       span:false },
   { key:'Active',        type:'select', options:['Yes','No'], span:false },
   { key:'ContactPerson', type:'multi', span:false },
   { key:'Email',         type:'multi', span:false },
   { key:'Phone',         type:'multi', span:false },
   { key:'Website',       span:false },
   { key:'OrderMethod',   type:'select', options:['Email','Phone','Portal','App','Fax','In Person','Text'], span:false },
-  { key:'OrderDeadline', span:false },
   { key:'OrderDays',     type:'days',   span:false },
   { key:'DeliveryDays',  type:'days',   span:false },
   { key:'Terms',         span:false },
@@ -5541,7 +5532,7 @@ function openVendorForm(id) {
   // Build ordered field list: configured fields first, then any extra SP fields not in the list
   const spFields = cache.vendors.length
     ? Object.keys(cache.vendors[0]).filter(k=>isEditableField(k, LISTS.vendors) && k !== 'Tags' && k !== 'Title')
-    : ['VendorName'];
+    : [];
   const configuredKeys = new Set(VENDOR_FORM_FIELDS.map(f=>f.key));
   const extraKeys = spFields.filter(k=>!configuredKeys.has(k));
 
@@ -5622,8 +5613,6 @@ async function saveVendorForm() {
   });
   // Clean up sentinel values
   if (data.Category === '__new__') data.Category = '';
-  // Sync Title = VendorName so SP search/display works
-  if (data.VendorName) data.Title = data.VendorName;
   data.Tags = getTagEditorValue('vendor');
   setLoading(true,'Saving vendor…');
   try {
@@ -5709,8 +5698,7 @@ async function importVendorsFromExcel() {
       const r=apRows[i]; if(!r[0]) continue;
       apLookup[r[0].toString().trim()] = {
         Terms:         r[apHead.indexOf('Terms')]||'',
-        PaymentMethod: r[apHead.indexOf('Payment Method')]||'',
-        Split:         r[apHead.indexOf('Split')]||''
+        PaymentMethod: r[apHead.indexOf('Payment Method')]||''
       };
     }
 
@@ -5732,7 +5720,7 @@ async function importVendorsFromExcel() {
       const fields = {
         VendorName:    name,
         Product:       (r[col('Product')]||'').toString(),
-        OrderDeadline: (r[col('Order Deadline')]||'').toString(),
+
         OrderDays:     (r[col('Order Days')]||'').toString(),
         DeliveryDays:  (r[col('Delivery Days')]||'').toString(),
         ContactPerson: (r[col('Contact Person')]||'').toString(),
@@ -5742,8 +5730,7 @@ async function importVendorsFromExcel() {
         OrderMethod:   (r[col('Prefered Order Method')]||'').toString(),
         Active:        r[col('Active')]===true||r[col('Active')]==='TRUE'||r[col('Active')]===1?'Yes':'No',
         Terms:         ap.Terms||'',
-        PaymentMethod: ap.PaymentMethod||'',
-        Split:         ap.Split||''
+        PaymentMethod: ap.PaymentMethod||''
       };
       await addListItem(LISTS.vendors, fields);
       count++;
@@ -6892,8 +6879,8 @@ const PROVISIONED_COL_NAMES = new Set([
   // Roles
   'RoleName','Permissions','LocationAccess',
   // Vendors
-  'VendorName','Product','OrderDeadline','OrderDays','DeliveryDays','ContactPerson','Email','Website','Phone',
-  'OrderMethod','Terms','PaymentMethod','Split','Active',
+  'OrderDays','DeliveryDays','ContactPerson','Email','Website','Phone',
+  'OrderMethod','Terms','PaymentMethod','Active',
   // Recipes
   'Content','Steps','Ingredients','Yield',
   // Maint
@@ -7200,7 +7187,7 @@ async function createVendorQuick() {
   if (!name) { nameInput?.focus(); return; }
   setLoading(true, 'Creating vendor…');
   try {
-    const item = await addListItem(LISTS.vendors, { Title: name, VendorName: name, Active: 'Yes' });
+    const item = await addListItem(LISTS.vendors, { Title: name, Active: 'Yes' });
     cache.vendors.push(item);
     populateSelects();
     populateInvVendorSelect(name);
