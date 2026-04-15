@@ -485,6 +485,9 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
         <select class="filter" id="inv-supplier-filter" onchange="filterInventory(document.getElementById('inv-search-input')?.value||'')">
           <option value="">All Vendors</option>
         </select>
+        <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);cursor:pointer;white-space:nowrap;">
+          <input type="checkbox" id="inv-show-archived" onchange="filterInventory(document.getElementById('inv-search-input')?.value||'')"> Archived
+        </label>
         <span id="inv-count" style="font-size:13px;color:var(--muted);"></span>
         <button id="inv-seed-btn" class="btn btn-outline ml-auto inv-merch-only" style="display:none" onclick="seedMerchItems()">Seed Items</button>
         <button class="btn btn-primary" onclick="openAddInvForm()">+ Add Item</button>
@@ -1360,8 +1363,12 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
             <option value="food">Food</option>
             <option value="grocery">Grocery</option>
           </select>
+          <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);cursor:pointer;white-space:nowrap;">
+            <input type="checkbox" id="cogs-overview-show-hidden" onchange="renderCogsOverview()"> Show hidden
+          </label>
         </div>
         <div id="cogs-overview-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px;"></div>
+        <div id="cogs-overview-chart" style="margin-bottom:24px;"></div>
         <div id="cogs-overview-body" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;"></div>
       </div>
 
@@ -2462,7 +2469,7 @@ async function ensureList(listName, columns) {
   return listId;
 }
 
-const PROVISION_VERSION = '24';
+const PROVISION_VERSION = '25';
 
 // ── Session data cache (localStorage, keyed by provision version + location) ─
 const CACHE_MAX_AGE = 4 * 60 * 60 * 1000; // 4 hours — safety TTL
@@ -3245,6 +3252,20 @@ function switchInvType(type) {
     hideAllSpecial();
     const cfg = INV_TYPE_CFG[type];
     if (titleEl && cfg) titleEl.textContent = cfg.icon + ' ' + cfg.label;
+    // Remove analytics tab for merch; restore it for other types
+    const tabBarEl = document.querySelector('#page-inventory .tab-bar');
+    const analyticsBtn = tabBarEl?.querySelector('.tab-btn[onclick*="analytics"]');
+    if (type === 'merch') {
+      if (analyticsBtn) analyticsBtn.remove();
+    } else if (tabBarEl && !tabBarEl.querySelector('.tab-btn[onclick*="analytics"]')) {
+      const importBtn = tabBarEl.querySelector('.tab-btn[onclick*="import"]');
+      const btn = document.createElement('button');
+      btn.className = 'tab-btn';
+      btn.setAttribute('onclick', "switchInvTab('analytics',this)");
+      btn.textContent = '📊 Analytics';
+      if (importBtn) tabBarEl.insertBefore(btn, importBtn);
+      else tabBarEl.appendChild(btn);
+    }
     // Reset to items tab
     _invActiveTab = 'items';
     document.querySelectorAll('#page-inventory .tab-bar .tab-btn').forEach(b => b.classList.toggle('active', b.textContent.trim() === '📋 Items'));
@@ -3314,14 +3335,16 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
   }
 
   const countsMap = getLatestCountsMap(currentLocation);
+  const showArchived = document.getElementById('inv-show-archived')?.checked || false;
   let items = cache[cfg.cacheKey] || [];
+  if (!showArchived) items = items.filter(i => !i.Archived);
   if (query) items = items.filter(i=>(i.ItemName||'').toLowerCase().includes(query.toLowerCase())||
     (i.Category||'').toLowerCase().includes(query.toLowerCase())||
     (i.Supplier||'').toLowerCase().includes(query.toLowerCase()));
   if (catFilter)      items = items.filter(i=>i.Category===catFilter);
   if (supplierFilter) items = items.filter(i=>(i.Supplier||'')===supplierFilter);
-  if (statusFilter==='low') items = items.filter(i=>(countsMap[i.ItemName||'']?.total??0)<=(i.ParLevel||0));
-  if (statusFilter==='ok')  items = items.filter(i=>(countsMap[i.ItemName||'']?.total??0)>(i.ParLevel||0));
+  if (statusFilter==='low') items = items.filter(i=>(countsMap[i.ItemName||'']?.total??0)<(i.ParLevel||0)*0.7);
+  if (statusFilter==='ok')  items = items.filter(i=>(countsMap[i.ItemName||'']?.total??0)>=(i.ParLevel||0)*0.7);
 
   if (_invSort.col) {
     items = [...items].sort((a,b) => {
@@ -3341,14 +3364,14 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
     const total   = (countsMap[i.ItemName||'']?.total??'—');
     const totalNum = (countsMap[i.ItemName||'']?.total??null);
     const par     = i.ParLevel||0;
-    const badge   = totalNum===null?'badge-gray':totalNum===0?'badge-red':totalNum<=par?'badge-orange':'badge-green';
-    const status  = totalNum===null?'—':totalNum===0?'Out':totalNum<=par?'Low':'OK';
+    const badge   = totalNum===null?'badge-gray':totalNum===0?'badge-red':totalNum<par*0.7?'badge-orange':'badge-green';
+    const status  = totalNum===null?'—':totalNum===0?'Out':totalNum<par*0.7?'Low':'OK';
     const unit    = escHtml(i.OrderUnit||i.Unit||'');
     const costCase    = i.CostPerCase    != null ? '$'+Number(i.CostPerCase).toFixed(2)    : '—';
     const costServing = i.CostPerServing != null ? '$'+Number(i.CostPerServing).toFixed(4) : '—';
     const servings    = i.ServingsPerUnit!= null ? Number(i.ServingsPerUnit).toLocaleString()+' '+escHtml(i.ServingUnit||'')  : '—';
-    return `<tr data-inv-id="${escHtml(i.id)}">
-      <td class="fw">${escHtml(i.ItemName||'—')}${i.SquareId?'<span class="sq-badge" title="Synced with Square">SQ</span>':''}${i.Tags?renderTagPills(i.Tags):''}</td>
+    return `<tr data-inv-id="${escHtml(i.id)}"${i.Archived?' style="opacity:.45;"':''}>
+      <td class="fw">${escHtml(i.ItemName||'—')}${i.SquareId?'<span class="sq-badge" title="Synced with Square">SQ</span>':''}${i.Archived?'<span style="font-size:10px;background:var(--muted);color:#fff;padding:1px 5px;border-radius:8px;margin-left:4px;">archived</span>':''}${i.Tags?renderTagPills(i.Tags):''}</td>
       ${invHasCategory() ? `<td><span class="badge badge-teal">${escHtml(i.Category||'—')}</span></td>` : ''}
       <td style="font-size:12px">${i.Supplier ? `<a href="#" data-supplier="${escHtml(i.Supplier||'')}" onclick="nav('vendors');setTimeout(()=>{const s=document.querySelector('#page-vendors .search-input');if(s){s.value=this.dataset.supplier;filterVendors(s.value);}},300);return false;" style="color:var(--gold);text-decoration:none;">${escHtml(i.Supplier)}</a>` : '<span style="color:var(--muted)">—</span>'}</td>
       <td><div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;"><span style="text-align:right;">${par}</span><span style="font-size:11px;color:var(--muted);width:44px;text-align:left;">${unit}</span></div></td>
@@ -3362,6 +3385,8 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
       <td style="white-space:nowrap;">
         <button onclick="openEditInvItem('${i.id}')" title="Edit"
           style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:15px;padding:2px 4px;">✏️</button>
+        <button data-id="${escHtml(i.id)}" data-archived="${i.Archived?'1':''}" onclick="toggleArchiveInvItem(this.dataset.id,this.dataset.archived==='1')" title="${i.Archived?'Unarchive':'Archive'}"
+          style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:15px;padding:2px 4px;">${i.Archived?'📤':'📦'}</button>
         <button onclick="deleteInvItem('${i.id}')" title="Delete"
           style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:15px;padding:2px 4px;">🗑️</button>
       </td>
@@ -3390,7 +3415,9 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
 function renderMerchInventoryItems(query='', catFilter='') {
   const cfg = invCfg();
   const countsMap = getLatestCountsMap(currentLocation);
+  const showArchived = document.getElementById('inv-show-archived')?.checked || false;
   let items = cache[cfg.cacheKey] || [];
+  if (!showArchived) items = items.filter(i => !i.Archived);
   if (query) items = items.filter(i=>(i.ItemName||'').toLowerCase().includes(query.toLowerCase())||
     (i.ItemNo||'').toLowerCase().includes(query.toLowerCase())||
     (i.Category||'').toLowerCase().includes(query.toLowerCase()));
@@ -3423,9 +3450,9 @@ function renderMerchInventoryItems(query='', catFilter='') {
     const value   = (cost != null && totalNum != null) ? '$'+(cost*totalNum).toFixed(2) : '—';
     const canEditRcv = isOwnerOrAccounting();
     const rcvQty = i.Received != null ? i.Received : 0;
-    return `<tr>
+    return `<tr${i.Archived?' style="opacity:.45;"':''}>
       <td style="font-size:12px;color:var(--muted)">${escHtml(i.ItemNo||'—')}</td>
-      <td class="fw">${escHtml(i.ItemName||'—')}${i.SquareId?'<span class="sq-badge" title="Synced with Square">SQ</span>':''}</td>
+      <td class="fw">${escHtml(i.ItemName||'—')}${i.SquareId?'<span class="sq-badge" title="Synced with Square">SQ</span>':''}${i.Archived?'<span style="font-size:10px;background:var(--muted);color:#fff;padding:1px 5px;border-radius:8px;margin-left:4px;">archived</span>':''}</td>
       <td><span class="badge badge-teal">${escHtml(i.Category||'—')}</span></td>
       <td>${cost != null ? '$'+Number(cost).toFixed(2) : '—'}</td>
       <td>${store}</td>
@@ -3449,6 +3476,8 @@ function renderMerchInventoryItems(query='', catFilter='') {
       <td style="white-space:nowrap;">
         <button onclick="openEditInvItem('${i.id}')" title="Edit"
           style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:15px;padding:2px 4px;">✏️</button>
+        <button data-id="${escHtml(i.id)}" data-archived="${i.Archived?'1':''}" onclick="toggleArchiveInvItem(this.dataset.id,this.dataset.archived==='1')" title="${i.Archived?'Unarchive':'Archive'}"
+          style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:15px;padding:2px 4px;">${i.Archived?'📤':'📦'}</button>
         <button onclick="deleteInvItem('${i.id}')" title="Delete"
           style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:15px;padding:2px 4px;">🗑️</button>
       </td>
@@ -4204,6 +4233,23 @@ function openEditInvItem(id) {
   document.getElementById('inv-item-tags-editor').innerHTML = tagEditorHTML('inv-item');
   initTagEditor('inv-item', item.Tags||'');
   openModal('modal-add-item');
+}
+
+async function toggleArchiveInvItem(id, isArchived) {
+  const cfg = invCfg();
+  if (!cfg) return;
+  const item = cache[cfg.cacheKey].find(i => i.id === id);
+  if (!item) return;
+  const newVal = isArchived ? '' : 'yes';
+  setLoading(true, isArchived ? 'Unarchiving…' : 'Archiving…');
+  try {
+    const siteId = await getSiteId();
+    await graph('PATCH', `/sites/${siteId}/lists/${LISTS[cfg.listKey]}/items/${id}/fields`, { Archived: newVal });
+    item.Archived = newVal;
+    renderInventory();
+    toast('ok', isArchived ? '✓ Item unarchived' : '✓ Item archived');
+  } catch(e) { toast('err', 'Failed: ' + e.message); }
+  finally { setLoading(false); }
 }
 
 async function deleteInvItem(id) {
@@ -8814,8 +8860,8 @@ function renderFoodParsInTab(category) {
   // Prompt if no location selected
   if (currentLocation === 'all') {
     container.innerHTML = `
-      <div style="background:#fff8e1;border:1.5px solid #f0c040;border-radius:10px;padding:24px;text-align:center;margin-top:8px;">
-        <div style="font-size:24px;margin-bottom:8px;">📍</div>
+      <div class="card" style="text-align:center;padding:32px;">
+        <div style="font-size:28px;margin-bottom:8px;">📍</div>
         <div style="font-weight:600;margin-bottom:4px;">Select a location</div>
         <div style="font-size:13px;color:var(--muted);">Pars are tracked per location. Choose Blake, Platte, Sherman, or 17th above.</div>
       </div>`;
@@ -8823,10 +8869,10 @@ function renderFoodParsInTab(category) {
   }
 
   container.innerHTML = `
-    <div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:14px;flex-wrap:wrap;">
-      ${isOwner() ? `<button class="btn btn-outline" style="white-space:nowrap;font-size:12px;" onclick="openFoodParSync('${escHtml(category)}')">↓ Sync from Square</button>` : ''}
-      ${category === 'pastries' && isManagerOrOwner() ? `<button class="btn btn-outline" style="white-space:nowrap;font-size:12px;" onclick="openPastryOrderSync()">↑ Sync to Order Sheet</button>` : ''}
-      <button class="btn btn-primary" style="white-space:nowrap;" onclick="openFoodParForm(null,'${escHtml(category)}')">+ Add ${escHtml(label)}</button>
+    <div class="toolbar" style="justify-content:flex-end;">
+      ${isOwner() ? `<button class="btn btn-outline" onclick="openFoodParSync('${escHtml(category)}')">↓ Sync from Square</button>` : ''}
+      ${category === 'pastries' && isManagerOrOwner() ? `<button class="btn btn-outline" onclick="openPastryOrderSync()">↑ Sync to Order Sheet</button>` : ''}
+      <button class="btn btn-primary" onclick="openFoodParForm(null,'${escHtml(category)}')">+ Add ${escHtml(label)}</button>
     </div>
     <div id="fp-table-wrap"></div>
   `;
@@ -8844,23 +8890,18 @@ function renderFoodParsTable(category) {
     return;
   }
 
-  const thStyle = (day) => {
-    const isToday = day === todayKey;
-    return `style="padding:8px 10px;text-align:center;font-size:12px;font-weight:700;background:${isToday ? 'var(--brand,#c8a951)' : 'var(--dark-blue)'};color:#fff;border-bottom:1.5px solid var(--border);"`;
-  };
-  const tdStyle = (day) => {
-    const isToday = day === todayKey;
-    return `style="padding:10px;text-align:center;font-size:14px;font-weight:${isToday ? '700' : '400'};background:${isToday ? 'var(--brand-light,#fff8e7)' : 'transparent'};color:${isToday ? 'var(--brand,#c8a951)' : 'var(--text,#1a1a1a)'};border-bottom:1px solid var(--border);"`;
-  };
+  const thToday = (day) => day === todayKey ? `style="background:var(--brand,#c8a951);"` : '';
+  const tdToday = (day) => day === todayKey
+    ? `style="text-align:center;font-weight:700;background:var(--brand-light,#fff8e7);color:var(--brand,#c8a951);"`
+    : `style="text-align:center;"`;
 
-  const thBase = `padding:8px 10px;font-size:12px;font-weight:700;background:var(--dark-blue);color:#fff;border-bottom:1.5px solid var(--border);`;
   const thead = `<thead><tr>
-    <th style="${thBase}width:28px;"></th>
-    <th style="${thBase}text-align:left;">Item</th>
-    <th style="${thBase}text-align:right;">Price</th>
-    ${FP_DAYS.map(d => `<th ${thStyle(d)}>${d}</th>`).join('')}
-    <th style="${thBase}text-align:right;">Est. Weekly Rev</th>
-    <th style="${thBase}width:32px;"></th>
+    <th style="width:28px;"></th>
+    <th>Item</th>
+    <th style="text-align:right;">Price</th>
+    ${FP_DAYS.map(d => `<th ${thToday(d)} style="text-align:center;${d===todayKey?'background:var(--brand,#c8a951);':''}">${d}</th>`).join('')}
+    <th style="text-align:right;">Est. Weekly Rev</th>
+    <th style="width:32px;"></th>
   </tr></thead>`;
 
   let totalRevenue = 0;
@@ -8871,30 +8912,29 @@ function renderFoodParsTable(category) {
     totalRevenue += weekRev;
     const revCell = price > 0
       ? `<span style="color:#2e7d32;font-weight:600;">$${weekRev.toFixed(2)}</span>`
-      : `<span style="color:var(--border)">—</span>`;
+      : `<span style="color:var(--muted)">—</span>`;
     return `<tr data-id="${escHtml(p.id)}">
-      <td class="fp-drag-handle" title="Drag to reorder">⠿</td>
-      <td style="padding:10px 12px;font-size:14px;font-weight:500;border-bottom:1px solid var(--border);">${escHtml(p.Title||'')}</td>
-      <td style="padding:10px 10px;text-align:right;font-size:13px;color:var(--muted);border-bottom:1px solid var(--border);">${price > 0 ? '$'+price.toFixed(2) : '<span style="color:var(--border)">—</span>'}</td>
-      ${FP_DAYS.map(d => `<td ${tdStyle(d)}>${p[d] != null && p[d] !== '' ? p[d] : '<span style="color:var(--border)">—</span>'}</td>`).join('')}
-      <td style="padding:10px 10px;text-align:right;border-bottom:1px solid var(--border);">${revCell}</td>
-      <td style="padding:10px 6px;text-align:center;border-bottom:1px solid var(--border);">
-        <button class="btn btn-sm" style="font-size:11px;padding:3px 8px;" data-id="${escHtml(p.id)}" data-cat="${escHtml(category)}" onclick="openFoodParForm(this.dataset.id,this.dataset.cat)">Edit</button>
+      <td class="fp-drag-handle" title="Drag to reorder" style="color:var(--muted);">⠿</td>
+      <td style="font-weight:500;">${escHtml(p.Title||'')}</td>
+      <td style="text-align:right;color:var(--muted);">${price > 0 ? '$'+price.toFixed(2) : '<span style="color:var(--muted)">—</span>'}</td>
+      ${FP_DAYS.map(d => `<td ${tdToday(d)}>${p[d] != null && p[d] !== '' ? p[d] : '<span style="color:var(--muted)">—</span>'}</td>`).join('')}
+      <td style="text-align:right;">${revCell}</td>
+      <td style="text-align:center;">
+        <button class="btn btn-sm" data-id="${escHtml(p.id)}" data-cat="${escHtml(category)}" onclick="openFoodParForm(this.dataset.id,this.dataset.cat)">Edit</button>
       </td>
     </tr>`;
   }).join('');
 
   const tfoot = `<tfoot><tr>
-    <td></td>
-    <td colspan="2" style="padding:10px 12px;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">Weekly Total</td>
-    <td colspan="${FP_DAYS.length}" style="padding:10px;"></td>
-    <td style="padding:10px 10px;text-align:right;font-weight:700;font-size:14px;color:#2e7d32;">$${totalRevenue.toFixed(2)}</td>
+    <td colspan="3" style="padding:10px 14px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Weekly Total</td>
+    <td colspan="${FP_DAYS.length}"></td>
+    <td style="text-align:right;font-weight:700;font-size:14px;color:#2e7d32;padding:10px 14px;">$${totalRevenue.toFixed(2)}</td>
     <td></td>
   </tr></tfoot>`;
 
   wrap.innerHTML = `
-    <div style="overflow-x:auto;border-radius:10px;border:1.5px solid var(--border);">
-      <table style="width:100%;border-collapse:collapse;min-width:600px;">
+    <div class="table-wrap">
+      <table style="min-width:600px;">
         ${thead}<tbody id="fp-tbody">${tbody}</tbody>${tfoot}
       </table>
     </div>`;
@@ -9995,6 +10035,26 @@ function toggleCogHidden(itemId) {
   renderCogCards();
 }
 
+function toggleOverviewCogHidden(type, id) {
+  if (type === 'coffee-bar') {
+    if (_cogsHiddenIds.has(id)) _cogsHiddenIds.delete(id);
+    else _cogsHiddenIds.add(id);
+    const json = JSON.stringify([..._cogsHiddenIds]);
+    localStorage.setItem('bsc_cogs_hidden', json);
+    saveSetting('cogs_hidden', json).catch(() => {});
+  } else {
+    const state = _invCogState[type];
+    const cfg   = INV_COG_CFG[type];
+    if (!state || !cfg) return;
+    if (state.hiddenIds.has(id)) state.hiddenIds.delete(id);
+    else state.hiddenIds.add(id);
+    const json = JSON.stringify([...state.hiddenIds]);
+    localStorage.setItem(cfg.hiddenKey, json);
+    saveSetting(cfg.hiddenKey, json).catch(() => {});
+  }
+  renderCogsOverview();
+}
+
 // ── Merch Costs ──────────────────────────────────────────────────────────────
 
 async function syncGroceryCostFromInventory() {
@@ -10631,14 +10691,106 @@ function cogIngDropKey(e, itemId, vi) {
   }
 }
 
+function renderCogsOverviewChart(items, target) {
+  const el = document.getElementById('cogs-overview-chart');
+  if (!el) return;
+  if (!items.length) { el.innerHTML = ''; return; }
+
+  // Group by category
+  const catMap = {};
+  items.forEach(i => {
+    const cat = i.category || i.typeLabel || 'Other';
+    if (!catMap[cat]) catMap[cat] = [];
+    catMap[cat].push(i);
+  });
+  const cats = Object.keys(catMap).sort();
+
+  const W = 680, ROW = 22, PAD_L = 130, PAD_R = 32, PAD_T = 28, DOT = 7;
+  const xMin = 0, xMax = 100;
+  const xScale = v => PAD_L + ((v - xMin) / (xMax - xMin)) * (W - PAD_L - PAD_R);
+
+  // Calculate total height
+  let rows = 0;
+  cats.forEach(c => { rows += 1 + catMap[c].length; }); // 1 header row per cat
+  const H = PAD_T + rows * ROW + 16;
+
+  const marginColor = (m, hidden) => {
+    if (hidden) return '#aaa';
+    if (m >= target) return '#16a34a';
+    if (m >= target * 0.8) return '#d97706';
+    return '#dc2626';
+  };
+
+  let svgLines = [];
+
+  // X axis grid lines + labels
+  [0, 25, 50, 75, 100].forEach(v => {
+    const x = xScale(v);
+    svgLines.push(`<line x1="${x}" y1="${PAD_T - 6}" x2="${x}" y2="${H - 12}" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>`);
+    svgLines.push(`<text x="${x}" y="${PAD_T - 9}" text-anchor="middle" font-size="10" fill="rgba(255,255,255,.4)">${v}%</text>`);
+  });
+
+  // Target line
+  const tx = xScale(target);
+  svgLines.push(`<line x1="${tx}" y1="${PAD_T - 6}" x2="${tx}" y2="${H - 12}" stroke="#c8a951" stroke-width="1.5" stroke-dasharray="4,3" opacity=".7"/>`);
+  svgLines.push(`<text x="${tx + 4}" y="${PAD_T - 9}" font-size="10" fill="#c8a951" opacity=".9">Target ${target}%</text>`);
+
+  // Rows
+  let y = PAD_T + ROW * 0.5;
+  cats.forEach(cat => {
+    // Category header
+    svgLines.push(`<text x="4" y="${y + 4}" font-size="10" font-weight="700" fill="rgba(255,255,255,.5)" text-anchor="start">${escHtml(cat.toUpperCase())}</text>`);
+    y += ROW;
+
+    catMap[cat].forEach(item => {
+      const m = item.margin;
+      const cx = xScale(Math.min(100, Math.max(0, m)));
+      const col = marginColor(m, item.isHidden);
+      const label = item.name + (item.variation ? ` · ${item.variation}` : '');
+
+      // Subtle row bg
+      svgLines.push(`<rect x="${PAD_L}" y="${y - ROW * 0.45}" width="${W - PAD_L - PAD_R}" height="${ROW - 2}" rx="3" fill="rgba(255,255,255,.025)"/>`);
+
+      // Thin baseline
+      svgLines.push(`<line x1="${PAD_L}" y1="${y}" x2="${W - PAD_R}" y2="${y}" stroke="rgba(255,255,255,.06)" stroke-width="1"/>`);
+
+      // Item name (truncated via foreignObject-free approach: just clip)
+      svgLines.push(`<text x="${PAD_L - 8}" y="${y + 4}" text-anchor="end" font-size="11" fill="${item.isHidden ? 'rgba(255,255,255,.3)' : 'rgba(255,255,255,.8)'}"
+        style="overflow:hidden">${escHtml(label.length > 22 ? label.slice(0, 21) + '…' : label)}</text>`);
+
+      // Bar from 0 to margin
+      const barX = xScale(0);
+      const barW = Math.max(0, cx - barX);
+      svgLines.push(`<rect x="${barX}" y="${y - 5}" width="${barW}" height="10" rx="3" fill="${col}" opacity="${item.isHidden ? '.25' : '.25'}"/>`);
+
+      // Dot at margin value
+      svgLines.push(`<circle cx="${cx}" cy="${y}" r="${DOT / 2}" fill="${col}" opacity="${item.isHidden ? '.4' : '1'}"/>`);
+
+      // Margin % label
+      svgLines.push(`<text x="${cx + 8}" y="${y + 4}" font-size="10" fill="${col}" opacity="${item.isHidden ? '.5' : '.9'}">${m.toFixed(1)}%</text>`);
+
+      y += ROW;
+    });
+  });
+
+  el.innerHTML = `
+    <div class="card" style="padding:16px 16px 12px;overflow-x:auto;">
+      <div style="font-size:12px;font-weight:600;color:rgba(255,255,255,.6);margin-bottom:10px;letter-spacing:.5px;">MARGIN BY CATEGORY</div>
+      <svg width="${W}" height="${H}" style="display:block;min-width:${W}px;font-family:inherit;">
+        ${svgLines.join('\n')}
+      </svg>
+    </div>`;
+}
+
 function renderCogsOverview() {
   const statsEl = document.getElementById('cogs-overview-stats');
   const bodyEl  = document.getElementById('cogs-overview-body');
   if (!statsEl || !bodyEl) return;
 
-  const target  = parseFloat(document.getElementById('cogs-target-margin')?.value) || 65;
-  const sort    = document.getElementById('cogs-overview-sort')?.value || 'margin-asc';
+  const target     = parseFloat(document.getElementById('cogs-target-margin')?.value) || 65;
+  const sort       = document.getElementById('cogs-overview-sort')?.value || 'margin-asc';
   const typeFilter = document.getElementById('cogs-overview-type')?.value || '';
+  const showHidden = document.getElementById('cogs-overview-show-hidden')?.checked || false;
 
   // Build latest snapshot per coffee-bar item (MenuItemId:VariationName)
   const latestSnap = {};
@@ -10653,13 +10805,18 @@ function renderCogsOverview() {
     Object.values(latestSnap).forEach(s => {
       const margin = parseFloat(s.GrossMargin);
       if (isNaN(margin)) return;
+      const menuItem = cache.menu.find(m => (m.SquareId || m.id) === s.MenuItemId);
+      const spId = menuItem?.id || s.MenuItemId;
+      const isHidden = _cogsHiddenIds.has(spId);
       items.push({
         type: 'coffee-bar', typeLabel: 'Coffee Bar',
         name: s.MenuItemName, variation: s.VariationName,
+        category: menuItem?.Category || 'Coffee Bar',
         margin, price: parseFloat(s.SellingPrice)||0, cog: parseFloat(s.COG)||0,
         snapshotDate: s.SnapshotDate,
         histKey: `${s.MenuItemId}:${s.VariationName}`,
-        itemName: s.MenuItemName, varName: s.VariationName
+        itemName: s.MenuItemName, varName: s.VariationName,
+        spId, isHidden
       });
     });
   }
@@ -10668,31 +10825,41 @@ function renderCogsOverview() {
   for (const [tabKey, cfg] of Object.entries(INV_COG_CFG)) {
     if (typeFilter && typeFilter !== tabKey) continue;
     const typeLabel = tabKey.charAt(0).toUpperCase() + tabKey.slice(1);
+    const state = _invCogState[tabKey];
     (cache[cfg.cacheKey]||[]).forEach(i => {
       const cost  = parseFloat(i.CostPerUnit);
       const price = parseFloat(i.SellingPrice);
       if (!cost || !price) return;
       const margin = ((price - cost) / price) * 100;
+      const isHidden = state?.hiddenIds?.has(i.id) || false;
       items.push({
         type: tabKey, typeLabel,
         name: i.ItemName, variation: '',
+        category: i.Category || typeLabel,
         margin, price, cog: cost,
         snapshotDate: null, histKey: null,
-        itemName: i.ItemName, varName: ''
+        itemName: i.ItemName, varName: '',
+        spId: i.id, isHidden
       });
     });
   }
 
-  // Sort
-  if (sort === 'margin-asc')  items.sort((a,b) => a.margin - b.margin);
-  if (sort === 'margin-desc') items.sort((a,b) => b.margin - a.margin);
-  if (sort === 'name')        items.sort((a,b) => a.name.localeCompare(b.name));
+  // Filter hidden for stats (always exclude hidden from numbers)
+  const visibleItems = items.filter(i => !i.isHidden);
 
-  // Stats
-  const avg     = items.length ? items.reduce((s,i) => s+i.margin, 0) / items.length : 0;
-  const below   = items.filter(i => i.margin < target).length;
-  const best    = items.reduce((b,i) => i.margin > (b?.margin??-Infinity) ? i : b, null);
-  const worst   = items.reduce((w,i) => i.margin < (w?.margin??Infinity)  ? i : w, null);
+  // Sort all items (hidden ones shown dimmed at end if showHidden)
+  const sortFn = sort === 'margin-asc' ? (a,b) => a.margin - b.margin
+               : sort === 'margin-desc' ? (a,b) => b.margin - a.margin
+               : (a,b) => a.name.localeCompare(b.name);
+  visibleItems.sort(sortFn);
+  const hiddenItems = items.filter(i => i.isHidden).sort(sortFn);
+  const displayItems = showHidden ? [...visibleItems, ...hiddenItems] : visibleItems;
+
+  // Stats — visible items only
+  const avg   = visibleItems.length ? visibleItems.reduce((s,i) => s+i.margin, 0) / visibleItems.length : 0;
+  const below = visibleItems.filter(i => i.margin < target).length;
+  const best  = visibleItems.reduce((b,i) => i.margin > (b?.margin??-Infinity) ? i : b, null);
+  const worst = visibleItems.reduce((w,i) => i.margin < (w?.margin??Infinity)  ? i : w, null);
 
   statsEl.innerHTML = [
     ['Total Items', items.length],
@@ -10706,20 +10873,27 @@ function renderCogsOverview() {
       <div style="font-size:20px;font-weight:700">${val}</div>
     </div>`).join('');
 
-  if (!items.length) {
+  // Chart — always based on visibleItems
+  renderCogsOverviewChart(visibleItems, target);
+
+  if (!displayItems.length) {
     bodyEl.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:32px 0">No items with cost and price data yet. Snapshot Costs on the Coffee Bar tab, or set Cost/Price on Merch, Food, and Grocery items.</div>';
     return;
   }
 
-  bodyEl.innerHTML = items.map(item => {
+  bodyEl.innerHTML = displayItems.map(item => {
     const m = item.margin;
-    const mColor = m >= target ? '#16a34a' : m >= target * 0.8 ? '#d97706' : '#dc2626';
+    const mColor = item.isHidden ? '#aaa' : m >= target ? '#16a34a' : m >= target * 0.8 ? '#d97706' : '#dc2626';
     const barW   = Math.min(100, Math.max(0, m)).toFixed(1);
     const typePill = `<span style="font-size:10px;background:var(--opal);color:var(--dark-blue);padding:1px 6px;border-radius:8px;">${escHtml(item.typeLabel)}</span>`;
     const histBtn  = item.histKey
       ? `<button style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--gold);padding:0;" data-name="${escHtml(item.itemName)}" data-var="${escHtml(item.varName)}" onclick="openCogHistoryModal(this.dataset.name,this.dataset.var)">History →</button>`
       : '';
-    return `<div class="card" style="padding:14px 16px;">
+    const hideBtn = `<button style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--muted);padding:0;"
+      data-id="${escHtml(item.spId)}" data-type="${escHtml(item.type)}"
+      onclick="toggleOverviewCogHidden(this.dataset.type,this.dataset.id)"
+      title="${item.isHidden ? 'Show in summary' : 'Hide from summary'}">${item.isHidden ? '👁 Show' : '🙈 Hide'}</button>`;
+    return `<div class="card" style="padding:14px 16px;${item.isHidden ? 'opacity:0.45;' : ''}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;margin-bottom:6px;">
         <div>
           <div style="font-weight:600;font-size:13px;">${escHtml(item.name)}</div>
@@ -10735,8 +10909,8 @@ function renderCogsOverview() {
         <span>Cost: $${item.cog.toFixed(3)}</span>
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
-        ${typePill}
-        ${histBtn}
+        <div style="display:flex;gap:8px;align-items:center;">${typePill}${histBtn}</div>
+        ${hideBtn}
       </div>
     </div>`;
   }).join('');
@@ -11172,7 +11346,8 @@ const INV_LIST_COLS = [
   {name:'CostPerCase',number:{decimalPlaces:'automatic'}},
   {name:'ServingsPerUnit',number:{decimalPlaces:'automatic'}},
   {name:'CostPerServing',number:{decimalPlaces:'automatic'}},
-  {name:'ServingUnit',text:{}},{name:'Unit',text:{}},{name:'Tags',text:{}}
+  {name:'ServingUnit',text:{}},{name:'Unit',text:{}},{name:'Tags',text:{}},
+  {name:'Archived',text:{}}
 ];
 const COUNTS_LIST_COLS = [
   {name:'WeekOf',dateTime:{displayAs:'default',format:'dateOnly'}},
@@ -11192,7 +11367,8 @@ const MERCH_LIST_COLS = [
   {name:'SellingPrice',number:{decimalPlaces:'automatic'}},
   {name:'SquareCatalogItemId',text:{}},{name:'Tags',text:{}},
   {name:'Received',number:{decimalPlaces:'none'}},
-  {name:'ReceivedNotes',text:{allowMultipleLines:true}}
+  {name:'ReceivedNotes',text:{allowMultipleLines:true}},
+  {name:'Archived',text:{}}
 ];
 const MERCH_COUNTS_EXTRA_COLS = [
   {name:'ChangesSinceLastCount',number:{decimalPlaces:'automatic'}}
