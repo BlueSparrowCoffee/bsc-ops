@@ -53,7 +53,6 @@ h1,h2,h3,.stat-value{font-family:'IvyPresto Display','Hoefler Text',Georgia,seri
 .loc-btn{padding:4px 12px;border:1.5px solid rgba(255,255,255,.3);border-radius:20px;background:transparent;color:#fff;font-size:12px;cursor:pointer;font-family:inherit;transition:all .15s;}
 .loc-btn:hover,.loc-btn.active{background:var(--gold);border-color:var(--gold);color:#fff;}
 .topbar-right{margin-left:auto;display:flex;align-items:flex-start;gap:12px;}
-.topbar-user{font-size:12px;color:#fff;}
 .btn-signout{font-size:11px;padding:3px 10px;border:1px solid rgba(255,255,255,.35);border-radius:5px;background:transparent;color:rgba(255,255,255,.85);cursor:pointer;font-family:inherit;margin-top:1px;}
 .btn-signout:hover{border-color:#fff;color:#fff;}
 
@@ -393,7 +392,7 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
 <div id="content">
 
   <!-- Unlinked account banner (shown when login email isn't in BSC_Staff) -->
-  <div id="unlinked-banner" style="display:none;background:#fff8e1;border-bottom:2px solid #f59e0b;padding:10px 24px;display:none;align-items:center;gap:12px;font-size:13px;">
+  <div id="unlinked-banner" style="display:none;background:#fff8e1;border-bottom:2px solid #f59e0b;padding:10px 24px;align-items:center;gap:12px;font-size:13px;">
     <span style="font-size:18px;">⚠️</span>
     <div>
       <strong>Your Microsoft account isn't linked to a staff record.</strong>
@@ -2890,10 +2889,9 @@ async function initSignalR() {
       _signalRConn = null;
       setTimeout(initSignalR, 60_000);
     });
-    _signalRConn.onreconnecting(() => console.log('[BSC] SignalR reconnecting…'));
-    _signalRConn.onreconnected(() => console.log('[BSC] SignalR reconnected'));
+    _signalRConn.onreconnecting(() => {});
+    _signalRConn.onreconnected(() => {});
     await _signalRConn.start();
-    console.log('[BSC] Real-time sync connected');
   } catch(e) {
     console.warn('[BSC] SignalR unavailable — will retry in 60 s:', e.message);
     _signalRConn = null;
