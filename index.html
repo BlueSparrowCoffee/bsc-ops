@@ -335,6 +335,7 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
     <img src="/feather.png" alt="BSC" style="height:32px;width:auto;">
     <div><div>Blue Sparrow Coffee</div><small>Operations Platform</small></div>
   </div>
+  <button id="back-btn" onclick="navBack()" style="display:none;background:none;border:none;cursor:pointer;color:rgba(255,255,255,.7);font-size:20px;padding:4px 8px;line-height:1;" title="Go back">←</button>
   <div class="location-switcher" id="loc-switcher">
     <button class="loc-btn active" onclick="setLocation('all',this)">All</button>
     <button class="loc-btn" onclick="setLocation('Blake',this)">Blake</button>
@@ -457,14 +458,13 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
 >🥪 Sandwiches</button>
       <button class="inv-type-tab" data-type="transfers" onclick="switchInvType('transfers')"
 >🔄 Transfers</button>
-      <button class="inv-type-tab" data-type="merch-monthly" onclick="switchInvType('merch-monthly')"
->📊 Merch Cost</button>
     </div>
     <div class="tab-bar">
       <button class="tab-btn active" onclick="switchInvTab('items',this)">📋 Items</button>
       <button class="tab-btn" onclick="switchInvTab('count',this)">✏️ Count Entry</button>
       <button class="tab-btn" onclick="switchInvTab('analytics',this)">📊 Analytics</button>
       <button class="tab-btn" onclick="switchInvTab('import',this)">📥 Import</button>
+      <button id="inv-monthly-tab-btn" class="tab-btn" style="display:none" onclick="switchInvTab('monthly',this)">📊 Monthly Cost</button>
     </div>
 
     <!-- Items tab -->
@@ -568,7 +568,7 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
     </div>
 
     <!-- Merch Monthly Cost tab -->
-    <div id="inv-tab-merch-monthly" style="display:none">
+    <div id="inv-tab-monthly" style="display:none">
       <div id="inv-merch-monthly-content" style="padding-top:4px"></div>
     </div>
 
@@ -1313,6 +1313,10 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
     <div id="cogs-content">
       <!-- Tabs -->
       <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:20px;flex-wrap:wrap;">
+        <button id="cogs-tab-overview" onclick="cogTab('overview')"
+          style="padding:9px 20px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;">
+          Overview
+        </button>
         <button id="cogs-tab-coffee-bar" onclick="cogTab('coffee-bar')"
           style="padding:9px 20px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;color:var(--gold);border-bottom:2px solid var(--gold);margin-bottom:-2px;transition:all .15s;">
           Coffee Bar
@@ -1333,6 +1337,32 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
           style="padding:9px 20px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;">
           Cost History
         </button>
+      </div>
+
+      <!-- Overview tab -->
+      <div id="cogs-panel-overview" style="display:none;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+          <label style="font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px;">
+            Target margin:
+            <input type="number" id="cogs-target-margin" value="65" min="0" max="100" step="1"
+              style="width:56px;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;"
+              oninput="renderCogsOverview()">%
+          </label>
+          <select id="cogs-overview-sort" class="filter" onchange="renderCogsOverview()">
+            <option value="margin-asc">Margin ↑ (worst first)</option>
+            <option value="margin-desc">Margin ↓ (best first)</option>
+            <option value="name">Name A–Z</option>
+          </select>
+          <select id="cogs-overview-type" class="filter" onchange="renderCogsOverview()">
+            <option value="">All Types</option>
+            <option value="coffee-bar">Coffee Bar</option>
+            <option value="merch">Merch</option>
+            <option value="food">Food</option>
+            <option value="grocery">Grocery</option>
+          </select>
+        </div>
+        <div id="cogs-overview-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px;"></div>
+        <div id="cogs-overview-body" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;"></div>
       </div>
 
       <!-- Coffee Bar tab -->
@@ -1440,7 +1470,7 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
           <table id="cogs-hist-table">
             <thead><tr>
               <th>Date</th><th>Item</th><th>Variation</th>
-              <th>Selling Price</th><th>COG</th><th>Gross Margin</th>
+              <th>Selling Price</th><th>COG</th><th>Gross Margin</th><th>Change</th>
             </tr></thead>
             <tbody id="cogs-hist-body"></tbody>
           </table>
@@ -1450,6 +1480,23 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
           <div style="font-weight:600;margin-bottom:4px">No cost history yet</div>
           <div style="font-size:13px">Click "Snapshot Costs" to save a cost benchmark you can track over time.</div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COG Item History Modal -->
+  <div class="modal-overlay" id="modal-cog-item-history" style="display:none;" onclick="if(event.target===this)closeModal('modal-cog-item-history')">
+    <div class="modal" style="max-width:600px;width:95%;">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title" id="cog-hist-modal-title">Cost History</div>
+          <div id="cog-hist-modal-sub" style="font-size:12px;color:var(--muted);margin-top:2px;"></div>
+        </div>
+        <button class="modal-close" onclick="closeModal('modal-cog-item-history')">×</button>
+      </div>
+      <div class="modal-body" style="padding:20px;">
+        <div id="cog-hist-modal-trend" style="margin-bottom:20px;"></div>
+        <div id="cog-hist-modal-table"></div>
       </div>
     </div>
   </div>
@@ -3150,18 +3197,20 @@ function switchInvType(type) {
   const titleEl   = document.querySelector('#page-inventory .page-title');
 
   const transfersEl    = document.getElementById('inv-tab-transfers');
-  const merchMonthlyEl = document.getElementById('inv-tab-merch-monthly');
+  const monthlyTabBtn  = document.getElementById('inv-monthly-tab-btn');
   const hideAllSpecial = () => {
-    if (labelsEl)        labelsEl.style.display        = 'none';
-    if (foodParsEl)      foodParsEl.style.display      = 'none';
-    if (transfersEl)     transfersEl.style.display     = 'none';
-    if (merchMonthlyEl)  merchMonthlyEl.style.display  = 'none';
+    if (labelsEl)    labelsEl.style.display    = 'none';
+    if (foodParsEl)  foodParsEl.style.display  = 'none';
+    if (transfersEl) transfersEl.style.display = 'none';
   };
+
+  // Monthly Cost tab only visible on Merch
+  if (monthlyTabBtn) monthlyTabBtn.style.display = (type === 'merch') ? '' : 'none';
 
   if (type === 'labels') {
     if (!isOwnerOrAccounting()) { toast('err','Access restricted to owner and accounting roles'); return; }
     if (tabBar) tabBar.style.display = 'none';
-    ['items','count','analytics','import'].forEach(t => {
+    ['items','count','analytics','import','monthly'].forEach(t => {
       const el = document.getElementById('inv-tab-'+t);
       if (el) el.style.display = 'none';
     });
@@ -3171,7 +3220,7 @@ function switchInvType(type) {
     renderLabelsInTab();
   } else if (type === 'transfers') {
     if (tabBar) tabBar.style.display = 'none';
-    ['items','count','analytics','import'].forEach(t => {
+    ['items','count','analytics','import','monthly'].forEach(t => {
       const el = document.getElementById('inv-tab-'+t);
       if (el) el.style.display = 'none';
     });
@@ -3180,20 +3229,9 @@ function switchInvType(type) {
     if (titleEl) titleEl.textContent = '🔄 Transfers';
     populateTransferItemSelect();
     renderTransfers();
-  } else if (type === 'merch-monthly') {
-    if (!isOwnerOrAccounting()) { toast('err','Access restricted to owner and accounting roles'); return; }
-    if (tabBar) tabBar.style.display = 'none';
-    ['items','count','analytics','import'].forEach(t => {
-      const el = document.getElementById('inv-tab-'+t);
-      if (el) el.style.display = 'none';
-    });
-    hideAllSpecial();
-    if (merchMonthlyEl) merchMonthlyEl.style.display = '';
-    if (titleEl) titleEl.textContent = '📊 Monthly Merch Cost';
-    renderMerchMonthlyCost();
   } else if (type === 'pastries' || type === 'sandwiches') {
     if (tabBar) tabBar.style.display = 'none';
-    ['items','count','analytics','import'].forEach(t => {
+    ['items','count','analytics','import','monthly'].forEach(t => {
       const el = document.getElementById('inv-tab-'+t);
       if (el) el.style.display = 'none';
     });
@@ -3209,8 +3247,8 @@ function switchInvType(type) {
     if (titleEl && cfg) titleEl.textContent = cfg.icon + ' ' + cfg.label;
     // Reset to items tab
     _invActiveTab = 'items';
-    document.querySelectorAll('#page-inventory .tab-bar .tab-btn').forEach((b,i) => b.classList.toggle('active', i===0));
-    ['items','count','analytics','import'].forEach(t => {
+    document.querySelectorAll('#page-inventory .tab-bar .tab-btn').forEach(b => b.classList.toggle('active', b.textContent.trim() === '📋 Items'));
+    ['items','count','analytics','import','monthly'].forEach(t => {
       const el = document.getElementById('inv-tab-'+t);
       if (el) el.style.display = t==='items' ? '' : 'none';
     });
@@ -3220,15 +3258,20 @@ function switchInvType(type) {
 }
 
 function switchInvTab(tab, btn) {
+  if (tab === 'monthly' && !isOwnerOrAccounting()) {
+    toast('err','Access restricted to owner and accounting roles'); return;
+  }
   _invActiveTab = tab;
   document.querySelectorAll('#page-inventory .tab-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  ['items','count','analytics','import'].forEach(t => {
-    document.getElementById('inv-tab-'+t).style.display = t===tab ? '' : 'none';
+  ['items','count','analytics','import','monthly'].forEach(t => {
+    const el = document.getElementById('inv-tab-'+t);
+    if (el) el.style.display = t===tab ? '' : 'none';
   });
   if (tab==='count')     { if (invCfg()?.isMerch) renderMerchCountSheet(); else renderCountSheet(); }
   if (tab==='analytics') renderInventoryAnalytics();
   if (tab==='import')    initImportTab();
+  if (tab==='monthly')   renderMerchMonthlyCost();
 }
 
 function renderInventory() {
@@ -7241,6 +7284,21 @@ const PAGE_MODULE = {
   'settings':      'Settings',
 };
 
+const _navHistory = [];
+let _navCurrent = null;
+
+function navBack() {
+  if (!_navHistory.length) return;
+  const prev = _navHistory.pop();
+  _navCurrent = prev;
+  _navSkipHistory = true;
+  nav(prev);
+  _navSkipHistory = false;
+  document.getElementById('back-btn').style.display = _navHistory.length ? '' : 'none';
+}
+
+let _navSkipHistory = false;
+
 function nav(page) {
   // Page-level access check — blocks direct navigation even if nav item is hidden
   const module = PAGE_MODULE[page];
@@ -7249,6 +7307,14 @@ function nav(page) {
     nav('dashboard');
     return;
   }
+
+  if (!_navSkipHistory && _navCurrent && _navCurrent !== page) {
+    _navHistory.push(_navCurrent);
+    if (_navHistory.length > 20) _navHistory.shift();
+  }
+  _navCurrent = page;
+  const backBtn = document.getElementById('back-btn');
+  if (backBtn) backBtn.style.display = _navHistory.length ? '' : 'none';
 
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
@@ -8780,20 +8846,20 @@ function renderFoodParsTable(category) {
 
   const thStyle = (day) => {
     const isToday = day === todayKey;
-    return `style="padding:8px 10px;text-align:center;font-size:12px;font-weight:700;background:${isToday ? 'var(--brand,#c8a951)' : 'var(--bg,#f5f5f5)'};color:${isToday ? '#fff' : 'var(--muted)'};border-bottom:1.5px solid var(--border);"`;
+    return `style="padding:8px 10px;text-align:center;font-size:12px;font-weight:700;background:${isToday ? 'var(--brand,#c8a951)' : 'var(--dark-blue)'};color:#fff;border-bottom:1.5px solid var(--border);"`;
   };
   const tdStyle = (day) => {
     const isToday = day === todayKey;
     return `style="padding:10px;text-align:center;font-size:14px;font-weight:${isToday ? '700' : '400'};background:${isToday ? 'var(--brand-light,#fff8e7)' : 'transparent'};color:${isToday ? 'var(--brand,#c8a951)' : 'var(--text,#1a1a1a)'};border-bottom:1px solid var(--border);"`;
   };
 
-  const thBase = `padding:8px 10px;font-size:12px;font-weight:700;background:var(--bg,#f5f5f5);border-bottom:1.5px solid var(--border);`;
+  const thBase = `padding:8px 10px;font-size:12px;font-weight:700;background:var(--dark-blue);color:#fff;border-bottom:1.5px solid var(--border);`;
   const thead = `<thead><tr>
     <th style="${thBase}width:28px;"></th>
     <th style="${thBase}text-align:left;">Item</th>
-    <th style="${thBase}text-align:right;color:var(--muted);">Price</th>
+    <th style="${thBase}text-align:right;">Price</th>
     ${FP_DAYS.map(d => `<th ${thStyle(d)}>${d}</th>`).join('')}
-    <th style="${thBase}text-align:right;color:#2e7d32;">Est. Weekly Rev</th>
+    <th style="${thBase}text-align:right;">Est. Weekly Rev</th>
     <th style="${thBase}width:32px;"></th>
   </tr></thead>`;
 
@@ -9866,7 +9932,7 @@ document.addEventListener('click', e => {
 });
 
 function cogTab(tab) {
-  const tabs = ['coffee-bar','merch','food','grocery','history'];
+  const tabs = ['overview','coffee-bar','merch','food','grocery','history'];
   const active   = 'color:var(--gold);border-bottom:2px solid var(--gold);margin-bottom:-2px;';
   const inactive = 'color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-2px;';
   tabs.forEach(t => {
@@ -9875,6 +9941,7 @@ function cogTab(tab) {
     if (panel) panel.style.display = t === tab ? '' : 'none';
     if (btn)   btn.style.cssText  += t === tab ? active : inactive;
   });
+  if (tab === 'overview') renderCogsOverview();
   if (tab === 'history')  renderCogHistory();
   if (tab === 'merch')    renderInvCogCards('merch');
   if (tab === 'food')     renderInvCogCards('food');
@@ -10354,9 +10421,15 @@ function renderCogCard(item, cogMap, invMap, prepMap) {
       <tr id="cog-add-row-${itemId}-${vi}">
         <td colspan="5" style="padding:6px 8px;">
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-            <input type="text" placeholder="Ingredient name…" id="cog-new-ing-${itemId}-${vi}"
-              list="cog-ing-list-${itemId}"
-              style="flex:1;min-width:130px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;color:#1a1a1a;background:#fff;">
+            <div style="position:relative;flex:1;min-width:130px;">
+              <input type="text" placeholder="Ingredient name…" id="cog-new-ing-${itemId}-${vi}"
+                autocomplete="off"
+                style="width:100%;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;color:#1a1a1a;background:#fff;box-sizing:border-box;"
+                oninput="showCogIngDrop('${escHtml(itemId)}',${vi},this.value)"
+                onkeydown="cogIngDropKey(event,'${escHtml(itemId)}',${vi})"
+                onblur="setTimeout(()=>hideCogIngDrop('${escHtml(itemId)}',${vi}),180)">
+              <div id="cog-ing-drop-${itemId}-${vi}" style="display:none;position:absolute;top:100%;left:0;right:0;margin-top:2px;background:var(--dark-blue);border-radius:8px;box-shadow:0 6px 20px rgba(2,61,74,.25);z-index:400;max-height:180px;overflow-y:auto;font-size:12px;"></div>
+            </div>
             <input type="number" step="1" min="0" placeholder="Qty" id="cog-new-qty-${itemId}-${vi}"
               style="width:60px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;">
             <button onclick="addCogIngredient('${escHtml(itemId)}','${escHtml(itemName)}','${escHtml(v.name)}',${vi})"
@@ -10386,10 +10459,6 @@ function renderCogCard(item, cogMap, invMap, prepMap) {
     return `
       <div id="cog-panel-${itemId}-${vi}" style="display:${vi===activeVi?'block':'none'}">
         ${hasMissingCost ? `<div style="font-size:11px;color:#f59e0b;padding:4px 0 6px;"><span>⚠️ Some ingredients missing Cost Per Serving</span></div>` : ''}
-        <datalist id="cog-ing-list-${itemId}">
-          ${cache.inventory.map(i=>`<option value="${escHtml(i.ItemName||i.Title||'')}"></option>`).join('')}
-          ${(cache.prepItems||[]).map(p=>`<option value="${escHtml(p.Title||'')}"></option>`).join('')}
-        </datalist>
         <div style="overflow-x:auto;">
         <table style="width:100%;border-collapse:collapse;min-width:320px;">
           <thead>
@@ -10502,6 +10571,242 @@ async function deleteCogIngredient(rowId, menuItemId, variationName) {
 
 // -- History -----------------------------------------------------------------
 
+// ── COG ingredient autocomplete ───────────────────────────────────────────
+function _cogIngOptions() {
+  const names = new Set();
+  cache.inventory.forEach(i => { if (i.ItemName) names.add(i.ItemName); });
+  (cache.prepItems||[]).forEach(p => { if (p.Title) names.add(p.Title); });
+  return [...names].sort();
+}
+
+function showCogIngDrop(itemId, vi, q) {
+  const drop = document.getElementById(`cog-ing-drop-${itemId}-${vi}`);
+  if (!drop) return;
+  const query = (q||'').toLowerCase().trim();
+  const opts = _cogIngOptions().filter(n => !query || n.toLowerCase().includes(query)).slice(0, 20);
+  if (!opts.length) { drop.style.display = 'none'; return; }
+  drop.innerHTML = opts.map((n,i) => `
+    <div data-val="${escHtml(n)}" data-item="${escHtml(itemId)}" data-vi="${vi}"
+      style="padding:7px 12px;cursor:pointer;color:#fff;border-bottom:1px solid rgba(255,255,255,.08);"
+      onmousedown="pickCogIngDrop(this.dataset.item,this.dataset.vi,this.dataset.val)"
+      onmouseover="this.style.background='rgba(255,255,255,.12)'"
+      onmouseout="this.style.background=''">
+      ${escHtml(n)}
+    </div>`).join('');
+  drop.style.display = '';
+}
+
+function hideCogIngDrop(itemId, vi) {
+  const drop = document.getElementById(`cog-ing-drop-${itemId}-${vi}`);
+  if (drop) drop.style.display = 'none';
+}
+
+function pickCogIngDrop(itemId, vi, val) {
+  const inp = document.getElementById(`cog-new-ing-${itemId}-${vi}`);
+  if (inp) inp.value = val;
+  hideCogIngDrop(itemId, vi);
+}
+
+function cogIngDropKey(e, itemId, vi) {
+  const drop = document.getElementById(`cog-ing-drop-${itemId}-${vi}`);
+  if (!drop || drop.style.display === 'none') return;
+  const items = drop.querySelectorAll('[data-val]');
+  const active = drop.querySelector('.cog-ing-active');
+  let idx = active ? [...items].indexOf(active) : -1;
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (active) active.classList.remove('cog-ing-active'), active.style.background = '';
+    idx = Math.min(idx+1, items.length-1);
+    items[idx].classList.add('cog-ing-active'); items[idx].style.background = 'rgba(255,255,255,.18)';
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (active) active.classList.remove('cog-ing-active'), active.style.background = '';
+    idx = Math.max(idx-1, 0);
+    items[idx].classList.add('cog-ing-active'); items[idx].style.background = 'rgba(255,255,255,.18)';
+  } else if (e.key === 'Enter' && active) {
+    e.preventDefault();
+    pickCogIngDrop(itemId, vi, active.dataset.val);
+  } else if (e.key === 'Escape') {
+    hideCogIngDrop(itemId, vi);
+  }
+}
+
+function renderCogsOverview() {
+  const statsEl = document.getElementById('cogs-overview-stats');
+  const bodyEl  = document.getElementById('cogs-overview-body');
+  if (!statsEl || !bodyEl) return;
+
+  const target  = parseFloat(document.getElementById('cogs-target-margin')?.value) || 65;
+  const sort    = document.getElementById('cogs-overview-sort')?.value || 'margin-asc';
+  const typeFilter = document.getElementById('cogs-overview-type')?.value || '';
+
+  // Build latest snapshot per coffee-bar item (MenuItemId:VariationName)
+  const latestSnap = {};
+  [...cache.cogSnapshots]
+    .sort((a,b) => new Date(a.SnapshotDate) - new Date(b.SnapshotDate))
+    .forEach(s => { latestSnap[`${s.MenuItemId}:${s.VariationName}`] = s; });
+
+  const items = [];
+
+  // Coffee Bar — from snapshots
+  if (!typeFilter || typeFilter === 'coffee-bar') {
+    Object.values(latestSnap).forEach(s => {
+      const margin = parseFloat(s.GrossMargin);
+      if (isNaN(margin)) return;
+      items.push({
+        type: 'coffee-bar', typeLabel: 'Coffee Bar',
+        name: s.MenuItemName, variation: s.VariationName,
+        margin, price: parseFloat(s.SellingPrice)||0, cog: parseFloat(s.COG)||0,
+        snapshotDate: s.SnapshotDate,
+        histKey: `${s.MenuItemId}:${s.VariationName}`,
+        itemName: s.MenuItemName, varName: s.VariationName
+      });
+    });
+  }
+
+  // Inv types — from current items
+  for (const [tabKey, cfg] of Object.entries(INV_COG_CFG)) {
+    if (typeFilter && typeFilter !== tabKey) continue;
+    const typeLabel = tabKey.charAt(0).toUpperCase() + tabKey.slice(1);
+    (cache[cfg.cacheKey]||[]).forEach(i => {
+      const cost  = parseFloat(i.CostPerUnit);
+      const price = parseFloat(i.SellingPrice);
+      if (!cost || !price) return;
+      const margin = ((price - cost) / price) * 100;
+      items.push({
+        type: tabKey, typeLabel,
+        name: i.ItemName, variation: '',
+        margin, price, cog: cost,
+        snapshotDate: null, histKey: null,
+        itemName: i.ItemName, varName: ''
+      });
+    });
+  }
+
+  // Sort
+  if (sort === 'margin-asc')  items.sort((a,b) => a.margin - b.margin);
+  if (sort === 'margin-desc') items.sort((a,b) => b.margin - a.margin);
+  if (sort === 'name')        items.sort((a,b) => a.name.localeCompare(b.name));
+
+  // Stats
+  const avg     = items.length ? items.reduce((s,i) => s+i.margin, 0) / items.length : 0;
+  const below   = items.filter(i => i.margin < target).length;
+  const best    = items.reduce((b,i) => i.margin > (b?.margin??-Infinity) ? i : b, null);
+  const worst   = items.reduce((w,i) => i.margin < (w?.margin??Infinity)  ? i : w, null);
+
+  statsEl.innerHTML = [
+    ['Total Items', items.length],
+    ['Avg Margin', avg.toFixed(1)+'%'],
+    [`Below ${target}%`, `<span style="color:${below>0?'var(--red)':'var(--text)'}">${below}</span>`],
+    ['Best', best ? `<span title="${escHtml(best.name)}" style="font-size:12px;color:#16a34a">${best.margin.toFixed(1)}%</span>` : '—'],
+    ['Worst', worst ? `<span title="${escHtml(worst.name)}" style="font-size:12px;color:var(--red)">${worst.margin.toFixed(1)}%</span>` : '—']
+  ].map(([label, val]) => `
+    <div class="card" style="padding:12px 16px;">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:4px">${label}</div>
+      <div style="font-size:20px;font-weight:700">${val}</div>
+    </div>`).join('');
+
+  if (!items.length) {
+    bodyEl.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:32px 0">No items with cost and price data yet. Snapshot Costs on the Coffee Bar tab, or set Cost/Price on Merch, Food, and Grocery items.</div>';
+    return;
+  }
+
+  bodyEl.innerHTML = items.map(item => {
+    const m = item.margin;
+    const mColor = m >= target ? '#16a34a' : m >= target * 0.8 ? '#d97706' : '#dc2626';
+    const barW   = Math.min(100, Math.max(0, m)).toFixed(1);
+    const typePill = `<span style="font-size:10px;background:var(--opal);color:var(--dark-blue);padding:1px 6px;border-radius:8px;">${escHtml(item.typeLabel)}</span>`;
+    const histBtn  = item.histKey
+      ? `<button style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--gold);padding:0;" data-name="${escHtml(item.itemName)}" data-var="${escHtml(item.varName)}" onclick="openCogHistoryModal(this.dataset.name,this.dataset.var)">History →</button>`
+      : '';
+    return `<div class="card" style="padding:14px 16px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;margin-bottom:6px;">
+        <div>
+          <div style="font-weight:600;font-size:13px;">${escHtml(item.name)}</div>
+          ${item.variation ? `<div style="font-size:11px;color:var(--muted)">${escHtml(item.variation)}</div>` : ''}
+        </div>
+        <div style="font-size:18px;font-weight:700;color:${mColor};white-space:nowrap;">${m.toFixed(1)}%</div>
+      </div>
+      <div style="background:var(--border);border-radius:4px;height:5px;margin-bottom:10px;">
+        <div style="background:${mColor};height:5px;border-radius:4px;width:${barW}%;transition:width .3s;"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);">
+        <span>Price: $${item.price.toFixed(2)}</span>
+        <span>Cost: $${item.cog.toFixed(3)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+        ${typePill}
+        ${histBtn}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openCogHistoryModal(itemName, varName) {
+  const snaps = [...cache.cogSnapshots]
+    .filter(s => s.MenuItemName === itemName && s.VariationName === varName)
+    .sort((a,b) => new Date(a.SnapshotDate) - new Date(b.SnapshotDate));
+
+  document.getElementById('cog-hist-modal-title').textContent = itemName;
+  document.getElementById('cog-hist-modal-sub').textContent   = varName;
+
+  if (!snaps.length) {
+    document.getElementById('cog-hist-modal-trend').innerHTML = '';
+    document.getElementById('cog-hist-modal-table').innerHTML = '<div style="color:var(--muted);font-size:13px;">No snapshots yet.</div>';
+    openModal('modal-cog-item-history');
+    return;
+  }
+
+  // Mini trend bar chart
+  const maxM = Math.max(...snaps.map(s => parseFloat(s.GrossMargin)||0), 100);
+  const trendHTML = `
+    <div style="display:flex;align-items:flex-end;gap:6px;height:60px;padding-bottom:4px;border-bottom:1px solid var(--border);">
+      ${snaps.map(s => {
+        const m = parseFloat(s.GrossMargin)||0;
+        const h = Math.round((m / maxM) * 52);
+        const col = m >= 65 ? '#16a34a' : m >= 50 ? '#d97706' : '#dc2626';
+        const date = s.SnapshotDate ? new Date(s.SnapshotDate).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
+        return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;min-width:28px;" title="${date}: ${m.toFixed(1)}%">
+          <div style="font-size:9px;color:var(--muted)">${m.toFixed(0)}%</div>
+          <div style="background:${col};width:100%;height:${h}px;border-radius:3px 3px 0 0;"></div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  document.getElementById('cog-hist-modal-trend').innerHTML = trendHTML;
+
+  // Table newest first with delta
+  const rows = [...snaps].reverse().map((s, i, arr) => {
+    const m    = parseFloat(s.GrossMargin);
+    const prev = arr[i+1] ? parseFloat(arr[i+1].GrossMargin) : null;
+    const delta = (prev !== null && !isNaN(prev) && !isNaN(m)) ? m - prev : null;
+    const mColor = isNaN(m) ? '#999' : m >= 65 ? '#16a34a' : m >= 50 ? '#d97706' : '#dc2626';
+    const deltaHtml = delta === null ? '—'
+      : `<span style="color:${delta>0?'#16a34a':delta<0?'#dc2626':'#999'}">${delta>0?'↑':'↓'} ${Math.abs(delta).toFixed(1)}%</span>`;
+    const dateStr = s.SnapshotDate ? new Date(s.SnapshotDate).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
+    return `<tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:7px 10px;">${dateStr}</td>
+      <td style="padding:7px 10px;">${s.SellingPrice ? '$'+parseFloat(s.SellingPrice).toFixed(2) : '—'}</td>
+      <td style="padding:7px 10px;">${s.COG ? '$'+parseFloat(s.COG).toFixed(3) : '—'}</td>
+      <td style="padding:7px 10px;font-weight:700;color:${mColor}">${!isNaN(m) ? m.toFixed(1)+'%' : '—'}</td>
+      <td style="padding:7px 10px;">${deltaHtml}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('cog-hist-modal-table').innerHTML = `
+    <table style="width:100%;font-size:13px;border-collapse:collapse;">
+      <thead><tr style="border-bottom:2px solid var(--border);">
+        <th style="text-align:left;padding:7px 10px;">Date</th>
+        <th style="text-align:left;padding:7px 10px;">Price</th>
+        <th style="text-align:left;padding:7px 10px;">COG</th>
+        <th style="text-align:left;padding:7px 10px;">Margin</th>
+        <th style="text-align:left;padding:7px 10px;">Change</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+
+  openModal('modal-cog-item-history');
+}
+
 function renderCogHistory() {
   const tbody = document.getElementById('cogs-hist-body');
   const empty = document.getElementById('cogs-hist-empty');
@@ -10522,19 +10827,37 @@ function renderCogHistory() {
   empty.style.display = 'none';
   document.getElementById('cogs-hist-table').style.display = '';
 
+  // Build previous-snapshot map per item:variation for delta calc
+  const prevMap = {}; // key → snapshot just before current in sorted order
+  const byKey = {};
+  [...snaps].reverse().forEach(s => {
+    const k = `${s.MenuItemId}:${s.VariationName}`;
+    if (!byKey[k]) byKey[k] = [];
+    byKey[k].push(s);
+  });
+
   tbody.innerHTML = snaps.map(s => {
     const margin = parseFloat(s.GrossMargin);
     const marginColor = isNaN(margin) ? '#999' : margin >= 65 ? '#16a34a' : margin >= 50 ? '#d97706' : '#dc2626';
     const dateStr = s.SnapshotDate
       ? new Date(s.SnapshotDate).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
       : '—';
+    // Find previous snapshot for this item (next oldest)
+    const k    = `${s.MenuItemId}:${s.VariationName}`;
+    const arr  = byKey[k] || [];
+    const idx  = arr.findIndex(x => x === s);
+    const prev = arr[idx+1] ? parseFloat(arr[idx+1].GrossMargin) : null;
+    const delta = (prev !== null && !isNaN(prev) && !isNaN(margin)) ? margin - prev : null;
+    const deltaHtml = delta === null ? '<span style="color:var(--muted)">—</span>'
+      : `<span style="color:${delta>0?'#16a34a':delta<0?'#dc2626':'#999'}">${delta>0?'↑':'↓'} ${Math.abs(delta).toFixed(1)}%</span>`;
     return `<tr>
       <td>${dateStr}</td>
-      <td>${escHtml(s.MenuItemName||'')}</td>
+      <td><button style="background:none;border:none;cursor:pointer;color:var(--gold);font-size:13px;padding:0;text-align:left;" data-name="${escHtml(s.MenuItemName||'')}" data-var="${escHtml(s.VariationName||'')}" onclick="openCogHistoryModal(this.dataset.name,this.dataset.var)">${escHtml(s.MenuItemName||'')}</button></td>
       <td><span style="font-size:11px;background:var(--opal);padding:2px 8px;border-radius:10px;">${escHtml(s.VariationName||'')}</span></td>
       <td>${s.SellingPrice ? '$'+parseFloat(s.SellingPrice).toFixed(2) : '—'}</td>
       <td>${s.COG ? '$'+parseFloat(s.COG).toFixed(3) : '—'}</td>
       <td><span style="font-weight:700;color:${marginColor};">${!isNaN(margin) ? margin.toFixed(1)+'%' : '—'}</span></td>
+      <td>${deltaHtml}</td>
     </tr>`;
   }).join('');
 }
