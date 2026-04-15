@@ -120,6 +120,14 @@ tbody tr:hover{background:var(--milk);}
 tbody tr:nth-child(even){background:#f0f8f9;}
 tbody tr:nth-child(even):hover{background:var(--milk);}
 td{padding:10px 14px;font-size:13px;vertical-align:middle;}
+/* ── Inventory table frozen first column ── */
+#inv-thead-row th:first-child,
+#inv-body td:first-child{position:sticky;left:0;z-index:4;background:var(--dark-blue);}
+#inv-body td:first-child{background:#fff;font-weight:600;}
+#inv-body tr:nth-child(even) td:first-child{background:#f0f8f9;}
+#inv-body tr:hover td:first-child{background:var(--milk);}
+#inv-thead-row th:first-child::after,
+#inv-body td:first-child::after{content:'';position:absolute;top:0;right:-6px;bottom:0;width:6px;background:linear-gradient(to right,rgba(0,0,0,.08),transparent);pointer-events:none;}
 /* ── Vendor table frozen first column ── */
 #vendor-thead th:first-child,
 #vendor-body td:first-child{position:sticky;left:0;z-index:4;background:var(--dark-blue);}
@@ -506,7 +514,6 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
             <th onclick="sortInvBy('CostPerCase')">Cost</th>
             <th onclick="sortInvBy('CostPerServing')">Cost/Serving</th>
             <th onclick="sortInvBy('ServingsPerUnit')">Servings/Unit</th>
-            <th style="width:72px"></th>
           </tr></thead>
           <tbody id="inv-body"></tbody>
         </table>
@@ -1878,7 +1885,16 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
       <div class="form-group inv-cons-only"><label>Cost / Serving <span style="font-size:10px;color:var(--muted)">(auto)</span></label><div id="cost-per-serving-preview" style="padding:7px 10px;background:var(--cream);border-radius:7px;font-size:13px;color:var(--muted);border:1.5px solid var(--border);">—</div></div>
       <div class="form-group" style="grid-column:1/-1"><label>Tags</label><div id="inv-item-tags-editor"></div></div>
     </div>
-    <div class="form-actions"><button class="btn btn-primary" onclick="saveInventoryItem()">Save Item</button><button class="btn btn-outline" onclick="closeModal('modal-add-item')">Cancel</button></div>
+    <div class="form-actions" style="justify-content:space-between;">
+      <div style="display:flex;gap:8px;">
+        <button id="inv-modal-archive-btn" class="btn btn-outline" onclick="modalArchiveInvItem()" style="display:none;"></button>
+        <button id="inv-modal-delete-btn" class="btn btn-outline" onclick="modalDeleteInvItem()" style="display:none;color:var(--red);">🗑️ Delete</button>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-primary" onclick="saveInventoryItem()">Save Item</button>
+        <button class="btn btn-outline" onclick="closeModal('modal-add-item')">Cancel</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -3372,10 +3388,10 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
     const costCase    = i.CostPerCase    != null ? '$'+Number(i.CostPerCase).toFixed(2)    : '—';
     const costServing = i.CostPerServing != null ? '$'+Number(i.CostPerServing).toFixed(4) : '—';
     const servings    = i.ServingsPerUnit!= null ? Number(i.ServingsPerUnit).toLocaleString()+' '+escHtml(i.ServingUnit||'')  : '—';
-    return `<tr data-inv-id="${escHtml(i.id)}"${i.Archived?' style="opacity:.45;"':''}>
+    return `<tr data-inv-id="${escHtml(i.id)}" onclick="openEditInvItem('${escHtml(i.id)}')" style="cursor:pointer;${i.Archived?'opacity:.45;':''}">
       <td class="fw">${escHtml(i.ItemName||'—')}${i.SquareId?'<span class="sq-badge" title="Synced with Square">SQ</span>':''}${i.Archived?'<span style="font-size:10px;background:var(--muted);color:#fff;padding:1px 5px;border-radius:8px;margin-left:4px;">archived</span>':''}${i.Tags?renderTagPills(i.Tags):''}</td>
       ${invHasCategory() ? `<td><span class="badge badge-teal">${escHtml(i.Category||'—')}</span></td>` : ''}
-      <td style="font-size:12px">${i.Supplier ? `<a href="#" data-supplier="${escHtml(i.Supplier||'')}" onclick="nav('vendors');setTimeout(()=>{const s=document.querySelector('#page-vendors .search-input');if(s){s.value=this.dataset.supplier;filterVendors(s.value);}},300);return false;" style="color:var(--gold);text-decoration:none;">${escHtml(i.Supplier)}</a>` : '<span style="color:var(--muted)">—</span>'}</td>
+      <td style="font-size:12px">${i.Supplier ? `<a href="#" data-supplier="${escHtml(i.Supplier||'')}" onclick="event.stopPropagation();nav('vendors');setTimeout(()=>{const s=document.querySelector('#page-vendors .search-input');if(s){s.value=this.dataset.supplier;filterVendors(s.value);}},300);return false;" style="color:var(--gold);text-decoration:none;">${escHtml(i.Supplier)}</a>` : '<span style="color:var(--muted)">—</span>'}</td>
       <td><div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;"><span style="text-align:right;">${par}</span><span style="font-size:11px;color:var(--muted);width:44px;text-align:left;">${unit}</span></div></td>
       <td>${store}</td>
       <td>${storage}</td>
@@ -3384,14 +3400,6 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
       <td>${costCase}</td>
       <td style="font-size:12px">${costServing}</td>
       <td style="font-size:12px;color:var(--muted)">${servings}</td>
-      <td style="white-space:nowrap;">
-        <button onclick="openEditInvItem('${i.id}')" title="Edit"
-          style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:15px;padding:2px 4px;">✏️</button>
-        ${isOwner() ? `<button data-id="${escHtml(i.id)}" data-archived="${i.Archived?'1':''}" onclick="toggleArchiveInvItem(this.dataset.id,this.dataset.archived==='1')" title="${i.Archived?'Unarchive':'Archive'}"
-          style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:15px;padding:2px 4px;">${i.Archived?'📤':'📦'}</button>
-        <button onclick="deleteInvItem('${i.id}')" title="Delete"
-          style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:15px;padding:2px 4px;">🗑️</button>` : ''}
-      </td>
     </tr>`;
   }).join('');
 
@@ -4189,6 +4197,8 @@ function openAddInvForm() {
   document.getElementById('inv-item-tags-editor').innerHTML = tagEditorHTML('inv-item');
   initTagEditor('inv-item', '');
   calcCostPerServing();
+  // Hide archive/delete — add mode only
+  ['inv-modal-archive-btn','inv-modal-delete-btn'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
   openModal('modal-add-item');
 }
 
@@ -4234,9 +4244,27 @@ function openEditInvItem(id) {
   }
   document.getElementById('inv-item-tags-editor').innerHTML = tagEditorHTML('inv-item');
   initTagEditor('inv-item', item.Tags||'');
+  // Show archive/delete buttons for edit mode (owner only)
+  const archBtn = document.getElementById('inv-modal-archive-btn');
+  const delBtn  = document.getElementById('inv-modal-delete-btn');
+  if (archBtn) { archBtn.style.display = isOwner() ? '' : 'none'; archBtn.textContent = item.Archived ? '📤 Unarchive' : '📦 Archive'; }
+  if (delBtn)  { delBtn.style.display  = isOwner() ? '' : 'none'; }
   openModal('modal-add-item');
 }
 
+function modalArchiveInvItem() {
+  if (!_editInvId) return;
+  const cfg = invCfg();
+  const item = cfg && cache[cfg.cacheKey]?.find(i => i.id === _editInvId);
+  if (!item) return;
+  closeModal('modal-add-item');
+  toggleArchiveInvItem(_editInvId, !!item.Archived);
+}
+function modalDeleteInvItem() {
+  if (!_editInvId) return;
+  closeModal('modal-add-item');
+  deleteInvItem(_editInvId);
+}
 async function toggleArchiveInvItem(id, isArchived) {
   if (!isOwner()) { toast('err', 'Owner access required'); return; }
   const cfg = invCfg();
