@@ -3625,7 +3625,8 @@ function renderCountSheet() {
     if (name) recentMap[name] = {
       store: r.StoreCount||0, storage: r.StorageCount||0,
       total: r.TotalCount||0,
-      weekOf: r.WeekOf?.split('T')[0]
+      weekOf: r.WeekOf?.split('T')[0],
+      countedBy: r.CountedBy||''
     };
   });
 
@@ -3643,7 +3644,7 @@ function renderCountSheet() {
       <div class="count-cat-header">${cat}</div>
       ${catItems.map(item => {
         const last = recentMap[item.ItemName];
-        const lastLabel = last ? `Last: ${last.total} <span style="color:var(--muted)">${last.weekOf||''}</span>` : 'No history';
+        const lastLabel = last ? `Last: ${last.total} <span style="color:var(--muted)">${last.weekOf||''}${last.countedBy ? ' · '+escHtml(last.countedBy) : ''}</span>` : 'No history';
         const unit = item.OrderUnit || item.Unit || '';
         return `<div class="count-row" data-id="${item.id}" data-name="${(item.ItemName||'').replace(/"/g,'&quot;')}">
           <div style="flex:1;min-width:160px">
