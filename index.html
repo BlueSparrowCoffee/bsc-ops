@@ -5305,7 +5305,7 @@ function renderVendors(query='') {
   if (!cache.vendors.length) {
     thead.innerHTML=''; tbody.innerHTML='';
     document.getElementById('vendor-empty').style.display='block';
-    countEl.textContent='No vendors — import from Settings';
+    countEl.textContent='No vendors';
     return;
   }
   document.getElementById('vendor-empty').style.display='none';
@@ -5671,82 +5671,6 @@ async function deleteVendor(id, name) {
 function filterVendors(q) { renderVendors(q); }
 document.getElementById('vendor-tab').addEventListener('change',()=>renderVendors());
 
-// ── Import vendors from OneDrive Excel ──
-async function importVendorsFromExcel() {
-  setLoading(true,'Importing vendors from OneDrive…');
-  try {
-    const enc = s => s.split('/').map(encodeURIComponent).join('/');
-    const filePath = enc('MS Coffee/Ordering/Managers List BSC.xlsx');
-
-    // Get file item ID first, then use it for workbook access
-    const fileItem = await graph('GET', `/me/drive/root:/${filePath}`);
-    const base = `/me/drive/items/${fileItem.id}/workbook/worksheets`;
-
-    // Read Vendor List sheet
-    const vlRes = await graph('GET',`${base}/${encodeURIComponent('Vendor List')}/usedRange`);
-    const vlRows = vlRes.values || [];
-    const vlHead = vlRows[0].map(h=>(h||'').toString().trim());
-
-    // Read Accounts Payable sheet
-    const apRes = await graph('GET',`${base}/${encodeURIComponent('Accounts Payable')}/usedRange`);
-    const apRows = apRes.values || [];
-    const apHead = apRows[0].map(h=>(h||'').toString().trim());
-
-    // Build AP lookup by vendor name
-    const apLookup = {};
-    for (let i=1;i<apRows.length;i++) {
-      const r=apRows[i]; if(!r[0]) continue;
-      apLookup[r[0].toString().trim()] = {
-        Terms:         r[apHead.indexOf('Terms')]||'',
-        PaymentMethod: r[apHead.indexOf('Payment Method')]||''
-      };
-    }
-
-    // Clear existing vendors
-    const siteId = await getSiteId();
-    const existing = await getListItems(siteId, LISTS.vendors);
-    for (const v of existing) {
-      await graph('DELETE',`/sites/${siteId}/lists/${LISTS.vendors}/items/${v.id}`);
-    }
-
-    // Import each vendor row
-    let count=0;
-    const col = name => vlHead.indexOf(name);
-    for (let i=1;i<vlRows.length;i++) {
-      const r=vlRows[i];
-      const name = (r[col('Company')]||'').toString().trim();
-      if (!name) continue;
-      const ap = apLookup[name]||{};
-      const fields = {
-        VendorName:    name,
-        Product:       (r[col('Product')]||'').toString(),
-
-        OrderDays:     (r[col('Order Days')]||'').toString(),
-        DeliveryDays:  (r[col('Delivery Days')]||'').toString(),
-        ContactPerson: (r[col('Contact Person')]||'').toString(),
-        Email:         (r[col('Email')]||'').toString(),
-        Website:       (r[col('Website')]||'').toString(),
-        Phone:         (r[col('Phone Number')]||'').toString(),
-        OrderMethod:   (r[col('Prefered Order Method')]||'').toString(),
-        Active:        r[col('Active')]===true||r[col('Active')]==='TRUE'||r[col('Active')]===1?'Yes':'No',
-        Terms:         ap.Terms||'',
-        PaymentMethod: ap.PaymentMethod||''
-      };
-      await addListItem(LISTS.vendors, fields);
-      count++;
-    }
-
-    // Reload vendors
-    await Promise.all([
-      getListItems(siteId, LISTS.vendors).then(v=>cache.vendors=v),
-      loadListColNames(siteId, LISTS.vendors)
-    ]);
-    renderVendors();
-    populateSelects();
-    toast('ok',`✓ Imported ${count} vendors from OneDrive`);
-  } catch(e) { toast('err','Import failed: '+e.message); }
-  finally { setLoading(false); }
-}
 
 // ════════════════════════════════════════════════════════════════════════════
 // MAINTENANCE
