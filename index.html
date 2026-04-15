@@ -170,7 +170,6 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
 #global-search-icon{position:absolute;left:21px;top:50%;transform:translateY(-50%);color:rgba(185,223,227,.5);pointer-events:none;}
 #global-search-results{position:fixed;left:12px;top:auto;width:280px;max-height:420px;overflow-y:auto;background:#fff;border:1.5px solid var(--border);border-radius:10px;box-shadow:0 8px 32px rgba(2,61,74,.18);z-index:500;display:none;}
 #global-search-results.show{display:block;}
-.gs-section{padding:6px 12px 2px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;font-weight:600;}
 .gs-item{padding:8px 14px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;color:var(--text);border-bottom:1px solid var(--cream);}
 .gs-item:hover{background:var(--cream);}
 .gs-item:last-child{border-bottom:none;}
@@ -208,7 +207,6 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
 .recipe-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.12);border-color:var(--gold);}
 .recipe-card-header{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
 .recipe-card-title{font-size:15px;font-weight:700;color:var(--navy);line-height:1.3;}
-.recipe-badge{display:inline-block;font-size:10px;font-weight:600;letter-spacing:.04em;padding:3px 8px;border-radius:20px;background:rgba(183,139,64,.12);color:var(--gold);white-space:nowrap;flex-shrink:0;}
 .recipe-meta{font-size:11px;color:var(--muted);}
 .recipe-body{font-size:13px;color:var(--ink);line-height:1.65;}
 .recipe-body p{margin:0 0 6px;}
@@ -253,12 +251,8 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
 .maint-card.due-soon{border-color:#e6ac00;}
 
 /* ── INVENTORY SPECIFIC ── */
-.stock-low{color:var(--red);font-weight:600;}
-.stock-ok{color:var(--green);}
-.stock-warn{color:var(--orange);}
 
 /* ── TRANSFER FLOW ── */
-.transfer-arrow{font-size:24px;color:var(--gold);text-align:center;padding:8px 0;}
 
 /* ── DASHBOARD SPECIFIC ── */
 .alert-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--opal);font-size:13px;}
@@ -283,8 +277,6 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
 .count-total-box{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:56px;}
 .count-total-box label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);}
 .count-total-val{font-size:16px;font-weight:700;color:var(--espresso);}
-.count-last-val{font-size:11px;color:var(--muted);text-align:center;min-width:56px;}
-.count-par-val{font-size:11px;color:var(--muted);white-space:nowrap;}
 /* ── ANALYTICS ── */
 .analytics-summary{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;}
 .analytics-stat{flex:1;min-width:130px;background:#fff;border:1.5px solid var(--border);border-radius:10px;padding:14px;text-align:center;}
@@ -3037,11 +3029,6 @@ let _invType = 'consumable'; // 'consumable' | 'merch' | 'equipment'
 
 function invCfg() { return INV_TYPE_CFG[_invType]; }
 
-function invCountsListName(loc) {
-  const l = loc || currentLocation;
-  if (!l || l === 'all') return null;
-  return invCfg().countsPrefix.replace('{loc}', l.replace(/[\s\/\\]/g, '_'));
-}
 
 function invHasCategory() { return invCfg()?.hasCategory !== false; }
 
@@ -4926,14 +4913,6 @@ function spCellValue(key, val) {
   return safe;
 }
 
-function renderDynamicTable(rows, thead, tbody, countEl) {
-  if (!rows.length) { thead.innerHTML=''; tbody.innerHTML=''; if(countEl) countEl.textContent='0 results'; return; }
-  const fields = Object.keys(rows[0]).filter(k=>!SP_SYSTEM_FIELDS.has(k)&&rows.some(r=>r[k]&&r[k]!==''));
-  thead.innerHTML = `<tr>${fields.map(f=>`<th>${spFieldLabel(f)}</th>`).join('')}</tr>`;
-  tbody.innerHTML = rows.map(r=>`<tr>${fields.map(f=>`<td>${spCellValue(f,r[f])}</td>`).join('')}</tr>`).join('');
-  if (countEl) countEl.textContent = rows.length+' records';
-}
-
 // Bump this when DEFAULT_HIDDEN_COLS changes to force a reset of stored prefs
 const HIDDEN_COLS_VERSION = '2';
 if (localStorage.getItem('hiddenColsVer') !== HIDDEN_COLS_VERSION) {
@@ -5451,33 +5430,6 @@ function addVendorTagFromInput() {
   document.getElementById('vf-tag-suggestions').style.display = 'none';
 }
 
-function vendorTagKeydown(e) {
-  if (e.key === 'Enter' || e.key === ',') {
-    e.preventDefault();
-    addVendorTagFromInput();
-  } else if (e.key === 'Escape') {
-    document.getElementById('vf-tag-suggestions').style.display = 'none';
-  }
-}
-
-function showVendorTagSuggestions(val) {
-  const box = document.getElementById('vf-tag-suggestions');
-  const input = document.getElementById('vf-tag-input');
-  const v = val.trim().toLowerCase();
-  if (!v) { box.style.display='none'; return; }
-  const all = getAllTagNames().filter(t=>t.toLowerCase().includes(v) && !_vendorFormTags.includes(t));
-  if (!all.length) { box.style.display='none'; return; }
-  // Position under the input
-  const rect = input.getBoundingClientRect();
-  box.style.display = 'block';
-  box.style.top = (rect.bottom + window.scrollY + 4) + 'px';
-  box.style.left = rect.left + 'px';
-  box.style.width = rect.width + 'px';
-  box.innerHTML = all.map(t=>`<div style="padding:8px 14px;cursor:pointer;" data-tag="${escHtml(t)}"
-    onmousedown="addVendorTag(this.dataset.tag);document.getElementById('vf-tag-input').value='';document.getElementById('vf-tag-suggestions').style.display='none';">
-    ${escHtml(t)}</div>`).join('');
-}
-
 async function saveVendorForm() {
   // Flush any in-progress new category entry before reading form
   const catNewInp = document.querySelector('#vendor-form-fields .vendor-cat-new-inp');
@@ -5981,16 +5933,6 @@ function renderIngredientsHtml(ingredients) {
   return `<table class="recipe-ing-table">${rows}</table>`;
 }
 
-function timeAgo(dateStr) {
-  if (!dateStr) return '';
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const days = Math.floor(diff / 86400000);
-  if (days === 0) return 'Updated today';
-  if (days === 1) return 'Updated yesterday';
-  if (days < 30) return `Updated ${days} days ago`;
-  const months = Math.floor(days/30);
-  return `Updated ${months} month${months>1?'s':''} ago`;
-}
 
 let _recipeEditId = null;
 
@@ -7143,11 +7085,6 @@ function getLatestCountsMap(loc) {
     };
   });
   return map;
-}
-
-function filterByLocation(items) {
-  if (currentLocation==='all') return items;
-  return items.filter(i=>!i.Location||i.Location==='All'||i.Location===currentLocation);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -9395,17 +9332,6 @@ function calcCog(menuItemId, variationName, cogMap, invMap, prepMap) {
 }
 
 // Get selling price for a variation from cache.menu
-function getVariationPrice(menuItem, variationName) {
-  // Parse the Variations string stored in BSC_Menu
-  const vars = (menuItem.Variations || '').split('\n');
-  for (const v of vars) {
-    const match = v.match(/^(.+):\s*\$?(\d+\.?\d*)$/);
-    if (match && match[1].trim() === variationName) return parseFloat(match[2]);
-  }
-  // Fallback to base Price
-  return parseFloat(menuItem.Price) || null;
-}
-
 // Parse variation names from a menu item's Variations string
 function getVariationNames(menuItem) {
   const vars = (menuItem.Variations || '').split('\n').filter(Boolean);
@@ -9496,35 +9422,6 @@ const _invCogState = {
 };
 
 // ── Multi-select category filter ─────────────────────────────────────────────
-
-function buildMultiCatPanel(which, cats, selectedSet) {
-  const panel = document.getElementById(`${which}-cat-panel`);
-  if (!panel) return;
-  panel.innerHTML = `
-    <div class="multi-cat-item" onclick="onMultiCatAll('${which}')">
-      <input type="checkbox" id="${which}-cat-all" ${selectedSet.size===0?'checked':''}> <label for="${which}-cat-all">All Categories</label>
-    </div>
-    <hr class="multi-cat-divider">
-    ${cats.map(c => `
-      <div class="multi-cat-item" onclick="onMultiCatChange('${which}','${escHtml(c)}')">
-        <input type="checkbox" id="${which}-cat-${escHtml(c)}" ${selectedSet.has(c)?'checked':''}> <label for="${which}-cat-${escHtml(c)}">${escHtml(c)}</label>
-      </div>`).join('')}
-  `;
-  updateMultiCatBtn(which, selectedSet);
-}
-
-function toggleMultiCat(which) {
-  const panel = document.getElementById(`${which}-cat-panel`);
-  if (!panel) return;
-  const isOpen = panel.classList.contains('open');
-  // Close all open panels first
-  document.querySelectorAll('.multi-cat-panel.open').forEach(p => p.classList.remove('open'));
-  document.querySelectorAll('.multi-cat-btn.open').forEach(b => b.classList.remove('open'));
-  if (!isOpen) {
-    panel.classList.add('open');
-    document.getElementById(`${which}-cat-btn`)?.classList.add('open');
-  }
-}
 
 function onMultiCatAll(which) {
   const set = which === 'cogs' ? _cogsCatFilters : _cogsMerchCatFilters;
