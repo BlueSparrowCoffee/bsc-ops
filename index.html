@@ -5591,8 +5591,7 @@ function openVendorForm(id) {
       ${tagEditorHTML('vendor')}
     </div>`;
 
-  // Sync days fields hidden inputs after render
-  ['OrderDays','DeliveryDays'].forEach(k => { if (item?.[k]) syncDaysField(k); });
+  // (days checkboxes are populated directly in vendorFieldInput — no sync needed)
 
   initTagEditor('vendor', item?.Tags||'');
   openModal('modal-vendor');
@@ -5639,14 +5638,8 @@ async function saveVendorForm() {
       // multi-value field — collect all inputs, join with newlines
       data[key] = [...el.querySelectorAll('.vf-multi-input')].map(i=>i.value.trim()).filter(Boolean).join('\n');
     } else if (el.tagName === 'DIV') {
-      // days checkbox container — read from hidden sibling
-      const hidden = document.getElementById('vf_hidden_'+key);
-      if (hidden) data[key] = hidden.value;
-      else {
-        // fallback: collect checked boxes
-        const checks = el.querySelectorAll('.vf-day-check:checked');
-        data[key] = [...checks].map(c=>c.value).join(',');
-      }
+      // days checkbox container — read checked state directly
+      data[key] = [...el.querySelectorAll('.vf-day-check:checked')].map(c=>c.value).join(',');
     } else {
       data[el.id.replace('vf_','')] = el.value;
     }
