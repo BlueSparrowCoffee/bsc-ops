@@ -2604,9 +2604,9 @@ async function ensureAllLists() {
     {name:'VendorName',text:{}},{name:'Category',text:{}},{name:'Product',text:{}},{name:'OrderDeadline',text:{}},
     {name:'OrderDays',text:{}},{name:'DeliveryDays',text:{}},{name:'ContactPerson',text:{}},
     {name:'Email',text:{}},{name:'Website',text:{}},{name:'Phone',text:{}},
-    {name:'OrderMethod',text:{}},{name:'Terms',text:{}},{name:'InvoiceMethod',text:{}},
-    {name:'PaymentMethod',text:{}},{name:'CreditCard',text:{}},{name:'Split',text:{}},
-    {name:'Active',text:{}},{name:'Notes',text:{}},{name:'Tags',text:{}}
+    {name:'OrderMethod',text:{}},{name:'Terms',text:{}},
+    {name:'PaymentMethod',text:{}},{name:'Split',text:{}},
+    {name:'Active',text:{}},{name:'Tags',text:{}}
   ]);
   await ensureList(LISTS.recipes,[
     {name:'Category',text:{}},
@@ -5034,10 +5034,7 @@ const LIST_FIELD_LABELS = {
     OrderMethod:   'Order Method',
     ContactPerson: 'Contact',
     PaymentMethod: 'Payment Method',
-    InvoiceMethod: 'Invoice Method',
-    CreditCard:    'Credit Card on File',
     Active:        'Active',
-    Notes:         'Notes',
     Product:       'Product / Category',
     Tags:          'Tags',
   }
@@ -5346,7 +5343,7 @@ function renderVendors(query='') {
   // so columns appear even if all vendor items currently have empty custom fields
   const KNOWN_VENDOR_FIELDS = ['Title','Category','Product','Active','ContactPerson','Email','Phone',
     'Website','OrderMethod','OrderDeadline','OrderDays','DeliveryDays','Terms',
-    'InvoiceMethod','PaymentMethod','CreditCard','Split','Notes'];
+    'PaymentMethod','Split'];
   const cacheFields = Object.keys(sample).filter(k=>!SP_SYSTEM_FIELDS.has(k)&&k!=='Tags'&&k!=='VendorName');
   const allFields = [...new Set([...cacheFields, ...KNOWN_VENDOR_FIELDS])].filter(k=>!SP_SYSTEM_FIELDS.has(k)&&k!=='Tags'&&k!=='VendorName');
   const ordered = getColOrder('vendors', allFields);
@@ -5456,9 +5453,6 @@ const VENDOR_FORM_FIELDS = [
   { key:'DeliveryDays',  type:'days',   span:false },
   { key:'Terms',         span:false },
   { key:'PaymentMethod', span:false },
-  { key:'InvoiceMethod', span:false },
-  { key:'CreditCard',    span:false },
-  { key:'Notes',         type:'textarea', span:true  },
 ];
 const DAYS_OF_WEEK = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const MAINT_FORM_FIELDS = ['Title','Service','Contact','Phone','Email','Website','Location','Tags','Notes'];
@@ -5715,9 +5709,7 @@ async function importVendorsFromExcel() {
       const r=apRows[i]; if(!r[0]) continue;
       apLookup[r[0].toString().trim()] = {
         Terms:         r[apHead.indexOf('Terms')]||'',
-        InvoiceMethod: r[apHead.indexOf('Invoice')]||'',
         PaymentMethod: r[apHead.indexOf('Payment Method')]||'',
-        CreditCard:    r[apHead.indexOf('Credit Card on file')]||'',
         Split:         r[apHead.indexOf('Split')]||''
       };
     }
@@ -5748,12 +5740,9 @@ async function importVendorsFromExcel() {
         Website:       (r[col('Website')]||'').toString(),
         Phone:         (r[col('Phone Number')]||'').toString(),
         OrderMethod:   (r[col('Prefered Order Method')]||'').toString(),
-        Notes:         (r[col('Notes')]||'').toString(),
         Active:        r[col('Active')]===true||r[col('Active')]==='TRUE'||r[col('Active')]===1?'Yes':'No',
         Terms:         ap.Terms||'',
-        InvoiceMethod: ap.InvoiceMethod||'',
         PaymentMethod: ap.PaymentMethod||'',
-        CreditCard:    ap.CreditCard||'',
         Split:         ap.Split||''
       };
       await addListItem(LISTS.vendors, fields);
@@ -6904,7 +6893,7 @@ const PROVISIONED_COL_NAMES = new Set([
   'RoleName','Permissions','LocationAccess',
   // Vendors
   'VendorName','Product','OrderDeadline','OrderDays','DeliveryDays','ContactPerson','Email','Website','Phone',
-  'OrderMethod','Terms','InvoiceMethod','PaymentMethod','CreditCard','Split','Active','Notes',
+  'OrderMethod','Terms','PaymentMethod','Split','Active',
   // Recipes
   'Content','Steps','Ingredients','Yield',
   // Maint
