@@ -3660,7 +3660,7 @@ function renderCountSheet() {
   });
 
   // group items by vendor — all shared items, same list for every location
-  const items = cache[cfg.cacheKey] || [];
+  const items = (cache[cfg.cacheKey] || []).filter(i => !i.Archived);
   const byVendor = {};
   items.forEach(i => {
     const vendor = i.Supplier || 'No Vendor';
