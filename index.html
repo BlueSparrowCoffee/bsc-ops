@@ -3685,15 +3685,19 @@ function renderCountSheet() {
             <input type="number" class="count-num-input count-store" min="0" step="0.1"
               oninput="updateCountTotal(this)" placeholder="0" value="${last != null ? last.store : ''}">
           </div>
+          <button onclick="countPlusOne(this, 'store', -1)" title="-1 to store"
+            style="align-self:flex-end;padding:6px 8px;background:var(--opal);border:1.5px solid var(--border);border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;color:var(--dark-blue);line-height:1;margin-bottom:1px;flex-shrink:0;">−1</button>
           <button onclick="countPlusOne(this, 'store')" title="+1 to store"
-            style="align-self:flex-end;padding:6px 10px;background:var(--opal);border:1.5px solid var(--border);border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;color:var(--dark-blue);line-height:1;margin-bottom:1px;flex-shrink:0;">+1</button>
+            style="align-self:flex-end;padding:6px 8px;background:var(--opal);border:1.5px solid var(--border);border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;color:var(--dark-blue);line-height:1;margin-bottom:1px;flex-shrink:0;">+1</button>
           <div class="count-input-group">
             <label>Storage</label>
             <input type="number" class="count-num-input count-storage" min="0" step="0.1"
               oninput="updateCountTotal(this)" placeholder="0" value="${last != null ? last.storage : ''}">
           </div>
+          <button onclick="countPlusOne(this, 'storage', -1)" title="-1 to storage"
+            style="align-self:flex-end;padding:6px 8px;background:var(--opal);border:1.5px solid var(--border);border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;color:var(--dark-blue);line-height:1;margin-bottom:1px;flex-shrink:0;">−1</button>
           <button onclick="countPlusOne(this, 'storage')" title="+1 to storage"
-            style="align-self:flex-end;padding:6px 10px;background:var(--opal);border:1.5px solid var(--border);border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;color:var(--dark-blue);line-height:1;margin-bottom:1px;flex-shrink:0;">+1</button>
+            style="align-self:flex-end;padding:6px 8px;background:var(--opal);border:1.5px solid var(--border);border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;color:var(--dark-blue);line-height:1;margin-bottom:1px;flex-shrink:0;">+1</button>
           <div class="count-total-box">
             <label>Total</label>
             <div class="count-total-val" id="count-total-${item.id}">${last != null ? last.total : '—'}</div>
@@ -3730,11 +3734,11 @@ function calcCostPerServing() {
   }
 }
 
-function countPlusOne(btn, target='store') {
+function countPlusOne(btn, target='store', delta=1) {
   const row = btn.closest('.count-row');
   if (!row) return;
   const input = row.querySelector(target === 'storage' ? '.count-storage' : '.count-store');
-  input.value = +((parseFloat(input.value)||0) + 1).toFixed(2);
+  input.value = +Math.max(0, (parseFloat(input.value)||0) + delta).toFixed(2);
   updateCountTotal(input);
 }
 
