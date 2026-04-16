@@ -3644,7 +3644,7 @@ function renderCountSheet() {
   if (!cfg) return;
   const loc = currentLocation === 'all' ? null : currentLocation;
   const recentMap = {}; // itemName → { store, storage, total, weekOf }
-  const filtered = (cache[cfg.countKey] || []).filter(r => !loc || r.Location === loc);
+  const filtered = (cache[cfg.countKey] || []).filter(r => !loc || !r.Location || r.Location === loc);
   filtered.sort((a,b)=>{
     const wDiff = (a.WeekOf||'') < (b.WeekOf||'') ? -1 : (a.WeekOf||'') > (b.WeekOf||'') ? 1 : 0;
     return wDiff !== 0 ? wDiff : Number(a.id||0) - Number(b.id||0); // tiebreak by SP item id (higher = newer)
@@ -8640,12 +8640,24 @@ async function syncLabelsBagsSold() {
     return total;
   };
 
+  // Normalize "April 2026", "Apr 2026", etc. to "YYYY-MM" for flexible matching
+  function _monthKey(str) {
+    if (!str) return '';
+    const d = new Date(str.trim() + ' 1');
+    if (!isNaN(d)) return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    return str.trim().toLowerCase();
+  }
+
   try {
     const [curBags, priorBags] = await Promise.all(months.map(fetchBags));
     const results = [{ label: months[0].label, bags: curBags }, { label: months[1].label, bags: priorBags }];
     let changed = false;
     for (const { label, bags } of results) {
-      const rec = cache.labels.find(r => r.Month === label || r.Title === label);
+      const labelKey = _monthKey(label);
+      const rec = cache.labels.find(r => {
+        const m = r.Month || r.Title || '';
+        return m === label || _monthKey(m) === labelKey;
+      });
       if (rec && rec.BagsSold !== bags) {
         await updateListItem(LISTS.labels, rec.id, { BagsSold: bags });
         rec.BagsSold = bags;
@@ -8653,8 +8665,10 @@ async function syncLabelsBagsSold() {
       }
     }
     if (changed) renderLabelsPage();
+    toast('ok', `Bags sold synced: ${results.map(r => `${r.label} → ${r.bags}`).join(', ')}`);
   } catch(e) {
     console.warn('[BSC] syncLabelsBagsSold failed:', e.message);
+    toast('err', 'Bags sold sync failed: ' + e.message);
   }
 }
 
