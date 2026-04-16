@@ -3659,19 +3659,19 @@ function renderCountSheet() {
     };
   });
 
-  // group items by category — all shared items, same list for every location
+  // group items by vendor — all shared items, same list for every location
   const items = cache[cfg.cacheKey] || [];
-  const byCategory = {};
+  const byVendor = {};
   items.forEach(i => {
-    const cat = i.Category || 'Other';
-    if (!byCategory[cat]) byCategory[cat] = [];
-    byCategory[cat].push(i);
+    const vendor = i.Supplier || 'No Vendor';
+    if (!byVendor[vendor]) byVendor[vendor] = [];
+    byVendor[vendor].push(i);
   });
 
-  container.innerHTML = Object.entries(byCategory).sort(([a],[b])=>a>b?1:-1).map(([cat, catItems]) => `
+  container.innerHTML = Object.entries(byVendor).sort(([a],[b])=>a>b?1:-1).map(([vendor, vendorItems]) => `
     <div class="count-cat-section">
-      <div class="count-cat-header">${cat}</div>
-      ${catItems.map(item => {
+      <div class="count-cat-header">${vendor}</div>
+      ${vendorItems.map(item => {
         const last = recentMap[item.ItemName];
         const lastLabel = last ? `Last count: <span style="color:var(--muted)">${last.weekOf||''}${last.countedBy ? ' · '+escHtml(last.countedBy) : ''}</span>` : 'No prior count';
         const unit = item.OrderUnit || item.Unit || '';
