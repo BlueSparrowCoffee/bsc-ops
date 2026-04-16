@@ -3673,7 +3673,7 @@ function renderCountSheet() {
       <div class="count-cat-header">${cat}</div>
       ${catItems.map(item => {
         const last = recentMap[item.ItemName];
-        const lastLabel = last ? `Prior count: ${last.total} <span style="color:var(--muted)">${last.weekOf||''}${last.countedBy ? ' · '+escHtml(last.countedBy) : ''}</span>` : 'No prior count';
+        const lastLabel = last ? `Last count: <span style="color:var(--muted)">${last.weekOf||''}${last.countedBy ? ' · '+escHtml(last.countedBy) : ''}</span>` : 'No prior count';
         const unit = item.OrderUnit || item.Unit || '';
         return `<div class="count-row" data-id="${item.id}" data-name="${(item.ItemName||'').replace(/"/g,'&quot;')}">
           <div style="flex:1;min-width:160px">
@@ -3683,20 +3683,20 @@ function renderCountSheet() {
           <div class="count-input-group">
             <label>Store</label>
             <input type="number" class="count-num-input count-store" min="0" step="0.1"
-              oninput="updateCountTotal(this)" placeholder="0" value="">
+              oninput="updateCountTotal(this)" placeholder="0" value="${last != null ? last.store : ''}">
           </div>
           <button onclick="countPlusOne(this, 'store')" title="+1 to store"
             style="align-self:flex-end;padding:6px 10px;background:var(--opal);border:1.5px solid var(--border);border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;color:var(--dark-blue);line-height:1;margin-bottom:1px;flex-shrink:0;">+1</button>
           <div class="count-input-group">
             <label>Storage</label>
             <input type="number" class="count-num-input count-storage" min="0" step="0.1"
-              oninput="updateCountTotal(this)" placeholder="0" value="">
+              oninput="updateCountTotal(this)" placeholder="0" value="${last != null ? last.storage : ''}">
           </div>
           <button onclick="countPlusOne(this, 'storage')" title="+1 to storage"
             style="align-self:flex-end;padding:6px 10px;background:var(--opal);border:1.5px solid var(--border);border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;color:var(--dark-blue);line-height:1;margin-bottom:1px;flex-shrink:0;">+1</button>
           <div class="count-total-box">
             <label>Total</label>
-            <div class="count-total-val" id="count-total-${item.id}">${last ? last.total : 0}</div>
+            <div class="count-total-val" id="count-total-${item.id}">${last != null ? last.total : '—'}</div>
           </div>
         </div>`;
       }).join('')}
