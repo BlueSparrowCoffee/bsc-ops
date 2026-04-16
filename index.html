@@ -3827,7 +3827,7 @@ async function submitWeeklyCount() {
     // batch PATCH inventory items
     const invCacheKey = cfg.cacheKey;
     const invTasks = entries.map(e => () => {
-      const item = cache[invCacheKey].find(i=>i.id===e.id);
+      const item = cache[invCacheKey].find(i=>String(i.id)===String(e.id));
       if (!item) return Promise.resolve();
       item.CurrentStock = e.total;
       item.StoreCount = e.store;
@@ -3855,7 +3855,7 @@ async function submitWeeklyCount() {
 
     // Slack alert for low items
     const lowItems = entries.filter(e => {
-      const item = cache[invCacheKey].find(i=>i.id===e.id);
+      const item = cache[invCacheKey].find(i=>String(i.id)===String(e.id));
       return item && e.total <= (item.ParLevel||0) && e.total >= 0;
     });
     if (lowItems.length) {
