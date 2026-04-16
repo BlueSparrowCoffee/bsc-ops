@@ -5745,9 +5745,14 @@ async function saveVendorForm() {
   setLoading(true,'Saving vendor…');
   try {
     if (_vendorEditId) {
+      const oldName = cache.vendors.find(v=>v.id===_vendorEditId)?.Title || '';
       await updateListItem(LISTS.vendors, _vendorEditId, data);
       const i = cache.vendors.findIndex(v=>v.id===_vendorEditId);
       if (i!==-1) cache.vendors[i]={...cache.vendors[i],...data};
+      // Cascade name change to all inventory items that reference this vendor
+      if (data.Title && data.Title !== oldName) {
+        await cascadeVendorRename(oldName, data.Title);
+      }
       toast('ok','✓ Vendor updated');
     } else {
       const item = await addListItem(LISTS.vendors, data);
@@ -5757,6 +5762,30 @@ async function saveVendorForm() {
     renderVendors(); populateSelects(); closeModal('modal-vendor');
   } catch(e) { toast('err','Save failed: '+e.message); }
   finally { setLoading(false); }
+}
+
+async function cascadeVendorRename(oldName, newName) {
+  const targets = [
+    { cacheKey: 'inventory',      listKey: 'inventory' },
+    { cacheKey: 'merchInventory', listKey: 'merchInventory' },
+    { cacheKey: 'equipInventory', listKey: 'equipInventory' },
+    { cacheKey: 'foodInventory',  listKey: 'foodInventory' },
+    { cacheKey: 'groceryInventory', listKey: 'groceryInventory' }
+  ];
+  const tasks = [];
+  for (const { cacheKey, listKey } of targets) {
+    if (!LISTS[listKey]) continue;
+    for (const item of (cache[cacheKey] || [])) {
+      if (item.Supplier === oldName) {
+        item.Supplier = newName;
+        tasks.push(() => updateListItem(LISTS[listKey], item.id, { Supplier: newName }));
+      }
+    }
+  }
+  for (let i = 0; i < tasks.length; i += 8) {
+    await Promise.all(tasks.slice(i, i+8).map(t => t()));
+  }
+  if (tasks.length) renderInventory();
 }
 
 function modalArchiveVendor() {
