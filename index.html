@@ -2491,7 +2491,7 @@ async function ensureList(listName, columns) {
   return listId;
 }
 
-const PROVISION_VERSION = '26';
+const PROVISION_VERSION = '27';
 
 // ── Session data cache (localStorage, keyed by provision version + location) ─
 const CACHE_MAX_AGE = 4 * 60 * 60 * 1000; // 4 hours — safety TTL
@@ -2668,7 +2668,7 @@ async function ensureAllLists() {
   ]);
   await ensureList(LISTS.cogs,[
     {name:'MenuItemId',text:{}},{name:'MenuItemName',text:{}},{name:'VariationName',text:{}},
-    {name:'IngredientName',text:{}},{name:'Quantity',number:{decimalPlaces:'automatic'}},{name:'Unit',text:{}}
+    {name:'IngredientName',text:{}},{name:'IngredientId',text:{}},{name:'Quantity',number:{decimalPlaces:'automatic'}},{name:'Unit',text:{}}
   ]);
   await ensureList(LISTS.cogHistory,[
     {name:'MenuItemId',text:{}},{name:'MenuItemName',text:{}},{name:'VariationName',text:{}},
@@ -3644,7 +3644,7 @@ function renderCountSheet() {
       <div class="count-cat-header">${cat}</div>
       ${catItems.map(item => {
         const last = recentMap[item.ItemName];
-        const lastLabel = last ? `Last: ${last.total} <span style="color:var(--muted)">${last.weekOf||''}${last.countedBy ? ' · '+escHtml(last.countedBy) : ''}</span>` : 'No history';
+        const lastLabel = last ? `Prior count: ${last.total} <span style="color:var(--muted)">${last.weekOf||''}${last.countedBy ? ' · '+escHtml(last.countedBy) : ''}</span>` : 'No prior count';
         const unit = item.OrderUnit || item.Unit || '';
         return `<div class="count-row" data-id="${item.id}" data-name="${(item.ItemName||'').replace(/"/g,'&quot;')}">
           <div style="flex:1;min-width:160px">
@@ -6941,7 +6941,7 @@ const PROVISIONED_COL_NAMES = new Set([
   // Menu
   'SquareId','Hidden','Variations','Price',
   // COGs
-  'MenuItemId','MenuItemName','VariationName','IngredientName','COG','GrossMargin','SnapshotDate',
+  'MenuItemId','MenuItemName','VariationName','IngredientName','IngredientId','COG','GrossMargin','SnapshotDate',
   // Parking
   'FirstName','LastName',
   // Merch months/received
@@ -9882,15 +9882,25 @@ function buildInvMap() {
   return map;
 }
 
+// Build inventory lookup by SharePoint item ID
+function buildInvIdMap() {
+  const map = {};
+  for (const i of cache.inventory) {
+    if (i.id) map[String(i.id)] = i;
+  }
+  return map;
+}
+
 // Calculate COG for one variation
-function calcCog(menuItemId, variationName, cogMap, invMap, prepMap) {
+function calcCog(menuItemId, variationName, cogMap, invMap, prepMap, invIdMap) {
   const key = menuItemId + ':' + variationName;
   const ingredients = cogMap[key] || [];
   let cog = 0;
   let hasMissingCost = false;
   const lines = ingredients.map(ing => {
     const name = (ing.IngredientName||'').toLowerCase().trim();
-    const inv  = invMap[name];
+    // Prefer ID-based lookup (immune to renames); fall back to name match for legacy rows
+    const inv  = (invIdMap && ing.IngredientId) ? (invIdMap[String(ing.IngredientId)] || invMap[name]) : invMap[name];
     const prep = (!inv && prepMap) ? prepMap[name] : null;
     const source = inv || prep;
     const costPerServing = source ? (parseFloat(source.CostPerServing) || 0) : null;
@@ -9925,6 +9935,7 @@ async function snapshotCogs() {
     const siteId = await getSiteId();
     const cogMap = buildCogMap();
     const invMap = buildInvMap();
+    const invIdMap = buildInvIdMap();
     const prepMap = buildPrepItemMap();
     let count = 0;
     const now = new Date().toISOString();
@@ -9934,7 +9945,7 @@ async function snapshotCogs() {
       const itemName = item.ItemName || item.Title || '';
       const variations = getVariationNames(item);
       for (const v of variations) {
-        const { cog, hasMissingCost } = calcCog(itemId, v.name, cogMap, invMap, prepMap);
+        const { cog, hasMissingCost } = calcCog(itemId, v.name, cogMap, invMap, prepMap, invIdMap);
         if (hasMissingCost || !v.price) continue;
         const margin = ((v.price - cog) / v.price) * 100;
         const fields = {
@@ -10089,12 +10100,13 @@ function renderCogs() {
 
   // Check for missing costs
   const invMap = buildInvMap();
+  const invIdMap = buildInvIdMap();
   const prepMap = buildPrepItemMap();
   const cogMap = buildCogMap();
   let missingCosts = false;
   for (const r of cache.cogsRecipes) {
     const name = (r.IngredientName||'').toLowerCase().trim();
-    const inv  = invMap[name];
+    const inv  = (r.IngredientId ? (invIdMap[String(r.IngredientId)] || invMap[name]) : invMap[name]);
     const prep = prepMap[name];
     if (inv && !inv.CostPerServing) { missingCosts = true; break; }
   }
@@ -10460,6 +10472,7 @@ function renderCogCards() {
 
   const cogMap  = buildCogMap();
   const invMap  = buildInvMap();
+  const invIdMap = buildInvIdMap();
   const prepMap = buildPrepItemMap();
 
   let items = cache.menu.filter(i => (i.Category||'').toLowerCase() === 'coffee bar');
@@ -10470,7 +10483,7 @@ function renderCogCards() {
     const variations = getVariationNames(i);
     // Item is "missing info" if any variation has no ingredients or has missing costs
     return variations.some(v => {
-      const { lines, hasMissingCost } = calcCog(itemId, v.name, cogMap, invMap, prepMap);
+      const { lines, hasMissingCost } = calcCog(itemId, v.name, cogMap, invMap, prepMap, invIdMap);
       return lines.length === 0 || hasMissingCost;
     });
   });
@@ -10526,7 +10539,7 @@ function renderCogCard(item, cogMap, invMap, prepMap) {
   ).join('');
 
   const varPanels = variations.map((v, vi) => {
-    const { cog, lines, hasMissingCost } = calcCog(itemId, v.name, cogMap, invMap, prepMap);
+    const { cog, lines, hasMissingCost } = calcCog(itemId, v.name, cogMap, invMap, prepMap, invIdMap);
     const price  = v.price;
     const margin = (price && !hasMissingCost) ? ((price - cog) / price * 100) : null;
     const marginColor = margin == null ? '#999' : margin >= 65 ? '#16a34a' : margin >= 50 ? '#d97706' : '#dc2626';
@@ -10565,6 +10578,7 @@ function renderCogCard(item, cogMap, invMap, prepMap) {
                 oninput="showCogIngDrop('${escHtml(itemId)}',${vi},this.value)"
                 onkeydown="cogIngDropKey(event,'${escHtml(itemId)}',${vi})"
                 onblur="setTimeout(()=>hideCogIngDrop('${escHtml(itemId)}',${vi}),180)">
+              <input type="hidden" id="cog-new-ing-id-${itemId}-${vi}">
               <div id="cog-ing-drop-${itemId}-${vi}" style="display:none;position:fixed;background:var(--dark-blue);border-radius:8px;box-shadow:0 6px 20px rgba(2,61,74,.25);z-index:400;max-height:180px;overflow-y:auto;font-size:12px;"></div>
             </div>
             <input type="number" step="1" min="0" placeholder="Qty" id="cog-new-qty-${itemId}-${vi}"
@@ -10659,7 +10673,9 @@ function cogVarTab(itemId, activeIdx, total) {
 async function addCogIngredient(menuItemId, menuItemName, variationName, varIdx) {
   const ingEl  = document.getElementById(`cog-new-ing-${menuItemId}-${varIdx}`);
   const qtyEl  = document.getElementById(`cog-new-qty-${menuItemId}-${varIdx}`);
+  const ingIdEl = document.getElementById(`cog-new-ing-id-${menuItemId}-${varIdx}`);
   const ingName = (ingEl?.value || '').trim();
+  const ingId   = (ingIdEl?.value || '').trim();
   const qty     = parseFloat(qtyEl?.value) || 0;
   if (!ingName) { toast('warn', 'Enter an ingredient name'); return; }
   try {
@@ -10669,11 +10685,13 @@ async function addCogIngredient(menuItemId, menuItemName, variationName, varIdx)
       MenuItemName:   menuItemName,
       VariationName:  variationName,
       IngredientName: ingName,
+      IngredientId:   ingId || null,
       Quantity:       qty || null
     };
     const saved = await addListItem(LISTS.cogs, fields);
     cache.cogsRecipes.push(saved);
     if (ingEl) ingEl.value = '';
+    if (ingIdEl) ingIdEl.value = '';
     if (qtyEl) qtyEl.value = '';
     renderCogCards();
   } catch(e) {
@@ -10710,25 +10728,30 @@ async function deleteCogIngredient(rowId, menuItemId, variationName) {
 
 // ── COG ingredient autocomplete ───────────────────────────────────────────
 function _cogIngOptions() {
-  const names = new Set();
-  cache.inventory.forEach(i => { if (i.ItemName) names.add(i.ItemName); });
-  (cache.prepItems||[]).forEach(p => { if (p.Title) names.add(p.Title); });
-  return [...names].sort();
+  // Returns [{id, name}] — inventory items carry their SharePoint ID; prep items have no ID
+  const opts = [];
+  cache.inventory.forEach(i => { if (i.ItemName) opts.push({ id: String(i.id), name: i.ItemName }); });
+  (cache.prepItems||[]).forEach(p => { if (p.Title) opts.push({ id: '', name: p.Title }); });
+  return opts.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function showCogIngDrop(itemId, vi, q) {
+  // Clear the stored ingredient ID whenever the user types manually
+  const idInput = document.getElementById(`cog-new-ing-id-${itemId}-${vi}`);
+  if (idInput) idInput.value = '';
+
   const drop = document.getElementById(`cog-ing-drop-${itemId}-${vi}`);
   if (!drop) return;
   const query = (q||'').toLowerCase().trim();
-  const opts = _cogIngOptions().filter(n => !query || n.toLowerCase().includes(query)).slice(0, 20);
+  const opts = _cogIngOptions().filter(o => !query || o.name.toLowerCase().includes(query)).slice(0, 20);
   if (!opts.length) { drop.style.display = 'none'; return; }
-  drop.innerHTML = opts.map((n,i) => `
-    <div data-val="${escHtml(n)}" data-item="${escHtml(itemId)}" data-vi="${vi}"
+  drop.innerHTML = opts.map(o => `
+    <div data-val="${escHtml(o.name)}" data-id="${escHtml(o.id)}" data-item="${escHtml(itemId)}" data-vi="${vi}"
       style="padding:7px 12px;cursor:pointer;color:#fff;border-bottom:1px solid rgba(255,255,255,.08);"
-      onmousedown="pickCogIngDrop(this.dataset.item,this.dataset.vi,this.dataset.val)"
+      onmousedown="pickCogIngDrop(this.dataset.item,this.dataset.vi,this.dataset.val,this.dataset.id)"
       onmouseover="this.style.background='rgba(255,255,255,.12)'"
       onmouseout="this.style.background=''">
-      ${escHtml(n)}
+      ${escHtml(o.name)}
     </div>`).join('');
   // Position fixed relative to input
   const inp = document.getElementById(`cog-new-ing-${itemId}-${vi}`);
@@ -10746,9 +10769,11 @@ function hideCogIngDrop(itemId, vi) {
   if (drop) drop.style.display = 'none';
 }
 
-function pickCogIngDrop(itemId, vi, val) {
+function pickCogIngDrop(itemId, vi, val, id) {
   const inp = document.getElementById(`cog-new-ing-${itemId}-${vi}`);
   if (inp) inp.value = val;
+  const idInput = document.getElementById(`cog-new-ing-id-${itemId}-${vi}`);
+  if (idInput) idInput.value = id || '';
   hideCogIngDrop(itemId, vi);
 }
 
@@ -10770,7 +10795,7 @@ function cogIngDropKey(e, itemId, vi) {
     items[idx].classList.add('cog-ing-active'); items[idx].style.background = 'rgba(255,255,255,.18)';
   } else if (e.key === 'Enter' && active) {
     e.preventDefault();
-    pickCogIngDrop(itemId, vi, active.dataset.val);
+    pickCogIngDrop(itemId, vi, active.dataset.val, active.dataset.id);
   } else if (e.key === 'Escape') {
     hideCogIngDrop(itemId, vi);
   }
