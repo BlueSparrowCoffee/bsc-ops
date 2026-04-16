@@ -3835,8 +3835,10 @@ async function submitWeeklyCount() {
       prog.textContent = `${Math.min(i+8,allTasks.length)}/${allTasks.length}`;
     }
 
-    // update cache
-    const newRecords = entries.map(e => ({
+    // update cache — assign synthetic ids higher than any existing so recentMap tiebreak picks these
+    const maxExistingId = Math.max(0, ...cache[cfg.countKey].map(r => Number(r.id||0)));
+    const newRecords = entries.map((e, idx) => ({
+      id: maxExistingId + idx + 1,
       Title: e.name, WeekOf: weekOf+'T00:00:00Z',
       StoreCount: e.store, StorageCount: e.storage, TotalCount: e.total,
       Location: loc, CountedBy: countedBy
@@ -4063,8 +4065,10 @@ async function submitMerchCount() {
       await Promise.all(tasks.slice(i,i+8).map(t=>t()));
       prog.textContent = `${Math.min(i+8,tasks.length)}/${tasks.length}`;
     }
-    // update cache
-    const newRecords = entries.map(e => ({
+    // update cache — assign synthetic ids higher than any existing so recentMap tiebreak picks these
+    const maxExistingId = Math.max(0, ...cache[cfg.countKey].map(r => Number(r.id||0)));
+    const newRecords = entries.map((e, idx) => ({
+      id: maxExistingId + idx + 1,
       Title: e.name, WeekOf: monthDate+'T00:00:00Z',
       StoreCount: e.store, StorageCount: e.storage, TotalCount: e.total,
       ChangesSinceLastCount: e.sold, Location: loc, CountedBy: countedBy
