@@ -10578,15 +10578,15 @@ function renderCogCards() {
             ${escHtml(cat)} <span style="font-weight:400;">(${catItems.length})</span>
           </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:20px;margin-top:12px;">
-            ${catItems.map(item => renderCogCard(item, cogMap, invMap, prepMap)).join('')}
+            ${catItems.map(item => renderCogCard(item, cogMap, invMap, prepMap, invIdMap)).join('')}
           </div>
         </div>`).join('');
   } else {
-    container.innerHTML = items.map(item => renderCogCard(item, cogMap, invMap, prepMap)).join('');
+    container.innerHTML = items.map(item => renderCogCard(item, cogMap, invMap, prepMap, invIdMap)).join('');
   }
 }
 
-function renderCogCard(item, cogMap, invMap, prepMap) {
+function renderCogCard(item, cogMap, invMap, prepMap, invIdMap) {
   const itemId   = item.SquareId || item.id;
   const itemName = item.ItemName || item.Title || '';
   const category = item.Category || 'Uncategorized';
