@@ -8544,6 +8544,79 @@ function isCoffeeBagItem(name='', category='') {
   return COFFEE_BAG_PATTERNS.some(p => n.includes(p));
 }
 
+let _labelsSyncedAt = 0;
+
+async function syncLabelsBagsSold() {
+  // Rate-limit: skip if synced within last 5 minutes
+  if (Date.now() - _labelsSyncedAt < 5 * 60 * 1000) return;
+
+  const locMap = getSquareLocMap();
+  const squareLocIds = Object.values(locMap).filter(Boolean);
+  if (!squareLocIds.length) return; // Square not configured
+
+  _labelsSyncedAt = Date.now();
+
+  const now = new Date();
+
+  // Build month ranges
+  const months = [
+    {
+      label: now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+      startAt: new Date(now.getFullYear(), now.getMonth(), 1).toISOString(),
+      endAt:   now.toISOString()
+    },
+    {
+      label: new Date(now.getFullYear(), now.getMonth() - 1, 1)
+               .toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+      startAt: new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString(),
+      endAt:   new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59).toISOString()
+    }
+  ];
+
+  const fetchBags = async ({ startAt, endAt }) => {
+    let cursor = null, total = 0;
+    do {
+      const payload = {
+        location_ids: squareLocIds,
+        query: { filter: {
+          date_time_filter: { created_at: { start_at: startAt, end_at: endAt } },
+          state_filter: { states: ['COMPLETED'] }
+        }},
+        limit: 500,
+        ...(cursor ? { cursor } : {})
+      };
+      const data = await squareAPI('POST', 'orders/search', payload);
+      for (const order of (data.orders || [])) {
+        for (const li of (order.line_items || [])) {
+          const liName = (li.name || '').toLowerCase();
+          if (COFFEE_BAG_PATTERNS.some(p => liName.includes(p))) {
+            total += parseFloat(li.quantity || 1);
+          }
+        }
+      }
+      cursor = data.cursor || null;
+    } while (cursor);
+    return total;
+  };
+
+  try {
+    const [curBags, priorBags] = await Promise.all(months.map(fetchBags));
+    const results = [{ label: months[0].label, bags: curBags }, { label: months[1].label, bags: priorBags }];
+    let changed = false;
+    for (const { label, bags } of results) {
+      const rec = cache.labels.find(r => r.Month === label || r.Title === label);
+      if (rec && rec.BagsSold !== bags) {
+        await updateListItem(LISTS.labels, rec.id, { BagsSold: bags });
+        rec.BagsSold = bags;
+        changed = true;
+      }
+    }
+    if (changed) renderLabelsPage();
+  } catch(e) {
+    console.warn('[BSC] syncLabelsBagsSold failed:', e.message);
+  }
+}
+
 function renderLabelsInTab() {
   const container = document.getElementById('inv-labels-content');
   if (!container) return;
@@ -8579,6 +8652,7 @@ function renderLabelsInTab() {
       </div>`;
   }
   renderLabelsPage();
+  syncLabelsBagsSold(); // fire-and-forget — updates BagsSold from Square in background
 }
 
 function renderLabelsPage() {
