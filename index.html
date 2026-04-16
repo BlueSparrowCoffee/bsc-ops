@@ -531,6 +531,10 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
             <label class="field-label">Counted by</label>
             <div id="count-by-display" style="font-size:13px;font-weight:600;color:var(--dark-blue);padding:6px 0;min-width:160px;">—</div>
           </div>
+          <div class="count-last-wrap" style="display:none">
+            <label class="field-label">Last submitted</label>
+            <div id="count-last-submitted" style="font-size:13px;color:var(--muted);padding:6px 0;"></div>
+          </div>
         </div>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
           <span id="count-submit-progress" style="font-size:13px;color:var(--muted)"></span>
@@ -2140,7 +2144,8 @@ const LISTS = {
   groceryInventory:    'BSC_GroceryInventory',
   tags:                'BSC_Tags',
   merchReceived:       'BSC_MerchReceived',
-  merchMonths:         'BSC_MerchMonths'
+  merchMonths:         'BSC_MerchMonths',
+  lastCount:           'BSC_LastCount'
 };
 
 // Inventory type config — drives which list/cache key each inv type uses
@@ -2211,7 +2216,8 @@ const cache = {
   groceryInventory: [],
   tags: [],
   merchReceived: [],
-  merchMonths: []
+  merchMonths: [],
+  lastCount: []
 };
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -2491,7 +2497,7 @@ async function ensureList(listName, columns) {
   return listId;
 }
 
-const PROVISION_VERSION = '27';
+const PROVISION_VERSION = '28';
 
 // ── Session data cache (localStorage, keyed by provision version + location) ─
 const CACHE_MAX_AGE = 4 * 60 * 60 * 1000; // 4 hours — safety TTL
@@ -2750,6 +2756,12 @@ async function ensureAllLists() {
     {name:'ClosedBy', text:{}},
     {name:'ClosedAt', text:{}}
   ]);
+  // Last count session tracker — one record per invType:location, upserted on submit
+  await ensureList(LISTS.lastCount, [
+    {name:'CountedBy',  text:{}},
+    {name:'CountedAt',  text:{}},
+    {name:'InvType',    text:{}}
+  ]);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -2757,7 +2769,7 @@ async function ensureAllLists() {
 // ════════════════════════════════════════════════════════════════════════════
 async function loadAllData() {
   const siteId = await getSiteId();
-  const [xfers, orders, cls, roles, vendors,,recipes,,contacts,staff,sched,log,appSettings,clGroups,clCompletions,labelRows,foodParRows,parkingRows,contactArchiveRows,prepItemsRows,prepItemIngsRows,tagsRows,merchReceivedRows,merchMonthsRows] = await Promise.all([
+  const [xfers, orders, cls, roles, vendors,,recipes,,contacts,staff,sched,log,appSettings,clGroups,clCompletions,labelRows,foodParRows,parkingRows,contactArchiveRows,prepItemsRows,prepItemIngsRows,tagsRows,merchReceivedRows,merchMonthsRows,lastCountRows] = await Promise.all([
     getListItems(siteId, LISTS.transfers),
     getListItems(siteId, LISTS.orders),
     getListItems(siteId, LISTS.checklists),
@@ -2781,7 +2793,8 @@ async function loadAllData() {
     getListItems(siteId, LISTS.prepItemIngredients).catch(()=>[]),
     getListItems(siteId, LISTS.tags).catch(()=>[]),
     getListItems(siteId, LISTS.merchReceived).catch(()=>[]),
-    getListItems(siteId, LISTS.merchMonths).catch(()=>[])
+    getListItems(siteId, LISTS.merchMonths).catch(()=>[]),
+    getListItems(siteId, LISTS.lastCount).catch(()=>[])
   ]);
   cache.transfers=xfers; cache.orders=orders;
   cache.checklists=cls; cache.roles=roles; cache.vendors=vendors;
@@ -2798,6 +2811,7 @@ async function loadAllData() {
   cache.tags = tagsRows || [];
   cache.merchReceived = merchReceivedRows || [];
   cache.merchMonths   = merchMonthsRows   || [];
+  cache.lastCount     = lastCountRows     || [];
   migrateTagsToRegistry(); // fire-and-forget: seed BSC_Tags from existing vendor/contact tags
   // Load per-location food par values
   if (currentLocation === 'all') {
@@ -3610,8 +3624,23 @@ function renderCountSheet() {
   const byDisplay = document.getElementById('count-by-display');
   if (byDisplay) byDisplay.textContent = currentUser?.name || currentUser?.username || '—';
 
-  // find most recent count records for current location
+  // show last submitted count for this location
   const cfg = invCfg();
+  const _lastCountEl = document.getElementById('count-last-submitted');
+  if (_lastCountEl && cfg) {
+    const loc0 = currentLocation === 'all' ? null : currentLocation;
+    const lcRec = loc0 ? cache.lastCount.find(r => r.Title === cfg.listKey + ':' + loc0) : null;
+    if (lcRec?.CountedAt) {
+      const d = new Date(lcRec.CountedAt);
+      const fmt = d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'}) + ' · ' + d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+      _lastCountEl.textContent = fmt + (lcRec.CountedBy ? ' · ' + lcRec.CountedBy : '');
+      _lastCountEl.closest('.count-last-wrap').style.display = '';
+    } else {
+      _lastCountEl.closest('.count-last-wrap').style.display = 'none';
+    }
+  }
+
+  // find most recent count records for current location
   if (!cfg) return;
   const loc = currentLocation === 'all' ? null : currentLocation;
   const recentMap = {}; // itemName → { store, storage, total, weekOf }
@@ -3714,6 +3743,27 @@ function clearCountSheet() {
   document.querySelectorAll('.count-total-val').forEach(el=>el.textContent='0');
 }
 
+// Upsert BSC_LastCount — one record per invType:location
+async function upsertLastCount(cfg, loc, countedBy) {
+  const key = cfg.listKey + ':' + loc;
+  const now = new Date().toISOString();
+  const existing = cache.lastCount.find(r => r.Title === key);
+  try {
+    if (existing) {
+      await updateListItem(LISTS.lastCount, existing.id, { CountedBy: countedBy, CountedAt: now });
+      existing.CountedBy = countedBy;
+      existing.CountedAt = now;
+    } else {
+      const rec = await addListItem(LISTS.lastCount, {
+        Title: key, InvType: cfg.listKey, CountedBy: countedBy, CountedAt: now
+      });
+      cache.lastCount.push(rec);
+    }
+  } catch(e) {
+    console.warn('[BSC] upsertLastCount failed:', e.message);
+  }
+}
+
 async function submitWeeklyCount() {
   const weekOf = document.getElementById('count-week-date').value;
   const countedBy = currentUser?.name || currentUser?.username || '';
@@ -3803,6 +3853,7 @@ async function submitWeeklyCount() {
       sendSlackAlert(`⚠️ *${loc} Inventory Count — ${weekOf}*\nLow stock: ${names}${lowItems.length>5?` +${lowItems.length-5} more`:''}`, 'low_inventory');
     }
 
+    upsertLastCount(cfg, loc, countedBy); // fire-and-forget
     toast('ok',`✓ Count submitted — ${entries.length} items`);
     clearCountSheet();
     renderDashboard();
@@ -3846,6 +3897,18 @@ function renderMerchCountSheet() {
         <button class="btn btn-outline" onclick="clearMerchCountSheet()">Clear</button>
         <button class="btn btn-primary" onclick="submitMerchCount()">Submit Count</button>
       </div>`;
+    // Inject last-submitted info into merch header
+    const _cfg = invCfg();
+    const _lcRec = _cfg ? cache.lastCount.find(r => r.Title === _cfg.listKey + ':' + currentLocation) : null;
+    if (_lcRec?.CountedAt) {
+      const _d = new Date(_lcRec.CountedAt);
+      const _fmt = _d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'}) + ' · ' + _d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+      const _label = _fmt + (_lcRec.CountedBy ? ' · ' + _lcRec.CountedBy : '');
+      const _lastEl = document.createElement('div');
+      _lastEl.style.cssText = 'font-size:12px;color:var(--muted);padding:4px 0;width:100%';
+      _lastEl.innerHTML = `<span style="font-weight:600">Last submitted:</span> ${escHtml(_label)}`;
+      headerBar.appendChild(_lastEl);
+    }
   }
 
   const cfg = invCfg();
@@ -4007,6 +4070,7 @@ async function submitMerchCount() {
       ChangesSinceLastCount: e.sold, Location: loc, CountedBy: countedBy
     }));
     cache[cfg.countKey].unshift(...newRecords);
+    upsertLastCount(cfg, loc, countedBy); // fire-and-forget
     toast('ok', `✓ Merch count submitted — ${entries.length} items`);
     renderDashboard();
     prog.textContent = '';
@@ -6940,6 +7004,8 @@ const PROVISIONED_COL_NAMES = new Set([
   'Month','StartBalance','BagsSold','Adjustment','EndBalance','CostPerLabel','TotalValue','ReconcileBy','SquareData',
   // Menu
   'SquareId','Hidden','Variations','Price',
+  // Last count session
+  'CountedBy','CountedAt','InvType',
   // COGs
   'MenuItemId','MenuItemName','VariationName','IngredientName','IngredientId','COG','GrossMargin','SnapshotDate',
   // Parking
