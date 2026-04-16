@@ -10796,7 +10796,7 @@ async function deleteCogIngredient(rowId, menuItemId, variationName) {
 function _cogIngOptions() {
   // Returns [{id, name}] — inventory items carry their SharePoint ID; prep items have no ID
   const opts = [];
-  cache.inventory.forEach(i => { if (i.ItemName) opts.push({ id: String(i.id), name: i.ItemName }); });
+  cache.inventory.forEach(i => { if (i.ItemName && !i.Archived) opts.push({ id: String(i.id), name: i.ItemName }); });
   (cache.prepItems||[]).forEach(p => { if (p.Title) opts.push({ id: '', name: p.Title }); });
   return opts.sort((a, b) => a.name.localeCompare(b.name));
 }
