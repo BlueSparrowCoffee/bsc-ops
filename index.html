@@ -10164,17 +10164,27 @@ function renderCogs() {
       + names.map(n=>`<option value="${escHtml(n)}">${escHtml(n)}</option>`).join('');
   }
 
-  // Check for missing costs
-  const invMap = buildInvMap();
+  // Check for missing costs — mirrors calcCog logic exactly
+  const invMap   = buildInvMap();
   const invIdMap = buildInvIdMap();
-  const prepMap = buildPrepItemMap();
-  const cogMap = buildCogMap();
+  const prepMap  = buildPrepItemMap();
+  const cogMap   = buildCogMap();
+  const visibleMenuIds = new Set(
+    cache.menu
+      .filter(i => (i.Category||'').toLowerCase() === 'coffee bar' && !_cogsHiddenIds.has(i.SquareId||i.id))
+      .map(i => i.SquareId || i.id)
+  );
   let missingCosts = false;
-  for (const r of cache.cogsRecipes) {
+  outer: for (const r of cache.cogsRecipes) {
+    if (!visibleMenuIds.has(r.MenuItemId)) continue;
     const name = (r.IngredientName||'').toLowerCase().trim();
     const inv  = (r.IngredientId ? (invIdMap[String(r.IngredientId)] || invMap[name]) : invMap[name]);
+    // Skip archived inventory items — they don't count as "missing"
+    if (inv?.Archived) continue;
     const prep = prepMap[name];
-    if (inv && !inv.CostPerServing) { missingCosts = true; break; }
+    const source = inv || prep;
+    // Missing = ingredient not found at all (calcCog sets hasMissingCost when costPerServing is null)
+    if (!source) { missingCosts = true; break outer; }
   }
   document.getElementById('cogs-missing-costs').style.display = missingCosts ? '' : 'none';
 
