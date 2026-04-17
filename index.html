@@ -1733,6 +1733,11 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
         </div>
         <div id="sq-token-status" style="font-size:12px;color:var(--muted);margin-bottom:8px"></div>
         <p style="font-size:12px;color:var(--muted)">Get your token from <a href="https://developer.squareup.com/apps" target="_blank" style="color:var(--gold)">developer.squareup.com/apps</a> → Your App → Production → Access Token.</p>
+        <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+          <button class="btn btn-outline" onclick="testSquareAPIs()" id="sq-test-btn" style="padding:8px 16px">🔍 Test Square APIs</button>
+          <span style="font-size:12px;color:var(--muted);margin-left:8px">Diagnoses which Square endpoints are reachable with the current token</span>
+          <div id="sq-test-log" style="margin-top:12px;font-size:12px;line-height:1.8;background:#f9f9f9;border-radius:8px;padding:12px 14px;display:none;font-family:monospace;white-space:pre-wrap;"></div>
+        </div>
       </div>
       <div class="card" style="grid-column:1/-1">
         <div class="card-title" style="margin-bottom:4px">🔑 Microsoft Staff Access</div>
@@ -9564,6 +9569,84 @@ async function saveSquareToken() {
 function toggleSqTokenVis() {
   const el = document.getElementById('sq-token-input');
   el.type = el.type === 'password' ? 'text' : 'password';
+}
+
+// Diagnostic — probes each major Square endpoint and reports status
+async function testSquareAPIs() {
+  const btn = document.getElementById('sq-test-btn');
+  const log = document.getElementById('sq-test-log');
+  btn.disabled = true; btn.textContent = 'Testing…';
+  log.style.display = 'block';
+  log.textContent = 'Running tests…\n';
+
+  const locMap = getSquareLocMap();
+  const firstLocId = Object.values(locMap).filter(Boolean)[0];
+  const now = new Date();
+  const yesterday = new Date(now.getTime() - 24*60*60*1000);
+
+  const tests = [
+    { name: 'Locations (list)',   method: 'GET',  path: 'locations' },
+    { name: 'Catalog (list)',     method: 'GET',  path: 'catalog/list?types=CATEGORY&limit=1' },
+    { name: 'Team Members',       method: 'POST', path: 'team-members/search', body: { query: { filter: { status: 'ACTIVE' } }, limit: 1 } },
+    { name: 'Inventory Counts',   method: 'POST', path: 'inventory/counts/batch-retrieve', body: { catalog_object_ids: [], location_ids: firstLocId ? [firstLocId] : [] } },
+    { name: 'Orders (search) ←',  method: 'POST', path: 'orders/search', body: {
+        location_ids: firstLocId ? [firstLocId] : [],
+        query: { filter: {
+          date_time_filter: { created_at: { start_at: yesterday.toISOString(), end_at: now.toISOString() } },
+          state_filter: { states: ['COMPLETED'] }
+        }},
+        limit: 1
+      }
+    }
+  ];
+
+  const results = [];
+  for (const t of tests) {
+    try {
+      const msalToken = await getToken();
+      const res = await fetch(`/api/square/${t.path}`, {
+        method: t.method,
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${msalToken}` },
+        body: t.body ? JSON.stringify(t.body) : undefined
+      });
+      const text = await res.text();
+      let parsed; try { parsed = JSON.parse(text); } catch { parsed = { raw: text }; }
+      const detail = res.ok
+        ? 'OK'
+        : (parsed?.errors?.[0]?.code ? `${parsed.errors[0].code}: ${parsed.errors[0].detail||''}` : (parsed?.error || text.slice(0,200)));
+      results.push({ name: t.name, status: res.status, ok: res.ok, detail });
+    } catch(e) {
+      results.push({ name: t.name, status: 'ERR', ok: false, detail: e.message });
+    }
+  }
+
+  // Render results
+  const lines = [
+    '═══ Square API Diagnostic ═══',
+    `Locations configured: ${Object.values(locMap).filter(Boolean).length}`,
+    `Using loc ID: ${firstLocId || '(none!)'}`,
+    '',
+    ...results.map(r => `${r.ok ? '✓' : '✗'} [${r.status}] ${r.name} — ${r.detail}`),
+    '',
+  ];
+  const ordersResult = results.find(r => r.name.includes('Orders'));
+  const otherOk = results.filter(r => !r.name.includes('Orders')).every(r => r.ok);
+  if (ordersResult && !ordersResult.ok && otherOk) {
+    lines.push('→ Other Square APIs work but Orders does not.');
+    lines.push('→ This is a token permissions issue. Your Square access token');
+    lines.push('  does not have ORDERS_READ scope. Regenerate the token with');
+    lines.push('  Orders permission enabled in the Square Developer Dashboard,');
+    lines.push('  then update SQUARE_ACCESS_TOKEN in Azure Portal.');
+  } else if (results.every(r => !r.ok)) {
+    lines.push('→ All Square calls failing. Token is likely invalid/expired,');
+    lines.push('  or SQUARE_ACCESS_TOKEN is not set in Azure env vars.');
+  } else if (results.every(r => r.ok)) {
+    lines.push('→ All good! Orders API is reachable. If bag sync is still failing,');
+    lines.push('  it may be a location-mapping or date-range issue.');
+  }
+
+  log.textContent = lines.join('\n');
+  btn.disabled = false; btn.textContent = '🔍 Test Square APIs';
 }
 
 function renderSquareSettings() {
