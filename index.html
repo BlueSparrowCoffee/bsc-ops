@@ -327,6 +327,12 @@ body{overscroll-behavior-y:contain;}
 /* ── RESPONSIVE ── */
 @media(max-width:768px){
   #nav-toggle{display:block;}
+  #topbar{padding:0 12px;gap:10px;}
+  .topbar-logo{font-size:14px;min-width:0;flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+  .topbar-logo small{display:none;}
+  #user-info{display:none !important;}
+  #user-label{display:none;}
+  .topbar-right{gap:6px;margin-left:0;}
   #sidebar{position:fixed;top:56px;left:0;height:calc(100vh - 56px);z-index:95;transform:translateX(-100%);transition:transform .22s ease;box-shadow:2px 0 12px rgba(0,0,0,.25);}
   #sidebar.open{transform:translateX(0);}
   #content{padding:16px;}
@@ -352,10 +358,8 @@ body{overscroll-behavior-y:contain;}
 <div id="topbar">
   <button id="nav-toggle" onclick="toggleNav()" aria-label="Menu">☰</button>
   <div class="topbar-logo">
-    <img src="/feather.png" alt="BSC" style="height:32px;width:auto;">
     <div><div>Blue Sparrow Coffee</div><small>Operations Platform</small></div>
   </div>
-  <button id="back-btn" onclick="navBack()" style="display:none;background:none;border:none;cursor:pointer;color:rgba(255,255,255,.7);font-size:20px;padding:4px 8px;line-height:1;" title="Go back">←</button>
   <div class="location-switcher" id="loc-switcher">
     <button class="loc-btn active" onclick="setLocation('all',this)">All</button>
     <button class="loc-btn" onclick="setLocation('Blake',this)">Blake</button>
@@ -2250,7 +2254,7 @@ const cache = {
 // Bump APP_VERSION any time a deploy has breaking localStorage changes.
 // On version mismatch the entire localStorage is wiped so stale prefs never
 // cause weirdness after an update.
-const APP_VERSION = '2026-04-17b';
+const APP_VERSION = '2026-04-17c';
 (function() {
   try {
     if (localStorage.getItem('bsc_app_version') !== APP_VERSION) {
