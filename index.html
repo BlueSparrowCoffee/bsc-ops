@@ -50,6 +50,9 @@ h1,h2,h3,.stat-value{font-family:'IvyPresto Display','Hoefler Text',Georgia,seri
 
 /* ── TOP BAR ── */
 #topbar{background:var(--dark-blue);color:#fff;height:56px;display:flex;align-items:center;padding:0 20px;gap:16px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.25);}
+#nav-toggle{display:none;background:none;border:none;color:#fff;font-size:22px;cursor:pointer;padding:6px 10px;line-height:1;margin-left:-6px;font-family:inherit;}
+#nav-backdrop{display:none;position:fixed;inset:56px 0 0 0;background:rgba(0,0,0,.45);z-index:90;}
+#nav-backdrop.show{display:block;}
 .topbar-logo{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:600;}
 .topbar-logo span{font-size:22px;}
 .topbar-logo small{font-size:10px;color:rgba(255,255,255,.7);font-weight:400;display:block;margin-top:1px;}
@@ -318,13 +321,20 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
 .multi-cat-item input[type=checkbox]{accent-color:var(--gold);width:15px;height:15px;cursor:pointer;flex-shrink:0;}
 .multi-cat-item label{cursor:pointer;flex:1;}
 .multi-cat-divider{border:none;border-top:1px solid var(--border);margin:4px 0;}
+/* ── IOS POLISH ── */
+*{-webkit-tap-highlight-color:transparent;}
+body{overscroll-behavior-y:contain;}
 /* ── RESPONSIVE ── */
 @media(max-width:768px){
-  #sidebar{display:none;}
+  #nav-toggle{display:block;}
+  #sidebar{position:fixed;top:56px;left:0;height:calc(100vh - 56px);z-index:95;transform:translateX(-100%);transition:transform .22s ease;box-shadow:2px 0 12px rgba(0,0,0,.25);}
+  #sidebar.open{transform:translateX(0);}
   #content{padding:16px;}
   .stats-row{gap:10px;}
   .stat-card{min-width:120px;}
   .location-switcher{display:none;}
+  /* iOS auto-zoom prevention: inputs under 16px trigger page zoom on focus */
+  .search-input,.field-input,select.filter,input[type=text],input[type=number],input[type=email],input[type=password],input[type=tel],input[type=search],input[type=date],input[type=time],textarea,select{font-size:16px;}
 }
 </style>
 </head>
@@ -340,6 +350,7 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
 
 <!-- TOP BAR -->
 <div id="topbar">
+  <button id="nav-toggle" onclick="toggleNav()" aria-label="Menu">☰</button>
   <div class="topbar-logo">
     <img src="/feather.png" alt="BSC" style="height:32px;width:auto;">
     <div><div>Blue Sparrow Coffee</div><small>Operations Platform</small></div>
@@ -369,6 +380,9 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
 
 <!-- APP -->
 <div id="app">
+
+<!-- MOBILE NAV BACKDROP -->
+<div id="nav-backdrop" onclick="closeNav()"></div>
 
 <!-- SIDEBAR -->
 <div id="sidebar">
@@ -2236,7 +2250,7 @@ const cache = {
 // Bump APP_VERSION any time a deploy has breaking localStorage changes.
 // On version mismatch the entire localStorage is wiped so stale prefs never
 // cause weirdness after an update.
-const APP_VERSION = '2026-04-17a';
+const APP_VERSION = '2026-04-17b';
 (function() {
   try {
     if (localStorage.getItem('bsc_app_version') !== APP_VERSION) {
@@ -7536,7 +7550,19 @@ function navBack() {
 
 let _navSkipHistory = false;
 
+function toggleNav(){
+  const sb = document.getElementById('sidebar');
+  const bd = document.getElementById('nav-backdrop');
+  const open = sb.classList.toggle('open');
+  bd.classList.toggle('show', open);
+}
+function closeNav(){
+  document.getElementById('sidebar')?.classList.remove('open');
+  document.getElementById('nav-backdrop')?.classList.remove('show');
+}
+
 function nav(page) {
+  closeNav();
   // Page-level access check — blocks direct navigation even if nav item is hidden
   const module = PAGE_MODULE[page];
   if (module && !userCanAccess(module)) {
