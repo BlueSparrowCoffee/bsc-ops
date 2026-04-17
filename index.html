@@ -8660,9 +8660,22 @@ async function syncLabelsBagsSold() {
         const m = r.Month || r.Title || '';
         return m === label || _monthKey(m) === labelKey;
       });
-      if (rec && rec.BagsSold !== bags) {
-        await updateListItem(LISTS.labels, rec.id, { BagsSold: bags });
+      if (!rec) continue;
+      // Auto-calc Adjustment (BagsSold × 1.1) and roll EndBalance = StartBalance − Adjustment
+      const adjustment = Math.ceil(bags * 1.1);
+      const start = parseFloat(rec.StartBalance) || 0;
+      const endBal = Math.max(0, start - adjustment);
+      const cost   = rec.CostPerLabel ? parseFloat(rec.CostPerLabel) : 0;
+      const totalValue = cost > 0 ? +(endBal * cost).toFixed(2) : rec.TotalValue;
+      const needsUpdate = rec.BagsSold !== bags || rec.Adjustment !== adjustment || rec.EndBalance !== endBal;
+      if (needsUpdate) {
+        const patch = { BagsSold: bags, Adjustment: adjustment, EndBalance: endBal };
+        if (cost > 0) patch.TotalValue = totalValue;
+        await updateListItem(LISTS.labels, rec.id, patch);
         rec.BagsSold = bags;
+        rec.Adjustment = adjustment;
+        rec.EndBalance = endBal;
+        if (cost > 0) rec.TotalValue = totalValue;
         changed = true;
       }
     }
