@@ -7,7 +7,7 @@
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="BSC Ops">
 <meta name="theme-color" content="#023d4a">
 <!-- Always fetch fresh HTML — prevents browser from serving a cached old version after deploys -->
@@ -325,11 +325,11 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
 /* ── IOS POLISH ── */
 *{-webkit-tap-highlight-color:transparent;}
 html,body{overscroll-behavior:none;}
-/* ── PWA SAFE-AREA (iPhone notch / iPad home indicator) ── */
+/* ── PWA SAFE-AREA (iPad home indicator + landscape notch sides) ── */
+/* status-bar-style=black means iOS reserves status bar space itself, so no top padding needed */
 @media (display-mode: standalone){
-  #topbar{padding-top:env(safe-area-inset-top);padding-left:max(20px, env(safe-area-inset-left));padding-right:max(20px, env(safe-area-inset-right));height:calc(56px + env(safe-area-inset-top));}
-  #sidebar{top:calc(56px + env(safe-area-inset-top));height:calc(100vh - 56px - env(safe-area-inset-top));padding-bottom:env(safe-area-inset-bottom);}
-  #nav-backdrop{inset:calc(56px + env(safe-area-inset-top)) 0 0 0;}
+  #topbar{padding-left:max(20px, env(safe-area-inset-left));padding-right:max(20px, env(safe-area-inset-right));}
+  #sidebar{padding-bottom:env(safe-area-inset-bottom);}
   #content{padding-bottom:max(28px, env(safe-area-inset-bottom));padding-left:max(32px, env(safe-area-inset-left));padding-right:max(32px, env(safe-area-inset-right));}
   .toast{bottom:max(24px, env(safe-area-inset-bottom));}
 }
@@ -358,11 +358,6 @@ html,body{overscroll-behavior:none;}
   /* iOS auto-zoom prevention: inputs under 16px trigger page zoom on focus */
   .search-input,.field-input,select.filter,input[type=text],input[type=number],input[type=email],input[type=password],input[type=tel],input[type=search],input[type=date],input[type=time],textarea,select{font-size:16px;}
   /* PWA standalone + mobile: tighten safe-area */
-}
-@media (display-mode: standalone) and (max-width:768px){
-  /* PWA + mobile: sidebar + backdrop must sit below the safe-area-padded topbar */
-  #sidebar{top:calc(56px + env(safe-area-inset-top));height:calc(100vh - 56px - env(safe-area-inset-top));}
-  #nav-backdrop{inset:calc(56px + env(safe-area-inset-top)) 0 0 0;}
 }
 </style>
 </head>
@@ -2277,7 +2272,7 @@ const cache = {
 // Bump APP_VERSION any time a deploy has breaking localStorage changes.
 // On version mismatch the entire localStorage is wiped so stale prefs never
 // cause weirdness after an update.
-const APP_VERSION = '2026-04-17f';
+const APP_VERSION = '2026-04-17g';
 (function() {
   try {
     if (localStorage.getItem('bsc_app_version') !== APP_VERSION) {
