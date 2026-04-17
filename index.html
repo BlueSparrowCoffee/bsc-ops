@@ -1457,7 +1457,7 @@ html,body{overscroll-behavior:none;}
           <div style="font-weight:600;margin-bottom:4px">No Coffee Bar items found</div>
           <div style="font-size:13px">Sync your Square catalog first via Square → Sync Catalog → Menu.</div>
         </div>
-        <div id="cogs-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:20px;"></div>
+        <div id="cogs-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,380px),1fr));gap:20px;"></div>
       </div>
 
       <!-- Merch tab -->
@@ -1478,7 +1478,7 @@ html,body{overscroll-behavior:none;}
           <div style="font-weight:600;margin-bottom:4px;">No merch items found</div>
           <div style="font-size:13px;">Add merch items in Inventory → Merch, then set cost and price here.</div>
         </div>
-        <div id="merch-cogs-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px;"></div>
+        <div id="merch-cogs-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));gap:20px;"></div>
       </div>
 
       <!-- Food tab -->
@@ -1501,7 +1501,7 @@ html,body{overscroll-behavior:none;}
           <div style="font-weight:600;margin-bottom:4px;">No food items yet</div>
           <div style="font-size:13px;">Use "Sync from Square" to import items from your Food category.</div>
         </div>
-        <div id="food-cogs-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px;"></div>
+        <div id="food-cogs-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));gap:20px;"></div>
       </div>
 
       <!-- Grocery tab -->
@@ -1524,7 +1524,7 @@ html,body{overscroll-behavior:none;}
           <div style="font-weight:600;margin-bottom:4px;">No grocery items yet</div>
           <div style="font-size:13px;">Use "Sync from Square" to import items from your Grocery category.</div>
         </div>
-        <div id="grocery-cogs-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px;"></div>
+        <div id="grocery-cogs-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));gap:20px;"></div>
       </div>
 
       <!-- History tab -->
@@ -2283,7 +2283,7 @@ const cache = {
 // Bump APP_VERSION any time a deploy has breaking localStorage changes.
 // On version mismatch the entire localStorage is wiped so stale prefs never
 // cause weirdness after an update.
-const APP_VERSION = '2026-04-17j';
+const APP_VERSION = '2026-04-17k';
 (function() {
   try {
     if (localStorage.getItem('bsc_app_version') !== APP_VERSION) {
@@ -10949,7 +10949,7 @@ function renderCogCards() {
             color:var(--muted);padding:6px 0 10px;border-bottom:1.5px solid var(--border);margin-bottom:4px;">
             ${escHtml(cat)} <span style="font-weight:400;">(${catItems.length})</span>
           </div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:20px;margin-top:12px;">
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,380px),1fr));gap:20px;margin-top:12px;">
             ${catItems.map(item => renderCogCard(item, cogMap, invMap, prepMap, invIdMap)).join('')}
           </div>
         </div>`).join('');
