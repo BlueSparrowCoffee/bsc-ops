@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/logo.png">
@@ -57,6 +57,7 @@ h1,h2,h3,.stat-value{font-family:'IvyPresto Display','Hoefler Text',Georgia,seri
 .topbar-logo span{font-size:22px;}
 .topbar-logo small{font-size:10px;color:rgba(255,255,255,.7);font-weight:400;display:block;margin-top:1px;}
 .location-switcher{display:flex;gap:4px;margin-left:24px;}
+.location-switcher-mobile{display:none;padding:12px 14px 10px;gap:6px;flex-wrap:wrap;border-bottom:1px solid rgba(185,223,227,.1);margin-bottom:4px;}
 .loc-btn{padding:4px 12px;border:1.5px solid rgba(255,255,255,.3);border-radius:20px;background:transparent;color:#fff;font-size:12px;cursor:pointer;font-family:inherit;transition:all .15s;}
 .loc-btn:hover,.loc-btn.active{background:var(--gold);border-color:var(--gold);color:#fff;}
 .topbar-right{margin-left:auto;display:flex;align-items:flex-start;gap:12px;}
@@ -323,7 +324,15 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
 .multi-cat-divider{border:none;border-top:1px solid var(--border);margin:4px 0;}
 /* ── IOS POLISH ── */
 *{-webkit-tap-highlight-color:transparent;}
-body{overscroll-behavior-y:contain;}
+html,body{overscroll-behavior:none;}
+/* ── PWA SAFE-AREA (iPhone notch / iPad home indicator) ── */
+@media (display-mode: standalone){
+  #topbar{padding-top:env(safe-area-inset-top);padding-left:max(20px, env(safe-area-inset-left));padding-right:max(20px, env(safe-area-inset-right));height:calc(56px + env(safe-area-inset-top));}
+  #sidebar{top:calc(56px + env(safe-area-inset-top));height:calc(100vh - 56px - env(safe-area-inset-top));padding-bottom:env(safe-area-inset-bottom);}
+  #nav-backdrop{inset:calc(56px + env(safe-area-inset-top)) 0 0 0;}
+  #content{padding-bottom:max(28px, env(safe-area-inset-bottom));padding-left:max(32px, env(safe-area-inset-left));padding-right:max(32px, env(safe-area-inset-right));}
+  .toast{bottom:max(24px, env(safe-area-inset-bottom));}
+}
 /* ── RESPONSIVE ── */
 @media(max-width:768px){
   #nav-toggle{display:block;}
@@ -339,8 +348,19 @@ body{overscroll-behavior-y:contain;}
   .stats-row{gap:10px;}
   .stat-card{min-width:120px;}
   .location-switcher{display:none;}
+  .location-switcher-mobile{display:flex;}
+  .location-switcher-mobile .loc-btn{padding:8px 14px;font-size:13px;min-height:36px;}
+  /* Touch targets: bump buttons to iOS-friendly sizes on mobile */
+  .btn{min-height:40px;padding:10px 18px;font-size:14px;}
+  .btn-sm{min-height:34px;padding:7px 14px;font-size:13px;}
+  .btn-signout{min-height:32px;padding:6px 12px;font-size:12px;}
+  .nav-item{padding:12px 18px;font-size:14px;min-height:44px;}
   /* iOS auto-zoom prevention: inputs under 16px trigger page zoom on focus */
   .search-input,.field-input,select.filter,input[type=text],input[type=number],input[type=email],input[type=password],input[type=tel],input[type=search],input[type=date],input[type=time],textarea,select{font-size:16px;}
+  /* PWA standalone + mobile: tighten safe-area */
+}
+@media (display-mode: standalone) and (max-width:768px){
+  #sidebar.open{padding-top:0;}
 }
 </style>
 </head>
@@ -390,6 +410,7 @@ body{overscroll-behavior-y:contain;}
 
 <!-- SIDEBAR -->
 <div id="sidebar">
+  <div id="loc-switcher-mobile" class="location-switcher-mobile"></div>
   <div id="global-search-wrap">
     <svg id="global-search-icon" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
     <input id="global-search-input" placeholder="Search everything…" oninput="globalSearch(this.value)" onkeydown="globalSearchKey(event)" autocomplete="off">
@@ -2254,7 +2275,7 @@ const cache = {
 // Bump APP_VERSION any time a deploy has breaking localStorage changes.
 // On version mismatch the entire localStorage is wiped so stale prefs never
 // cause weirdness after an update.
-const APP_VERSION = '2026-04-17c';
+const APP_VERSION = '2026-04-17d';
 (function() {
   try {
     if (localStorage.getItem('bsc_app_version') !== APP_VERSION) {
@@ -7212,14 +7233,15 @@ function renderLocations() {
       </div>`).join('');
   }
   // Topbar location buttons — use active state from currentLocation, filter by access
+  const allowed = getAllowedLocations(locs);
+  const showAll = allowed.length > 1;
+  const btnsHTML =
+    (showAll ? `<button class="loc-btn${currentLocation==='all'?' active':''}" onclick="setLocation('all',this)">All</button>` : '')
+    + allowed.map(l=>`<button class="loc-btn${currentLocation===l?' active':''}" data-loc="${escHtml(l)}" onclick="setLocation(this.dataset.loc,this)">${escHtml(l)}</button>`).join('');
   const switcher = document.getElementById('loc-switcher');
-  if (switcher) {
-    const allowed = getAllowedLocations(locs);
-    const showAll = allowed.length > 1;
-    switcher.innerHTML =
-      (showAll ? `<button class="loc-btn${currentLocation==='all'?' active':''}" onclick="setLocation('all',this)">All</button>` : '')
-      + allowed.map(l=>`<button class="loc-btn${currentLocation===l?' active':''}" data-loc="${escHtml(l)}" onclick="setLocation(this.dataset.loc,this)">${escHtml(l)}</button>`).join('');
-  }
+  if (switcher) switcher.innerHTML = btnsHTML;
+  const switcherMobile = document.getElementById('loc-switcher-mobile');
+  if (switcherMobile) switcherMobile.innerHTML = btnsHTML;
 }
 function addLocation() {
   const input = document.getElementById('new-location-input');
