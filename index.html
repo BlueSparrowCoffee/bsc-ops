@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" href="/logo.png">
+<link rel="apple-touch-icon" href="/icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="BSC Ops">
@@ -239,10 +239,10 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
 .recipe-sections{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
 @media(max-width:520px){.recipe-sections{grid-template-columns:1fr;}}
 .recipe-section-label{font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--gold);text-transform:uppercase;margin-bottom:5px;}
-.recipe-ing-table{width:100%;border-collapse:collapse;font-size:12px;}
+.recipe-ing-table{width:100%;border-collapse:collapse;font-size:12px;min-width:0;table-layout:fixed;}
 .recipe-ing-table td{padding:3px 6px 3px 0;vertical-align:top;}
-.recipe-ing-table td:first-child{font-weight:600;color:var(--ink);}
-.recipe-ing-table td.ing-qty{color:var(--muted);white-space:nowrap;padding-right:4px;}
+.recipe-ing-table td:first-child{font-weight:600;color:var(--ink);word-break:break-word;}
+.recipe-ing-table td.ing-qty{color:var(--muted);white-space:nowrap;padding-right:4px;width:1%;text-align:right;}
 .recipe-ing-row-edit{display:flex;gap:6px;align-items:center;}
 .recipe-ing-row-edit input{border:1.5px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;font-family:inherit;}
 .recipe-ing-row-edit input:focus{outline:none;border-color:var(--gold);}
@@ -2275,7 +2275,7 @@ const cache = {
 // Bump APP_VERSION any time a deploy has breaking localStorage changes.
 // On version mismatch the entire localStorage is wiped so stale prefs never
 // cause weirdness after an update.
-const APP_VERSION = '2026-04-17d';
+const APP_VERSION = '2026-04-17e';
 (function() {
   try {
     if (localStorage.getItem('bsc_app_version') !== APP_VERSION) {
@@ -4433,6 +4433,65 @@ async function deleteInvItem(id) {
   finally { setLoading(false); }
 }
 
+// Propagate an inventory item rename to recipes, prep item ingredients, and COG recipes.
+// Recipe ingredients are stored as a JSON blob keyed only by name (no ID), so they match by old name.
+// Prep items and COG recipes have IngredientId, so they match reliably by ID.
+// COG history snapshots are intentionally NOT touched — they're historical records.
+async function propagateInventoryNameChange(itemId, oldName, newName) {
+  if (!oldName || !newName || oldName.trim() === newName.trim()) return 0;
+  const oldLower = oldName.toLowerCase().trim();
+  const patches = [];
+
+  // 1. Recipes — parse Ingredients JSON, match by name
+  for (const r of (cache.recipes || [])) {
+    if (!r.Ingredients) continue;
+    let ings;
+    try { ings = JSON.parse(r.Ingredients); } catch(e) { continue; }
+    if (!Array.isArray(ings) || !ings.length) continue;
+    let changed = false;
+    ings.forEach(ing => {
+      if (ing && ing.name && ing.name.toLowerCase().trim() === oldLower) {
+        ing.name = newName;
+        changed = true;
+      }
+    });
+    if (changed) {
+      const newJson = JSON.stringify(ings);
+      patches.push(
+        updateListItem(LISTS.recipes, r.id, { Ingredients: newJson })
+          .then(() => { r.Ingredients = newJson; })
+      );
+    }
+  }
+
+  // 2. Prep item ingredients — match by IngredientId
+  for (const pi of (cache.prepItemIngredients || [])) {
+    if (String(pi.IngredientId) === String(itemId) && pi.IngredientName !== newName) {
+      const prefix = (pi.Title || '').split(' — ')[0] || '';
+      const newTitle = prefix ? `${prefix} — ${newName}` : newName;
+      patches.push(
+        updateListItem(LISTS.prepItemIngredients, pi.id, { IngredientName: newName, Title: newTitle })
+          .then(() => { pi.IngredientName = newName; pi.Title = newTitle; })
+      );
+    }
+  }
+
+  // 3. COG recipes — match by IngredientId
+  for (const cog of (cache.cogsRecipes || [])) {
+    if (String(cog.IngredientId) === String(itemId) && cog.IngredientName !== newName) {
+      const newTitle = `${cog.MenuItemName || ''} — ${cog.VariationName || ''} — ${newName}`;
+      patches.push(
+        updateListItem(LISTS.cogs, cog.id, { IngredientName: newName, Title: newTitle })
+          .then(() => { cog.IngredientName = newName; cog.Title = newTitle; })
+      );
+    }
+  }
+
+  if (!patches.length) return 0;
+  const results = await Promise.allSettled(patches);
+  return results.filter(r => r.status === 'fulfilled').length;
+}
+
 async function saveInventoryItem() {
   const name = document.getElementById('new-item-name').value.trim();
   if (!name) { toast('err','Item name is required'); return; }
@@ -4491,11 +4550,18 @@ async function saveInventoryItem() {
   setLoading(true,'Saving…');
   try {
     if (_editInvId) {
-      // Edit mode
+      // Edit mode — capture old name BEFORE updating cache, for rename propagation
+      const existing = cache[cfg.cacheKey].find(i => i.id === _editInvId);
+      const oldName = existing ? (existing.ItemName || existing.Title || '') : '';
       await updateListItem(LISTS[cfg.listKey], _editInvId, fields);
       const idx = cache[cfg.cacheKey].findIndex(i => i.id === _editInvId);
       if (idx !== -1) cache[cfg.cacheKey][idx] = { ...cache[cfg.cacheKey][idx], ...fields };
-      toast('ok','✓ Item updated');
+      let propagated = 0;
+      if (oldName && oldName.trim() !== name.trim()) {
+        try { propagated = await propagateInventoryNameChange(_editInvId, oldName, name); }
+        catch(e) { console.warn('Name propagation failed:', e); }
+      }
+      toast('ok', propagated ? `✓ Item updated (${propagated} reference${propagated===1?'':'s'} renamed)` : '✓ Item updated');
     } else {
       // Add mode
       const item = await addListItem(LISTS[cfg.listKey], fields);
@@ -4503,6 +4569,7 @@ async function saveInventoryItem() {
       toast('ok','✓ Item added');
     }
     renderInventory(); renderDashboard(); populateSelects();
+    if (typeof renderRecipes === 'function') renderRecipes();
     closeModal('modal-add-item');
   } catch(e) { toast('err','Save failed: '+e.message); }
   finally { setLoading(false); }
