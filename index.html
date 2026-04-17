@@ -4118,9 +4118,8 @@ async function pullMerchSalesFromSquare() {
     }
 
     // Square Orders API — search orders for the location
-    const locMap = getSquareLocMap();
     const loc = currentLocation;
-    const squareLocId = locMap[loc];
+    const squareLocId = bscNameToSquareLocId(loc);
     if (!squareLocId) { toast('err',`No Square location mapped for "${loc}"`); return; }
 
     let cursor = null, salesMap = {}; // itemName → qty sold
@@ -7604,8 +7603,7 @@ async function fetchSquareSalesForMerchMonth(monthStr, loc) {
       if (i.SquareCatalogItemId) catalogMap[i.SquareCatalogItemId.trim()] = i.ItemName;
     });
     if (!Object.keys(catalogMap).length) return {};
-    const locMap = getSquareLocMap();
-    const squareLocId = loc !== 'all' ? locMap[loc] : Object.values(locMap)[0];
+    const squareLocId = loc !== 'all' ? bscNameToSquareLocId(loc) : getSquareLocIds()[0];
     if (!squareLocId) return {};
     let cursor = null;
     const salesMap = {}; // itemName → {qty, revenue (dollars)}
@@ -8596,8 +8594,7 @@ async function syncLabelsBagsSold() {
   // Rate-limit: skip if synced within last 5 minutes
   if (Date.now() - _labelsSyncedAt < 5 * 60 * 1000) return;
 
-  const locMap = getSquareLocMap();
-  const squareLocIds = Object.values(locMap).filter(Boolean);
+  const squareLocIds = getSquareLocIds();
   if (!squareLocIds.length) return; // Square not configured
 
   _labelsSyncedAt = Date.now();
@@ -9557,6 +9554,12 @@ async function squareAPI(method, path, body) {
 // ── Settings helpers ─────────────────────────────────────────────────────
 function getSquareToken()      { return getSetting('square_token'); }
 function getSquareLocMap()     { try { return JSON.parse(getSetting('square_loc_map')||'{}'); } catch { return {}; } }
+// Map is stored as { squareId: bscName }. Helpers:
+function getSquareLocIds()      { return Object.keys(getSquareLocMap()); }
+function bscNameToSquareLocId(bscName) {
+  const m = getSquareLocMap();
+  return Object.entries(m).find(([, v]) => v === bscName)?.[0] || null;
+}
 
 async function saveSquareToken() {
   const val = document.getElementById('sq-token-input').value.trim();
@@ -9580,7 +9583,7 @@ async function testSquareAPIs() {
   log.textContent = 'Running tests…\n';
 
   const locMap = getSquareLocMap();
-  const firstLocId = Object.values(locMap).filter(Boolean)[0];
+  const firstLocId = getSquareLocIds()[0];
   const now = new Date();
   const yesterday = new Date(now.getTime() - 24*60*60*1000);
 
@@ -9623,7 +9626,7 @@ async function testSquareAPIs() {
   // Render results
   const lines = [
     '═══ Square API Diagnostic ═══',
-    `Locations configured: ${Object.values(locMap).filter(Boolean).length}`,
+    `Locations configured: ${Object.keys(locMap).length}`,
     `Using loc ID: ${firstLocId || '(none!)'}`,
     '',
     ...results.map(r => `${r.ok ? '✓' : '✗'} [${r.status}] ${r.name} — ${r.detail}`),
