@@ -8667,8 +8667,13 @@ async function syncLabelsBagsSold() {
     if (changed) renderLabelsPage();
     toast('ok', `Bags sold synced: ${results.map(r => `${r.label} → ${r.bags}`).join(', ')}`);
   } catch(e) {
-    console.warn('[BSC] syncLabelsBagsSold failed:', e.message);
-    toast('err', 'Bags sold sync failed: ' + e.message);
+    _labelsSyncedAt = 0; // reset rate-limit so it retries next time
+    const lower = (e.message || '').toLowerCase();
+    const msg = (lower.includes('permission') || lower.includes('forbidden') || lower.includes('403') || lower.includes('not authorized'))
+      ? 'Square Orders API permission denied — enable ORDERS_READ in your Square app settings'
+      : 'Bags sold sync failed: ' + e.message;
+    console.warn('[BSC] syncLabelsBagsSold:', e.message);
+    toast('err', msg);
   }
 }
 
