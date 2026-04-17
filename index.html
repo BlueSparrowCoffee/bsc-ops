@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/logo.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BSC Ops">
 <meta name="theme-color" content="#023d4a">
 <!-- Always fetch fresh HTML — prevents browser from serving a cached old version after deploys -->
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -2232,7 +2236,7 @@ const cache = {
 // Bump APP_VERSION any time a deploy has breaking localStorage changes.
 // On version mismatch the entire localStorage is wiped so stale prefs never
 // cause weirdness after an update.
-const APP_VERSION = '2026-04-12f';
+const APP_VERSION = '2026-04-17a';
 (function() {
   try {
     if (localStorage.getItem('bsc_app_version') !== APP_VERSION) {
