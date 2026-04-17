@@ -360,7 +360,9 @@ html,body{overscroll-behavior:none;}
   /* PWA standalone + mobile: tighten safe-area */
 }
 @media (display-mode: standalone) and (max-width:768px){
-  #sidebar.open{padding-top:0;}
+  /* PWA + mobile: sidebar + backdrop must sit below the safe-area-padded topbar */
+  #sidebar{top:calc(56px + env(safe-area-inset-top));height:calc(100vh - 56px - env(safe-area-inset-top));}
+  #nav-backdrop{inset:calc(56px + env(safe-area-inset-top)) 0 0 0;}
 }
 </style>
 </head>
@@ -2275,7 +2277,7 @@ const cache = {
 // Bump APP_VERSION any time a deploy has breaking localStorage changes.
 // On version mismatch the entire localStorage is wiped so stale prefs never
 // cause weirdness after an update.
-const APP_VERSION = '2026-04-17e';
+const APP_VERSION = '2026-04-17f';
 (function() {
   try {
     if (localStorage.getItem('bsc_app_version') !== APP_VERSION) {
