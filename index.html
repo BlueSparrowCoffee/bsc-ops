@@ -821,7 +821,7 @@ html,body{overscroll-behavior:none;}
       <button class="btn btn-primary ml-auto" onclick="openRecipeForm(null)">+ Add Recipe</button>
       <span id="recipe-count" style="font-size:13px;color:var(--muted);align-self:center;"></span>
     </div>
-    <div class="cards-grid" id="recipe-grid" style="grid-template-columns:repeat(auto-fill,minmax(380px,1fr));"></div>
+    <div class="cards-grid" id="recipe-grid" style="grid-template-columns:repeat(auto-fill,minmax(min(100%,380px),1fr));"></div>
     <div class="no-data" id="recipe-empty" style="display:none">No recipes yet — add your first one above.</div>
   </div>
 
@@ -2283,7 +2283,7 @@ const cache = {
 // Bump APP_VERSION any time a deploy has breaking localStorage changes.
 // On version mismatch the entire localStorage is wiped so stale prefs never
 // cause weirdness after an update.
-const APP_VERSION = '2026-04-17i';
+const APP_VERSION = '2026-04-17j';
 (function() {
   try {
     if (localStorage.getItem('bsc_app_version') !== APP_VERSION) {
