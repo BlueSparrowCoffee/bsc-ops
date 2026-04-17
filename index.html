@@ -294,6 +294,17 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
 .count-total-box{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:56px;}
 .count-total-box label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);}
 .count-total-val{font-size:16px;font-weight:700;color:var(--espresso);}
+@media(max-width:640px){
+  .count-row{gap:6px;padding:10px 4px;}
+  .count-row > div:first-child{flex-basis:100% !important;min-width:0 !important;flex-grow:1;}
+  .count-item-name{min-width:0;font-size:14px;}
+  .count-item-meta{white-space:normal;line-height:1.3;font-size:11px;}
+  .count-num-input{width:58px;padding:8px 2px;}
+  .count-input-group label{font-size:9px;}
+  .count-total-box{min-width:44px;}
+  .count-total-val{font-size:15px;}
+  .count-row > div{flex-shrink:0;}
+}
 /* ── ANALYTICS ── */
 .analytics-summary{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;}
 .analytics-stat{flex:1;min-width:130px;background:#fff;border:1.5px solid var(--border);border-radius:10px;padding:14px;text-align:center;}
@@ -2272,7 +2283,7 @@ const cache = {
 // Bump APP_VERSION any time a deploy has breaking localStorage changes.
 // On version mismatch the entire localStorage is wiped so stale prefs never
 // cause weirdness after an update.
-const APP_VERSION = '2026-04-17g';
+const APP_VERSION = '2026-04-17h';
 (function() {
   try {
     if (localStorage.getItem('bsc_app_version') !== APP_VERSION) {
@@ -3718,12 +3729,11 @@ function renderCountSheet() {
       <div class="count-cat-header">${vendor}</div>
       ${vendorItems.map(item => {
         const last = recentMap[item.ItemName];
-        const lastLabel = last ? `Last count: <span style="color:var(--muted)">${last.weekOf||''}${last.countedBy ? ' · '+escHtml(last.countedBy) : ''}</span>` : 'No prior count';
         const unit = item.OrderUnit || item.Unit || '';
         return `<div class="count-row" data-id="${item.id}" data-name="${(item.ItemName||'').replace(/"/g,'&quot;')}">
           <div style="flex:1;min-width:160px">
             <div class="count-item-name">${item.ItemName||'—'}</div>
-            <div class="count-item-meta">${lastLabel} &nbsp;·&nbsp; par ${item.ParLevel||0} ${unit}</div>
+            <div class="count-item-meta">par ${item.ParLevel||0} ${unit}</div>
           </div>
           <div class="count-input-group">
             <label>Store</label>
@@ -6397,7 +6407,6 @@ function renderRecipes(query='') {
     return `<div class="recipe-card" data-gs-id="${escHtml(r.id)}" onclick="openRecipeForm('${r.id}')">
       <div class="recipe-card-title">${escHtml(r.Title||'Untitled Recipe')}</div>
       ${r.Yield ? `<div style="font-size:11px;color:var(--gold);font-weight:600;margin-top:2px;">Yields ${escHtml(r.Yield)}</div>` : ''}
-      ${meta ? `<div class="recipe-meta">${meta}</div>` : ''}
       ${bodyHtml}
       ${notesHtml}
       <button class="recipe-edit-btn" onclick="event.stopPropagation();openRecipeForm('${r.id}')">✏️ Edit</button>
