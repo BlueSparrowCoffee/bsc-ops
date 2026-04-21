@@ -2117,11 +2117,12 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-04-18e"></script>
-<script src="/js/utils.js?v=2026-04-18e"></script>
-<script src="/js/state.js?v=2026-04-18e"></script>
-<script src="/js/auth.js?v=2026-04-18e"></script>
-<script src="/js/graph.js?v=2026-04-18e"></script>
+<script src="/js/constants.js?v=2026-04-18f"></script>
+<script src="/js/utils.js?v=2026-04-18f"></script>
+<script src="/js/state.js?v=2026-04-18f"></script>
+<script src="/js/auth.js?v=2026-04-18f"></script>
+<script src="/js/graph.js?v=2026-04-18f"></script>
+<script src="/js/signalr.js?v=2026-04-18f"></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
@@ -2608,129 +2609,10 @@ function renderAll() {
   checkMaintNotifications();
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-// REAL-TIME SYNC (SharePoint webhooks → Azure SignalR → browser)
-// ════════════════════════════════════════════════════════════════════════════
-
-// LIST_PAGE_MAP moved to js/constants.js
-
-// Page ID → re-render function
-const PAGE_RENDER_FN = {
-  dashboard:        () => renderDashboard(),
-  inventory:        () => renderInventory(),
-  ordering:         () => { renderOrders(); },
-  checklists:       () => renderChecklists(),
-  vendors:          () => renderVendors(),
-  recipes:          () => renderRecipes(),
-  staff:            () => renderStaff(),
-  'prep-items':     () => renderPrepItems(),
-  cogs:             () => renderCogs(),
-  menu:             () => renderMenu(),
-  'maint-contacts': () => renderMaintContacts(),
-  'maint-schedule': () => renderMaintSchedule(),
-  settings:         () => { renderRoles(); renderTagsSettings(); initColMgr(); },
-  parking:          () => renderParking(),
-};
-
-// _pendingRefreshKeys moved to js/state.js
-let _signalRConn       = null;
-let _webhooksRegistered = false;
-
-function getActivePage() {
-  const el = document.querySelector('.page.active');
-  return el ? el.id.replace('page-', '') : null;
-}
-
-function isAnyModalOpen() {
-  return !!document.querySelector('.modal-overlay.show');
-}
-
-function triggerPageRefresh(listKey) {
-  const activePage = getActivePage();
-  if (!activePage) return;
-  const affected = LIST_PAGE_MAP[listKey] || [];
-  if (affected.includes(activePage)) {
-    PAGE_RENDER_FN[activePage]?.();
-  }
-}
-
-async function handleListChanged(listKey) {
-  if (!listKey || !LISTS[listKey]) return;
-  try {
-    const siteId = await getSiteId();
-    cache[listKey] = await getListItems(siteId, LISTS[listKey]);
-  } catch(e) {
-    console.warn('[BSC] Real-time refresh failed for', listKey, e.message);
-    return;
-  }
-  if (isAnyModalOpen()) {
-    _pendingRefreshKeys.add(listKey);
-  } else {
-    triggerPageRefresh(listKey);
-  }
-}
-
-async function initSignalR() {
-  if (typeof signalR === 'undefined') return;
-  try {
-    _signalRConn = new signalR.HubConnectionBuilder()
-      .withUrl(`${window.location.origin}/api`)
-      .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
-      .configureLogging(signalR.LogLevel.None)
-      .build();
-    _signalRConn.on('listChanged', ({ listKey }) => handleListChanged(listKey));
-    // If all automatic retries are exhausted, schedule a full restart after 60 s
-    _signalRConn.onclose(() => {
-      console.warn('[BSC] SignalR closed — will retry in 60 s');
-      _signalRConn = null;
-      setTimeout(initSignalR, 60_000);
-    });
-    _signalRConn.onreconnecting(() => {});
-    _signalRConn.onreconnected(() => {});
-    await _signalRConn.start();
-  } catch(e) {
-    console.warn('[BSC] SignalR unavailable — will retry in 60 s:', e.message);
-    _signalRConn = null;
-    setTimeout(initSignalR, 60_000);
-  }
-}
-
-async function registerWebhooks() {
-  if (_webhooksRegistered || !isOwner()) return;
-  _webhooksRegistered = true;
-  // Only re-check once every 12 hours to avoid hammering the Graph API
-  const lastCheck = parseInt(localStorage.getItem('bsc_webhook_check') || '0');
-  if (Date.now() - lastCheck < 12 * 60 * 60 * 1000) return;
-  localStorage.setItem('bsc_webhook_check', String(Date.now()));
-  const siteId        = await getSiteId();
-  const listCache     = await getSpListCache(siteId);
-  const notifyUrl     = `${window.location.origin}/api/sp-webhook`;
-  const expiry        = new Date(Date.now() + WEBHOOK_EXPIRY_DAYS * 24 * 60 * 60 * 1000).toISOString();
-  for (const [listKey, listName] of Object.entries(LISTS)) {
-    try {
-      const listId = listCache[listName];
-      if (!listId) continue;
-      const subsRes  = await graph('GET', `/sites/${siteId}/lists/${listId}/subscriptions`);
-      const existing = (subsRes.value || []).find(s => s.notificationUrl === notifyUrl);
-      if (existing) {
-        const daysLeft = (new Date(existing.expirationDateTime) - Date.now()) / 86400000;
-        if (daysLeft < 30) {
-          await graph('PATCH', `/sites/${siteId}/lists/${listId}/subscriptions/${existing.id}`, { expirationDateTime: expiry });
-        }
-      } else {
-        await graph('POST', `/sites/${siteId}/lists/${listId}/subscriptions`, {
-          notificationUrl: notifyUrl,
-          expirationDateTime: expiry,
-          clientState: `bscops-${listKey}`
-        });
-      }
-    } catch(e) {
-      // Non-fatal — some lists may not support webhooks
-      console.warn(`[BSC] Webhook skipped for ${listKey}:`, e.message);
-    }
-  }
-  console.log('[BSC] Webhook registration complete');
-}
+// REAL-TIME SYNC (SharePoint webhooks → Azure SignalR → browser):
+// PAGE_RENDER_FN, _signalRConn, _webhooksRegistered, getActivePage,
+// isAnyModalOpen, triggerPageRefresh, handleListChanged, initSignalR,
+// registerWebhooks moved to js/signalr.js
 
 // ════════════════════════════════════════════════════════════════════════════
 // DASHBOARD
