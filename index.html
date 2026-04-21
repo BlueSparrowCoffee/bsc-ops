@@ -2117,19 +2117,18 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-04-18d"></script>
-<script src="/js/utils.js?v=2026-04-18d"></script>
-<script src="/js/state.js?v=2026-04-18d"></script>
-<script src="/js/auth.js?v=2026-04-18d"></script>
+<script src="/js/constants.js?v=2026-04-18e"></script>
+<script src="/js/utils.js?v=2026-04-18e"></script>
+<script src="/js/state.js?v=2026-04-18e"></script>
+<script src="/js/auth.js?v=2026-04-18e"></script>
+<script src="/js/graph.js?v=2026-04-18e"></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
 
-// ── TIMING & OPERATIONAL CONSTANTS ──────────────────────────────────────────
-const SP_PAGE_SIZE          = 500;  // Graph API $top — max items per list fetch
-const WEBHOOK_EXPIRY_DAYS   = 170;  // SharePoint webhook max lifetime (days)
-const MODAL_FOCUS_DELAY_MS  = 100;  // ms to wait before focusing first field in a modal
-// NAV_SETTLE_MS, SEARCH_DEBOUNCE_MS, MODULES, EQUIPMENT_LIST, FREQ_DAYS moved to js/constants.js
+// Timing/operational constants (SP_PAGE_SIZE, WEBHOOK_EXPIRY_DAYS,
+// MODAL_FOCUS_DELAY_MS, NAV_SETTLE_MS, SEARCH_DEBOUNCE_MS) and module
+// config (MODULES, EQUIPMENT_LIST, FREQ_DAYS) moved to js/constants.js
 // Per-location inventory list name helpers
 function invListName() {
   return LISTS.inventory; // Single shared item master across all locations
@@ -2197,115 +2196,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 // signIn, signOut, applyUser, resolveCurrentStaffMember, updateTopbarStaffInfo,
 // getToken, getAdminToken, getSharePointToken moved to js/auth.js
 
-async function graph(method, path, body = null) {
-  const token = await getToken();
-  const res = await fetch(`https://graph.microsoft.com/v1.0${path}`, {
-    method,
-    headers: { 'Authorization':'Bearer '+token, 'Content-Type':'application/json' },
-    body: body ? JSON.stringify(body) : null
-  });
-  if (!res.ok) {
-    const e = await res.json().catch(()=>({}));
-    throw new Error(`[${res.status}] ${e?.error?.message || 'Graph error'}`);
-  }
-  return res.status === 204 ? null : res.json();
-}
-
-async function graphAdmin(method, path, body = null) {
-  const token = await getAdminToken();
-  const res = await fetch(`https://graph.microsoft.com/v1.0${path}`, {
-    method,
-    headers: { 'Authorization':'Bearer '+token, 'Content-Type':'application/json' },
-    body: body ? JSON.stringify(body) : null
-  });
-  if (!res.ok) {
-    const e = await res.json().catch(()=>({}));
-    throw new Error(`[${res.status}] ${e?.error?.message || 'Graph error'}`);
-  }
-  return res.status === 204 ? null : res.json();
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-// SHAREPOINT SETUP
-// ════════════════════════════════════════════════════════════════════════════
-async function getSiteId() {
-  if (CFG.siteId) return CFG.siteId;
-  const res = await graph('GET','/sites/mainspringdevelopers.sharepoint.com:/sites/BlueSparrowCoffeeOps?$select=id');
-  CFG.siteId = res.id;
-  return CFG.siteId;
-}
-
-// _spListCache moved to js/state.js (session-level cache of existing SP list name → id)
-async function getSpListCache(siteId) {
-  if (_spListCache) return _spListCache;
-  _spListCache = {};
-  // Follow all pages so we never miss a list
-  let url = `/sites/${siteId}/lists?$select=name,displayName,id&$top=${SP_PAGE_SIZE}`;
-  while (url) {
-    const res = await graph('GET', url);
-    (res.value || []).forEach(l => {
-      if (l.name)        _spListCache[l.name]        = l.id;
-      if (l.displayName) _spListCache[l.displayName] = l.id;
-    });
-    // nextLink is a full URL — strip the base so graph() can use it
-    const next = res['@odata.nextLink'];
-    url = next ? next.replace('https://graph.microsoft.com/v1.0', '') : null;
-  }
-  return _spListCache;
-}
-
-async function ensureList(listName, columns) {
-  const siteId = await getSiteId();
-  const listCache = await getSpListCache(siteId);
-  let listId = listCache[listName];
-
-  if (!listId) {
-    const token = await getToken();
-    const base = `https://graph.microsoft.com/v1.0/sites/${siteId}/lists`;
-    // GET first — avoids a 409 when the list exists but the name cache missed
-    const getRes = await fetch(
-      `${base}/${encodeURIComponent(listName)}?$select=id`,
-      { headers: { Authorization: 'Bearer ' + token } }
-    );
-    if (getRes.ok) {
-      const r = await getRes.json();
-      listId = r.id;
-    } else if (getRes.status === 404) {
-      // Genuinely doesn't exist — create it
-      const createRes = await fetch(base, {
-        method: 'POST',
-        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ displayName: listName, list: { template: 'genericList' } })
-      });
-      if (!createRes.ok) {
-        const err = await createRes.json().catch(() => ({}));
-        throw new Error(err.error?.message || `List create failed: ${createRes.status}`);
-      }
-      const r = await createRes.json();
-      listId = r.id;
-    } else {
-      const err = await getRes.json().catch(() => ({}));
-      throw new Error(err.error?.message || `List lookup failed: ${getRes.status}`);
-    }
-    listCache[listName] = listId;
-  }
-
-  // Add any missing columns one-by-one
-  if (columns && columns.length) {
-    const existing = await graph('GET', `/sites/${siteId}/lists/${listId}/columns?$select=name`);
-    const existNames = new Set((existing.value || []).map(c => c.name));
-    for (const col of columns) {
-      if (existNames.has(col.name)) continue;
-      const colDef = { name: col.name, enforceUniqueValues: false, hidden: false, indexed: false };
-      if (col.text)     colDef.text     = col.text;
-      if (col.dateTime) colDef.dateTime = col.dateTime;
-      if (col.number)   colDef.number   = col.number;
-      if (col.boolean)  colDef.boolean  = col.boolean;
-      await graph('POST', `/sites/${siteId}/lists/${listId}/columns`, colDef);
-    }
-  }
-  return listId;
-}
+// graph, graphAdmin, getSiteId, getSpListCache, ensureList moved to js/graph.js
 
 // PROVISION_VERSION, CACHE_MAX_AGE moved to js/constants.js
 
@@ -2650,34 +2541,7 @@ async function loadAllData() {
   saveCachedData(); // persist to localStorage for next session's instant render
 }
 
-async function getListItems(siteId, listName) {
-  try {
-    const items = [];
-    let url = `/sites/${siteId}/lists/${listName}/items?expand=fields&$top=${SP_PAGE_SIZE}`;
-    while (url) {
-      const res = await graph('GET', url);
-      items.push(...(res.value||[]).map(i=>({id:i.id,...i.fields})));
-      url = res['@odata.nextLink']?.replace('https://graph.microsoft.com/v1.0','') ?? null;
-    }
-    return items;
-  } catch { return []; }
-}
-
-async function getCountHistoryForList(siteId, listName) {
-  if (!listName) return [];
-  // Skip fetch entirely if list isn't in the cache — avoids 404 console noise
-  if (_spListCache && !_spListCache[listName]) return [];
-  try {
-    const items = [];
-    let url = `/sites/${siteId}/lists/${listName}/items?expand=fields&$top=${SP_PAGE_SIZE}`;
-    while (url) {
-      const res = await graph('GET', url);
-      items.push(...(res.value||[]).map(i=>({id:i.id,...i.fields})));
-      url = res['@odata.nextLink']?.replace('https://graph.microsoft.com/v1.0','') ?? null;
-    }
-    return items;
-  } catch { return []; }
-}
+// getListItems, getCountHistoryForList moved to js/graph.js
 
 async function loadInventoryData(siteId) {
   const locs = getLocations();
@@ -2722,20 +2586,7 @@ async function getRecipeItems(siteId) {
   } catch { return []; }
 }
 
-async function addListItem(listName, fields) {
-  const siteId = await getSiteId();
-  const res = await graph('POST',`/sites/${siteId}/lists/${listName}/items`,{fields});
-  return {id:res.id,...res.fields};
-}
-
-async function updateListItem(listName, itemId, fields) {
-  const siteId = await getSiteId();
-  await graph('PATCH',`/sites/${siteId}/lists/${listName}/items/${itemId}/fields`,fields);
-}
-async function deleteListItem(listName, itemId) {
-  const siteId = await getSiteId();
-  await graph('DELETE',`/sites/${siteId}/lists/${listName}/items/${itemId}`);
-}
+// addListItem, updateListItem, deleteListItem moved to js/graph.js
 
 // ════════════════════════════════════════════════════════════════════════════
 // RENDER ALL
@@ -4954,64 +4805,7 @@ function updateDashChecklist() {
 // ════════════════════════════════════════════════════════════════════════════
 // SP_SYSTEM_FIELDS moved to js/constants.js
 
-// _colDisplayNames, _colReadOnly moved to js/state.js
-async function loadListColNames(siteId, listName) {
-  try {
-    const res = await graph('GET',`/sites/${siteId}/lists/${listName}/columns?$select=name,displayName,readOnly,hidden&$top=200`);
-    const map = {};
-    const ro = new Set();
-    (res.value||[]).forEach(c=>{
-      if(c.name && c.displayName) map[c.name]=c.displayName;
-      if(c.readOnly || c.hidden) ro.add(c.name);
-    });
-    _colDisplayNames[listName] = map;
-    _colReadOnly[listName] = ro;
-  } catch { _colDisplayNames[listName] = {}; _colReadOnly[listName] = new Set(); }
-}
-
-function isEditableField(key, listName) {
-  if (SP_SYSTEM_FIELDS.has(key)) return false;
-  if (_colReadOnly[listName] && _colReadOnly[listName].has(key)) return false;
-  return true;
-}
-
-// LIST_FIELD_LABELS moved to js/constants.js
-
-function spFieldLabel(key, listName) {
-  // Check per-list label overrides first
-  if (listName && LIST_FIELD_LABELS[listName] && LIST_FIELD_LABELS[listName][key]) {
-    return LIST_FIELD_LABELS[listName][key];
-  }
-  // Use SharePoint display name if available
-  if (listName && _colDisplayNames[listName] && _colDisplayNames[listName][key]) {
-    return _colDisplayNames[listName][key];
-  }
-  return key
-    .replace(/_x([0-9a-f]{4})_/gi, (_,h)=>String.fromCharCode(parseInt(h,16))) // decode hex chars
-    .replace(/([a-z])([A-Z])/g, '$1 $2') // split camelCase
-    .replace(/_/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function spCellValue(key, val) {
-  if (!val || val==='') return '—';
-  const k = key.toLowerCase();
-  // Multi-value fields stored as newline-separated — render each on its own line
-  if (String(val).includes('\n')) {
-    const parts = String(val).split('\n').map(s=>s.trim()).filter(Boolean);
-    return parts.map(p=>spCellValue(key, p)).join('<br>');
-  }
-  const safe = escHtml(String(val));
-  if (k.includes('phone')||k.includes('tel')) return `<a href="tel:${val.toString().replace(/\D/g,'')}">${safe}</a>`;
-  if (k.includes('email')||k.includes('mail')) return `<a href="mailto:${safe}">${safe}</a>`;
-  if (k.includes('website')||k.includes('url')) {
-    // Only allow http/https URLs
-    const href = /^https?:\/\//i.test(val) ? escHtml(val) : '#';
-    return `<a href="${href}" target="_blank" rel="noopener noreferrer">↗</a>`;
-  }
-  return safe;
-}
+// loadListColNames, isEditableField, spFieldLabel, spCellValue moved to js/graph.js
 
 // HIDDEN_COLS_VERSION + DEFAULT_HIDDEN_COLS moved to js/constants.js
 function getHiddenCols(listKey) {

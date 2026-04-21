@@ -6,8 +6,11 @@
  * ================================================================ */
 
 // ── Timing / UI tuning ───────────────────────────────────────────
-const NAV_SETTLE_MS      = 80;   // ms to wait after nav() before querying newly rendered DOM
-const SEARCH_DEBOUNCE_MS = 150;  // ms to debounce search/filter inputs
+const NAV_SETTLE_MS         = 80;   // ms to wait after nav() before querying newly rendered DOM
+const SEARCH_DEBOUNCE_MS    = 150;  // ms to debounce search/filter inputs
+const MODAL_FOCUS_DELAY_MS  = 100;  // ms to wait before focusing first field in a modal
+const SP_PAGE_SIZE          = 500;  // Graph API $top — max items per list fetch
+const WEBHOOK_EXPIRY_DAYS   = 170;  // SharePoint webhook max lifetime (days)
 
 // ── App modules / navigation ─────────────────────────────────────
 const MODULES = ['Dashboard','Inventory','Transfers','Ordering','Checklists','Vendors','Recipes','Staff','Maintenance','Contacts','Menu','Prep','Square','COGs','Settings'];
@@ -181,7 +184,7 @@ const INV_COG_CFG = {
 // Bump APP_VERSION any time a deploy has breaking localStorage changes.
 // On version mismatch the entire localStorage is wiped so stale prefs never
 // cause weirdness after an update.
-const APP_VERSION = '2026-04-18d';
+const APP_VERSION = '2026-04-18e';
 (function() {
   try {
     if (localStorage.getItem('bsc_app_version') !== APP_VERSION) {
