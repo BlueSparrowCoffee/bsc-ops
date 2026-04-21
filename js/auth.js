@@ -109,6 +109,32 @@ function updateTopbarStaffInfo() {
   }
 }
 
+// ── Permission helpers ──────────────────────────────────────────
+// Role gates used all over the app (inventory, nav, signalr, cogs…).
+// Defined here so every downstream module can rely on them at call
+// time. Unlinked logins are treated as permissive during setup —
+// once a staff record exists the real role string governs access.
+function isManagerOrOwner() {
+  if (!currentUser) return false;
+  if (!currentStaffMember) return true; // unlinked login → allow during setup
+  const role = (currentStaffMember.Role || '').toLowerCase();
+  return role.includes('manager') || role.includes('owner') || role.includes('admin') || role === '';
+}
+
+function isOwner() {
+  if (!currentUser) return false;
+  if (!currentStaffMember) return true; // unlinked login → allow during setup
+  const role = (currentStaffMember.Role || '').toLowerCase();
+  return role.includes('owner') || role.includes('admin');
+}
+
+function isOwnerOrAccounting() {
+  if (!currentUser) return false;
+  if (!currentStaffMember) return true; // unlinked login → allow during setup
+  const role = (currentStaffMember.Role || '').toLowerCase();
+  return role.includes('owner') || role.includes('admin') || role.includes('accounting');
+}
+
 // ── Token acquisition ───────────────────────────────────────────
 // Graph calls use getToken(); admin operations (staff sync, tenant
 // invites) use getAdminToken(). SharePoint REST calls use
