@@ -2117,26 +2117,13 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-04-18c"></script>
-<script src="/js/utils.js?v=2026-04-18c"></script>
-<script src="/js/state.js?v=2026-04-18c"></script>
+<script src="/js/constants.js?v=2026-04-18d"></script>
+<script src="/js/utils.js?v=2026-04-18d"></script>
+<script src="/js/state.js?v=2026-04-18d"></script>
+<script src="/js/auth.js?v=2026-04-18d"></script>
 
 <script>
-// ════════════════════════════════════════════════════════════════════════════
-// CONFIG
-// ════════════════════════════════════════════════════════════════════════════
-const CFG = {
-  clientId:     'a466e07b-68f4-4881-bdcc-d3adeb356799',
-  tenantId:     'b808062f-1ca4-4f25-a2eb-8998fac8dc52',
-  slack:        'SLACK_WEBHOOK_PLACEHOLDER',
-  locations:    ['Blake','Platte','Sherman','17th'],
-  internalDomain: 'bluesparrowcoffee.com'  // verified AAD domain — use direct grant, not B2B invite
-};
-
-// Base scopes — requested on every login, every token call
-const SCOPES = ['Sites.ReadWrite.All','Files.ReadWrite','User.Read'];
-// Admin-only scopes — only requested when owner runs staff access sync
-const ADMIN_SCOPES = [...SCOPES, 'Sites.FullControl.All','User.Invite.All','User.Read.All','User.ReadWrite.All'];
+// CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
 
 // ── TIMING & OPERATIONAL CONSTANTS ──────────────────────────────────────────
 const SP_PAGE_SIZE          = 500;  // Graph API $top — max items per list fetch
@@ -2165,18 +2152,7 @@ function foodParsListName(loc) {
 
 // FP_PAR_LIST_COLS, LISTS, INV_TYPE_CFG moved to js/constants.js
 
-// ════════════════════════════════════════════════════════════════════════════
-// MSAL
-// ════════════════════════════════════════════════════════════════════════════
-const msal = new window.msal.PublicClientApplication({
-  auth: {
-    clientId: CFG.clientId,
-    authority: `https://login.microsoftonline.com/${CFG.tenantId}`,
-    redirectUri: window.location.origin + '/'
-  },
-  cache: { cacheLocation: 'sessionStorage' }
-});
-
+// msal client moved to js/auth.js
 // currentUser, currentLocation, currentStaffMember, cache moved to js/state.js
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -2218,120 +2194,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
-async function signIn() {
-  try { await msal.loginRedirect({ scopes: SCOPES }); }
-  catch(e) { toast('err','Sign-in failed: '+e.message); }
-}
-
-async function signOut() {
-  await msal.logoutRedirect({ account: currentUser });
-}
-
-function applyUser() {
-  // Show Microsoft display name immediately (staff record resolved later after data loads)
-  const displayName = currentUser.name || currentUser.username || '';
-  const firstName = displayName.split(' ')[0];
-  document.getElementById('user-label').textContent = firstName;
-  document.getElementById('user-avatar').textContent = firstName.charAt(0).toUpperCase();
-  document.getElementById('auth-screen').classList.remove('show');
-}
-
-function resolveCurrentStaffMember() {
-  if (!currentUser || !cache.staff.length) return;
-  const email = (currentUser.username || currentUser.mail || '').toLowerCase();
-  currentStaffMember = cache.staff.find(s => (s.Email||'').toLowerCase() === email) || null;
-  updateTopbarStaffInfo();
-}
-
-function updateTopbarStaffInfo() {
-  const nameEl   = document.getElementById('user-label');
-  const roleEl   = document.getElementById('user-role-label');
-  const avatarEl = document.getElementById('user-avatar');
-
-  if (currentStaffMember) {
-    const name  = currentStaffMember.Title || currentUser?.name || currentUser?.username || '';
-    const first = name.split(' ')[0];
-    const role  = currentStaffMember.Role || '';
-    const loc   = currentStaffMember.LocationAccess === 'All' || !currentStaffMember.LocationAccess
-      ? 'All locations'
-      : currentStaffMember.LocationAccess;
-
-    if (nameEl) nameEl.textContent = first;
-    if (roleEl) roleEl.textContent = role ? `${role} · ${loc}` : loc;
-    if (avatarEl) {
-      avatarEl.textContent  = first.charAt(0).toUpperCase();
-      // Colour avatar by role
-      const r = role.toLowerCase();
-      avatarEl.style.background = r.includes('owner') ? '#b78b40'
-        : r.includes('manager') ? '#3b82f6'
-        : 'var(--teal)';
-    }
-  } else if (currentUser) {
-    // Logged in via Microsoft but no matching staff record
-    const displayName = currentUser.name || currentUser.username || '';
-    const first = displayName.split(' ')[0];
-    if (nameEl)   nameEl.textContent = first;
-    if (roleEl)   roleEl.innerHTML = `<span style="color:#f59e0b;">⚠ Not linked</span>`;
-    if (avatarEl) { avatarEl.textContent = '?'; avatarEl.style.background = '#9ca3af'; }
-    // Show the unlinked banner
-    const banner = document.getElementById('unlinked-banner');
-    const emailEl = document.getElementById('unlinked-email');
-    if (banner)  banner.style.display = 'flex';
-    if (emailEl) emailEl.textContent = currentUser.username || currentUser.mail || '';
-  }
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-// GRAPH API
-// ════════════════════════════════════════════════════════════════════════════
-async function getToken() {
-  try {
-    const r = await msal.acquireTokenSilent({ scopes: SCOPES, account: currentUser });
-    return r.accessToken;
-  } catch(e) {
-    // Use popup instead of redirect — redirect causes an infinite loop when
-    // the cached token is missing newly-added scopes (page reloads → silent
-    // fails again → redirect → repeat forever)
-    try {
-      const r = await msal.acquireTokenPopup({ scopes: SCOPES, account: currentUser });
-      return r.accessToken;
-    } catch(e2) {
-      // Popup blocked or user dismissed — fall back to redirect as last resort
-      await msal.acquireTokenRedirect({ scopes: SCOPES });
-    }
-  }
-}
-
-async function getAdminToken() {
-  try {
-    const r = await msal.acquireTokenSilent({ scopes: ADMIN_SCOPES, account: currentUser });
-    return r.accessToken;
-  } catch(e) {
-    try {
-      const r = await msal.acquireTokenPopup({ scopes: ADMIN_SCOPES, account: currentUser });
-      return r.accessToken;
-    } catch(e2) {
-      await msal.acquireTokenRedirect({ scopes: ADMIN_SCOPES });
-    }
-  }
-}
-
-// SharePoint REST API token — uses /.default so no extra permission registration needed.
-// SharePoint checks the signed-in user's own site permissions (e.g. Jeffrey's site ownership)
-// rather than the OAuth scope when authorising REST calls.
-async function getSharePointToken() {
-  const spScopes = ['https://mainspringdevelopers.sharepoint.com/.default'];
-  try {
-    const r = await msal.acquireTokenSilent({ scopes: spScopes, account: currentUser });
-    return r.accessToken;
-  } catch(e) {
-    // Don't use popup — popup may be blocked when called mid-async-chain.
-    // Callers must invoke this BEFORE any other awaits so the user-gesture context is fresh.
-    // Fall back to redirect (page reloads, user re-runs the operation once).
-    await msal.acquireTokenRedirect({ scopes: spScopes });
-    return null; // never reached — redirect navigates away
-  }
-}
+// signIn, signOut, applyUser, resolveCurrentStaffMember, updateTopbarStaffInfo,
+// getToken, getAdminToken, getSharePointToken moved to js/auth.js
 
 async function graph(method, path, body = null) {
   const token = await getToken();
