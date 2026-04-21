@@ -1,4 +1,4 @@
-const CACHE = 'bsc-ops-v4';
+const CACHE = 'bsc-ops-v5';
 const STATIC_ASSETS = ['/icon-180.png', '/icon-512.png', '/logo.png', '/feather.png', '/manifest.json'];
 
 self.addEventListener('install', e => {
@@ -20,10 +20,11 @@ self.addEventListener('fetch', e => {
   if (!url.origin.startsWith(self.location.origin)) return;
   if (url.pathname.startsWith('/api/')) return;
 
-  // Network-first for HTML/navigation — never trap users on stale app code
+  // Network-first for HTML/navigation AND JS modules — never trap users on stale app code
   const isHTML = e.request.mode === 'navigate' ||
                  (e.request.headers.get('accept') || '').includes('text/html');
-  if (isHTML) {
+  const isJS = url.pathname.endsWith('.js');
+  if (isHTML || isJS) {
     e.respondWith(
       fetch(e.request)
         .then(resp => {
