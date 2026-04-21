@@ -2117,8 +2117,9 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-04-18b"></script>
-<script src="/js/utils.js?v=2026-04-18b"></script>
+<script src="/js/constants.js?v=2026-04-18c"></script>
+<script src="/js/utils.js?v=2026-04-18c"></script>
+<script src="/js/state.js?v=2026-04-18c"></script>
 
 <script>
 // ════════════════════════════════════════════════════════════════════════════
@@ -2176,35 +2177,7 @@ const msal = new window.msal.PublicClientApplication({
   cache: { cacheLocation: 'sessionStorage' }
 });
 
-let currentUser = null;
-let currentLocation = 'all';
-let currentStaffMember = null; // resolved from BSC_Staff after login
-
-// in-memory cache
-const cache = {
-  inventory: [], transfers: [], orders: [],
-  checklists: [], vendors: [], roles: [], recipes: [],
-  maintContacts: [], staff: [], maintSchedule: [], maintLog: [],
-  clProgress: {}, countHistory: [], settingsItems: [],
-  menu: [], menuCounts: [],
-  cogsRecipes: [], cogSnapshots: [],
-  clGroups: [], clCompletions: [],
-  merchInventory: [], merchCountHistory: [],
-  equipInventory: [], equipCountHistory: [],
-  labels: [],
-  foodPars: [],
-  foodParValues: [],
-  parking: [],
-  contactArchive: [],
-  prepItems: [],
-  prepItemIngredients: [],
-  foodInventory: [],
-  groceryInventory: [],
-  tags: [],
-  merchReceived: [],
-  merchMonths: [],
-  lastCount: []
-};
+// currentUser, currentLocation, currentStaffMember, cache moved to js/state.js
 
 // ════════════════════════════════════════════════════════════════════════════
 // INIT
@@ -2398,8 +2371,7 @@ async function getSiteId() {
   return CFG.siteId;
 }
 
-// Session-level cache of existing SP list name → id (populated once, avoids per-list GET 404s)
-let _spListCache = null;
+// _spListCache moved to js/state.js (session-level cache of existing SP list name → id)
 async function getSpListCache(siteId) {
   if (_spListCache) return _spListCache;
   _spListCache = {};
@@ -2945,8 +2917,8 @@ const PAGE_RENDER_FN = {
   parking:          () => renderParking(),
 };
 
+// _pendingRefreshKeys moved to js/state.js
 let _signalRConn       = null;
-let _pendingRefreshKeys = new Set();
 let _webhooksRegistered = false;
 
 function getActivePage() {
@@ -5118,10 +5090,7 @@ function updateDashChecklist() {
 // ════════════════════════════════════════════════════════════════════════════
 // SP_SYSTEM_FIELDS moved to js/constants.js
 
-// Map: listName -> { internalName: displayName }
-const _colDisplayNames = {};
-const _colReadOnly = {};
-
+// _colDisplayNames, _colReadOnly moved to js/state.js
 async function loadListColNames(siteId, listName) {
   try {
     const res = await graph('GET',`/sites/${siteId}/lists/${listName}/columns?$select=name,displayName,readOnly,hidden&$top=200`);
