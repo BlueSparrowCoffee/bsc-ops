@@ -2117,7 +2117,8 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-04-18a"></script>
+<script src="/js/constants.js?v=2026-04-18b"></script>
+<script src="/js/utils.js?v=2026-04-18b"></script>
 
 <script>
 // ════════════════════════════════════════════════════════════════════════════
@@ -8157,19 +8158,7 @@ function closeModal(id) {
     keys.forEach(triggerPageRefresh);
   }
 }
-document.querySelectorAll('.modal-overlay').forEach(el=>{
-  el.addEventListener('click',e=>{ if(e.target===el) el.classList.remove('show'); });
-});
-
-let toastT={};
-function escHtml(str) {
-  return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-}
-const _dfTimers = {};
-function debounceFilter(key, fn, ...args) {
-  clearTimeout(_dfTimers[key]);
-  _dfTimers[key] = setTimeout(() => fn(...args), SEARCH_DEBOUNCE_MS);
-}
+// escHtml, toast, toastT, setLoading, debounceFilter, _dfTimers, modal-overlay dismiss moved to js/utils.js
 
 // ════════════════════════════════════════════════════════════════════════════
 // GLOBAL SEARCH
@@ -8344,18 +8333,7 @@ document.addEventListener('click', e => {
   }
 });
 
-function toast(type,msg='✓ Saved'){
-  const el=document.getElementById('toast-'+type);
-  if(!el)return;
-  el.textContent=msg; el.classList.add('show');
-  clearTimeout(toastT[type]);
-  toastT[type]=setTimeout(()=>el.classList.remove('show'),type==='err'?5000:2500);
-}
-
-function setLoading(on,msg=''){
-  document.getElementById('loading').classList.toggle('show',on);
-  if(msg) document.getElementById('loading-msg').textContent=msg;
-}
+// toast, setLoading moved to js/utils.js
 
 
 
