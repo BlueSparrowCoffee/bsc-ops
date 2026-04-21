@@ -2117,13 +2117,14 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-04-18g"></script>
-<script src="/js/utils.js?v=2026-04-18g"></script>
-<script src="/js/state.js?v=2026-04-18g"></script>
-<script src="/js/auth.js?v=2026-04-18g"></script>
-<script src="/js/graph.js?v=2026-04-18g"></script>
-<script src="/js/signalr.js?v=2026-04-18g"></script>
-<script src="/js/tags.js?v=2026-04-18g"></script>
+<script src="/js/constants.js?v=2026-04-18h"></script>
+<script src="/js/utils.js?v=2026-04-18h"></script>
+<script src="/js/state.js?v=2026-04-18h"></script>
+<script src="/js/auth.js?v=2026-04-18h"></script>
+<script src="/js/graph.js?v=2026-04-18h"></script>
+<script src="/js/signalr.js?v=2026-04-18h"></script>
+<script src="/js/tags.js?v=2026-04-18h"></script>
+<script src="/js/nav.js?v=2026-04-18h"></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
@@ -6877,70 +6878,9 @@ function invItemLink(name, suffix='') {
   return `<span class="inv-item-link" data-inv-name="${escHtml(name)}" onclick="event.stopPropagation();navToInventoryItem(this.dataset.invName)" title="View in Inventory">${escHtml(name)}${suffix}</span>`;
 }
 
+// NAVIGATION (_navHistory, _navCurrent, _navSkipHistory, navBack,
+// toggleNav, closeNav, nav) moved to js/nav.js
 // PAGE_MODULE moved to js/constants.js
-
-const _navHistory = [];
-let _navCurrent = null;
-
-function navBack() {
-  if (!_navHistory.length) return;
-  const prev = _navHistory.pop();
-  _navCurrent = prev;
-  _navSkipHistory = true;
-  nav(prev);
-  _navSkipHistory = false;
-  document.getElementById('back-btn').style.display = _navHistory.length ? '' : 'none';
-}
-
-let _navSkipHistory = false;
-
-function toggleNav(){
-  const sb = document.getElementById('sidebar');
-  const bd = document.getElementById('nav-backdrop');
-  const open = sb.classList.toggle('open');
-  bd.classList.toggle('show', open);
-}
-function closeNav(){
-  document.getElementById('sidebar')?.classList.remove('open');
-  document.getElementById('nav-backdrop')?.classList.remove('show');
-}
-
-function nav(page) {
-  closeNav();
-  // Page-level access check — blocks direct navigation even if nav item is hidden
-  const module = PAGE_MODULE[page];
-  if (module && !userCanAccess(module)) {
-    toast('err', 'You don\'t have access to that page');
-    nav('dashboard');
-    return;
-  }
-
-  if (!_navSkipHistory && _navCurrent && _navCurrent !== page) {
-    _navHistory.push(_navCurrent);
-    if (_navHistory.length > 20) _navHistory.shift();
-  }
-  _navCurrent = page;
-  const backBtn = document.getElementById('back-btn');
-  if (backBtn) backBtn.style.display = _navHistory.length ? '' : 'none';
-
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-  document.getElementById('page-'+page)?.classList.add('active');
-  document.querySelector(`.nav-item[data-module="${module}"]`)?.classList.add('active');
-  if (page==='checklists')    renderChecklists();
-  if (page==='maint-schedule') renderMaintSchedule();
-  if (page==='settings') {
-    const denied = !isOwner();
-    document.getElementById('settings-access-denied').style.display = denied ? '' : 'none';
-    document.getElementById('settings-body').style.display = denied ? 'none' : '';
-    if (!denied) { renderRoles(); renderLocations(); renderSlackSettings(); renderSquareSettings(); renderTagsSettings(); initColMgr(); }
-  }
-  if (page==='square')      renderSquarePage();
-  if (page==='menu')        renderMenu();
-  if (page==='cogs')        renderCogs();
-  if (page==='parking')     renderParking();
-  if (page==='prep-items')  renderPrepItems();
-}
 
 // ════════════════════════════════════════════════════════════════════════════
 // MERCH MONTHLY COST
