@@ -1088,6 +1088,7 @@ function renderCogsOverview() {
     const typeLabel = tabKey.charAt(0).toUpperCase() + tabKey.slice(1);
     const state = _invCogState[tabKey];
     (cache[cfg.cacheKey]||[]).forEach(i => {
+      if (i.Archived === 'Yes') return;  // drop archived items from overview chart, stats, and list
       const cost  = parseFloat(i.CostPerUnit);
       const price = parseFloat(i.SellingPrice);
       if (!cost || !price) return;
