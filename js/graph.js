@@ -113,16 +113,24 @@ async function ensureList(listName, columns) {
 
   // Add any missing columns one-by-one
   if (columns && columns.length) {
-    const existing = await graph('GET', `/sites/${siteId}/lists/${listId}/columns?$select=name`);
+    const existing = await graph('GET', `/sites/${siteId}/lists/${listId}/columns?$select=name,displayName`);
     const existNames = new Set((existing.value || []).map(c => c.name));
+    const existDisplay = new Set((existing.value || []).filter(c=>c.displayName).map(c => String(c.displayName).toLowerCase()));
     for (const col of columns) {
-      if (existNames.has(col.name)) continue;
+      // Skip if a column already exists with this internal name OR the same display name
+      if (existNames.has(col.name) || existDisplay.has(String(col.name).toLowerCase())) continue;
       const colDef = { name: col.name, enforceUniqueValues: false, hidden: false, indexed: false };
       if (col.text)     colDef.text     = col.text;
       if (col.dateTime) colDef.dateTime = col.dateTime;
       if (col.number)   colDef.number   = col.number;
       if (col.boolean)  colDef.boolean  = col.boolean;
-      await graph('POST', `/sites/${siteId}/lists/${listId}/columns`, colDef);
+      // Don't let one bad column (e.g. reserved name like "Tags") abort
+      // provisioning for every column that follows — log and continue.
+      try {
+        await graph('POST', `/sites/${siteId}/lists/${listId}/columns`, colDef);
+      } catch (err) {
+        console.warn(`[ensureList] ${listName}: column "${col.name}" failed — ${err.message}`);
+      }
     }
   }
   return listId;
@@ -162,18 +170,20 @@ async function getCountHistoryForList(siteId, listName) {
   } catch { return []; }
 }
 
-// Remap field keys against the list's column map so we survive the
-// common SharePoint quirk of internal names diverging from display
-// names (e.g. Location → Location0 after a reserved-name collision).
+// Resolve field keys against the list's column map loaded by
+// loadListColNames(). Handles three cases:
 //
-// Rules:
-//   1. If the key already matches an internal name, pass through.
-//   2. Otherwise, if it matches a display name (case-insensitive),
-//      rewrite to the SP internal name.
-//   3. Otherwise pass through unchanged — let SP decide.
+//   1. Exact internal-name match → pass through unchanged.
+//   2. Display-name match (case-insensitive) → rewrite key to the
+//      SP internal name. Fixes the common Location → Location0
+//      reserved-word rename case.
+//   3. No match at all → DROP with a console.warn. A missing column
+//      should not 400 the entire write — the user's other fields
+//      still save. Re-run provisioning to add the missing column.
 //
-// No data is ever dropped; unknowns just surface as a console.warn
-// alongside the real graph() error logger.
+// When no column map is loaded yet (pre-bootstrap), pass through
+// everything — the original graph() error logger still surfaces
+// any real failure.
 function _remapFieldNames(listName, fields) {
   const known = _colDisplayNames && _colDisplayNames[listName];
   if (!known || !Object.keys(known).length) return fields;
@@ -183,13 +193,19 @@ function _remapFieldNames(listName, fields) {
   });
   const out = {};
   const remapped = {};
+  const dropped = [];
   Object.keys(fields || {}).forEach(k => {
-    if (known[k]) { out[k] = fields[k]; return; }
+    if (known[k] || (SP_SYSTEM_FIELDS && SP_SYSTEM_FIELDS.has(k))) { out[k] = fields[k]; return; }
     const internal = displayToInternal[k.toLowerCase()];
-    if (internal && internal !== k) { out[internal] = fields[k]; remapped[k] = internal; return; }
-    out[k] = fields[k];
+    if (internal) {
+      if (internal !== k) remapped[k] = internal;
+      out[internal] = fields[k];
+      return;
+    }
+    dropped.push(k);
   });
-  if (Object.keys(remapped).length) console.warn('[SP write] remapped field names on', listName, remapped);
+  if (Object.keys(remapped).length) console.warn('[SP write] remapped:', listName, remapped);
+  if (dropped.length) console.warn('[SP write] dropped (no column on list):', listName, dropped);
   return out;
 }
 
