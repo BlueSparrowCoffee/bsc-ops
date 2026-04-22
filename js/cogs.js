@@ -1511,6 +1511,22 @@ function normalizeMerchName(raw) {
   return s;
 }
 
+// Token Jaccard similarity — splits on whitespace after normalization, strips
+// tokens shorter than 2 chars, then returns |A∩B| / |A∪B|. Threshold 0.6
+// means the two item names share ≥60% of their significant words, which
+// catches "Platte Blend 12oz" vs "Platte Blend 12oz Medium Roast" (4/5 = .8).
+function merchNameTokens(raw) {
+  const n = normalizeMerchName(raw);
+  return new Set(n.split(' ').filter(t => t.length >= 2));
+}
+function merchNameSimilarity(a, b) {
+  const A = merchNameTokens(a), B = merchNameTokens(b);
+  if (!A.size || !B.size) return 0;
+  let inter = 0;
+  A.forEach(t => { if (B.has(t)) inter++; });
+  return inter / (A.size + B.size - inter);
+}
+
 async function findMerchDuplicates() {
   const btn = document.getElementById('merch-dedup-btn');
   const statusEl = document.getElementById('merch-dedup-status');
@@ -1596,12 +1612,41 @@ async function findMerchDuplicates() {
         return !group.some(r => r !== row && (r.SquareCatalogItemId||'').trim());
       });
 
+    // Group D — fuzzy token-overlap matches (catches dupes whose names differ
+    // enough to escape Group B, e.g. one has extra descriptor words). Uses
+    // union-find to merge transitively-similar rows into the same bucket.
+    statusEl.textContent = 'Running fuzzy name match…';
+    const SIM_THRESHOLD = 0.6;
+    const parent = merch.map((_, i) => i);
+    const find = (x) => parent[x] === x ? x : (parent[x] = find(parent[x]));
+    const union = (a, b) => { const ra = find(a), rb = find(b); if (ra !== rb) parent[ra] = rb; };
+    // Rows already exact-matched in Group A/B — skip so we don't re-list them
+    const alreadyGrouped = new Set();
+    groupA.forEach(g => g.rows.forEach(r => alreadyGrouped.add(r.id)));
+    groupB.forEach(g => g.rows.forEach(r => alreadyGrouped.add(r.id)));
+    for (let i = 0; i < merch.length; i++) {
+      for (let j = i + 1; j < merch.length; j++) {
+        const a = merch[i], b = merch[j];
+        const sim = merchNameSimilarity(a.ItemName||a.Title||'', b.ItemName||b.Title||'');
+        if (sim >= SIM_THRESHOLD) union(i, j);
+      }
+    }
+    const fuzzyBuckets = {};
+    merch.forEach((row, idx) => {
+      const r = find(idx);
+      (fuzzyBuckets[r] = fuzzyBuckets[r] || []).push(row);
+    });
+    const groupD = Object.values(fuzzyBuckets)
+      .filter(rows => rows.length > 1)
+      // Drop buckets where every row was already captured by Group A/B
+      .filter(rows => rows.some(r => !alreadyGrouped.has(r.id)));
+
     // Render
-    const totalDupes = groupA.reduce((s,g)=>s+g.rows.length-1,0) + groupB.reduce((s,g)=>s+g.rows.length-1,0);
     const lines = [
       `<strong>${merch.length}</strong> merch rows scanned.`,
       groupA.length ? `<span style="color:var(--red)">${groupA.length}</span> Square-ID collision${groupA.length!==1?'s':''}` : '',
       groupB.length ? `<span style="color:var(--orange)">${groupB.length}</span> same-name group${groupB.length!==1?'s':''}` : '',
+      groupD.length ? `<span style="color:#d97706">${groupD.length}</span> fuzzy-match group${groupD.length!==1?'s':''}` : '',
       groupC.length ? `<span style="color:var(--gold)">${groupC.length}</span> unlinked orphan${groupC.length!==1?'s':''} with Square match` : '',
       squareFetchError ? `<span style="color:var(--red)">⚠ Square catalog fetch failed: ${escHtml(squareFetchError)} — orphan detection skipped.</span>` : ''
     ].filter(Boolean).join(' · ');
@@ -1627,6 +1672,15 @@ async function findMerchDuplicates() {
       });
     }
 
+    // Group D render (fuzzy matches)
+    if (groupD.length) {
+      html.push(`<div style="font-weight:700;font-size:13px;color:#d97706;margin:18px 0 6px;">🟠 Fuzzy name match (${groupD.length})</div>`);
+      html.push(`<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Rows whose names share ≥60% of significant words. Looser than Group B — catches dupes where one row has extra descriptor words (e.g. "Platte Blend 12oz" vs "Platte Blend 12oz Medium Roast"). Review carefully; some matches here may be legitimately distinct products.</div>`);
+      groupD.forEach((rows, idx) => {
+        html.push(renderDedupGroup(`Fuzzy group ${idx + 1}`, rows));
+      });
+    }
+
     // Group C render
     if (groupC.length) {
       html.push(`<div style="font-weight:700;font-size:13px;color:var(--gold);margin:18px 0 6px;">🟡 Unlinked orphans with a Square match (${groupC.length})</div>`);
@@ -1640,13 +1694,47 @@ async function findMerchDuplicates() {
       html.push('</div>');
     }
 
-    if (!groupA.length && !groupB.length && !groupC.length) {
+    if (!groupA.length && !groupB.length && !groupC.length && !groupD.length) {
       html.push('<div style="padding:24px 0;text-align:center;color:var(--muted);font-size:13px;">✨ Merch inventory looks clean — no duplicate rows or unlinked orphans found.</div>');
     } else {
       html.push(`<div style="margin-top:18px;padding:12px 14px;background:rgba(200,169,81,.08);border:1px solid rgba(200,169,81,.25);border-radius:8px;font-size:12px;color:rgba(255,255,255,.75);">
         <strong>Nothing was written.</strong> This was a read-only scan. If the list looks accurate, the next step is to wire up a merge tool that preserves count history (<code>BSC_{loc}_MerchCounts</code> <code>Title</code> rewrites) and deletes the dupe row from <code>BSC_MerchInventory</code>.
       </div>`);
     }
+
+    // Always include a collapsible "Show all merch rows" table — sorted by
+    // normalized name so near-duplicates sit next to each other and you can
+    // spot patterns my matcher didn't catch. Tell us which rows are the dupes
+    // and I'll tighten the matcher.
+    const sortedAll = [...merch].sort((a, b) =>
+      normalizeMerchName(a.ItemName||a.Title||'').localeCompare(normalizeMerchName(b.ItemName||b.Title||''))
+    );
+    html.push(`<details style="margin-top:18px;">
+      <summary style="cursor:pointer;font-weight:700;font-size:13px;color:var(--muted);padding:6px 0;">📋 Show all ${sortedAll.length} merch rows (sorted by normalized name)</summary>
+      <div style="font-size:11px;color:var(--muted);margin:4px 0 8px;">Near-dupes will sit next to each other. Spot any pair I should have flagged? Tell me the two names and I'll tighten the matcher.</div>
+      <table style="width:100%;font-size:11px;border-collapse:collapse;background:rgba(255,255,255,.02);border-radius:6px;overflow:hidden;">
+        <thead><tr style="background:rgba(255,255,255,.05);">
+          <th style="text-align:left;padding:6px 8px;">Item Name</th>
+          <th style="text-align:left;padding:6px 8px;">Normalized</th>
+          <th style="text-align:left;padding:6px 8px;">Category</th>
+          <th style="text-align:left;padding:6px 8px;">Sq ID</th>
+          <th style="text-align:right;padding:6px 8px;">Cost</th>
+          <th style="text-align:right;padding:6px 8px;">Price</th>
+        </tr></thead><tbody>
+        ${sortedAll.map(r => {
+          const linked = !!(r.SquareCatalogItemId||'').trim();
+          return `<tr style="border-top:1px solid rgba(255,255,255,.06);">
+            <td style="padding:5px 8px;">${escHtml(r.ItemName||r.Title||'')}${linked?'':' <span style="font-size:10px;color:var(--red);">⚠</span>'}</td>
+            <td style="padding:5px 8px;color:var(--muted);font-family:monospace;font-size:10px;">${escHtml(normalizeMerchName(r.ItemName||r.Title||''))}</td>
+            <td style="padding:5px 8px;color:var(--muted);">${escHtml(r.Category||'—')}</td>
+            <td style="padding:5px 8px;color:var(--muted);font-family:monospace;font-size:10px;">${linked?escHtml((r.SquareCatalogItemId||'').slice(0,14)):'—'}</td>
+            <td style="padding:5px 8px;text-align:right;">${r.CostPerUnit?'$'+parseFloat(r.CostPerUnit).toFixed(2):'—'}</td>
+            <td style="padding:5px 8px;text-align:right;">${r.SellingPrice?'$'+parseFloat(r.SellingPrice).toFixed(2):'—'}</td>
+          </tr>`;
+        }).join('')}
+        </tbody>
+      </table>
+    </details>`);
 
     resultsEl.innerHTML = html.join('');
   } catch (e) {
