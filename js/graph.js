@@ -23,7 +23,11 @@ async function graph(method, path, body = null) {
   });
   if (!res.ok) {
     const e = await res.json().catch(()=>({}));
-    throw new Error(`[${res.status}] ${e?.error?.message || 'Graph error'}`);
+    // Dump full detail to console so 400s surface the exact field / reason
+    console.error('[Graph error]', method, path, {status: res.status, error: e, requestBody: body});
+    const inner = e?.error?.innerError?.message || e?.error?.innererror?.message;
+    const msg = e?.error?.message || 'Graph error';
+    throw new Error(`[${res.status}] ${msg}${inner ? ' — ' + inner : ''}`);
   }
   return res.status === 204 ? null : res.json();
 }
@@ -158,15 +162,35 @@ async function getCountHistoryForList(siteId, listName) {
   } catch { return []; }
 }
 
+// Filter a fields object against the list's known column map loaded by
+// loadListColNames(). Any key not in the column map AND not a system
+// field is dropped — prevents 400s from stale / missing columns.
+// When no column map is loaded yet (first run before metadata arrived),
+// the caller's object is returned unchanged so behavior is unchanged.
+function _filterKnownFields(listName, fields) {
+  const known = _colDisplayNames && _colDisplayNames[listName];
+  if (!known || !Object.keys(known).length) return fields;
+  const out = {};
+  const dropped = [];
+  Object.keys(fields || {}).forEach(k => {
+    if (known[k] || (SP_SYSTEM_FIELDS && SP_SYSTEM_FIELDS.has(k))) out[k] = fields[k];
+    else dropped.push(k);
+  });
+  if (dropped.length) console.warn('[SP write] dropped unknown fields on', listName, dropped);
+  return out;
+}
+
 async function addListItem(listName, fields) {
   const siteId = await getSiteId();
-  const res = await graph('POST',`/sites/${siteId}/lists/${listName}/items`,{fields});
+  const safe = _filterKnownFields(listName, fields);
+  const res = await graph('POST',`/sites/${siteId}/lists/${listName}/items`,{fields:safe});
   return {id:res.id,...res.fields};
 }
 
 async function updateListItem(listName, itemId, fields) {
   const siteId = await getSiteId();
-  await graph('PATCH',`/sites/${siteId}/lists/${listName}/items/${itemId}/fields`,fields);
+  const safe = _filterKnownFields(listName, fields);
+  await graph('PATCH',`/sites/${siteId}/lists/${listName}/items/${itemId}/fields`,safe);
 }
 
 async function deleteListItem(listName, itemId) {
