@@ -23,10 +23,10 @@ async function graph(method, path, body = null) {
   });
   if (!res.ok) {
     const e = await res.json().catch(()=>({}));
-    // Dump full detail to console so 400s surface the exact field / reason
-    console.error('[Graph error]', method, path, {status: res.status, error: e, requestBody: body});
     const inner = e?.error?.innerError?.message || e?.error?.innererror?.message;
     const msg = e?.error?.message || 'Graph error';
+    // Flat log — prints key fields inline so you don't need to expand Object
+    console.error(`[Graph ${res.status}] ${method} ${path}\n  message: ${msg}${inner ? '\n  inner:   '+inner : ''}\n  body:    ${body ? JSON.stringify(body) : '(none)'}\n  raw:`, e);
     throw new Error(`[${res.status}] ${msg}${inner ? ' — ' + inner : ''}`);
   }
   return res.status === 204 ? null : res.json();
