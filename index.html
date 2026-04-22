@@ -210,11 +210,17 @@ body.is-loading{overflow:hidden;}
  * no element painted elsewhere in the DOM can leak through as faint text/lines.
  * Targets direct children of body only; #loading itself is excluded. */
 body.is-loading > *:not(#loading){visibility:hidden!important;}
-#loading{display:none;position:fixed;inset:0;background:#023d4a;z-index:2147483647;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#fff;font-size:13px;isolation:isolate;contain:paint;}
+#loading{display:none;position:fixed;inset:0;background:var(--navy);z-index:2147483647;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:#fff;font-size:13px;isolation:isolate;contain:paint;}
 #loading.show{display:flex;}
-.spinner{width:34px;height:34px;animation:spin .8s linear infinite;transform-origin:center;}
-.spinner circle{fill:none;stroke:#fff;stroke-width:3;stroke-linecap:round;stroke-dasharray:60 40;opacity:.95;}
-@keyframes spin{to{transform:rotate(360deg);}}
+/* Three-dot pulse — SVG circles with staggered opacity animation. No rotation
+ * and no border animation, so immune to the iOS GPU-compositing artifacts
+ * that plagued the old border spinner. */
+.spinner{width:56px;height:16px;display:block;}
+.spinner circle{fill:var(--gold);animation:dotpulse 1.2s ease-in-out infinite;transform-origin:center;}
+.spinner circle:nth-child(1){animation-delay:0s;}
+.spinner circle:nth-child(2){animation-delay:.2s;}
+.spinner circle:nth-child(3){animation-delay:.4s;}
+@keyframes dotpulse{0%,80%,100%{opacity:.3;transform:scale(.7);}40%{opacity:1;transform:scale(1);}}
 
 /* ── CHECKLIST ── */
 .checklist-item{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--opal);transition:background .1s;}
@@ -4604,6 +4610,6 @@ async function graphAll(path) {
 }
 </script>
 <!-- LOADING overlay — last in DOM to guarantee paint order -->
-<div id="loading"><svg class="spinner" viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15"/></svg><div id="loading-msg">Loading…</div></div>
+<div id="loading"><svg class="spinner" viewBox="0 0 56 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/><circle cx="28" cy="8" r="6"/><circle cx="48" cy="8" r="6"/></svg><div id="loading-msg">Loading…</div></div>
 </body>
 </html>
