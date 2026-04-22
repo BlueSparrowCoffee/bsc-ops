@@ -371,7 +371,7 @@ async function submitWeeklyCount() {
     // Slack alert for low items
     const lowItems = entries.filter(e => {
       const item = cache[invCacheKey].find(i=>String(i.id)===String(e.id));
-      return item && e.total <= (item.ParLevel||0) && e.total >= 0;
+      return item && e.total <= invLowThreshold(item) && e.total >= 0;
     });
     if (lowItems.length) {
       const names = lowItems.slice(0,5).map(e=>e.name).join(', ');

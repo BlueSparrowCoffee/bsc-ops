@@ -18,7 +18,7 @@
 function renderDashboard() {
   const locInv = cache.inventory;
   const cm = getLatestCountsMap(currentLocation);
-  const low = locInv.filter(i => (cm[i.ItemName||'']?.total??0) <= (i.ParLevel||0));
+  const low = locInv.filter(i => (cm[i.ItemName||'']?.total??0) <= invLowThreshold(i));
   const pendingOrders = cache.orders.filter(o=>o.Status==='Pending'||o.Status==='Ordered');
   const todayTasks = cache.checklists.filter(c=>c.Frequency==='Daily');
   const done = todayTasks.filter(t => cache.clProgress[t.id]);

@@ -49,6 +49,17 @@ let _invSort      = { col: null, dir: 1 };
 function invCfg()         { return INV_TYPE_CFG[_invType]; }
 function invHasCategory() { return invCfg()?.hasCategory !== false; }
 
+// ── Low-stock threshold ──────────────────────────────────────────
+// Returns the count level at-or-below which an item is considered LOW.
+// Prefers explicit ReorderTrigger; falls back to ParLevel. Used by the
+// inventory list badge/filter, dashboard alerts, and the Slack low-stock
+// notification fired on count submission.
+function invLowThreshold(i) {
+  const t = +i.ReorderTrigger;
+  if (isFinite(t) && t > 0) return t;
+  return +i.ParLevel || 0;
+}
+
 function applyInvCategoryVisibility() {
   const cfg = invCfg();
   const isMerch = !!(cfg?.isMerch);
@@ -262,8 +273,8 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
     (i.Supplier||'').toLowerCase().includes(query.toLowerCase()));
   if (catFilter)      items = items.filter(i=>i.Category===catFilter);
   if (supplierFilter) items = items.filter(i=>(i.Supplier||'')===supplierFilter);
-  if (statusFilter==='low') items = items.filter(i=>(countsMap[i.ItemName||'']?.total??0)<(i.ParLevel||0)*0.7);
-  if (statusFilter==='ok')  items = items.filter(i=>(countsMap[i.ItemName||'']?.total??0)>=(i.ParLevel||0)*0.7);
+  if (statusFilter==='low') items = items.filter(i=>(countsMap[i.ItemName||'']?.total??0)<=invLowThreshold(i));
+  if (statusFilter==='ok')  items = items.filter(i=>(countsMap[i.ItemName||'']?.total??0)> invLowThreshold(i));
 
   if (_invSort.col) {
     items = [...items].sort((a,b) => {
@@ -283,8 +294,9 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
     const total   = (countsMap[i.ItemName||'']?.total??'—');
     const totalNum = (countsMap[i.ItemName||'']?.total??null);
     const par     = i.ParLevel||0;
-    const badge   = totalNum===null?'badge-gray':totalNum===0?'badge-red':totalNum<par*0.7?'badge-orange':'badge-green';
-    const status  = totalNum===null?'—':totalNum===0?'Out':totalNum<par*0.7?'Low':'OK';
+    const lowAt   = invLowThreshold(i);
+    const badge   = totalNum===null?'badge-gray':totalNum===0?'badge-red':totalNum<=lowAt?'badge-orange':'badge-green';
+    const status  = totalNum===null?'—':totalNum===0?'Out':totalNum<=lowAt?'Low':'OK';
     const unit    = escHtml(i.OrderUnit||i.Unit||'');
     const costCase    = i.CostPerCase    != null ? '$'+Number(i.CostPerCase).toFixed(2)    : '—';
     const costServing = i.CostPerServing != null ? '$'+Number(i.CostPerServing).toFixed(4) : '—';

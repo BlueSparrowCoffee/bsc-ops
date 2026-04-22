@@ -33,7 +33,7 @@ function openAddInvForm() {
   document.querySelector('#modal-add-item .btn-primary').textContent = 'Save Item';
   // clear form
   ['new-item-name','new-item-no','new-item-cost-unit','new-item-square-id',
-   'new-item-order-size','new-item-unit','new-item-par',
+   'new-item-order-size','new-item-unit','new-item-par','new-item-reorder-trigger',
    'new-item-cost','new-item-serving-unit','new-item-servings'
   ].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   populateInvVendorSelect('');
@@ -91,6 +91,8 @@ function openEditInvItem(id) {
     document.getElementById('new-item-order-size').value   = item.OrderSize != null ? item.OrderSize : '';
     document.getElementById('new-item-unit').value         = item.OrderUnit || item.Unit || '';
     document.getElementById('new-item-par').value          = item.ParLevel != null ? item.ParLevel : '';
+    if (document.getElementById('new-item-reorder-trigger'))
+      document.getElementById('new-item-reorder-trigger').value = item.ReorderTrigger != null ? item.ReorderTrigger : '';
     document.getElementById('new-item-cost').value         = item.CostPerCase != null ? item.CostPerCase : '';
     if (document.getElementById('new-item-serving-unit'))
       document.getElementById('new-item-serving-unit').value = item.ServingUnit || '';
@@ -266,6 +268,7 @@ async function saveInventoryItem() {
       OrderUnit:       document.getElementById('new-item-unit').value,
       Unit:            document.getElementById('new-item-unit').value,
       ParLevel:        parseFloat(document.getElementById('new-item-par').value)||0,
+      ReorderTrigger:  parseFloat(document.getElementById('new-item-reorder-trigger')?.value)||null,
       CostPerCase:     parseFloat(document.getElementById('new-item-cost').value)||null,
       ServingUnit:     document.getElementById('new-item-serving-unit')?.value||null,
       ServingsPerUnit: parseFloat(document.getElementById('new-item-servings')?.value)||null,
