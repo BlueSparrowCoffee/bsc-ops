@@ -1489,3 +1489,195 @@ function renderCogHistory() {
     </tr>`;
   }).join('');
 }
+
+// ── Merch duplicate finder (Step 1 — diagnostic only, read-only) ──────────
+// Aggressive name normalization: lowercase, trim, collapse whitespace, strip
+// smart quotes + apostrophes, collapse " and " / " & ", and normalize common
+// size descriptors like "12oz"/"12 oz"/"12 ounces" → "12oz". Intentionally
+// loose so e.g. "Platte Blend 12 oz" and "Platte Blend 12oz" collapse into
+// one bucket even though the case-insensitive raw compare misses them.
+function normalizeMerchName(raw) {
+  if (!raw) return '';
+  let s = String(raw).toLowerCase().trim();
+  s = s.normalize('NFKD').replace(/[\u2018\u2019\u201C\u201D]/g, "'");
+  s = s.replace(/\s+and\s+/g, ' & ');         // "Cups and Lids" → "Cups & Lids"
+  s = s.replace(/\s*&\s*/g, ' & ');            // normalize spacing around &
+  s = s.replace(/(\d+)\s*(oz|ounce|ounces|lb|lbs|pound|pounds|ml|g|gram|grams)\b/g, (_, n, u) => {
+    const norm = { oz:'oz', ounce:'oz', ounces:'oz', lb:'lb', lbs:'lb', pound:'lb', pounds:'lb', ml:'ml', g:'g', gram:'g', grams:'g' }[u] || u;
+    return n + norm;
+  });
+  s = s.replace(/[^a-z0-9 &']+/g, ' ');        // strip punctuation (keep & and ')
+  s = s.replace(/\s+/g, ' ').trim();
+  return s;
+}
+
+async function findMerchDuplicates() {
+  const btn = document.getElementById('merch-dedup-btn');
+  const statusEl = document.getElementById('merch-dedup-status');
+  const resultsEl = document.getElementById('merch-dedup-results');
+  if (!resultsEl || !statusEl) return;
+
+  openModal('modal-merch-dedup');
+  resultsEl.innerHTML = '';
+  statusEl.textContent = 'Scanning merch inventory…';
+  if (btn) btn.disabled = true;
+
+  try {
+    const merch = cache.merchInventory || [];
+
+    // Group A — duplicate SquareCatalogItemId (strongest signal)
+    const bySqId = {};
+    merch.forEach(i => {
+      const sq = (i.SquareCatalogItemId || '').trim();
+      if (!sq) return;
+      (bySqId[sq] = bySqId[sq] || []).push(i);
+    });
+    const groupA = Object.entries(bySqId)
+      .filter(([, rows]) => rows.length > 1)
+      .map(([sqId, rows]) => ({ sqId, rows }));
+
+    // Group B — duplicate normalized name
+    const byName = {};
+    merch.forEach(i => {
+      const n = normalizeMerchName(i.ItemName || i.Title || '');
+      if (!n) return;
+      (byName[n] = byName[n] || []).push(i);
+    });
+    const groupB = Object.entries(byName)
+      .filter(([, rows]) => rows.length > 1)
+      // Hide rows that are already captured by Group A to avoid double-listing
+      .map(([n, rows]) => ({ normName: n, rows }))
+      .filter(g => {
+        const sqIds = g.rows.map(r => (r.SquareCatalogItemId||'').trim()).filter(Boolean);
+        if (sqIds.length < 2) return true;
+        return new Set(sqIds).size > 1; // still interesting if SqIds differ
+      });
+
+    // Group C — orphans (no SquareCatalogItemId) whose normalized name
+    // matches a Square catalog item. Fetch Square catalog once.
+    statusEl.textContent = 'Fetching Square catalog for orphan match…';
+    let squareItems = [];
+    let squareFetchError = null;
+    try {
+      let cursor = null;
+      do {
+        const params = `catalog/list?types=ITEM${cursor ? '&cursor='+encodeURIComponent(cursor) : ''}`;
+        const data = await squareAPI('GET', params);
+        squareItems = squareItems.concat(data.objects || []);
+        cursor = data.cursor || null;
+      } while (cursor);
+    } catch (e) {
+      squareFetchError = e.message || 'Square fetch failed';
+    }
+
+    // Map normalized Square name → Square item (first match wins)
+    const sqNameMap = {};
+    squareItems.forEach(o => {
+      if (o.is_deleted) return;
+      const name = o.item_data?.name;
+      if (!name) return;
+      const n = normalizeMerchName(name);
+      if (n && !sqNameMap[n]) sqNameMap[n] = { id: o.id, name };
+    });
+
+    const orphanRows = merch.filter(i => !(i.SquareCatalogItemId || '').trim());
+    const groupC = orphanRows
+      .map(row => {
+        const n = normalizeMerchName(row.ItemName || row.Title || '');
+        const sq = sqNameMap[n];
+        return sq ? { row, sq } : null;
+      })
+      .filter(Boolean)
+      // Exclude orphans that are already in Group B with a Square-linked sibling
+      // (those will get handled as part of the dupe merge).
+      .filter(({ row }) => {
+        const n = normalizeMerchName(row.ItemName || row.Title || '');
+        const group = byName[n] || [];
+        return !group.some(r => r !== row && (r.SquareCatalogItemId||'').trim());
+      });
+
+    // Render
+    const totalDupes = groupA.reduce((s,g)=>s+g.rows.length-1,0) + groupB.reduce((s,g)=>s+g.rows.length-1,0);
+    const lines = [
+      `<strong>${merch.length}</strong> merch rows scanned.`,
+      groupA.length ? `<span style="color:var(--red)">${groupA.length}</span> Square-ID collision${groupA.length!==1?'s':''}` : '',
+      groupB.length ? `<span style="color:var(--orange)">${groupB.length}</span> same-name group${groupB.length!==1?'s':''}` : '',
+      groupC.length ? `<span style="color:var(--gold)">${groupC.length}</span> unlinked orphan${groupC.length!==1?'s':''} with Square match` : '',
+      squareFetchError ? `<span style="color:var(--red)">⚠ Square catalog fetch failed: ${escHtml(squareFetchError)} — orphan detection skipped.</span>` : ''
+    ].filter(Boolean).join(' · ');
+    statusEl.innerHTML = lines || 'No duplicates or orphans detected.';
+
+    const html = [];
+
+    // Group A render
+    if (groupA.length) {
+      html.push(`<div style="font-weight:700;font-size:13px;color:var(--red);margin:14px 0 6px;">🔴 Same Square Catalog ID on multiple rows (${groupA.length})</div>`);
+      html.push('<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">These are unambiguous duplicates — the Square ID is shared.</div>');
+      groupA.forEach(g => {
+        html.push(renderDedupGroup(`Square ID ${escHtml(g.sqId)}`, g.rows));
+      });
+    }
+
+    // Group B render
+    if (groupB.length) {
+      html.push(`<div style="font-weight:700;font-size:13px;color:var(--orange);margin:18px 0 6px;">🟠 Same normalized name (${groupB.length})</div>`);
+      html.push('<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Names collapse to identical form after aggressive normalization. Review carefully before merging — sometimes two rows share a name but are different products (e.g. different colorway).</div>');
+      groupB.forEach(g => {
+        html.push(renderDedupGroup(`"${escHtml(g.normName)}"`, g.rows));
+      });
+    }
+
+    // Group C render
+    if (groupC.length) {
+      html.push(`<div style="font-weight:700;font-size:13px;color:var(--gold);margin:18px 0 6px;">🟡 Unlinked orphans with a Square match (${groupC.length})</div>`);
+      html.push('<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">These merch rows have no Square Catalog ID set, but a Square item exists with a matching normalized name. The Step 3 sync hardening will auto-link these so future Square syncs stop creating duplicates.</div>');
+      html.push('<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;font-size:12px;">');
+      html.push('<div style="font-weight:600;color:var(--muted);">Unlinked merch row</div><div style="font-weight:600;color:var(--muted);">Square match</div>');
+      groupC.forEach(({ row, sq }) => {
+        html.push(`<div>${escHtml(row.ItemName||row.Title||'')} <span style="color:var(--muted);font-size:11px;">· id ${escHtml(row.id)}</span></div>`);
+        html.push(`<div>${escHtml(sq.name)} <span style="color:var(--muted);font-size:11px;">· ${escHtml(sq.id)}</span></div>`);
+      });
+      html.push('</div>');
+    }
+
+    if (!groupA.length && !groupB.length && !groupC.length) {
+      html.push('<div style="padding:24px 0;text-align:center;color:var(--muted);font-size:13px;">✨ Merch inventory looks clean — no duplicate rows or unlinked orphans found.</div>');
+    } else {
+      html.push(`<div style="margin-top:18px;padding:12px 14px;background:rgba(200,169,81,.08);border:1px solid rgba(200,169,81,.25);border-radius:8px;font-size:12px;color:rgba(255,255,255,.75);">
+        <strong>Nothing was written.</strong> This was a read-only scan. If the list looks accurate, the next step is to wire up a merge tool that preserves count history (<code>BSC_{loc}_MerchCounts</code> <code>Title</code> rewrites) and deletes the dupe row from <code>BSC_MerchInventory</code>.
+      </div>`);
+    }
+
+    resultsEl.innerHTML = html.join('');
+  } catch (e) {
+    statusEl.innerHTML = `<span style="color:var(--red)">Scan failed: ${escHtml(e.message||e)}</span>`;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function renderDedupGroup(label, rows) {
+  const hdr = `<div style="font-size:12px;color:rgba(255,255,255,.7);margin:10px 0 4px;">${label} · ${rows.length} rows</div>`;
+  const table = `<table style="width:100%;font-size:12px;border-collapse:collapse;margin-bottom:6px;background:rgba(255,255,255,.02);border-radius:6px;overflow:hidden;">
+    <thead><tr style="background:rgba(255,255,255,.05);">
+      <th style="text-align:left;padding:6px 8px;">SP ID</th>
+      <th style="text-align:left;padding:6px 8px;">Item Name</th>
+      <th style="text-align:left;padding:6px 8px;">Category</th>
+      <th style="text-align:left;padding:6px 8px;">Square ID</th>
+      <th style="text-align:right;padding:6px 8px;">Cost</th>
+      <th style="text-align:right;padding:6px 8px;">Price</th>
+    </tr></thead><tbody>
+    ${rows.map(r => {
+      const linked = !!(r.SquareCatalogItemId||'').trim();
+      return `<tr style="border-top:1px solid rgba(255,255,255,.06);">
+        <td style="padding:6px 8px;color:var(--muted);font-family:monospace;font-size:11px;">${escHtml(r.id)}</td>
+        <td style="padding:6px 8px;">${escHtml(r.ItemName||r.Title||'')}${linked ? '' : ' <span style="font-size:10px;color:var(--red);">⚠ unlinked</span>'}</td>
+        <td style="padding:6px 8px;color:var(--muted);">${escHtml(r.Category||'—')}</td>
+        <td style="padding:6px 8px;color:var(--muted);font-family:monospace;font-size:11px;">${escHtml((r.SquareCatalogItemId||'').slice(0,18))||'—'}</td>
+        <td style="padding:6px 8px;text-align:right;">${r.CostPerUnit ? '$'+parseFloat(r.CostPerUnit).toFixed(2) : '—'}</td>
+        <td style="padding:6px 8px;text-align:right;">${r.SellingPrice ? '$'+parseFloat(r.SellingPrice).toFixed(2) : '—'}</td>
+      </tr>`;
+    }).join('')}
+    </tbody></table>`;
+  return hdr + table;
+}
