@@ -222,20 +222,6 @@ body.is-loading{overflow:hidden;}
 #loading .left{background:var(--muted);box-shadow:0 0 0 2px var(--muted);transform:rotate(90deg) skewX(-30deg) scaleY(.86) translate(25px,-50px);}
 #loading .top{background:var(--gold);box-shadow:0 0 0 2px var(--gold);transform:rotate(210deg) skew(-30deg) translate(-75px,-22px) scaleY(.86);z-index:2;}
 
-/* BSC logo sliced across the 9 top faces of the top layer (h=1).
- * At rest the 9 tops tile into the full logo; during the animation
- * each slice travels with its sub-cube. */
-#loading .h1 .top{background-image:url('logo.png');background-size:300% 300%;background-repeat:no-repeat;}
-#loading .h1.w1.l1 .top{background-position:0% 0%;}
-#loading .h1.w1.l2 .top{background-position:50% 0%;}
-#loading .h1.w1.l3 .top{background-position:100% 0%;}
-#loading .h1.w2.l1 .top{background-position:0% 50%;}
-#loading .h1.w2.l2 .top{background-position:50% 50%;}
-#loading .h1.w2.l3 .top{background-position:100% 50%;}
-#loading .h1.w3.l1 .top{background-position:0% 100%;}
-#loading .h1.w3.l2 .top{background-position:50% 100%;}
-#loading .h1.w3.l3 .top{background-position:100% 100%;}
-
 /* Per-cube animation binding (27 rules). Each cube has its own named @keyframes. */
 #loading .h1.w1.l1{z-index:-1;animation:h1w1l1 3s ease infinite;}
 #loading .h1.w1.l2{z-index:-1;animation:h1w1l2 3s ease infinite;}
