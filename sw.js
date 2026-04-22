@@ -1,5 +1,5 @@
-const CACHE = 'bsc-ops-v8';
-const STATIC_ASSETS = ['/icon-180.png', '/icon-512.png', '/logo.png', '/logo-gear.png', '/logo-center.png', '/feather.png', '/manifest.json'];
+const CACHE = 'bsc-ops-v7';
+const STATIC_ASSETS = ['/icon-180.png', '/icon-512.png', '/logo.png', '/feather.png', '/manifest.json'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(STATIC_ASSETS)));
