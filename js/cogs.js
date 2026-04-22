@@ -960,87 +960,277 @@ function cogIngDropKey(e, itemId, vi) {
   }
 }
 
+// Chart state — persists across renders so toggles & last-hovered work
+let _cogChartHiddenTypes = new Set();
+let _cogChartData        = [];   // last drawn points (for tooltip / click)
+let _cogChartTarget      = 65;
+
+// Marker config per inventory type. symbol is drawn as SVG path; color is the
+// outer stroke/ring so a dot's fill still encodes margin vs. target.
+const COG_TYPE_MARKERS = {
+  'coffee-bar': { label: 'Coffee Bar', ring: '#c8a951', shape: 'circle' },
+  'merch':      { label: 'Merch',     ring: '#7dd3fc', shape: 'triangle' },
+  'food':       { label: 'Food',      ring: '#f472b6', shape: 'square' },
+  'grocery':    { label: 'Grocery',   ring: '#a78bfa', shape: 'diamond' }
+};
+
+// Build an SVG marker path for a given shape + radius, centred at (cx, cy).
+function cogMarkerPath(shape, cx, cy, r) {
+  if (shape === 'triangle') {
+    const h = r * 1.25;
+    return `M ${cx} ${cy-h} L ${cx+h} ${cy+h*0.8} L ${cx-h} ${cy+h*0.8} Z`;
+  }
+  if (shape === 'square') {
+    const s = r * 1.05;
+    return `M ${cx-s} ${cy-s} L ${cx+s} ${cy-s} L ${cx+s} ${cy+s} L ${cx-s} ${cy+s} Z`;
+  }
+  if (shape === 'diamond') {
+    const d = r * 1.25;
+    return `M ${cx} ${cy-d} L ${cx+d} ${cy} L ${cx} ${cy+d} L ${cx-d} ${cy} Z`;
+  }
+  // circle fallback rendered via <circle>; shouldn't hit this path
+  return '';
+}
+
+// Click handler for chart dots — drill down into item context.
+//   coffee-bar → history modal (existing)
+//   inventory  → jump to that COG tab
+// Called from svg onclick via data-idx attribute.
+function handleCogChartClick(idx) {
+  const pt = _cogChartData[idx];
+  if (!pt) return;
+  if (pt.type === 'coffee-bar') {
+    openCogHistoryModal(pt.itemName, pt.varName);
+    return;
+  }
+  if (typeof cogTab === 'function' && _cogChartData[idx].type) cogTab(_cogChartData[idx].type);
+}
+
+// Toggle a type's visibility from the legend chip.
+function toggleCogChartType(type) {
+  if (_cogChartHiddenTypes.has(type)) _cogChartHiddenTypes.delete(type);
+  else _cogChartHiddenTypes.add(type);
+  renderCogsOverview();
+}
+
+// Hover handlers — swap marker styles and position the floating tooltip.
+function handleCogDotEnter(evt, idx) {
+  const pt = _cogChartData[idx];
+  if (!pt) return;
+  const tip = document.getElementById('cog-chart-tip');
+  const host = document.getElementById('cogs-overview-chart');
+  if (!tip || !host) return;
+  const mColor = pt.margin >= _cogChartTarget ? '#16a34a'
+               : pt.margin >= _cogChartTarget * 0.8 ? '#d97706' : '#dc2626';
+  const typeLbl = COG_TYPE_MARKERS[pt.type]?.label || pt.typeLabel || '';
+  tip.innerHTML = `
+    <div style="font-size:12px;font-weight:700;color:#fff;margin-bottom:2px;">${escHtml(pt.name)}${pt.variation ? ` <span style="font-weight:400;color:rgba(255,255,255,.7);">· ${escHtml(pt.variation)}</span>` : ''}</div>
+    <div style="font-size:10px;color:rgba(255,255,255,.55);margin-bottom:6px;letter-spacing:.3px;text-transform:uppercase;">${escHtml(typeLbl)}${pt.category && pt.category !== typeLbl ? ' · '+escHtml(pt.category) : ''}</div>
+    <div style="display:flex;gap:10px;align-items:baseline;margin-bottom:4px;">
+      <div style="font-size:20px;font-weight:800;color:${mColor};line-height:1;">${pt.margin.toFixed(1)}%</div>
+      <div style="font-size:10px;color:rgba(255,255,255,.5);">margin</div>
+    </div>
+    <div style="display:flex;gap:12px;font-size:11px;color:rgba(255,255,255,.75);">
+      <span>Price <strong style="color:#fff;">$${pt.price.toFixed(2)}</strong></span>
+      <span>Cost <strong style="color:#fff;">$${pt.cog.toFixed(3)}</strong></span>
+    </div>
+    ${pt.type === 'coffee-bar' ? '<div style="font-size:10px;color:var(--gold);margin-top:6px;">Click for history →</div>' : '<div style="font-size:10px;color:var(--gold);margin-top:6px;">Click to open tab →</div>'}
+  `;
+  const rect = host.getBoundingClientRect();
+  const mx = evt.clientX - rect.left;
+  const my = evt.clientY - rect.top;
+  tip.style.display = 'block';
+  // Clamp so tooltip stays inside host — measure after making it visible
+  const tipW = tip.offsetWidth || 220;
+  const tipH = tip.offsetHeight || 100;
+  const left = Math.max(4, Math.min(rect.width - tipW - 4, mx + 14));
+  const top  = Math.max(4, Math.min(rect.height - tipH - 4, my + 14));
+  tip.style.left = left + 'px';
+  tip.style.top  = top + 'px';
+  // Highlight the hovered marker
+  const g = document.getElementById('cog-dot-' + idx);
+  if (g) g.setAttribute('data-hover', '1');
+}
+function handleCogDotMove(evt) {
+  const tip = document.getElementById('cog-chart-tip');
+  const host = document.getElementById('cogs-overview-chart');
+  if (!tip || tip.style.display === 'none' || !host) return;
+  const rect = host.getBoundingClientRect();
+  const mx = evt.clientX - rect.left;
+  const my = evt.clientY - rect.top;
+  const tipW = tip.offsetWidth || 220;
+  const tipH = tip.offsetHeight || 100;
+  tip.style.left = Math.max(4, Math.min(rect.width - tipW - 4, mx + 14)) + 'px';
+  tip.style.top  = Math.max(4, Math.min(rect.height - tipH - 4, my + 14)) + 'px';
+}
+function handleCogDotLeave(idx) {
+  const tip = document.getElementById('cog-chart-tip');
+  if (tip) tip.style.display = 'none';
+  const g = document.getElementById('cog-dot-' + idx);
+  if (g) g.removeAttribute('data-hover');
+}
+
 function renderCogsOverviewChart(items, target) {
   const el = document.getElementById('cogs-overview-chart');
   if (!el) return;
-  if (!items.length) { el.innerHTML = ''; return; }
 
-  const W = 620, H = 300;
-  const PAD_L = 48, PAD_R = 24, PAD_T = 24, PAD_B = 44;
-  const plotW = W - PAD_L - PAD_R;
-  const plotH = H - PAD_T - PAD_B;
+  _cogChartTarget = target;
 
-  const maxPrice = Math.max(...items.map(i => i.price), 1);
-  const xCeil = Math.ceil(maxPrice * 1.15 / 5) * 5; // round up to nearest $5
+  // Apply legend toggles
+  const visibleItems = items.filter(i => !_cogChartHiddenTypes.has(i.type));
+  _cogChartData = visibleItems;
+
+  // Tooltip container — created once, reused
+  let tip = document.getElementById('cog-chart-tip');
+  if (!tip) {
+    tip = document.createElement('div');
+    tip.id = 'cog-chart-tip';
+    tip.style.cssText = 'position:absolute;display:none;pointer-events:none;background:rgba(12,15,22,.96);border:1px solid rgba(200,169,81,.35);border-radius:10px;padding:10px 12px;min-width:180px;max-width:260px;box-shadow:0 8px 24px rgba(0,0,0,.5);z-index:30;backdrop-filter:blur(6px);';
+  }
+  tip.style.display = 'none'; // reset on re-render so stale tooltip doesn't linger
+
+  if (!items.length) {
+    el.innerHTML = `<div class="card" style="padding:32px 16px;text-align:center;color:var(--muted);font-size:13px;">No priced items yet — snapshot a Coffee Bar recipe or set Cost/Price on merch/food/grocery items.</div>`;
+    return;
+  }
+
+  // Responsive SVG — fills container width, stays 300px tall visually.
+  const VB_W = 680, VB_H = 320;
+  const PAD_L = 52, PAD_R = 20, PAD_T = 20, PAD_B = 50;
+  const plotW = VB_W - PAD_L - PAD_R;
+  const plotH = VB_H - PAD_T - PAD_B;
+
+  const maxPrice = Math.max(...visibleItems.map(i => i.price), 1);
+  const xCeil = Math.max(5, Math.ceil(maxPrice * 1.12 / 5) * 5); // nearest $5
 
   const xScale = p => PAD_L + (p / xCeil) * plotW;
   const yScale = m => PAD_T + plotH - (Math.min(100, Math.max(0, m)) / 100) * plotH;
-
   const dotColor = (m) => m >= target ? '#16a34a' : m >= target * 0.8 ? '#d97706' : '#dc2626';
 
   const svg = [];
 
-  // Grid lines — Y (margin)
+  // Target band — subtle green wash above target line
+  const tyTop = yScale(100);
+  const tyTar = yScale(target);
+  svg.push(`<rect x="${PAD_L}" y="${tyTop}" width="${plotW}" height="${tyTar - tyTop}" fill="#16a34a" opacity=".04"/>`);
+  // Danger band — below 80% of target
+  const dangerY = yScale(target * 0.8);
+  svg.push(`<rect x="${PAD_L}" y="${dangerY}" width="${plotW}" height="${PAD_T + plotH - dangerY}" fill="#dc2626" opacity=".05"/>`);
+
+  // Grid — Y
   [0, 25, 50, 75, 100].forEach(m => {
     const y = yScale(m);
-    svg.push(`<line x1="${PAD_L}" y1="${y}" x2="${W - PAD_R}" y2="${y}" stroke="rgba(255,255,255,.07)" stroke-width="1"/>`);
-    svg.push(`<text x="${PAD_L - 6}" y="${y + 4}" text-anchor="end" font-size="10" fill="rgba(255,255,255,.4)">${m}%</text>`);
+    svg.push(`<line x1="${PAD_L}" y1="${y}" x2="${VB_W - PAD_R}" y2="${y}" stroke="rgba(255,255,255,.07)" stroke-width="1"/>`);
+    svg.push(`<text x="${PAD_L - 8}" y="${y + 4}" text-anchor="end" font-size="10" fill="rgba(255,255,255,.45)">${m}%</text>`);
   });
 
-  // Grid lines — X (price)
-  const xStep = xCeil <= 10 ? 2 : xCeil <= 20 ? 5 : xCeil <= 50 ? 10 : 15;
+  // Grid — X
+  const xStep = xCeil <= 10 ? 2 : xCeil <= 20 ? 5 : xCeil <= 50 ? 10 : xCeil <= 100 ? 20 : 25;
   for (let p = 0; p <= xCeil; p += xStep) {
     const x = xScale(p);
     svg.push(`<line x1="${x}" y1="${PAD_T}" x2="${x}" y2="${PAD_T + plotH}" stroke="rgba(255,255,255,.07)" stroke-width="1"/>`);
-    svg.push(`<text x="${x}" y="${PAD_T + plotH + 14}" text-anchor="middle" font-size="10" fill="rgba(255,255,255,.4)">$${p}</text>`);
+    svg.push(`<text x="${x}" y="${PAD_T + plotH + 16}" text-anchor="middle" font-size="10" fill="rgba(255,255,255,.45)">$${p}</text>`);
   }
 
   // Axis borders
-  svg.push(`<line x1="${PAD_L}" y1="${PAD_T}" x2="${PAD_L}" y2="${PAD_T + plotH}" stroke="rgba(255,255,255,.15)" stroke-width="1"/>`);
-  svg.push(`<line x1="${PAD_L}" y1="${PAD_T + plotH}" x2="${W - PAD_R}" y2="${PAD_T + plotH}" stroke="rgba(255,255,255,.15)" stroke-width="1"/>`);
+  svg.push(`<line x1="${PAD_L}" y1="${PAD_T}" x2="${PAD_L}" y2="${PAD_T + plotH}" stroke="rgba(255,255,255,.18)" stroke-width="1"/>`);
+  svg.push(`<line x1="${PAD_L}" y1="${PAD_T + plotH}" x2="${VB_W - PAD_R}" y2="${PAD_T + plotH}" stroke="rgba(255,255,255,.18)" stroke-width="1"/>`);
 
   // Axis labels
-  svg.push(`<text x="${PAD_L + plotW / 2}" y="${H - 4}" text-anchor="middle" font-size="11" fill="rgba(255,255,255,.45)">Selling Price ($)</text>`);
-  svg.push(`<text transform="rotate(-90)" x="${-(PAD_T + plotH / 2)}" y="12" text-anchor="middle" font-size="11" fill="rgba(255,255,255,.45)">Margin %</text>`);
+  svg.push(`<text x="${PAD_L + plotW / 2}" y="${VB_H - 8}" text-anchor="middle" font-size="11" fill="rgba(255,255,255,.55)">Selling Price ($)</text>`);
+  svg.push(`<text transform="rotate(-90)" x="${-(PAD_T + plotH / 2)}" y="14" text-anchor="middle" font-size="11" fill="rgba(255,255,255,.55)">Margin %</text>`);
 
   // Target line
-  const ty = yScale(target);
-  svg.push(`<line x1="${PAD_L}" y1="${ty}" x2="${W - PAD_R}" y2="${ty}" stroke="#c8a951" stroke-width="1.5" stroke-dasharray="5,4" opacity=".8"/>`);
-  svg.push(`<text x="${W - PAD_R - 2}" y="${ty - 4}" text-anchor="end" font-size="10" fill="#c8a951" opacity=".9">Target ${target}%</text>`);
+  svg.push(`<line x1="${PAD_L}" y1="${tyTar}" x2="${VB_W - PAD_R}" y2="${tyTar}" stroke="#c8a951" stroke-width="1.5" stroke-dasharray="6,4" opacity=".85"/>`);
+  svg.push(`<text x="${VB_W - PAD_R - 4}" y="${tyTar - 5}" text-anchor="end" font-size="10" fill="#c8a951" opacity=".95" font-weight="600">Target ${target}%</text>`);
 
-  // Dots — draw in z-order: below-target first, then on-target
-  const sorted = [...items].sort((a, b) => b.margin - a.margin);
+  // Avg line (visible items, not hidden)
+  if (visibleItems.length) {
+    const avg = visibleItems.reduce((s, i) => s + i.margin, 0) / visibleItems.length;
+    const ya = yScale(avg);
+    svg.push(`<line x1="${PAD_L}" y1="${ya}" x2="${VB_W - PAD_R}" y2="${ya}" stroke="#7dd3fc" stroke-width="1" stroke-dasharray="2,3" opacity=".55"/>`);
+    svg.push(`<text x="${PAD_L + 6}" y="${ya - 4}" font-size="10" fill="#7dd3fc" opacity=".85">Avg ${avg.toFixed(1)}%</text>`);
+  }
+
+  // Collision-aware draw order — plot worst-first so at-target dots sit on top,
+  // and tiny jitter (deterministic, based on name hash) separates exact overlaps.
+  const hash = (s) => { let h=0; for (let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))|0; return h; };
+  const sorted = [...visibleItems].sort((a, b) => a.margin - b.margin);
   sorted.forEach(item => {
-    const cx = xScale(item.price);
-    const cy = yScale(item.margin);
+    const origIdx = _cogChartData.indexOf(item);
+    const j = hash((item.name||'')+'|'+(item.variation||''));
+    const jx = ((j & 0xff) / 255 - 0.5) * 4;    // ±2 px
+    const jy = (((j>>8) & 0xff) / 255 - 0.5) * 4;
+    const cx = xScale(item.price) + jx;
+    const cy = yScale(item.margin) + jy;
     const col = dotColor(item.margin);
-    const label = item.name + (item.variation ? ` · ${item.variation}` : '') + ` — ${item.margin.toFixed(1)}% @ $${item.price.toFixed(2)}`;
-    svg.push(`<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="6" fill="${col}" opacity="${item.isHidden ? '.3' : '.85'}" stroke="rgba(255,255,255,.2)" stroke-width="1">
-      <title>${escHtml(label)}</title>
-    </circle>`);
+    const marker = COG_TYPE_MARKERS[item.type] || COG_TYPE_MARKERS['coffee-bar'];
+    const ringCol = marker.ring;
+    const opa = item.isHidden ? '.25' : '.9';
+    const r = 6;
+
+    // Marker: circle uses <circle>, others use <path>
+    let shapeEl;
+    if (marker.shape === 'circle') {
+      shapeEl = `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${r}" fill="${col}" stroke="${ringCol}" stroke-width="1.4"/>`;
+    } else {
+      shapeEl = `<path d="${cogMarkerPath(marker.shape, cx, cy, r)}" fill="${col}" stroke="${ringCol}" stroke-width="1.4" stroke-linejoin="round"/>`;
+    }
+
+    // Wrapper group handles hover/click & styling
+    svg.push(`<g id="cog-dot-${origIdx}" class="cog-dot" data-idx="${origIdx}" style="cursor:pointer;opacity:${opa};transition:opacity .15s,transform .15s;transform-origin:${cx.toFixed(1)}px ${cy.toFixed(1)}px;" onclick="handleCogChartClick(${origIdx})" onmouseenter="handleCogDotEnter(event,${origIdx})" onmousemove="handleCogDotMove(event)" onmouseleave="handleCogDotLeave(${origIdx})">
+      <circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${r+3}" fill="transparent"/>
+      ${shapeEl}
+    </g>`);
   });
 
-  // Legend
-  const legendY = H - 10;
-  const legendItems = [
-    { col: '#16a34a', label: `At target (≥${target}%)` },
-    { col: '#d97706', label: `Near target (≥${Math.round(target * 0.8)}%)` },
-    { col: '#dc2626', label: 'Below target' }
-  ];
-  let lx = PAD_L;
-  legendItems.forEach(({ col, label }) => {
-    svg.push(`<circle cx="${lx + 5}" cy="${legendY}" r="4" fill="${col}" opacity=".85"/>`);
-    svg.push(`<text x="${lx + 13}" y="${legendY + 4}" font-size="10" fill="rgba(255,255,255,.5)">${escHtml(label)}</text>`);
-    lx += label.length * 6.2 + 20;
-  });
+  // Build clickable legend chips (type toggles + margin buckets info)
+  const typeCounts = {};
+  items.forEach(i => { typeCounts[i.type] = (typeCounts[i.type]||0) + 1; });
+  const legendChips = Object.entries(COG_TYPE_MARKERS)
+    .filter(([t]) => typeCounts[t])
+    .map(([t, cfg]) => {
+      const hidden = _cogChartHiddenTypes.has(t);
+      const count = typeCounts[t] || 0;
+      // Mini inline SVG preview (shape + ring) so legend matches the chart.
+      const prev = cfg.shape === 'circle'
+        ? `<circle cx="7" cy="7" r="4.5" fill="#888" stroke="${cfg.ring}" stroke-width="1.4"/>`
+        : `<path d="${cogMarkerPath(cfg.shape, 7, 7, 4.5)}" fill="#888" stroke="${cfg.ring}" stroke-width="1.4" stroke-linejoin="round"/>`;
+      return `<button type="button" onclick="toggleCogChartType('${t}')" title="${hidden?'Show':'Hide'} ${escHtml(cfg.label)}"
+        style="display:inline-flex;align-items:center;gap:5px;background:${hidden?'transparent':'rgba(255,255,255,.05)'};border:1px solid ${hidden?'rgba(255,255,255,.1)':cfg.ring+'66'};border-radius:14px;padding:3px 9px 3px 6px;font-size:11px;color:${hidden?'rgba(255,255,255,.35)':'rgba(255,255,255,.85)'};cursor:pointer;line-height:1;">
+        <svg width="14" height="14" viewBox="0 0 14 14" style="flex-shrink:0;${hidden?'opacity:.4':''}">${prev}</svg>
+        <span>${escHtml(cfg.label)}</span>
+        <span style="color:rgba(255,255,255,.45);font-variant-numeric:tabular-nums;">${count}</span>
+      </button>`;
+    }).join('');
+
+  const marginKey = `
+    <div style="display:flex;gap:10px;align-items:center;font-size:10px;color:rgba(255,255,255,.55);">
+      <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:#16a34a;"></span>≥${target}%</span>
+      <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:#d97706;"></span>≥${Math.round(target*0.8)}%</span>
+      <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:#dc2626;"></span>&lt;${Math.round(target*0.8)}%</span>
+    </div>`;
 
   el.innerHTML = `
-    <div class="card" style="padding:16px 16px 12px;overflow-x:auto;">
-      <div style="font-size:12px;font-weight:600;color:rgba(255,255,255,.6);margin-bottom:10px;letter-spacing:.5px;">MARGIN VS. PRICE</div>
-      <svg width="${W}" height="${H}" style="display:block;min-width:${W}px;font-family:inherit;">
-        ${svg.join('\n')}
-      </svg>
+    <div class="card" style="padding:16px;position:relative;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+        <div>
+          <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.75);letter-spacing:.6px;">MARGIN VS. PRICE</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px;">Click a dot to drill in · click the chips to filter types</div>
+        </div>
+        ${marginKey}
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">${legendChips}</div>
+      <div style="position:relative;">
+        <svg viewBox="0 0 ${VB_W} ${VB_H}" preserveAspectRatio="xMidYMid meet" style="display:block;width:100%;height:auto;max-height:360px;font-family:inherit;">
+          <style>.cog-dot:hover{opacity:1 !important;transform:scale(1.35);} .cog-dot[data-hover="1"]{opacity:1 !important;transform:scale(1.35);}</style>
+          ${svg.join('\n')}
+        </svg>
+      </div>
     </div>`;
+
+  // Attach tooltip inside the card so positioning is relative to it
+  el.querySelector('.card')?.appendChild(tip);
 }
 
 function renderCogsOverview() {
