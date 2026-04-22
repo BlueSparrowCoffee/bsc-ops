@@ -48,13 +48,7 @@ function debounceFilter(key, fn, ...args) {
   _dfTimers[key] = setTimeout(() => fn(...args), SEARCH_DEBOUNCE_MS);
 }
 
-// ── Modal-overlay click-to-dismiss ───────────────────────────────
-// Any element with .modal-overlay closes when the user clicks the
-// dimmed backdrop (but not when clicking inside the modal body).
-// Runs at script load — index.html script tags sit after the markup,
-// so all overlays already exist in the DOM.
-document.querySelectorAll('.modal-overlay').forEach(el => {
-  el.addEventListener('click', e => {
-    if (e.target === el) el.classList.remove('show');
-  });
-});
+// ── Modal-overlay click-to-dismiss (DISABLED) ────────────────────
+// Backdrop clicks no longer close modals — accidental taps while
+// editing a card kept wiping unsaved changes. Users must hit Save,
+// Cancel, or the ✕ button explicitly. Escape still works.
