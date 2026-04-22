@@ -162,34 +162,47 @@ async function getCountHistoryForList(siteId, listName) {
   } catch { return []; }
 }
 
-// Filter a fields object against the list's known column map loaded by
-// loadListColNames(). Any key not in the column map AND not a system
-// field is dropped — prevents 400s from stale / missing columns.
-// When no column map is loaded yet (first run before metadata arrived),
-// the caller's object is returned unchanged so behavior is unchanged.
-function _filterKnownFields(listName, fields) {
+// Remap field keys against the list's column map so we survive the
+// common SharePoint quirk of internal names diverging from display
+// names (e.g. Location → Location0 after a reserved-name collision).
+//
+// Rules:
+//   1. If the key already matches an internal name, pass through.
+//   2. Otherwise, if it matches a display name (case-insensitive),
+//      rewrite to the SP internal name.
+//   3. Otherwise pass through unchanged — let SP decide.
+//
+// No data is ever dropped; unknowns just surface as a console.warn
+// alongside the real graph() error logger.
+function _remapFieldNames(listName, fields) {
   const known = _colDisplayNames && _colDisplayNames[listName];
   if (!known || !Object.keys(known).length) return fields;
-  const out = {};
-  const dropped = [];
-  Object.keys(fields || {}).forEach(k => {
-    if (known[k] || (SP_SYSTEM_FIELDS && SP_SYSTEM_FIELDS.has(k))) out[k] = fields[k];
-    else dropped.push(k);
+  const displayToInternal = {};
+  Object.entries(known).forEach(([internal, display]) => {
+    if (display) displayToInternal[String(display).toLowerCase()] = internal;
   });
-  if (dropped.length) console.warn('[SP write] dropped unknown fields on', listName, dropped);
+  const out = {};
+  const remapped = {};
+  Object.keys(fields || {}).forEach(k => {
+    if (known[k]) { out[k] = fields[k]; return; }
+    const internal = displayToInternal[k.toLowerCase()];
+    if (internal && internal !== k) { out[internal] = fields[k]; remapped[k] = internal; return; }
+    out[k] = fields[k];
+  });
+  if (Object.keys(remapped).length) console.warn('[SP write] remapped field names on', listName, remapped);
   return out;
 }
 
 async function addListItem(listName, fields) {
   const siteId = await getSiteId();
-  const safe = _filterKnownFields(listName, fields);
+  const safe = _remapFieldNames(listName, fields);
   const res = await graph('POST',`/sites/${siteId}/lists/${listName}/items`,{fields:safe});
   return {id:res.id,...res.fields};
 }
 
 async function updateListItem(listName, itemId, fields) {
   const siteId = await getSiteId();
-  const safe = _filterKnownFields(listName, fields);
+  const safe = _remapFieldNames(listName, fields);
   await graph('PATCH',`/sites/${siteId}/lists/${listName}/items/${itemId}/fields`,safe);
 }
 
