@@ -671,6 +671,7 @@ html,body{overscroll-behavior:none;}
           </div>
         </div>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <span id="count-draft-indicator" style="font-size:12px;color:var(--gold);opacity:0;transition:opacity .2s;"></span>
           <span id="count-submit-progress" style="font-size:13px;color:var(--muted)"></span>
           <button class="btn btn-outline" onclick="clearCountSheet()">Clear</button>
           <button class="btn btn-primary" onclick="submitWeeklyCount()">Submit Count</button>

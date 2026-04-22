@@ -19,6 +19,94 @@
  *     sendSlackAlert, pullMerchSalesFromSquare
  * ================================================================ */
 
+// ── Autosave drafts ───────────────────────────────────────────────
+// Counts are saved to localStorage on every input change so a browser
+// crash, accidental reload, or lost session does not destroy in-progress
+// work. Drafts are keyed by inventory type + location (+ month for
+// merch) and cleared on successful submit or explicit Clear click.
+function _countAutosaveKey(cfg, loc, monthStr) {
+  const base = `bsc_autosave_count_${cfg.cacheKey}_${loc}`;
+  return monthStr ? `${base}_${monthStr}` : base;
+}
+
+function saveCountDraft(rowSelector, cfg, loc, monthStr) {
+  try {
+    const data = {};
+    document.querySelectorAll(rowSelector).forEach(row => {
+      const id = row.dataset.id;
+      if (!id) return;
+      const storeEl   = row.querySelector('.count-store, .merch-store');
+      const storageEl = row.querySelector('.count-storage, .merch-storage');
+      const soldEl    = row.querySelector('.merch-sold');
+      const store   = storeEl   ? storeEl.value   : '';
+      const storage = storageEl ? storageEl.value : '';
+      const sold    = soldEl    ? soldEl.value    : '';
+      if (store !== '' || storage !== '' || sold !== '') {
+        const rec = {};
+        if (store   !== '') rec.store   = store;
+        if (storage !== '') rec.storage = storage;
+        if (sold    !== '') rec.sold    = sold;
+        data[id] = rec;
+      }
+    });
+    const key = _countAutosaveKey(cfg, loc, monthStr);
+    if (!Object.keys(data).length) { localStorage.removeItem(key); return; }
+    localStorage.setItem(key, JSON.stringify({savedAt: Date.now(), data}));
+    _showDraftSaved();
+  } catch(e) { /* quota or disabled — ignore */ }
+}
+
+function restoreCountDraft(rowSelector, cfg, loc, monthStr, updateTotalFn) {
+  try {
+    const raw = localStorage.getItem(_countAutosaveKey(cfg, loc, monthStr));
+    if (!raw) return 0;
+    const parsed = JSON.parse(raw);
+    const data = (parsed && parsed.data) || {};
+    let restored = 0;
+    document.querySelectorAll(rowSelector).forEach(row => {
+      const rec = data[row.dataset.id];
+      if (!rec) return;
+      const storeEl   = row.querySelector('.count-store, .merch-store');
+      const storageEl = row.querySelector('.count-storage, .merch-storage');
+      const soldEl    = row.querySelector('.merch-sold');
+      if (storeEl   && rec.store   != null) { storeEl.value   = rec.store;   restored++; }
+      if (storageEl && rec.storage != null) { storageEl.value = rec.storage; restored++; }
+      if (soldEl    && rec.sold    != null) { soldEl.value    = rec.sold;    restored++; }
+      if (typeof updateTotalFn === 'function' && (storeEl || storageEl)) {
+        updateTotalFn(storeEl || storageEl);
+      }
+    });
+    return restored;
+  } catch { return 0; }
+}
+
+function clearCountDraft(cfg, loc, monthStr) {
+  try { localStorage.removeItem(_countAutosaveKey(cfg, loc, monthStr)); } catch {}
+}
+
+let _draftSavedHideTimer = null;
+function _showDraftSaved() {
+  const el = document.getElementById('count-draft-indicator');
+  if (!el) return;
+  const ts = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  el.textContent = `💾 Draft saved · ${ts}`;
+  el.style.opacity = '1';
+  clearTimeout(_draftSavedHideTimer);
+  _draftSavedHideTimer = setTimeout(() => { el.style.opacity = '.55'; }, 1500);
+}
+
+let _draftSaveDebounceTimer = null;
+function _autosaveCountDebounced(fn) {
+  clearTimeout(_draftSaveDebounceTimer);
+  _draftSaveDebounceTimer = setTimeout(fn, 400);
+}
+
+function _currentMerchMonthStr() {
+  const now = new Date();
+  const d = new Date(now.getFullYear(), now.getMonth() + (_merchCountMonth||0), 1);
+  return d.toISOString().slice(0,7); // YYYY-MM
+}
+
 // ── Count Sheet (consumable, weekly) ──────────────────────────────
 function renderCountSheet() {
   // Show warning if no specific location is selected
@@ -135,6 +223,16 @@ function renderCountSheet() {
         </div>`;
       }).join('')}
     </div>`).join('');
+
+  // Restore any saved-but-unsubmitted draft for this location
+  const _cfg = invCfg();
+  if (_cfg && currentLocation !== 'all') {
+    const n = restoreCountDraft('.count-row', _cfg, currentLocation, null, updateCountTotal);
+    if (n > 0) {
+      toast('ok', `↺ Restored ${n} draft value${n===1?'':'s'} — submit to commit`);
+      _showDraftSaved();
+    }
+  }
 }
 
 function updateCountTotal(input) {
@@ -145,6 +243,11 @@ function updateCountTotal(input) {
   const storage = parseFloat(row.querySelector('.count-storage').value)||0;
   const totalEl = document.getElementById('count-total-'+id);
   if (totalEl) totalEl.textContent = +(store+storage).toFixed(2);
+  // Autosave the whole sheet as a draft
+  _autosaveCountDebounced(() => {
+    const cfg = invCfg();
+    if (cfg && currentLocation !== 'all') saveCountDraft('.count-row', cfg, currentLocation, null);
+  });
 }
 
 function countPlusOne(btn, target='store', delta=1) {
@@ -158,6 +261,8 @@ function countPlusOne(btn, target='store', delta=1) {
 function clearCountSheet() {
   document.querySelectorAll('.count-num-input').forEach(i=>i.value='');
   document.querySelectorAll('.count-total-val').forEach(el=>el.textContent='0');
+  const cfg = invCfg();
+  if (cfg && currentLocation !== 'all') clearCountDraft(cfg, currentLocation, null);
 }
 
 // Upsert BSC_LastCount — one record per invType:location
@@ -275,6 +380,7 @@ async function submitWeeklyCount() {
     }
 
     upsertLastCount(cfg, loc, countedBy); // fire-and-forget
+    clearCountDraft(cfg, loc, null); // draft committed — wipe backup
     toast('ok',`✓ Count submitted — ${entries.length} items`);
     clearCountSheet();
     renderDashboard();
@@ -314,6 +420,7 @@ function renderMerchCountSheet() {
       </div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <button class="btn btn-outline" id="merch-sq-btn" onclick="pullMerchSalesFromSquare()">Pull from Square</button>
+        <span id="count-draft-indicator" style="font-size:12px;color:var(--gold);opacity:0;transition:opacity .2s;"></span>
         <span id="merch-count-submit-progress" style="font-size:13px;color:var(--muted)"></span>
         <button class="btn btn-outline" onclick="clearMerchCountSheet()">Clear</button>
         <button class="btn btn-primary" onclick="submitMerchCount()">Submit Count</button>
@@ -408,6 +515,16 @@ function renderMerchCountSheet() {
       </tbody>
     </table>
     </div>`;
+
+  // Restore any saved-but-unsubmitted merch draft for this loc + month
+  const _cfgM = invCfg();
+  if (_cfgM && currentLocation !== 'all') {
+    const n = restoreCountDraft('.merch-count-row', _cfgM, currentLocation, _currentMerchMonthStr(), updateMerchCountTotal);
+    if (n > 0) {
+      toast('ok', `↺ Restored ${n} draft value${n===1?'':'s'} — submit to commit`);
+      _showDraftSaved();
+    }
+  }
 }
 
 function shiftMerchMonth(delta) {
@@ -423,12 +540,19 @@ function updateMerchCountTotal(input) {
   const storage = parseFloat(row.querySelector('.merch-storage').value)||0;
   const el = document.getElementById('merch-total-'+id);
   if (el) el.textContent = store + storage;
+  // Autosave draft
+  _autosaveCountDebounced(() => {
+    const cfg = invCfg();
+    if (cfg && currentLocation !== 'all') saveCountDraft('.merch-count-row', cfg, currentLocation, _currentMerchMonthStr());
+  });
 }
 
 function clearMerchCountSheet() {
   document.querySelectorAll('.merch-count-row .count-num-input').forEach(i=>i.value='');
   document.querySelectorAll('.merch-count-row .merch-sold').forEach(i=>i.value='');
   document.querySelectorAll('[id^="merch-total-"]').forEach(el=>el.textContent='0');
+  const cfg = invCfg();
+  if (cfg && currentLocation !== 'all') clearCountDraft(cfg, currentLocation, _currentMerchMonthStr());
 }
 
 async function submitMerchCount() {
@@ -494,6 +618,8 @@ async function submitMerchCount() {
     }));
     cache[cfg.countKey].unshift(...newRecords);
     upsertLastCount(cfg, loc, countedBy); // fire-and-forget
+    clearCountDraft(cfg, loc, _currentMerchMonthStr()); // draft committed — wipe backup
+    clearMerchCountSheet();
     toast('ok', `✓ Merch count submitted — ${entries.length} items`);
     renderDashboard();
     prog.textContent = '';
