@@ -145,8 +145,7 @@ function _resetPageFilters(page) {
       break;
     case 'checklists':
       clearInp(byId('cl-role-filter'));
-      clearInp(byId('cl-loc-filter'));
-      break; // renderChecklists is already called by nav()
+      break; // renderChecklists is already called by nav(); location comes from top-bar currentLocation
     case 'menu':
       clearInp(byId('menu-search'));
       clearInp(byId('menu-cat-filter'));

@@ -51,22 +51,16 @@ function getGroupDueStatus(group) {
 function renderChecklists() {
   const userIsMgr = isManagerOrOwner();
   const roleFilter = document.getElementById('cl-role-filter')?.value || '';
-  const locFilter  = document.getElementById('cl-loc-filter')?.value  || '';
+  // Location filter now comes from the top-bar button (currentLocation) —
+  // 'all' shows every group; a specific location shows groups scoped to
+  // that location plus groups with Location='All'.
+  const locFilter  = (currentLocation === 'all') ? '' : currentLocation;
 
   // Manager-only controls
   const newBtn = document.getElementById('cl-new-btn');
   const sugWrap = document.getElementById('cl-suggestions-btn-wrap');
   if (newBtn) newBtn.style.display = userIsMgr ? '' : 'none';
   if (sugWrap) sugWrap.style.display = userIsMgr ? '' : 'none';
-
-  // Populate location filter
-  const locSel = document.getElementById('cl-loc-filter');
-  if (locSel) {
-    const locs = getLocations();
-    const cur = locSel.value;
-    locSel.innerHTML = '<option value="">All Locations</option>' +
-      locs.map(l=>`<option value="${escHtml(l)}"${l===cur?' selected':''}>${escHtml(l)}</option>`).join('');
-  }
 
   // Also populate create-group location select
   const grpLocSel = document.getElementById('cl-group-loc');
@@ -89,6 +83,8 @@ function renderChecklists() {
     if (allowed.length < getLocations().length) {
       groups = groups.filter(g => !g.Location || g.Location === 'All' || allowed.includes(g.Location));
     }
+    // Also honor the top-bar location button for baristas
+    if (locFilter) groups = groups.filter(g => !g.Location || g.Location === 'All' || g.Location === locFilter);
   } else {
     if (roleFilter) groups = groups.filter(g => g.Role === roleFilter || g.Role === 'All');
     if (locFilter)  groups = groups.filter(g => !g.Location || g.Location === 'All' || g.Location === locFilter);

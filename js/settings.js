@@ -144,6 +144,7 @@ async function setLocation(loc, btn) {
   cache.equipCountHistory = [];
   renderInventory();
   renderDashboard();
+  if (typeof renderChecklists === 'function') renderChecklists();
   try {
     const siteId = await getSiteId();
     const locs = getLocations();
@@ -179,6 +180,7 @@ async function setLocation(loc, btn) {
   } catch(e) { console.warn('Counts reload failed:', e); }
   renderInventory();
   renderDashboard();
+  if (typeof renderChecklists === 'function') renderChecklists();
   // Re-render food pars if that panel is currently visible
   if (document.getElementById('inv-tab-foodpars')?.style.display !== 'none' && _invType) {
     renderFoodParsInTab(_invType);
