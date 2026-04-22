@@ -200,9 +200,16 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
 #toast-err{background:var(--red);color:#fff;line-height:1.4;}
 
 /* ── LOADING ── */
-#loading{display:none;position:fixed;inset:0;background:rgba(2,61,74,.93);z-index:9999;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#fff;font-size:13px;}
+/* Solid opaque background + max z-index + own stacking context to prevent any
+ * paint artifacts / sticky-element bleed-through on iOS Safari. Spinner is an
+ * inline SVG (not a CSS border) because iOS has known GPU-compositing artifacts
+ * when animating border-top-color + transform:rotate that render as faint
+ * horizontal bands on top of the element. */
+body.is-loading{overflow:hidden;}
+#loading{display:none;position:fixed;inset:0;background:#023d4a;z-index:2147483647;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#fff;font-size:13px;isolation:isolate;contain:paint;}
 #loading.show{display:flex;}
-.spinner{width:34px;height:34px;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;}
+.spinner{width:34px;height:34px;animation:spin .8s linear infinite;transform-origin:center;}
+.spinner circle{fill:none;stroke:#fff;stroke-width:3;stroke-linecap:round;stroke-dasharray:60 40;opacity:.95;}
 @keyframes spin{to{transform:rotate(360deg);}}
 
 /* ── CHECKLIST ── */
@@ -4593,6 +4600,6 @@ async function graphAll(path) {
 }
 </script>
 <!-- LOADING overlay — last in DOM to guarantee paint order -->
-<div id="loading"><div class="spinner"></div><div id="loading-msg">Loading…</div></div>
+<div id="loading"><svg class="spinner" viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15"/></svg><div id="loading-msg">Loading…</div></div>
 </body>
 </html>

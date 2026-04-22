@@ -31,8 +31,11 @@ function toast(type, msg = '✓ Saved') {
 }
 
 // ── Full-screen loading overlay ──────────────────────────────────
+// Toggles #loading.show AND locks body scroll (body.is-loading) so nothing
+// can render on top of the overlay via Safari's sticky-under-fixed bug.
 function setLoading(on, msg = '') {
   document.getElementById('loading').classList.toggle('show', on);
+  document.body.classList.toggle('is-loading', on);
   if (msg) document.getElementById('loading-msg').textContent = msg;
 }
 
