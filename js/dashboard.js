@@ -18,7 +18,14 @@
 function renderDashboard() {
   const locInv = cache.inventory;
   const cm = getLatestCountsMap(currentLocation);
-  const low = locInv.filter(i => (cm[i.ItemName||'']?.total??0) <= invLowThreshold(i));
+  // Low-stock alerts only make sense for a specific location; on 'all' we show
+  // the "all OK" placeholder rather than falsely flagging everything.
+  const isAllLoc = (currentLocation === 'all');
+  const low = isAllLoc ? [] : locInv.filter(i => {
+    const thresh = invLowThreshold(i, currentLocation);
+    if (thresh == null) return false;
+    return (cm[i.ItemName||'']?.total??0) <= thresh;
+  });
   const pendingOrders = cache.orders.filter(o=>o.Status==='Pending'||o.Status==='Ordered');
   const todayTasks = cache.checklists.filter(c=>c.Frequency==='Daily');
   const done = todayTasks.filter(t => cache.clProgress[t.id]);
@@ -34,13 +41,14 @@ function renderDashboard() {
   else alertsEl.innerHTML = low.slice(0,8).map(i=>{
     const stock = cm[i.ItemName||'']?.total??0;
     const loc   = cm[i.ItemName||'']?.location||i.Location||'';
+    const par   = (typeof getItemPar === 'function') ? (getItemPar(i, currentLocation) ?? 0) : (i.ParLevel||0);
     return `
     <div class="alert-item">
       <div class="alert-dot ${stock===0?'red':'orange'}"></div>
       <span>${escHtml(i.ItemName||'Unknown')}</span>
       <span style="margin-left:auto;font-size:11px;color:var(--muted)">${escHtml(loc)}</span>
       <span class="badge ${stock===0?'badge-red':'badge-orange'}" style="margin-left:8px">
-        ${stock} / ${i.ParLevel||0} ${escHtml(i.Unit||'')}
+        ${stock} / ${par} ${escHtml(i.Unit||'')}
       </span>
     </div>`;
   }).join('');

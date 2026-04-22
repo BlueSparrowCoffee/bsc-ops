@@ -637,10 +637,11 @@ html,body{overscroll-behavior:none;}
             <th onclick="sortInvBy('ItemName')">Item</th>
             <th onclick="sortInvBy('Category')">Category</th>
             <th onclick="sortInvBy('Supplier')">Vendor</th>
-            <th onclick="sortInvBy('ParLevel')">Par</th>
             <th onclick="sortInvBy('StoreCount')">Store</th>
             <th onclick="sortInvBy('StorageCount')">Storage</th>
             <th onclick="sortInvBy('CurrentStock')">Total</th>
+            <th onclick="sortInvBy('ParLevel')">Par</th>
+            <th onclick="sortInvBy('SuggestedOrder')" title="Par minus Total, rounded up. Blank when stocked.">Suggested</th>
             <th>Status</th>
             <th onclick="sortInvBy('CostPerCase')">Cost</th>
             <th onclick="sortInvBy('CostPerServing')">Cost/Serving</th>
@@ -2024,8 +2025,17 @@ html,body{overscroll-behavior:none;}
       <div class="form-group inv-cons-only"><label>Servings / Item</label><input id="new-item-servings" type="number" step="0.01" placeholder="0" oninput="calcCostPerServing()"></div>
       <div class="form-group inv-cons-only"><label>Single Serving Units</label><input id="new-item-serving-unit" placeholder="e.g. g, oz, cup"></div>
       <div class="form-group inv-cons-only"><label>Cost</label><input id="new-item-cost" type="number" step="0.01" placeholder="0.00" oninput="calcCostPerServing()"></div>
-      <div class="form-group inv-cons-only"><label>Par Level</label><input id="new-item-par" type="number" placeholder="Default amount to keep on hand"></div>
-      <div class="form-group inv-cons-only"><label>Reorder Trigger Amount</label><input id="new-item-reorder-trigger" type="number" placeholder="Alert when stock drops to this"></div>
+      <div class="form-group inv-cons-only" style="grid-column:1/-1">
+        <label>Par Level &amp; Reorder Trigger <span style="font-size:10px;color:var(--muted);font-weight:400;">(per location)</span></label>
+        <div id="inv-par-table-wrap" style="border:1.5px solid var(--border);border-radius:7px;overflow:hidden;background:var(--cream);"></div>
+        <div style="display:flex;gap:8px;margin-top:6px;align-items:center;font-size:12px;color:var(--muted);flex-wrap:wrap;">
+          <span style="font-weight:600;">Apply to all:</span>
+          <input id="inv-par-apply-all" type="number" step="0.1" placeholder="Par" style="width:90px;padding:4px 8px;font-size:12px;">
+          <input id="inv-trigger-apply-all" type="number" step="0.1" placeholder="Trigger" style="width:90px;padding:4px 8px;font-size:12px;">
+          <button type="button" class="btn btn-outline" style="font-size:12px;padding:4px 10px;" onclick="applyParToAllLocations()">Apply</button>
+          <span style="font-size:11px;">Blank values won't overwrite existing per-location entries.</span>
+        </div>
+      </div>
       <div class="form-group inv-cons-only"><label>Cost / Serving <span style="font-size:10px;color:var(--muted)">(auto)</span></label><div id="cost-per-serving-preview" style="padding:7px 10px;background:var(--cream);border-radius:7px;font-size:13px;color:var(--muted);border:1.5px solid var(--border);">—</div></div>
       <div class="form-group" style="grid-column:1/-1"><label>Tags</label><div id="inv-item-tags-editor"></div></div>
     </div>
@@ -2560,6 +2570,9 @@ async function ensureAllLists() {
     {name:'CountedAt',  text:{}},
     {name:'InvType',    text:{}}
   ]);
+  // Per-location par + reorder trigger for consumable inventory items.
+  // Title is the composite key "{itemId}:{locationSlug}".
+  await ensureList(LISTS.inventoryPars, INV_PARS_LIST_COLS);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -2567,7 +2580,7 @@ async function ensureAllLists() {
 // ════════════════════════════════════════════════════════════════════════════
 async function loadAllData() {
   const siteId = await getSiteId();
-  const [xfers, orders, cls, roles, vendors,,recipes,,contacts,staff,sched,log,appSettings,clGroups,clCompletions,labelRows,foodParRows,parkingRows,contactArchiveRows,prepItemsRows,prepItemIngsRows,tagsRows,merchReceivedRows,merchMonthsRows,lastCountRows] = await Promise.all([
+  const [xfers, orders, cls, roles, vendors,,recipes,,contacts,staff,sched,log,appSettings,clGroups,clCompletions,labelRows,foodParRows,parkingRows,contactArchiveRows,prepItemsRows,prepItemIngsRows,tagsRows,merchReceivedRows,merchMonthsRows,lastCountRows,invParsRows] = await Promise.all([
     getListItems(siteId, LISTS.transfers),
     getListItems(siteId, LISTS.orders),
     getListItems(siteId, LISTS.checklists),
@@ -2592,7 +2605,8 @@ async function loadAllData() {
     getListItems(siteId, LISTS.tags).catch(()=>[]),
     getListItems(siteId, LISTS.merchReceived).catch(()=>[]),
     getListItems(siteId, LISTS.merchMonths).catch(()=>[]),
-    getListItems(siteId, LISTS.lastCount).catch(()=>[])
+    getListItems(siteId, LISTS.lastCount).catch(()=>[]),
+    getListItems(siteId, LISTS.inventoryPars).catch(()=>[])
   ]);
   cache.transfers=xfers; cache.orders=orders;
   cache.checklists=cls; cache.roles=roles; cache.vendors=vendors;
@@ -2610,7 +2624,9 @@ async function loadAllData() {
   cache.merchReceived = merchReceivedRows || [];
   cache.merchMonths   = merchMonthsRows   || [];
   cache.lastCount     = lastCountRows     || [];
+  cache.inventoryPars = invParsRows       || [];
   migrateTagsToRegistry(); // fire-and-forget: seed BSC_Tags from existing vendor/contact tags
+  migrateParLevelsToPerLocation(); // fire-and-forget: backfill legacy ParLevel/ReorderTrigger to per-location rows (one-time, guarded)
   // Load per-location food par values
   if (currentLocation === 'all') {
     const fpArrays = await Promise.all(
@@ -4608,28 +4624,64 @@ async function runInventoryImport() {
       const existing = await graphAll(`/sites/${siteId}/lists/${invList}/items?$expand=fields&$select=id,fields`);
       const existMap={};
       existing.forEach(it=>{const n=it.fields?.ItemName||it.fields?.Title;if(n)existMap[n.trim().toLowerCase()]=it;});
+      // Pre-fetch existing BSC_InventoryPars rows so per-location upserts don't
+      // create duplicates. Filter to rows for this import's location only.
+      let existingParRows = [];
+      try {
+        const allParRows = await graphAll(`/sites/${siteId}/lists/${LISTS.inventoryPars}/items?$expand=fields&$select=id,fields`);
+        existingParRows = allParRows
+          .map(r => ({ id: r.id, ...r.fields }))
+          .filter(r => String(r.Location) === String(location));
+      } catch(e) { console.warn('[import] par prefetch failed:', e.message); }
+      const parByItemId = {};
+      existingParRows.forEach(r => { if (r.ItemId) parByItemId[String(r.ItemId)] = r; });
+      let parsSaved = 0;
+
       for (let i=0;i<_impParsed.items.length;i++) {
         const item=_impParsed.items[i];
+        // ParLevel is now per-location (BSC_InventoryPars) — don't write to master.
         const fields={
           ItemName:item.ItemName,Title:item.ItemName,Category:item.Category||'',Location:location,
           CurrentStock:item.TotalCount??0,StoreCount:item.StoreCount??0,StorageCount:item.StorageCount??0,
-          ParLevel:item.ParLevel??0,Unit:item.OrderUnit||'',Supplier:item.Supplier||'',
+          Unit:item.OrderUnit||'',Supplier:item.Supplier||'',
           OrderSize:item.OrderSize,OrderUnit:item.OrderUnit||'',OrderFrequency:item.OrderFrequency||'',
           CostPerCase:item.CostPerCase,ServingsPerUnit:item.ServingsPerUnit,
           CostPerServing:item.CostPerServing,ServingUnit:item.ServingUnit||''
         };
         Object.keys(fields).forEach(k=>{if(fields[k]===null||fields[k]===undefined)delete fields[k];});
         const key=item.ItemName.trim().toLowerCase();
+        let itemId = null;
         if (existMap[key]) {
           await graph('PATCH',`/sites/${siteId}/lists/${invList}/items/${existMap[key].id}/fields`,fields);
+          itemId = existMap[key].id;
           updated++;
         } else {
-          await graph('POST',`/sites/${siteId}/lists/${invList}/items`,{fields});
+          const created_ = await graph('POST',`/sites/${siteId}/lists/${invList}/items`,{fields});
+          itemId = created_?.id || null;
           created++;
+        }
+        // Upsert per-location par row (only if source had a par value)
+        const par = item.ParLevel;
+        if (itemId && par != null && par !== '') {
+          try {
+            const parFields = {
+              Title:    String(itemId) + ':' + String(location).replace(/[\s\/\\]/g, '_'),
+              ItemId:   String(itemId),
+              Location: location,
+              ParLevel: +par || 0
+            };
+            const existingPar = parByItemId[String(itemId)];
+            if (existingPar) {
+              await graph('PATCH', `/sites/${siteId}/lists/${LISTS.inventoryPars}/items/${existingPar.id}/fields`, { ParLevel: +par || 0 });
+            } else {
+              await graph('POST', `/sites/${siteId}/lists/${LISTS.inventoryPars}/items`, { fields: parFields });
+            }
+            parsSaved++;
+          } catch(e) { console.warn('[import] par row upsert failed for', item.ItemName, e.message); }
         }
         if ((i+1)%10===0) impLog(`  ${i+1}/${_impParsed.items.length} items…`);
       }
-      impLog(`  ✓ ${created} created · ${updated} updated`);
+      impLog(`  ✓ ${created} created · ${updated} updated · ${parsSaved} par rows for ${location}`);
     }
 
     if (doHistory) {

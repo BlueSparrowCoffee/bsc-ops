@@ -39,7 +39,8 @@ const cache = {
   tags: [],
   merchReceived: [],
   merchMonths: [],
-  lastCount: []
+  lastCount: [],
+  inventoryPars: []   // per-location par + reorder trigger rows
 };
 
 // ── SignalR refresh coordination ─────────────────────────────────

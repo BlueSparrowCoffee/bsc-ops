@@ -49,15 +49,136 @@ let _invSort      = { col: null, dir: 1 };
 function invCfg()         { return INV_TYPE_CFG[_invType]; }
 function invHasCategory() { return invCfg()?.hasCategory !== false; }
 
+// ── Per-location par + reorder trigger ───────────────────────────
+// BSC_InventoryPars stores one row per (item × location) with columns
+// ItemId, Location, ParLevel, ReorderTrigger. Title is the composite
+// key "{itemId}:{locationSlug}" (slug = location with whitespace/slashes
+// replaced by underscore — same convention as the count lists).
+function invParSlug(loc) {
+  return String(loc || '').replace(/[\s\/\\]/g, '_');
+}
+function invParKey(itemId, loc) {
+  return String(itemId) + ':' + invParSlug(loc);
+}
+// Find the par row for a given (item, location). Returns null if none exists.
+// Looks up by (ItemId, Location) pair — matches regardless of Title shape.
+function getInvParRow(itemId, loc) {
+  if (!itemId || !loc || loc === 'all') return null;
+  const rows = (cache.inventoryPars || []);
+  for (let k = 0; k < rows.length; k++) {
+    const r = rows[k];
+    if (String(r.ItemId) === String(itemId) && String(r.Location) === String(loc)) return r;
+  }
+  return null;
+}
+// Numeric par for (item, location). Falls back to legacy item.ParLevel when
+// no per-location row exists yet (pre-migration or freshly-added location).
+// Returns null when loc === 'all' (owner's aggregated view — no single value).
+function getItemPar(item, loc) {
+  if (!item) return 0;
+  if (loc === 'all') return null;
+  const row = getInvParRow(item.id, loc);
+  if (row && row.ParLevel != null && row.ParLevel !== '') return +row.ParLevel || 0;
+  return +item.ParLevel || 0;
+}
+function getItemReorderTrigger(item, loc) {
+  if (!item) return 0;
+  if (loc === 'all') return null;
+  const row = getInvParRow(item.id, loc);
+  if (row && row.ReorderTrigger != null && row.ReorderTrigger !== '') return +row.ReorderTrigger || 0;
+  return +item.ReorderTrigger || 0;
+}
+
 // ── Low-stock threshold ──────────────────────────────────────────
-// Returns the count level at-or-below which an item is considered LOW.
-// Prefers explicit ReorderTrigger; falls back to ParLevel. Used by the
-// inventory list badge/filter, dashboard alerts, and the Slack low-stock
-// notification fired on count submission.
-function invLowThreshold(i) {
-  const t = +i.ReorderTrigger;
+// Returns the count level at-or-below which an item is considered LOW
+// for a given location. Prefers ReorderTrigger, falls back to ParLevel.
+// Returns null when loc === 'all' — callers should treat that as "no
+// per-location context" and skip status badges / low-stock flags.
+function invLowThreshold(i, loc) {
+  if (loc === 'all') return null;
+  const t = getItemReorderTrigger(i, loc);
   if (isFinite(t) && t > 0) return t;
-  return +i.ParLevel || 0;
+  return getItemPar(i, loc) || 0;
+}
+
+// Suggested order qty = Par - Total, rounded up to the next whole unit.
+// Returns null when we can't compute (no count, no par, or "all" mode)
+// — callers render "—" in that case. Never negative.
+function suggestedOrderQty(item, loc, total) {
+  if (loc === 'all') return null;
+  if (total == null || total === '' || total === '—') return null;
+  const par = getItemPar(item, loc);
+  if (!par) return null;
+  const gap = par - (+total || 0);
+  if (gap <= 0) return null;
+  return Math.ceil(gap);
+}
+
+// ── One-time migration: legacy master par → per-location rows ────
+// Copies each consumable item's legacy ParLevel + ReorderTrigger into
+// BSC_InventoryPars, one row per location. Idempotent: skips items that
+// already have rows for every location. Guarded by the
+// 'par_migration_v1' flag in BSC_Settings so it only runs once globally
+// across all users/devices.
+async function migrateParLevelsToPerLocation() {
+  try {
+    if (typeof getSetting !== 'function' || typeof saveSetting !== 'function') return;
+    const done = await getSetting('par_migration_v1');
+    if (done === '1' || done === 'true' || done === true) return;
+    // Only owners trigger the migration (avoids N clients racing)
+    if (typeof isOwner === 'function' && !isOwner()) return;
+    const locs = (typeof getLocations === 'function' ? getLocations() : []) || [];
+    if (!locs.length) return;
+    const items = (cache.inventory || []).filter(i =>
+      (+i.ParLevel > 0) || (+i.ReorderTrigger > 0)
+    );
+    if (!items.length) {
+      await saveSetting('par_migration_v1', '1');
+      return;
+    }
+    const siteId = await getSiteId();
+    const existing = new Set(
+      (cache.inventoryPars || []).map(r => String(r.ItemId) + '::' + String(r.Location))
+    );
+    const creates = [];
+    for (const item of items) {
+      for (const loc of locs) {
+        const sig = String(item.id) + '::' + loc;
+        if (existing.has(sig)) continue;
+        const par     = +item.ParLevel       || 0;
+        const trigger = +item.ReorderTrigger || 0;
+        if (par <= 0 && trigger <= 0) continue;
+        creates.push({
+          Title:          invParKey(item.id, loc),
+          ItemId:         String(item.id),
+          Location:       loc,
+          ParLevel:       par || null,
+          ReorderTrigger: trigger || null
+        });
+      }
+    }
+    if (!creates.length) {
+      await saveSetting('par_migration_v1', '1');
+      return;
+    }
+    // Batch create — serial to avoid Graph throttling
+    for (const fields of creates) {
+      try {
+        const clean = { ...fields };
+        Object.keys(clean).forEach(k => { if (clean[k] == null || clean[k] === '') delete clean[k]; });
+        const row = await addListItem(LISTS.inventoryPars, clean);
+        cache.inventoryPars.push(row);
+      } catch (e) {
+        console.warn('[par migration] create failed:', fields, e.message);
+      }
+    }
+    await saveSetting('par_migration_v1', '1');
+    console.log(`[par migration] created ${creates.length} per-location par rows`);
+    if (typeof renderInventory === 'function') renderInventory();
+    if (typeof renderDashboard === 'function') renderDashboard();
+  } catch (e) {
+    console.warn('[par migration] aborted:', e.message);
+  }
 }
 
 function applyInvCategoryVisibility() {
@@ -106,10 +227,11 @@ function renderInvTableHeader() {
       <th onclick="sortInvBy('ItemName')">Item</th>
       <th id="inv-th-category" onclick="sortInvBy('Category')">Category</th>
       <th onclick="sortInvBy('Supplier')">Vendor</th>
-      <th onclick="sortInvBy('ParLevel')">Par</th>
       <th onclick="sortInvBy('StoreCount')">Store</th>
       <th onclick="sortInvBy('StorageCount')">Storage</th>
       <th onclick="sortInvBy('CurrentStock')">Total</th>
+      <th onclick="sortInvBy('ParLevel')">Par</th>
+      <th onclick="sortInvBy('SuggestedOrder')" title="Par minus Total, rounded up. Blank when stocked.">Suggested</th>
       <th>Status</th>
       <th onclick="sortInvBy('CostPerCase')">Cost/Case</th>
       <th onclick="sortInvBy('CostPerServing')">Cost/Serving</th>
@@ -273,12 +395,25 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
     (i.Supplier||'').toLowerCase().includes(query.toLowerCase()));
   if (catFilter)      items = items.filter(i=>i.Category===catFilter);
   if (supplierFilter) items = items.filter(i=>(i.Supplier||'')===supplierFilter);
-  if (statusFilter==='low') items = items.filter(i=>(countsMap[i.ItemName||'']?.total??0)<=invLowThreshold(i));
-  if (statusFilter==='ok')  items = items.filter(i=>(countsMap[i.ItemName||'']?.total??0)> invLowThreshold(i));
+  // Low/ok filter only applies when a specific location is selected — "all" has
+  // no single par value so those filters are meaningless in aggregate view.
+  if (statusFilter==='low' && currentLocation !== 'all') items = items.filter(i=>(countsMap[i.ItemName||'']?.total??0)<=invLowThreshold(i, currentLocation));
+  if (statusFilter==='ok'  && currentLocation !== 'all') items = items.filter(i=>(countsMap[i.ItemName||'']?.total??0)> invLowThreshold(i, currentLocation));
 
   if (_invSort.col) {
     items = [...items].sort((a,b) => {
-      const av = a[_invSort.col], bv = b[_invSort.col];
+      let av, bv;
+      if (_invSort.col === 'ParLevel') {
+        av = getItemPar(a, currentLocation);
+        bv = getItemPar(b, currentLocation);
+      } else if (_invSort.col === 'SuggestedOrder') {
+        const at = countsMap[a.ItemName||'']?.total ?? null;
+        const bt = countsMap[b.ItemName||'']?.total ?? null;
+        av = suggestedOrderQty(a, currentLocation, at);
+        bv = suggestedOrderQty(b, currentLocation, bt);
+      } else {
+        av = a[_invSort.col]; bv = b[_invSort.col];
+      }
       if (av==null && bv==null) return 0;
       if (av==null) return 1; if (bv==null) return -1;
       return (typeof av==='string' ? av.localeCompare(bv) : av-bv) * _invSort.dir;
@@ -288,15 +423,19 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
   }
 
   const tbody = document.getElementById('inv-body');
+  const isAll = (currentLocation === 'all');
   tbody.innerHTML = items.map(i => {
     const store   = (countsMap[i.ItemName||'']?.store??'—');
     const storage = (countsMap[i.ItemName||'']?.storage??'—');
     const total   = (countsMap[i.ItemName||'']?.total??'—');
     const totalNum = (countsMap[i.ItemName||'']?.total??null);
-    const par     = i.ParLevel||0;
-    const lowAt   = invLowThreshold(i);
-    const badge   = totalNum===null?'badge-gray':totalNum===0?'badge-red':totalNum<=lowAt?'badge-orange':'badge-green';
-    const status  = totalNum===null?'—':totalNum===0?'Out':totalNum<=lowAt?'Low':'OK';
+    const parNum  = isAll ? null : getItemPar(i, currentLocation);
+    const parCell = isAll ? '—' : (parNum || 0);
+    const lowAt   = invLowThreshold(i, currentLocation);
+    const badge   = isAll ? 'badge-gray' : (totalNum===null?'badge-gray':totalNum===0?'badge-red':totalNum<=lowAt?'badge-orange':'badge-green');
+    const status  = isAll ? '—' : (totalNum===null?'—':totalNum===0?'Out':totalNum<=lowAt?'Low':'OK');
+    const sugg    = suggestedOrderQty(i, currentLocation, totalNum);
+    const suggCell = (sugg == null) ? '—' : sugg;
     const unit    = escHtml(i.OrderUnit||i.Unit||'');
     const costCase    = i.CostPerCase    != null ? '$'+Number(i.CostPerCase).toFixed(2)    : '—';
     const costServing = i.CostPerServing != null ? '$'+Number(i.CostPerServing).toFixed(4) : '—';
@@ -305,10 +444,11 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
       <td class="fw">${escHtml(i.ItemName||'—')}${i.SquareId?'<span class="sq-badge" title="Synced with Square">SQ</span>':''}${i.Archived?'<span style="font-size:10px;background:var(--muted);color:#fff;padding:1px 5px;border-radius:8px;margin-left:4px;">archived</span>':''}${i.Tags?renderTagPills(i.Tags):''}</td>
       ${invHasCategory() ? `<td><span class="badge badge-teal">${escHtml(i.Category||'—')}</span></td>` : ''}
       <td style="font-size:12px">${i.Supplier ? `<a href="#" data-supplier="${escHtml(i.Supplier||'')}" onclick="event.stopPropagation();nav('vendors');setTimeout(()=>{const s=document.querySelector('#page-vendors .search-input');if(s){s.value=this.dataset.supplier;filterVendors(s.value);}},300);return false;" style="color:var(--gold);text-decoration:none;">${escHtml(i.Supplier)}</a>` : '<span style="color:var(--muted)">—</span>'}</td>
-      <td><div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;"><span style="text-align:right;">${par}</span><span style="font-size:11px;color:var(--muted);width:44px;text-align:left;">${unit}</span></div></td>
       <td>${store}</td>
       <td>${storage}</td>
       <td style="font-weight:600">${total}</td>
+      <td><div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;"><span style="text-align:right;">${parCell}</span><span style="font-size:11px;color:var(--muted);width:44px;text-align:left;">${unit}</span></div></td>
+      <td style="font-weight:600;${suggCell==='—'?'color:var(--muted)':'color:var(--gold)'}">${suggCell}</td>
       <td><span class="badge ${badge}">${status}</span></td>
       <td>${costCase}</td>
       <td style="font-size:12px">${costServing}</td>

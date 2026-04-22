@@ -189,10 +189,11 @@ function renderCountSheet() {
       ${vendorItems.map(item => {
         const last = recentMap[item.ItemName];
         const unit = item.OrderUnit || item.Unit || '';
+        const _par = (typeof getItemPar === 'function') ? (getItemPar(item, currentLocation) ?? 0) : (item.ParLevel||0);
         return `<div class="count-row" data-id="${item.id}" data-name="${(item.ItemName||'').replace(/"/g,'&quot;')}">
           <div style="flex:1;min-width:160px">
             <div class="count-item-name">${item.ItemName||'—'}</div>
-            <div class="count-item-meta">par ${item.ParLevel||0} ${unit}</div>
+            <div class="count-item-meta">par ${_par} ${unit}</div>
           </div>
           <div class="count-input-group">
             <label>Store</label>
@@ -371,7 +372,10 @@ async function submitWeeklyCount() {
     // Slack alert for low items
     const lowItems = entries.filter(e => {
       const item = cache[invCacheKey].find(i=>String(i.id)===String(e.id));
-      return item && e.total <= invLowThreshold(item) && e.total >= 0;
+      if (!item) return false;
+      const thresh = invLowThreshold(item, loc);
+      if (thresh == null) return false;
+      return e.total <= thresh && e.total >= 0;
     });
     if (lowItems.length) {
       const names = lowItems.slice(0,5).map(e=>e.name).join(', ');

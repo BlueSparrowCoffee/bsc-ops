@@ -52,6 +52,7 @@ const LIST_PAGE_MAP = {
   maintLog:            ['maint-schedule'],
   roles:               ['settings'],
   parking:             ['parking'],
+  inventoryPars:       ['inventory','dashboard'],
 };
 
 // ── Maintenance / equipment ──────────────────────────────────────
@@ -77,6 +78,17 @@ const INV_LIST_COLS = [
   {name:'CostPerServing',number:{decimalPlaces:'automatic'}},
   {name:'ServingUnit',text:{}},{name:'Unit',text:{}},{name:'Tags',text:{}},
   {name:'Archived',text:{}}
+];
+
+// Per-location par + reorder trigger (one row per (ItemId, Location)).
+// Title = "{itemId}:{locationSlug}" — the composite key.
+// Replaces the legacy ParLevel/ReorderTrigger columns on BSC_Inventory
+// (those stay as a safety net during migration but are ignored after).
+const INV_PARS_LIST_COLS = [
+  {name:'ItemId',         text:{}},
+  {name:'Location',       text:{}},
+  {name:'ParLevel',       number:{decimalPlaces:'automatic'}},
+  {name:'ReorderTrigger', number:{decimalPlaces:'automatic'}}
 ];
 
 const COUNTS_LIST_COLS = [
@@ -142,7 +154,8 @@ const LISTS = {
   tags:                'BSC_Tags',
   merchReceived:       'BSC_MerchReceived',
   merchMonths:         'BSC_MerchMonths',
-  lastCount:           'BSC_LastCount'
+  lastCount:           'BSC_LastCount',
+  inventoryPars:       'BSC_InventoryPars'     // per-location par + reorder trigger for consumable items
 };
 
 // ── Inventory type config — drives which list/cache key each inv type uses ──
@@ -186,7 +199,7 @@ const INV_COG_CFG = {
 // Bump APP_VERSION any time a deploy has breaking localStorage changes.
 // On version mismatch the entire localStorage is wiped so stale prefs never
 // cause weirdness after an update.
-const APP_VERSION = '2026-04-22ak';
+const APP_VERSION = '2026-04-22am';
 (function() {
   try {
     if (localStorage.getItem('bsc_app_version') !== APP_VERSION) {
@@ -198,7 +211,7 @@ const APP_VERSION = '2026-04-22ak';
 
 // Bump when SharePoint schema changes. User must clear bsc_provision_v
 // from localStorage (or Settings → Clear Local Data) to trigger re-provisioning.
-const PROVISION_VERSION = '30';
+const PROVISION_VERSION = '31';
 
 // ── Data / cache TTLs ────────────────────────────────────────────
 const CACHE_MAX_AGE = 4 * 60 * 60 * 1000; // 4 hours
@@ -297,6 +310,8 @@ const PROVISIONED_COL_NAMES = new Set([
   'CostSnapshot','ClosedBy','ClosedAt',
   // Tags
   'Color',
+  // Inventory pars (per-location)
+  'ItemId','ReorderTrigger',
 ]);
 
 // ── Forms: vendors & contacts ────────────────────────────────────

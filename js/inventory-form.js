@@ -33,9 +33,11 @@ function openAddInvForm() {
   document.querySelector('#modal-add-item .btn-primary').textContent = 'Save Item';
   // clear form
   ['new-item-name','new-item-no','new-item-cost-unit','new-item-square-id',
-   'new-item-order-size','new-item-unit','new-item-par','new-item-reorder-trigger',
-   'new-item-cost','new-item-serving-unit','new-item-servings'
+   'new-item-order-size','new-item-unit',
+   'new-item-cost','new-item-serving-unit','new-item-servings',
+   'inv-par-apply-all','inv-trigger-apply-all'
   ].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  renderInvParTable(null);
   populateInvVendorSelect('');
   // Reset category select to first option
   const catSel = document.getElementById('new-item-cat');
@@ -90,9 +92,12 @@ function openEditInvItem(id) {
     populateInvVendorSelect(item.Supplier || '');
     document.getElementById('new-item-order-size').value   = item.OrderSize != null ? item.OrderSize : '';
     document.getElementById('new-item-unit').value         = item.OrderUnit || item.Unit || '';
-    document.getElementById('new-item-par').value          = item.ParLevel != null ? item.ParLevel : '';
-    if (document.getElementById('new-item-reorder-trigger'))
-      document.getElementById('new-item-reorder-trigger').value = item.ReorderTrigger != null ? item.ReorderTrigger : '';
+    // Per-location par + reorder trigger table (reads existing BSC_InventoryPars rows)
+    renderInvParTable(item);
+    const applyPar = document.getElementById('inv-par-apply-all');
+    const applyTrig = document.getElementById('inv-trigger-apply-all');
+    if (applyPar) applyPar.value = '';
+    if (applyTrig) applyTrig.value = '';
     document.getElementById('new-item-cost').value         = item.CostPerCase != null ? item.CostPerCase : '';
     if (document.getElementById('new-item-serving-unit'))
       document.getElementById('new-item-serving-unit').value = item.ServingUnit || '';
@@ -267,8 +272,8 @@ async function saveInventoryItem() {
       OrderSize:       parseFloat(document.getElementById('new-item-order-size').value)||null,
       OrderUnit:       document.getElementById('new-item-unit').value,
       Unit:            document.getElementById('new-item-unit').value,
-      ParLevel:        parseFloat(document.getElementById('new-item-par').value)||0,
-      ReorderTrigger:  parseFloat(document.getElementById('new-item-reorder-trigger')?.value)||null,
+      // NOTE: ParLevel + ReorderTrigger are now per-location (BSC_InventoryPars),
+      // written separately after the master item save below.
       CostPerCase:     parseFloat(document.getElementById('new-item-cost').value)||null,
       ServingUnit:     document.getElementById('new-item-serving-unit')?.value||null,
       ServingsPerUnit: parseFloat(document.getElementById('new-item-servings')?.value)||null,
@@ -278,6 +283,7 @@ async function saveInventoryItem() {
   Object.keys(fields).forEach(k=>{ if(fields[k]===null||fields[k]==='') delete fields[k]; });
   setLoading(true,'Saving…');
   try {
+    let savedItemId = _editInvId;
     if (_editInvId) {
       // Edit mode — capture old name BEFORE updating cache, for rename propagation
       const existing = cache[cfg.cacheKey].find(i => i.id === _editInvId);
@@ -295,13 +301,127 @@ async function saveInventoryItem() {
       // Add mode
       const item = await addListItem(LISTS[cfg.listKey], fields);
       cache[cfg.cacheKey].push(item);
+      savedItemId = item.id;
       toast('ok','✓ Item added');
+    }
+    // Per-location par + reorder trigger: upsert BSC_InventoryPars rows for
+    // any location whose input changed. Blank inputs are treated as "clear"
+    // → null (doesn't delete the SP row, just empties both numeric fields).
+    if (!cfg.isMerch && savedItemId) {
+      try { await saveInvParTable(savedItemId); }
+      catch (e) { console.warn('[par save] failed:', e.message); toast('err', 'Par/trigger save failed: ' + e.message); }
     }
     renderInventory(); renderDashboard(); populateSelects();
     if (typeof renderRecipes === 'function') renderRecipes();
     closeModal('modal-add-item');
   } catch(e) { toast('err','Save failed: '+e.message); }
   finally { setLoading(false); }
+}
+
+// ── Per-location par/trigger table ────────────────────────────────
+// Injects one row per location into #inv-par-table-wrap. When editing
+// an item, pre-fills each row from cache.inventoryPars (falling back to
+// the legacy item.ParLevel / item.ReorderTrigger for locations that
+// haven't been migrated yet). Safe to call with null for "add" mode.
+function renderInvParTable(item) {
+  const wrap = document.getElementById('inv-par-table-wrap');
+  if (!wrap) return;
+  const locs = (typeof getLocations === 'function' ? getLocations() : []) || [];
+  if (!locs.length) {
+    wrap.innerHTML = '<div style="padding:10px;font-size:12px;color:var(--muted);">No locations configured. Add locations in Settings before setting pars.</div>';
+    return;
+  }
+  const legacyPar  = item ? (+item.ParLevel        || 0) : 0;
+  const legacyTrig = item ? (+item.ReorderTrigger  || 0) : 0;
+  const rowsHtml = locs.map(loc => {
+    let par = '', trig = '';
+    if (item) {
+      const row = (typeof getInvParRow === 'function') ? getInvParRow(item.id, loc) : null;
+      if (row) {
+        if (row.ParLevel       != null && row.ParLevel       !== '') par  = row.ParLevel;
+        if (row.ReorderTrigger != null && row.ReorderTrigger !== '') trig = row.ReorderTrigger;
+      }
+      // Show legacy master value as a hint only — don't populate the input,
+      // so submit doesn't silently copy it back (unless user wants to via Apply-to-all)
+    }
+    const locSafe = escHtml(loc);
+    return `<tr data-loc="${locSafe}">
+      <td style="padding:6px 10px;font-size:13px;font-weight:600;white-space:nowrap;">${locSafe}</td>
+      <td style="padding:4px 6px;"><input class="inv-par-inp" data-loc="${locSafe}" type="number" step="0.1" placeholder="—" value="${par===''?'':escHtml(String(par))}" style="width:100%;padding:5px 8px;font-size:13px;"></td>
+      <td style="padding:4px 6px;"><input class="inv-trigger-inp" data-loc="${locSafe}" type="number" step="0.1" placeholder="—" value="${trig===''?'':escHtml(String(trig))}" style="width:100%;padding:5px 8px;font-size:13px;"></td>
+    </tr>`;
+  }).join('');
+  const hint = (legacyPar > 0 || legacyTrig > 0)
+    ? `<div style="padding:6px 10px;font-size:11px;color:var(--muted);border-top:1px solid var(--border);background:var(--cream);">Legacy values — Par: ${legacyPar}, Trigger: ${legacyTrig}. Use “Apply to all” if you want these copied to every location.</div>`
+    : '';
+  wrap.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr style="background:var(--opal);">
+          <th style="padding:6px 10px;text-align:left;font-size:12px;">Location</th>
+          <th style="padding:6px 10px;text-align:left;font-size:12px;">Par</th>
+          <th style="padding:6px 10px;text-align:left;font-size:12px;">Reorder Trigger</th>
+        </tr>
+      </thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>${hint}`;
+}
+
+// "Apply to all" helper — writes the values from #inv-par-apply-all /
+// #inv-trigger-apply-all into every per-location input row. Blank fields
+// are left untouched so owners can push just par OR just trigger to all
+// locations without wiping the other column.
+function applyParToAllLocations() {
+  const par  = document.getElementById('inv-par-apply-all')?.value || '';
+  const trig = document.getElementById('inv-trigger-apply-all')?.value || '';
+  if (par === '' && trig === '') { toast('err','Enter a Par or Trigger value to apply'); return; }
+  if (par !== '') {
+    document.querySelectorAll('#inv-par-table-wrap .inv-par-inp').forEach(inp => { inp.value = par; });
+  }
+  if (trig !== '') {
+    document.querySelectorAll('#inv-par-table-wrap .inv-trigger-inp').forEach(inp => { inp.value = trig; });
+  }
+  toast('ok','Applied to all locations');
+}
+
+// Reads every row in the par table and upserts the matching
+// BSC_InventoryPars record. Serial writes — small N (≤ ~6 locations)
+// so throttling isn't a concern.
+async function saveInvParTable(itemId) {
+  if (!itemId) return;
+  const rows = document.querySelectorAll('#inv-par-table-wrap tbody tr');
+  if (!rows.length) return;
+  for (const tr of rows) {
+    const loc = tr.dataset.loc;
+    if (!loc) continue;
+    const parInp  = tr.querySelector('.inv-par-inp');
+    const trigInp = tr.querySelector('.inv-trigger-inp');
+    const parStr  = parInp?.value.trim()  || '';
+    const trigStr = trigInp?.value.trim() || '';
+    const parVal  = parStr  === '' ? null : (parseFloat(parStr)  || 0);
+    const trigVal = trigStr === '' ? null : (parseFloat(trigStr) || 0);
+    const existing = (typeof getInvParRow === 'function') ? getInvParRow(itemId, loc) : null;
+    // Skip when row doesn't exist AND both values are blank — nothing to store
+    if (!existing && parVal == null && trigVal == null) continue;
+    try {
+      if (existing) {
+        const patch = { ParLevel: parVal, ReorderTrigger: trigVal };
+        await updateListItem(LISTS.inventoryPars, existing.id, patch);
+        existing.ParLevel = parVal; existing.ReorderTrigger = trigVal;
+      } else {
+        const rec = await addListItem(LISTS.inventoryPars, {
+          Title:    invParKey(itemId, loc),
+          ItemId:   String(itemId),
+          Location: loc,
+          ParLevel: parVal,
+          ReorderTrigger: trigVal
+        });
+        cache.inventoryPars.push(rec);
+      }
+    } catch (e) {
+      console.warn('[par save] row failed:', loc, e.message);
+    }
+  }
 }
 
 // ── Vendor select / inline vendor creation ────────────────────────
