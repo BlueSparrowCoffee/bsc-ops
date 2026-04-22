@@ -76,6 +76,11 @@ function nav(page) {
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+page)?.classList.add('active');
   document.querySelector(`.nav-item[data-module="${module}"]`)?.classList.add('active');
+  // Arriving on a page wipes its search box + filter dropdowns so the user
+  // always lands on a clean, unfiltered view. For pages with no auto-render
+  // in the dispatch below, _resetPageFilters also triggers a fresh render
+  // to flush any stale filtered DOM from the last visit.
+  _resetPageFilters(page);
   if (page==='checklists')    renderChecklists();
   if (page==='maint-schedule') renderMaintSchedule();
   if (page==='settings') {
@@ -89,4 +94,79 @@ function nav(page) {
   if (page==='cogs')        renderCogs();
   if (page==='parking')     renderParking();
   if (page==='prep-items')  renderPrepItems();
+}
+
+// ── Per-page filter reset ───────────────────────────────────────
+// Clears the search box + filter dropdowns + checkbox toggles for the page
+// we're arriving at. Safe to call before deps are ready (null-guards on
+// every element). For pages whose render fn isn't already invoked in
+// nav()'s dispatch block above (inventory, ordering, vendors, maint-
+// contacts, staff, recipes), we also re-render so the table/grid reflects
+// the cleared inputs instead of showing stale filtered rows.
+function _resetPageFilters(page) {
+  const byId = id => document.getElementById(id);
+  const qs   = sel => document.querySelector(sel);
+  const clearInp = el => { if (el) el.value = ''; };
+  const clearChk = el => { if (el) el.checked = false; };
+  switch (page) {
+    case 'inventory':
+      clearInp(byId('inv-search-input'));
+      clearInp(byId('inv-cat-filter'));
+      clearInp(byId('inv-status-filter'));
+      clearInp(byId('inv-supplier-filter'));
+      clearChk(byId('inv-show-archived'));
+      if (typeof renderInventory === 'function') renderInventory();
+      break;
+    case 'ordering':
+      clearInp(qs('#page-ordering .search-input'));
+      clearInp(byId('order-status-filter'));
+      if (typeof renderOrders === 'function') renderOrders();
+      break;
+    case 'vendors':
+      clearInp(qs('#page-vendors .search-input'));
+      clearInp(byId('vendor-tag-filter'));
+      if (typeof renderVendors === 'function') renderVendors();
+      break;
+    case 'maint-contacts':
+      clearInp(qs('#page-maint-contacts .search-input'));
+      if (typeof renderMaintContacts === 'function') renderMaintContacts();
+      break;
+    case 'staff':
+      clearInp(qs('#page-staff .search-input'));
+      if (typeof filterStaff === 'function') filterStaff('');
+      break;
+    case 'recipes':
+      clearInp(byId('recipe-search'));
+      if (typeof filterRecipes === 'function') filterRecipes('');
+      break;
+    case 'checklists':
+      clearInp(byId('cl-role-filter'));
+      clearInp(byId('cl-loc-filter'));
+      break; // renderChecklists is already called by nav()
+    case 'menu':
+      clearInp(byId('menu-search'));
+      clearInp(byId('menu-cat-filter'));
+      clearChk(byId('menu-show-hidden'));
+      break; // renderMenu is already called by nav()
+    case 'cogs':
+      clearInp(byId('cogs-overview-sort'));
+      clearInp(byId('cogs-overview-type'));
+      clearInp(byId('cogs-search'));
+      clearInp(byId('merch-cogs-search'));
+      clearInp(byId('food-cogs-search'));
+      clearInp(byId('grocery-cogs-search'));
+      break; // renderCogs is already called by nav()
+    case 'maint-schedule':
+      clearInp(qs('#page-maint-schedule .search-input'));
+      clearInp(byId('maint-filter-loc'));
+      clearInp(byId('maint-filter-equip'));
+      clearInp(byId('maint-filter-status'));
+      clearInp(byId('maint-log-filter-equip'));
+      break; // renderMaintSchedule is already called by nav()
+    case 'parking':
+      clearInp(qs('#page-parking .search-input'));
+      clearInp(byId('parking-status-filter'));
+      clearInp(byId('parking-loc-filter'));
+      break; // renderParking is already called by nav()
+  }
 }
