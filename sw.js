@@ -1,4 +1,4 @@
-const CACHE = 'bsc-ops-v5';
+const CACHE = 'bsc-ops-v6';
 const STATIC_ASSETS = ['/icon-180.png', '/icon-512.png', '/logo.png', '/feather.png', '/manifest.json'];
 
 self.addEventListener('install', e => {
@@ -20,11 +20,12 @@ self.addEventListener('fetch', e => {
   if (!url.origin.startsWith(self.location.origin)) return;
   if (url.pathname.startsWith('/api/')) return;
 
-  // Network-first for HTML/navigation AND JS modules — never trap users on stale app code
   const isHTML = e.request.mode === 'navigate' ||
                  (e.request.headers.get('accept') || '').includes('text/html');
   const isJS = url.pathname.endsWith('.js');
-  if (isHTML || isJS) {
+
+  // Network-first for HTML — users must see the new app shell immediately after a deploy
+  if (isHTML) {
     e.respondWith(
       fetch(e.request)
         .then(resp => {
@@ -33,6 +34,25 @@ self.addEventListener('fetch', e => {
           return resp;
         })
         .catch(() => caches.match(e.request).then(cached => cached || caches.match('/index.html')))
+    );
+    return;
+  }
+
+  // Stale-while-revalidate for JS — returning users boot instantly from cache while
+  // fresh code downloads in the background. Safe because each deploy bumps
+  // APP_VERSION, so new HTML references new ?v=… URLs → cache miss → network fetch.
+  if (isJS) {
+    e.respondWith(
+      caches.match(e.request).then(cached => {
+        const networkPromise = fetch(e.request).then(resp => {
+          if (resp.ok) {
+            const copy = resp.clone();
+            caches.open(CACHE).then(c => c.put(e.request, copy));
+          }
+          return resp;
+        }).catch(() => cached); // network failed → use cached copy if we have one
+        return cached || networkPromise;
+      })
     );
     return;
   }
