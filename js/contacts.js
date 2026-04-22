@@ -54,9 +54,21 @@ function maintFieldRow(key, val, label) {
 }
 
 function maintFields(item) {
-  // Returns editable field keys (non-system, non-Title) for this list
-  if (!cache.maintContacts.length) return [];
-  return Object.keys(cache.maintContacts[0]).filter(k => k !== 'Title' && isEditableField(k, LISTS.maintContacts));
+  // Return the canonical editable keys for a Maintenance contact.
+  // We prefer MAINT_FORM_FIELDS as the source of truth — a sparsely-
+  // populated first item should not hide fields that other items do
+  // populate. Fall back to a union of keys across all cached items
+  // when MAINT_FORM_FIELDS isn't defined, then finally to the single
+  // item's keys for legacy safety.
+  if (typeof MAINT_FORM_FIELDS !== 'undefined' && Array.isArray(MAINT_FORM_FIELDS)) {
+    return MAINT_FORM_FIELDS.filter(k => k !== 'Title' && isEditableField(k, LISTS.maintContacts));
+  }
+  if (cache.maintContacts.length) {
+    const union = new Set();
+    cache.maintContacts.forEach(m => Object.keys(m).forEach(k => union.add(k)));
+    return [...union].filter(k => k !== 'Title' && isEditableField(k, LISTS.maintContacts));
+  }
+  return [];
 }
 
 // ── Active / archived tabs ────────────────────────────────────────
