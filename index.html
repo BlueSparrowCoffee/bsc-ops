@@ -210,25 +210,50 @@ body.is-loading{overflow:hidden;}
 #loading{display:none;position:fixed;inset:0;background:var(--dark-blue);z-index:2147483647;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:#fff;font-size:13px;isolation:isolate;contain:paint;}
 #loading.show{display:flex;}
 
-/* BSC concentric-rings loader. Five nested ring-arcs each rotate at a
- * staggered delay, creating a cascading bloom. Only the top half of each
- * ring is visible (parent .loader-line-wrap has overflow:hidden). Colors
- * alternate between BSC gold and light-blue. Border colors are static so
- * we avoid the iOS border-animation + rotation artifact. */
-.loader-inner{position:relative;width:100px;height:60px;}
-.loader-line-wrap{animation:spin-rings 2000ms cubic-bezier(.175,.885,.32,1.275) infinite;box-sizing:border-box;height:50px;left:0;overflow:hidden;position:absolute;top:0;transform-origin:50% 100%;width:100px;}
-.loader-line{border:4px solid transparent;border-radius:100%;box-sizing:border-box;height:100px;left:0;margin:0 auto;position:absolute;right:0;top:0;width:100px;}
-.loader-line-wrap:nth-child(1){animation-delay:-50ms;}
-.loader-line-wrap:nth-child(2){animation-delay:-100ms;}
-.loader-line-wrap:nth-child(3){animation-delay:-150ms;}
-.loader-line-wrap:nth-child(4){animation-delay:-200ms;}
-.loader-line-wrap:nth-child(5){animation-delay:-250ms;}
-.loader-line-wrap:nth-child(1) .loader-line{border-color:var(--gold);       height:90px;width:90px;top:7px;}
-.loader-line-wrap:nth-child(2) .loader-line{border-color:var(--light-blue); height:76px;width:76px;top:14px;}
-.loader-line-wrap:nth-child(3) .loader-line{border-color:var(--gold);       height:62px;width:62px;top:21px;}
-.loader-line-wrap:nth-child(4) .loader-line{border-color:var(--light-blue); height:48px;width:48px;top:28px;}
-.loader-line-wrap:nth-child(5) .loader-line{border-color:var(--gold);       height:34px;width:34px;top:35px;}
-@keyframes spin-rings{0%,15%{transform:rotate(0);}100%{transform:rotate(360deg);}}
+/* BSC 3x3x3 isometric cube loader. 27 small cubes arranged in a 3-deep
+ * cube, each rendered as three CSS faces (top/left/right). A diagonal wave
+ * (delayed by w+l position) lifts each cube ~20px over 0.5s, rippling across
+ * the grid. Only transform:translate3d is animated — no border/color anims,
+ * so no iOS compositing artifacts. */
+#loading .container{position:relative;width:140px;height:140px;transform-style:preserve-3d;perspective:900px;}
+#loading .h1Container,
+#loading .h2Container,
+#loading .h3Container{position:absolute;top:50%;left:50%;width:0;height:0;transform-style:preserve-3d;transform:rotateX(-30deg) rotateY(-45deg);}
+
+#loading .cube{position:absolute;width:24px;height:24px;margin:-12px 0 0 -12px;transform-style:preserve-3d;--x:0;--y:0;--z:0;transform:translate3d(var(--x),var(--y),var(--z));animation:cubeHop 2.4s ease-in-out infinite;}
+
+/* Grid position by h/w/l class */
+#loading .cube.h1{--y:24px;}
+#loading .cube.h2{--y:0;}
+#loading .cube.h3{--y:-24px;}
+#loading .cube.w1{--x:-24px;}
+#loading .cube.w2{--x:0;}
+#loading .cube.w3{--x:24px;}
+#loading .cube.l1{--z:-24px;}
+#loading .cube.l2{--z:0;}
+#loading .cube.l3{--z:24px;}
+
+/* Diagonal wave delays (groups by w+l so the ripple travels across the floor plan) */
+#loading .cube.w1.l1{animation-delay:0s;}
+#loading .cube.w2.l1,
+#loading .cube.w1.l2{animation-delay:.1s;}
+#loading .cube.w3.l1,
+#loading .cube.w2.l2,
+#loading .cube.w1.l3{animation-delay:.2s;}
+#loading .cube.w3.l2,
+#loading .cube.w2.l3{animation-delay:.3s;}
+#loading .cube.w3.l3{animation-delay:.4s;}
+
+/* Cube faces — iso lighting: gold top, light-blue right, muted-teal left */
+#loading .face{position:absolute;width:24px;height:24px;left:0;top:0;backface-visibility:hidden;}
+#loading .face.top{background:var(--gold);transform:rotateX(90deg) translateZ(12px);}
+#loading .face.right{background:var(--light-blue);transform:rotateY(90deg) translateZ(12px);}
+#loading .face.left{background:var(--muted);transform:rotateY(-90deg) translateZ(12px);}
+
+@keyframes cubeHop{
+  0%,50%,100%{transform:translate3d(var(--x),var(--y),var(--z));}
+  25%{transform:translate3d(var(--x),calc(var(--y) - 20px),var(--z));}
+}
 
 /* ── CHECKLIST ── */
 .checklist-item{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--opal);transition:background .1s;}
@@ -4619,12 +4644,40 @@ async function graphAll(path) {
 </script>
 <!-- LOADING overlay — last in DOM to guarantee paint order -->
 <div id="loading">
-  <div class="loader-inner" aria-hidden="true">
-    <div class="loader-line-wrap"><div class="loader-line"></div></div>
-    <div class="loader-line-wrap"><div class="loader-line"></div></div>
-    <div class="loader-line-wrap"><div class="loader-line"></div></div>
-    <div class="loader-line-wrap"><div class="loader-line"></div></div>
-    <div class="loader-line-wrap"><div class="loader-line"></div></div>
+  <div class="container" aria-hidden="true">
+    <div class="h1Container">
+      <div class="cube h1 w1 l1"><div class="face top"></div><div class="face left"></div><div class="face right"></div></div>
+      <div class="cube h1 w1 l2"><div class="face top"></div><div class="face left"></div><div class="face right"></div></div>
+      <div class="cube h1 w1 l3"><div class="face top"></div><div class="face left"></div><div class="face right"></div></div>
+      <div class="cube h1 w2 l1"><div class="face top"></div><div class="face left"></div><div class="face right"></div></div>
+      <div class="cube h1 w2 l2"><div class="face top"></div><div class="face left"></div><div class="face right"></div></div>
+      <div class="cube h1 w2 l3"><div class="face top"></div><div class="face left"></div><div class="face right"></div></div>
+      <div class="cube h1 w3 l1"><div class="face top"></div><div class="face left"></div><div class="face right"></div></div>
+      <div class="cube h1 w3 l2"><div class="face top"></div><div class="face left"></div><div class="face right"></div></div>
+      <div class="cube h1 w3 l3"><div class="face top"></div><div class="face left"></div><div class="face right"></div></div>
+    </div>
+    <div class="h2Container">
+      <div class="cube h2 w1 l1"><div class="face top"></div><div class="face left"></div><div class="face right"></div></div>
+      <div class="cube h2 w1 l2"><div class="face top"></div><div class="face left"></div><div class="face right"></div></div>
+      <div class="cube h2 w1 l3"><div class="face top"></div><div class="face left"></div><div class="face right"></div></div>
+      <div class="cube h2 w2 l1"><div class="face top"></div><div class="face left"></div><div class="face right"></div></div>
+      <div class="cube h2 w2 l2"><div class="face top"></div><div class="face left"></div><div class="face right"></div></div>
+      <div class="cube h2 w2 l3"><div class="face top"></div><div class="face left"></div><div class="face right"></div></div>
+      <div class="cube h2 w3 l1"><div class="face top"></div><div class="face left"></div><div class="face right"></div></div>
+      <div class="cube h2 w3 l2"><div class="face top"></div><div class="face left"></div><div class="face right"></div></div>
+      <div class="cube h2 w3 l3"><div class="face top"></div><div class="face left"></div><div class="face right"></div></div>
+    </div>
+    <div class="h3Container">
+      <div class="cube h3 w1 l1"><div class="face top"></div><div class="face left"></div><div class="face right"></div></div>
+      <div class="cube h3 w1 l2"><div class="face top"></div><div class="face left"></div><div class="face right"></div></div>
+      <div class="cube h3 w1 l3"><div class="face top"></div><div class="face left"></div><div class="face right"></div></div>
+      <div class="cube h3 w2 l1"><div class="face top"></div><div class="face left"></div><div class="face right"></div></div>
+      <div class="cube h3 w2 l2"><div class="face top"></div><div class="face left"></div><div class="face right"></div></div>
+      <div class="cube h3 w2 l3"><div class="face top"></div><div class="face left"></div><div class="face right"></div></div>
+      <div class="cube h3 w3 l1"><div class="face top"></div><div class="face left"></div><div class="face right"></div></div>
+      <div class="cube h3 w3 l2"><div class="face top"></div><div class="face left"></div><div class="face right"></div></div>
+      <div class="cube h3 w3 l3"><div class="face top"></div><div class="face left"></div><div class="face right"></div></div>
+    </div>
   </div>
   <div id="loading-msg">Loading…</div>
 </div>
