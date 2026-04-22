@@ -80,7 +80,9 @@ const INV_LIST_COLS = [
 ];
 
 const COUNTS_LIST_COLS = [
-  {name:'WeekOf',dateTime:{displayAs:'default',format:'dateOnly'}},
+  // WeekOf stores a full ISO datetime of the submit moment — label kept for
+  // SP column-name stability across already-provisioned per-location lists.
+  {name:'WeekOf',dateTime:{displayAs:'default',format:'dateTime'}},
   {name:'StoreCount',number:{decimalPlaces:'automatic'}},
   {name:'StorageCount',number:{decimalPlaces:'automatic'}},
   {name:'TotalCount',number:{decimalPlaces:'automatic'}},
@@ -184,7 +186,7 @@ const INV_COG_CFG = {
 // Bump APP_VERSION any time a deploy has breaking localStorage changes.
 // On version mismatch the entire localStorage is wiped so stale prefs never
 // cause weirdness after an update.
-const APP_VERSION = '2026-04-18ad';
+const APP_VERSION = '2026-04-18ae';
 (function() {
   try {
     if (localStorage.getItem('bsc_app_version') !== APP_VERSION) {

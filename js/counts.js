@@ -33,15 +33,14 @@ function renderCountSheet() {
     return;
   }
 
-  // Auto date — always use current date/time, no manual input needed
+  // Auto date — always use current date/time, no manual input needed.
+  // submitWeeklyCount reads the clock directly at submit time (see below),
+  // so this function only drives the visible display.
   function updateCountDateDisplay() {
     const now = new Date();
-    const dateStr = now.toISOString().split('T')[0];
     const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const display = document.getElementById('count-date-display');
-    const hidden  = document.getElementById('count-week-date');
     if (display) display.textContent = now.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric' }) + ' · ' + timeStr;
-    if (hidden)  hidden.value = dateStr;
   }
   updateCountDateDisplay();
   // Update every minute so timestamp stays current
@@ -183,13 +182,14 @@ async function upsertLastCount(cfg, loc, countedBy) {
 }
 
 async function submitWeeklyCount() {
-  const weekOf = document.getElementById('count-week-date').value;
+  // Stamp with the exact submit timestamp — gives every submit a unique sort key.
+  // Schema column is still named WeekOf for compatibility with existing per-location
+  // count lists; the value is now a full ISO datetime, not midnight.
+  const countedAt = new Date().toISOString();
   const countedBy = currentUser?.name || currentUser?.username || '';
   const loc = currentLocation === 'all' ? (
     cache.inventory[0]?.Location || 'All'
   ) : currentLocation;
-
-  if (!weekOf) { toast('err','Select a week date'); return; }
 
   const rows = document.querySelectorAll('#count-sheet-body .count-row');
   const entries = [];
@@ -226,7 +226,7 @@ async function submitWeeklyCount() {
     // batch save to location counts list (8 concurrent)
     const countTasks = entries.map(e => () => addListItem(cntList, {
       Title: e.name,
-      WeekOf: weekOf+'T00:00:00Z',
+      WeekOf: countedAt,
       StoreCount: e.store,
       StorageCount: e.storage,
       TotalCount: e.total,
@@ -257,7 +257,7 @@ async function submitWeeklyCount() {
     const maxExistingId = Math.max(0, ...cache[cfg.countKey].map(r => Number(r.id||0)));
     const newRecords = entries.map((e, idx) => ({
       id: maxExistingId + idx + 1,
-      Title: e.name, WeekOf: weekOf+'T00:00:00Z',
+      Title: e.name, WeekOf: countedAt,
       StoreCount: e.store, StorageCount: e.storage, TotalCount: e.total,
       Location: loc, CountedBy: countedBy
     }));
@@ -270,7 +270,8 @@ async function submitWeeklyCount() {
     });
     if (lowItems.length) {
       const names = lowItems.slice(0,5).map(e=>e.name).join(', ');
-      sendSlackAlert(`⚠️ *${loc} Inventory Count — ${weekOf}*\nLow stock: ${names}${lowItems.length>5?` +${lowItems.length-5} more`:''}`, 'low_inventory');
+      const humanDate = countedAt.split('T')[0];
+      sendSlackAlert(`⚠️ *${loc} Inventory Count — ${humanDate}*\nLow stock: ${names}${lowItems.length>5?` +${lowItems.length-5} more`:''}`, 'low_inventory');
     }
 
     upsertLastCount(cfg, loc, countedBy); // fire-and-forget
