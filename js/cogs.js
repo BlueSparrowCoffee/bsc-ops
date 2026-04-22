@@ -1528,12 +1528,23 @@ function merchNameSimilarity(a, b) {
 }
 
 async function findMerchDuplicates() {
+  console.log('[dedup] findMerchDuplicates fired; cache.merchInventory rows =', (cache.merchInventory||[]).length);
   const btn = document.getElementById('merch-dedup-btn');
   const statusEl = document.getElementById('merch-dedup-status');
   const resultsEl = document.getElementById('merch-dedup-results');
-  if (!resultsEl || !statusEl) return;
 
-  openModal('modal-merch-dedup');
+  // If the modal isn't in the DOM, the deploy is partial — surface it loudly.
+  const modal = document.getElementById('modal-merch-dedup');
+  if (!modal || !resultsEl || !statusEl) {
+    const msg = '[dedup] Modal elements missing — the HTML portion of the deploy is not live yet. Fully quit the PWA / browser tab and reopen to pick up the latest index.html.';
+    console.error(msg, { modal, resultsEl, statusEl });
+    if (typeof toast === 'function') toast('err', 'Dedup UI not loaded — close and reopen the app');
+    else alert(msg);
+    return;
+  }
+
+  if (typeof openModal === 'function') openModal('modal-merch-dedup');
+  else modal.style.display = 'flex';
   resultsEl.innerHTML = '';
   statusEl.textContent = 'Scanning merch inventory…';
   if (btn) btn.disabled = true;
