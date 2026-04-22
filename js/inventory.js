@@ -424,16 +424,12 @@ function getLatestCountsMap(loc) {
     ? countData
     : countData.filter(r => r.Location === loc);
   const map = {};
-  // Sort ascending so later records overwrite earlier ones in the forEach below.
-  // Primary: WeekOf ASC. Tiebreak: id ASC — submitWeeklyCount/submitMerchCount
-  // stamp newly-created rows with a synthetic id higher than any existing row,
-  // so same-day resubmits correctly win. Previous comparator returned -1 on
-  // equal WeekOf → inconsistent sort → inventory page showed stale values even
-  // though the count list had the fresh record.
+  // Sort by WeekOf ASC so later records overwrite earlier ones in the forEach
+  // below. WeekOf now stores the full ISO submit timestamp, so every row has
+  // a unique sort key — no id-tiebreak needed.
   [...filtered].sort((a,b)=>{
     const aw = a.WeekOf||'', bw = b.WeekOf||'';
-    const wDiff = aw < bw ? -1 : aw > bw ? 1 : 0;
-    return wDiff !== 0 ? wDiff : Number(a.id||0) - Number(b.id||0);
+    return aw < bw ? -1 : aw > bw ? 1 : 0;
   }).forEach(r=>{
     const name = (r.Title||r.ItemName||'').trim();
     if (name) map[name] = {
