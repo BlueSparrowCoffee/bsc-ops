@@ -455,9 +455,18 @@ function highlightAndScroll(el) {
 }
 
 // Navigate to the inventory page and highlight the row matching the given ingredient name.
-// Searches consumable → merch → equipment in order and switches to the right type.
+// Prep items live on their own Prep Items page, not in Inventory — check there first.
+// Otherwise searches consumable → merch → equipment and switches to the right type.
 function navToInventoryItem(name) {
   if (!name) return;
+  const prep = (cache.prepItems || []).find(p => (p.Title||'').toLowerCase() === name.toLowerCase());
+  if (prep) {
+    nav('prep-items');
+    setTimeout(() => {
+      highlightAndScroll(document.querySelector(`#pi-cards [data-gs-id="${prep.id}"]`));
+    }, 150);
+    return;
+  }
   const typeMap = [
     { type: 'consumable', arr: cache.inventory         || [] },
     { type: 'merch',      arr: cache.merchInventory    || [] },
