@@ -31,8 +31,7 @@ const PAGE_RENDER_FN = {
   'prep-items':     () => renderPrepItems(),
   cogs:             () => renderCogs(),
   menu:             () => renderMenu(),
-  'maint-contacts': () => renderMaintContacts(),
-  'maint-schedule': () => renderMaintSchedule(),
+  'maint-schedule': () => { renderMaintSchedule(); if (typeof renderMaintContacts === 'function') renderMaintContacts(); },
   settings:         () => { renderRoles(); renderTagsSettings(); initColMgr(); },
   parking:          () => renderParking(),
 };

@@ -510,7 +510,6 @@ html,body{overscroll-behavior:none;}
   <div id="global-search-results"></div>
   <div class="nav-item active" data-module="Dashboard" onclick="nav('dashboard')"><span class="nav-icon">🏠</span> Dashboard</div>
   <div class="nav-item" data-module="Checklists" onclick="nav('checklists')"><span class="nav-icon">✅</span> Checklists</div>
-  <div class="nav-item" data-module="Contacts" onclick="nav('maint-contacts')"><span class="nav-icon">📋</span> Contacts</div>
   <div class="nav-item" data-module="COGs" onclick="nav('cogs')"><span class="nav-icon">💰</span> Cost of Goods</div>
   <div class="nav-item" data-module="Inventory" onclick="nav('inventory')"><span class="nav-icon">📦</span> Inventory</div>
   <div class="nav-item" data-module="Maintenance" onclick="nav('maint-schedule')"><span class="nav-icon">🔧</span> Maintenance <span class="nav-badge" id="badge-maint" style="display:none">!</span></div>
@@ -1336,9 +1335,10 @@ html,body{overscroll-behavior:none;}
       <div class="page-title">🔧 Maintenance</div>
       <div class="page-sub">Scheduled tasks, completion tracking, and full history log</div>
     </div>
-    <div class="tab-bar">
+    <div class="tab-bar" id="maint-main-tabs">
       <button class="tab-btn active" id="maint-tab-schedule" onclick="switchMaintTab('schedule',this)">📅 Schedule</button>
       <button class="tab-btn" id="maint-tab-log" onclick="switchMaintTab('log',this)">📋 Log</button>
+      <button class="tab-btn" id="maint-tab-contacts" onclick="switchMaintTab('contacts',this)">📇 Contacts</button>
     </div>
 
     <!-- Schedule Tab -->
@@ -1379,28 +1379,24 @@ html,body{overscroll-behavior:none;}
         <div class="no-data" id="maint-log-empty" style="display:none">No completions logged yet.</div>
       </div>
     </div>
-  </div>
 
-  <!-- MAINTENANCE CONTACTS (renamed) -->
-  <div class="page" id="page-maint-contacts">
-    <div class="page-header">
-      <div class="page-title">📋 Contacts</div>
-      <div class="page-sub">Service vendors and repair contacts</div>
-    </div>
-    <div class="toolbar">
-      <div class="tab-group" style="margin-right:12px;">
-        <button class="tab-btn active" id="mc-tab-active" onclick="setMaintTab('active')">Active</button>
-        <button class="tab-btn" id="mc-tab-archived" onclick="setMaintTab('archived')">Archived</button>
+    <!-- Contacts Tab -->
+    <div id="maint-contacts-panel" style="display:none;">
+      <div class="toolbar">
+        <div class="tab-group" style="margin-right:12px;">
+          <button class="tab-btn active" id="mc-tab-active" onclick="setMaintTab('active')">Active</button>
+          <button class="tab-btn" id="mc-tab-archived" onclick="setMaintTab('archived')">Archived</button>
+        </div>
+        <div class="search-wrap">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input class="search-input" placeholder="Search contacts…" oninput="debounceFilter('contacts',filterMaint,this.value)">
+        </div>
+        <button class="btn btn-primary ml-auto" onclick="openMaintForm(null)">+ Add Contact</button>
+        <span id="maint-count" style="font-size:13px;color:var(--muted);align-self:center;"></span>
       </div>
-      <div class="search-wrap">
-        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        <input class="search-input" placeholder="Search contacts…" oninput="debounceFilter('contacts',filterMaint,this.value)">
-      </div>
-      <button class="btn btn-primary ml-auto" onclick="openMaintForm(null)">+ Add Contact</button>
-      <span id="maint-count" style="font-size:13px;color:var(--muted);align-self:center;"></span>
+      <div class="cards-grid" id="maint-grid"></div>
+      <div class="no-data" id="maint-empty" style="display:none">No contacts yet — add one above.</div>
     </div>
-    <div class="cards-grid" id="maint-grid"></div>
-    <div class="no-data" id="maint-empty" style="display:none">No contacts yet — add one above.</div>
   </div>
 
   <!-- MENU -->

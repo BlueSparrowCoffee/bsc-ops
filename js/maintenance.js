@@ -52,11 +52,16 @@ function maintStatusBadge(status, nextDue) {
 
 // ── Tab switch + main render ──────────────────────────────────────
 function switchMaintTab(tab,btn) {
-  document.querySelectorAll('#page-maint-schedule .tab-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
+  // Only toggle the top-level Maintenance tabs; narrow selector so we don't
+  // clobber nested Active/Archived chips inside the Contacts panel.
+  document.querySelectorAll('#maint-main-tabs > .tab-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  else document.getElementById('maint-tab-'+tab)?.classList.add('active');
   document.getElementById('maint-schedule-panel').style.display=tab==='schedule'?'':'none';
-  document.getElementById('maint-log-panel').style.display=tab==='log'?'':'none';
-  if(tab==='log') renderMaintLog();
+  document.getElementById('maint-log-panel').style.display     =tab==='log'     ?'':'none';
+  document.getElementById('maint-contacts-panel').style.display=tab==='contacts'?'':'none';
+  if(tab==='log')      renderMaintLog();
+  if(tab==='contacts') renderMaintContacts();
 }
 function renderMaintSchedule() {
   const grid=document.getElementById('maint-schedule-grid');

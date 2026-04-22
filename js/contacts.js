@@ -77,7 +77,7 @@ function setMaintTab(tab) {
   _maintTab = tab;
   document.getElementById('mc-tab-active').classList.toggle('active', tab==='active');
   document.getElementById('mc-tab-archived').classList.toggle('active', tab==='archived');
-  renderMaintContacts(document.querySelector('#page-maint-contacts .search-input')?.value||'');
+  renderMaintContacts(document.querySelector('#maint-contacts-panel .search-input')?.value||'');
 }
 
 function renderMaintContacts(query='') {
@@ -144,7 +144,7 @@ async function toggleMaintArchive(id) {
       const entry = await addListItem(LISTS.contactArchive, { Title: id, ContactId: id });
       cache.contactArchive.push(entry);
     }
-    renderMaintContacts(document.querySelector('#page-maint-contacts .search-input')?.value||'');
+    renderMaintContacts(document.querySelector('#maint-contacts-panel .search-input')?.value||'');
     toast('ok', isArchived ? '↩ Contact restored' : '📦 Contact archived');
   } catch(e) {
     toast('err', 'Archive failed: '+e.message);
@@ -239,7 +239,7 @@ async function saveMaintForm() {
       cache.maintContacts.push(item);
       toast('ok','✓ Contact added');
     }
-    renderMaintContacts(document.querySelector('#page-maint-contacts .search-input')?.value||'');
+    renderMaintContacts(document.querySelector('#maint-contacts-panel .search-input')?.value||'');
     closeModal('modal-maint');
   } catch(e) { toast('err','Save failed: '+e.message); }
   finally { setLoading(false); }

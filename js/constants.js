@@ -24,7 +24,6 @@ const PAGE_MODULE = {
   'recipes':        'Recipes',
   'staff':          'Staff',
   'maint-schedule': 'Maintenance',
-  'maint-contacts': 'Contacts',
   'menu':           'Menu',
   'prep-items':     'Prep',
   'square':         'Square',
@@ -48,7 +47,7 @@ const LIST_PAGE_MAP = {
   cogs:                ['cogs'],
   foodPars:            ['ordering'],
   menu:                ['menu'],
-  maintContacts:       ['maint-contacts'],
+  maintContacts:       ['maint-schedule'],
   maintSchedule:       ['maint-schedule'],
   maintLog:            ['maint-schedule'],
   roles:               ['settings'],
@@ -186,7 +185,7 @@ const INV_COG_CFG = {
 // Bump APP_VERSION any time a deploy has breaking localStorage changes.
 // On version mismatch the entire localStorage is wiped so stale prefs never
 // cause weirdness after an update.
-const APP_VERSION = '2026-04-22ad';
+const APP_VERSION = '2026-04-22ae';
 (function() {
   try {
     if (localStorage.getItem('bsc_app_version') !== APP_VERSION) {

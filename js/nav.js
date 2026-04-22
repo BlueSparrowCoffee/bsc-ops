@@ -56,6 +56,14 @@ function closeNav(){
 // then shows the target page and invokes its render function.
 function nav(page) {
   closeNav();
+  // Legacy redirect — Contacts used to be a top-level page; it now lives as a
+  // tab under Maintenance. Reroute deep links / stale bookmarks and auto-select
+  // the Contacts tab after the page renders.
+  if (page === 'maint-contacts') {
+    nav('maint-schedule');
+    setTimeout(() => { if (typeof switchMaintTab === 'function') switchMaintTab('contacts', null); }, 0);
+    return;
+  }
   // Page-level access check — blocks direct navigation even if nav item is hidden
   const module = PAGE_MODULE[page];
   if (module && !userCanAccess(module)) {
@@ -127,10 +135,6 @@ function _resetPageFilters(page) {
       clearInp(byId('vendor-tag-filter'));
       if (typeof renderVendors === 'function') renderVendors();
       break;
-    case 'maint-contacts':
-      clearInp(qs('#page-maint-contacts .search-input'));
-      if (typeof renderMaintContacts === 'function') renderMaintContacts();
-      break;
     case 'staff':
       clearInp(qs('#page-staff .search-input'));
       if (typeof filterStaff === 'function') filterStaff('');
@@ -157,11 +161,12 @@ function _resetPageFilters(page) {
       clearInp(byId('grocery-cogs-search'));
       break; // renderCogs is already called by nav()
     case 'maint-schedule':
-      clearInp(qs('#page-maint-schedule .search-input'));
+      clearInp(qs('#maint-schedule-panel .search-input'));
       clearInp(byId('maint-filter-loc'));
       clearInp(byId('maint-filter-equip'));
       clearInp(byId('maint-filter-status'));
       clearInp(byId('maint-log-filter-equip'));
+      clearInp(qs('#maint-contacts-panel .search-input'));
       break; // renderMaintSchedule is already called by nav()
     case 'parking':
       clearInp(qs('#page-parking .search-input'));
