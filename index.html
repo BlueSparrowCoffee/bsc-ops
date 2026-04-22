@@ -1062,12 +1062,8 @@ html,body{overscroll-behavior:none;}
             <option value="">Select equipment…</option>
           </select>
         </div>
-        <div class="form-group"><label>Frequency *</label>
-          <select id="mt-frequency" class="filter" style="width:100%;padding:8px 12px;">
-            <option value="Monthly">Monthly</option>
-            <option value="Quarterly">Quarterly</option>
-            <option value="Annually">Annually</option>
-          </select>
+        <div class="form-group"><label>Recur every (days) *</label>
+          <input id="mt-recur-days" type="number" min="0" step="1" placeholder="0 = no recurrence, 7 = weekly, 30 = monthly, 90 = quarterly, 365 = annually" style="width:100%;padding:8px 12px;">
         </div>
         <div class="form-group"><label>Assigned To</label>
           <select id="mt-assigned" class="filter" style="width:100%;padding:8px 12px;">
@@ -2468,7 +2464,8 @@ async function ensureAllLists() {
   ]);
   await ensureList(LISTS.maintSchedule,[
     {name:'Equipment',text:{}},{name:'Description',text:{allowMultipleLines:true}},
-    {name:'Frequency',text:{}},{name:'AssignedTo',text:{}},{name:'Location',text:{}},
+    {name:'Frequency',text:{}},{name:'RecurEveryDays',number:{decimalPlaces:'none'}},
+    {name:'AssignedTo',text:{}},{name:'Location',text:{}},
     {name:'NextDue',text:{}},{name:'Notes',text:{}},{name:'Tags',text:{}}
   ]);
   await ensureList(LISTS.tags, [{name:'Color',text:{}}]);

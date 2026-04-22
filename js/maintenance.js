@@ -29,11 +29,44 @@
  * ================================================================ */
 
 // ── Status helpers ────────────────────────────────────────────────
-function calcNextDue(frequency, fromDate) {
-  const d=new Date(fromDate||new Date());
-  if(frequency==='Monthly')   d.setMonth(d.getMonth()+1);
-  else if(frequency==='Quarterly') d.setMonth(d.getMonth()+3);
-  else if(frequency==='Annually')  d.setFullYear(d.getFullYear()+1);
+// Numeric recurrence (in days) matches checklist style. Legacy tasks with only
+// a Frequency string fall back to the old Monthly/Quarterly/Annually mapping.
+function maintTaskDays(task) {
+  if (!task) return 0;
+  const raw = task.RecurEveryDays;
+  if (raw != null && raw !== '') {
+    const n = parseInt(raw, 10);
+    if (!isNaN(n) && n >= 0) return n;
+  }
+  // Legacy fallback
+  if (task.Frequency === 'Monthly')   return 30;
+  if (task.Frequency === 'Quarterly') return 90;
+  if (task.Frequency === 'Annually')  return 365;
+  return 0;
+}
+function maintRecurLabel(task) {
+  const d = maintTaskDays(task);
+  if (!d) return 'No recurrence';
+  if (d === 1)  return 'Every day';
+  if (d === 7)  return 'Every week';
+  if (d === 14) return 'Every 2 weeks';
+  if (d === 30) return 'Every month';
+  if (d === 90) return 'Every quarter';
+  if (d === 365) return 'Every year';
+  return `Every ${d} days`;
+}
+function calcNextDue(daysOrFreq, fromDate) {
+  const d = new Date(fromDate || new Date());
+  // Accept either a numeric day count (new) or the legacy Frequency string
+  let days = 0;
+  if (typeof daysOrFreq === 'number') days = daysOrFreq;
+  else if (typeof daysOrFreq === 'string') {
+    if (daysOrFreq === 'Monthly')        days = 30;
+    else if (daysOrFreq === 'Quarterly') days = 90;
+    else if (daysOrFreq === 'Annually')  days = 365;
+    else days = parseInt(daysOrFreq, 10) || 0;
+  }
+  if (days > 0) d.setDate(d.getDate() + days);
   return d.toISOString().split('T')[0];
 }
 function getMaintStatus(item) {
@@ -89,7 +122,7 @@ function renderMaintSchedule() {
       </div>
       <div style="font-size:12px;color:var(--muted);">${escHtml(r.Equipment||'')}${r.Location?' · '+escHtml(r.Location):''}</div>
       ${r.AssignedTo?`<div style="font-size:12px;">👤 ${escHtml(r.AssignedTo)}</div>`:''}
-      ${r.Frequency?`<div style="font-size:12px;color:var(--muted);">🔁 ${escHtml(r.Frequency)}</div>`:''}
+      ${maintTaskDays(r)?`<div style="font-size:12px;color:var(--muted);">🔁 ${escHtml(maintRecurLabel(r))}</div>`:''}
       ${r.Description?`<div style="font-size:12px;color:var(--muted);margin-top:4px;border-top:1px solid var(--border);padding-top:6px;">${escHtml(r.Description)}</div>`:''}
       ${r.Tags?renderTagPills(r.Tags):''}
       <div style="display:flex;gap:8px;margin-top:8px;">
@@ -108,7 +141,10 @@ function openMaintTaskForm(id) {
   const t=id?cache.maintSchedule.find(x=>x.id===id):null;
   document.getElementById('maint-task-modal-title').textContent=t?'Edit Task':'Add Maintenance Task';
   document.getElementById('mt-title').value      =t?.Title      ||'';
-  document.getElementById('mt-frequency').value  =t?.Frequency  ||'Monthly';
+  // Numeric recurrence (days). For legacy records without RecurEveryDays,
+  // map the old Frequency string to a day count so the field is never blank
+  // when the user is editing a preexisting task.
+  document.getElementById('mt-recur-days').value = t ? (maintTaskDays(t) || '') : '30';
   document.getElementById('mt-nextdue').value    =t?.NextDue    ||'';
   document.getElementById('mt-description').value=t?.Description||'';
   populateStaffSelects();
@@ -126,7 +162,13 @@ async function saveMaintTaskForm() {
   if(!title){toast('err','Task name is required');return;}
   const equip=document.getElementById('mt-equipment').value;
   if(!equip){toast('err','Equipment is required');return;}
-  const data={Title:title,Equipment:equip,Frequency:document.getElementById('mt-frequency').value,
+  const recurRaw = document.getElementById('mt-recur-days').value;
+  const recurDays = recurRaw === '' ? 0 : Math.max(0, parseInt(recurRaw, 10) || 0);
+  const data={Title:title,Equipment:equip,
+    RecurEveryDays: recurDays,
+    // Keep Frequency column populated for legacy readers; map back from days
+    // (custom cadences stay as "Every N days" strings so they round-trip OK).
+    Frequency: recurDays === 30 ? 'Monthly' : recurDays === 90 ? 'Quarterly' : recurDays === 365 ? 'Annually' : recurDays ? ('Every '+recurDays+' days') : '',
     AssignedTo:document.getElementById('mt-assigned').value,Location:document.getElementById('mt-location').value,
     NextDue:document.getElementById('mt-nextdue').value,Description:document.getElementById('mt-description').value,
     Tags:getTagEditorValue('maint-task')||null};
@@ -190,7 +232,7 @@ async function saveCompleteTask() {
   const t=cache.maintSchedule.find(x=>x.id===_maintCompleteId);
   if(!t) return;
   const today=new Date().toISOString().split('T')[0];
-  const nextDue=calcNextDue(t.Frequency||'Monthly',today);
+  const nextDue=calcNextDue(maintTaskDays(t) || 30, today);
   const logData={Title:`${t.Equipment||t.Title} — ${today}`,ScheduleId:_maintCompleteId,
     Equipment:t.Equipment||'',TaskName:t.Title||'',CompletedBy:by,
     CompletedDate:today,Location:t.Location||'',
