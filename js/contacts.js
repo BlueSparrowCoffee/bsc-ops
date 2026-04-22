@@ -155,10 +155,20 @@ function openMaintForm(id) {
     const lk = f.toLowerCase();
     const isLong = lk.includes('note') || lk.includes('comment') || lk.includes('description');
     if (f === 'Location') {
-      const opts = ['', ...CFG.locations].map(l =>
-        `<option value="${escHtml(l)}" ${val===l?'selected':''}>${l||'—'}</option>`
-      ).join('');
-      return `<div class="form-group"><label>Location</label><select id="mf_Location" class="filter" style="width:100%;">${opts}</select></div>`;
+      const locs = CFG.locations || [];
+      const current = new Set(String(val||'').split(/\s*,\s*/).filter(Boolean));
+      const allChecked = locs.length > 0 && locs.every(l => current.has(l));
+      const boxes = locs.map(l => {
+        const checked = current.has(l) ? 'checked' : '';
+        return `<label class="loc-chip"><input type="checkbox" class="mf-loc-cb" value="${escHtml(l)}" ${checked} onchange="onMaintLocChange()"> ${escHtml(l)}</label>`;
+      }).join('');
+      return `<div class="form-group" style="grid-column:1/-1">
+        <label>Location</label>
+        <div class="loc-chips">
+          <label class="loc-chip loc-chip-all"><input type="checkbox" id="mf-loc-all" ${allChecked?'checked':''} onchange="toggleMaintLocAll(this)"> All</label>
+          ${boxes}
+        </div>
+      </div>`;
     }
     if (f === 'Tags') {
       return `<div class="form-group" style="grid-column:1/-1"><label>Tags</label>${tagEditorHTML('maint-contact')}</div>`;
@@ -197,6 +207,11 @@ async function saveMaintForm() {
   const data = {};
   fields.forEach(f => {
     if (f === 'Tags') { data.Tags = getTagEditorValue('maint-contact'); return; }
+    if (f === 'Location') {
+      const checked = Array.from(document.querySelectorAll('.mf-loc-cb:checked')).map(c => c.value);
+      data.Location = checked.join(', ');
+      return;
+    }
     const el = document.getElementById('mf_'+f); if (el) data[f] = el.value;
   });
   if (!data.Title?.trim()) { toast('err','Company/name is required'); return; }
@@ -216,6 +231,17 @@ async function saveMaintForm() {
     closeModal('modal-maint');
   } catch(e) { toast('err','Save failed: '+e.message); }
   finally { setLoading(false); }
+}
+
+// ── Location checkbox helpers ─────────────────────────────────────
+function toggleMaintLocAll(el) {
+  document.querySelectorAll('.mf-loc-cb').forEach(cb => { cb.checked = el.checked; });
+}
+function onMaintLocChange() {
+  const all = document.getElementById('mf-loc-all');
+  if (!all) return;
+  const boxes = Array.from(document.querySelectorAll('.mf-loc-cb'));
+  all.checked = boxes.length > 0 && boxes.every(b => b.checked);
 }
 
 async function deleteMaintContact() {

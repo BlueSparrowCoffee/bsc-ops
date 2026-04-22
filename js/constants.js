@@ -186,7 +186,7 @@ const INV_COG_CFG = {
 // Bump APP_VERSION any time a deploy has breaking localStorage changes.
 // On version mismatch the entire localStorage is wiped so stale prefs never
 // cause weirdness after an update.
-const APP_VERSION = '2026-04-22u';
+const APP_VERSION = '2026-04-22v';
 (function() {
   try {
     if (localStorage.getItem('bsc_app_version') !== APP_VERSION) {
@@ -198,7 +198,7 @@ const APP_VERSION = '2026-04-22u';
 
 // Bump when SharePoint schema changes. User must clear bsc_provision_v
 // from localStorage (or Settings → Clear Local Data) to trigger re-provisioning.
-const PROVISION_VERSION = '28';
+const PROVISION_VERSION = '29';
 
 // ── Data / cache TTLs ────────────────────────────────────────────
 const CACHE_MAX_AGE = 4 * 60 * 60 * 1000; // 4 hours
