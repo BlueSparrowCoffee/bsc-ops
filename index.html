@@ -2580,7 +2580,7 @@ async function ensureAllLists() {
 // ════════════════════════════════════════════════════════════════════════════
 async function loadAllData() {
   const siteId = await getSiteId();
-  const [xfers, orders, cls, roles, vendors,,recipes,,contacts,staff,sched,log,appSettings,clGroups,clCompletions,labelRows,foodParRows,parkingRows,contactArchiveRows,prepItemsRows,prepItemIngsRows,tagsRows,merchReceivedRows,merchMonthsRows,lastCountRows,invParsRows] = await Promise.all([
+  const [xfers, orders, cls, roles, vendors,,recipes,,contacts,staff,sched,log,appSettings,clGroups,clCompletions,labelRows,foodParRows,parkingRows,contactArchiveRows,prepItemsRows,prepItemIngsRows,tagsRows,merchReceivedRows,merchMonthsRows,lastCountRows,invParsRows,clProgressRows] = await Promise.all([
     getListItems(siteId, LISTS.transfers),
     getListItems(siteId, LISTS.orders),
     getListItems(siteId, LISTS.checklists),
@@ -2606,7 +2606,8 @@ async function loadAllData() {
     getListItems(siteId, LISTS.merchReceived).catch(()=>[]),
     getListItems(siteId, LISTS.merchMonths).catch(()=>[]),
     getListItems(siteId, LISTS.lastCount).catch(()=>[]),
-    getListItems(siteId, LISTS.inventoryPars).catch(()=>[])
+    getListItems(siteId, LISTS.inventoryPars).catch(()=>[]),
+    getListItems(siteId, LISTS.clProgress).catch(()=>[])
   ]);
   cache.transfers=xfers; cache.orders=orders;
   cache.checklists=cls; cache.roles=roles; cache.vendors=vendors;
@@ -2625,6 +2626,8 @@ async function loadAllData() {
   cache.merchMonths   = merchMonthsRows   || [];
   cache.lastCount     = lastCountRows     || [];
   cache.inventoryPars = invParsRows       || [];
+  cache.clProgressRows = clProgressRows   || [];
+  rebuildClProgressMap();
   migrateTagsToRegistry(); // fire-and-forget: seed BSC_Tags from existing vendor/contact tags
   migrateParLevelsToPerLocation(); // fire-and-forget: backfill legacy ParLevel/ReorderTrigger to per-location rows (one-time, guarded)
   // Load per-location food par values

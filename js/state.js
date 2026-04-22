@@ -21,7 +21,7 @@ const cache = {
   inventory: [], transfers: [], orders: [],
   checklists: [], vendors: [], roles: [], recipes: [],
   maintContacts: [], staff: [], maintSchedule: [], maintLog: [],
-  clProgress: {}, countHistory: [], settingsItems: [],
+  clProgress: {}, clProgressRows: [], countHistory: [], settingsItems: [],
   menu: [], menuCounts: [],
   cogsRecipes: [], cogSnapshots: [],
   clGroups: [], clCompletions: [],

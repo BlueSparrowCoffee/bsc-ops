@@ -208,28 +208,87 @@ function renderLegacyTasksCard(tasks) {
     </div>`;
 }
 
+// ── Rebuild cache.clProgress map from cache.clProgressRows ───────
+// Builds a taskId → { by, date, spId } map from the raw SP rows, filtering
+// out records that pre-date the task's group's most recent completion
+// (so every group "reset" via markGroupComplete starts a clean cycle).
+// Called on initial load and after any batch delete of progress rows.
+function rebuildClProgressMap() {
+  const map = {};
+  // Precompute latest completion date per group for recurrence-aware filter
+  const latestByGroup = {};
+  (cache.clCompletions || []).forEach(c => {
+    if (!c.GroupId) return;
+    const d = new Date(c.CompletedDate || 0).getTime();
+    if (!latestByGroup[c.GroupId] || d > latestByGroup[c.GroupId]) latestByGroup[c.GroupId] = d;
+  });
+  // Sort rows newest-first so the surviving map entry is the most recent
+  const rows = [...(cache.clProgressRows || [])].sort((a,b) =>
+    new Date(b.CompletedDate || 0) - new Date(a.CompletedDate || 0));
+  for (const r of rows) {
+    if (!r.TaskId) continue;
+    if (map[r.TaskId]) continue; // already seen a newer one
+    // Find the task's group and skip rows older than the group's last completion
+    const task = (cache.checklists || []).find(t => String(t.id) === String(r.TaskId));
+    if (task && task.GroupId) {
+      const cutoff = latestByGroup[task.GroupId] || 0;
+      if (cutoff && new Date(r.CompletedDate || 0).getTime() <= cutoff) continue;
+    }
+    map[r.TaskId] = {
+      by: r.CompletedBy || '',
+      date: new Date(r.CompletedDate || Date.now()),
+      spId: r.id
+    };
+  }
+  cache.clProgress = map;
+}
+
 // ── Toggle task checkbox ─────────────────────────────────────────
 async function toggleCheck(taskId, checked, groupId) {
-  if (checked) cache.clProgress[taskId] = { by: currentUser?.name||'', date: new Date() };
-  else delete cache.clProgress[taskId];
-
-  // Update visual immediately
+  // Optimistic UI update
   const el = document.getElementById('cli-'+taskId);
   if (el) el.classList.toggle('done', checked);
   const lbl = el?.querySelector('label');
   if (lbl) { lbl.style.textDecoration = checked ? 'line-through' : ''; lbl.style.color = checked ? 'var(--muted)' : ''; }
 
-  // Auto-save progress record
+  const prev = cache.clProgress[taskId];
+  if (checked) {
+    // Mark in-memory immediately so progress bar math works before SP round-trip
+    cache.clProgress[taskId] = { by: currentUser?.name||'', date: new Date(), spId: prev?.spId || null };
+  } else {
+    delete cache.clProgress[taskId];
+  }
+
+  // Persist to SharePoint
   try {
     if (checked) {
-      await addListItem(LISTS.clProgress, {
-        TaskId: taskId,
-        CompletedBy: currentUser?.name||currentUser?.username||'',
-        CompletedDate: new Date().toISOString(),
-        Location: currentLocation==='all'?'All':currentLocation
-      });
+      // Only create a new SP row if we don't already have one for this task
+      if (!prev?.spId) {
+        const rec = await addListItem(LISTS.clProgress, {
+          TaskId: taskId,
+          CompletedBy: currentUser?.name||currentUser?.username||'',
+          CompletedDate: new Date().toISOString(),
+          Location: currentLocation==='all'?'All':currentLocation
+        });
+        cache.clProgressRows.push(rec);
+        cache.clProgress[taskId] = { by: rec.CompletedBy||'', date: new Date(rec.CompletedDate||Date.now()), spId: rec.id };
+      }
+    } else if (prev?.spId) {
+      // Delete the SP row so the uncheck persists across reloads
+      await deleteListItem(LISTS.clProgress, prev.spId);
+      cache.clProgressRows = cache.clProgressRows.filter(r => String(r.id) !== String(prev.spId));
     }
-  } catch(e) { /* silent — progress saved in memory even if SP write fails */ }
+  } catch(e) {
+    // Revert optimistic UI if save failed
+    if (checked) delete cache.clProgress[taskId];
+    else if (prev) cache.clProgress[taskId] = prev;
+    if (el) el.classList.toggle('done', !checked);
+    const cb = document.getElementById('chk-'+taskId);
+    if (cb) cb.checked = !checked;
+    if (lbl) { lbl.style.textDecoration = !checked ? 'line-through' : ''; lbl.style.color = !checked ? 'var(--muted)' : ''; }
+    toast('err', 'Save failed: ' + e.message);
+    return;
+  }
 
   // Update progress bar on the card
   if (groupId) {
@@ -265,13 +324,17 @@ async function markGroupComplete(groupId, groupName) {
   try {
     const now = new Date().toISOString();
     const loc = currentLocation === 'all' ? 'All' : currentLocation;
+    // Fill in progress records for any still-unchecked tasks
     for (const t of tasks) {
       if (!cache.clProgress[t.id]) {
-        cache.clProgress[t.id] = { by: currentUser?.name||'', date: new Date() };
-        await addListItem(LISTS.clProgress, {
-          TaskId: t.id, CompletedBy: currentUser?.name||currentUser?.username||'',
-          CompletedDate: now, Location: loc
-        }).catch(()=>{});
+        try {
+          const rec = await addListItem(LISTS.clProgress, {
+            TaskId: t.id, CompletedBy: currentUser?.name||currentUser?.username||'',
+            CompletedDate: now, Location: loc
+          });
+          cache.clProgressRows.push(rec);
+          cache.clProgress[t.id] = { by: rec.CompletedBy||'', date: new Date(rec.CompletedDate||now), spId: rec.id };
+        } catch(e) { console.warn('[cl] progress write failed:', e.message); }
       }
     }
     // Save group completion record for recurrence tracking
@@ -283,6 +346,17 @@ async function markGroupComplete(groupId, groupName) {
       CompletedDate: now
     });
     cache.clCompletions.push(rec);
+    // Clear the now-stale progress rows for this group's tasks so the next
+    // recurrence cycle starts with a clean slate. Fire-and-forget — if some
+    // deletes fail, rebuildClProgressMap() will still filter them out on
+    // next load because they're older than the new completion timestamp.
+    const taskIds = new Set(tasks.map(t => String(t.id)));
+    const rowsToDelete = cache.clProgressRows.filter(r => taskIds.has(String(r.TaskId)));
+    cache.clProgressRows = cache.clProgressRows.filter(r => !taskIds.has(String(r.TaskId)));
+    tasks.forEach(t => { delete cache.clProgress[t.id]; });
+    for (const row of rowsToDelete) {
+      deleteListItem(LISTS.clProgress, row.id).catch(()=>{});
+    }
     toast('ok', `✅ "${groupName}" marked complete`);
     renderChecklists();
   } catch(e) { toast('err', 'Error: '+e.message); }
