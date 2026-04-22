@@ -28,11 +28,6 @@ function renderDashboard() {
   document.getElementById('d-orders').textContent = pendingOrders.length;
   document.getElementById('d-checklist').textContent = `${done.length}/${todayTasks.length}`;
 
-  // badge
-  const badge = document.getElementById('badge-low');
-  badge.style.display = low.length ? '' : 'none';
-  badge.textContent = low.length;
-
   // alerts
   const alertsEl = document.getElementById('dash-alerts');
   if (!low.length) { alertsEl.innerHTML = '<div class="no-data" style="padding:16px">All stock levels OK ✓</div>'; }
