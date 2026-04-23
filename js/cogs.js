@@ -1593,6 +1593,58 @@ function merchNameSimilarity(a, b) {
   return inter / (A.size + B.size - inter);
 }
 
+// Bulk hard-delete every active (non-archived) merch row whose
+// SquareCatalogItemId is blank. Count history in BSC_{loc}_MerchCounts is NOT
+// touched — those rows become orphans referencing names with no metadata. Two
+// confirmations before any writes. Archived rows are skipped entirely.
+async function deleteAllUnlinkedMerch() {
+  const merch = (cache.merchInventory || []).filter(i => !i.Archived);
+  const unlinked = merch.filter(r => !(r.SquareCatalogItemId || '').trim());
+  if (!unlinked.length) {
+    alert('No unlinked merch rows to delete — every active BSC_MerchInventory row has a SquareCatalogItemId.');
+    return;
+  }
+  const sample = unlinked.slice(0, 10).map(r => '  • ' + (r.ItemName || r.Title || '(unnamed id ' + r.id + ')'));
+  const more = unlinked.length > 10 ? `\n  …and ${unlinked.length - 10} more` : '';
+  const firstMsg =
+    `⚠ DELETE ALL UNLINKED MERCH — ${unlinked.length} row${unlinked.length>1?'s':''}\n\n` +
+    `This will hard-delete every merch row whose SquareCatalogItemId is blank:\n\n` +
+    sample.join('\n') + more + `\n\n` +
+    `• Count history rows in BSC_{loc}_MerchCounts will NOT be deleted — they'll become orphans.\n` +
+    `• If any of these rows hold cost/price/category/tag data that isn't in Square, you'll lose it.\n` +
+    `• Archived rows are untouched.\n\n` +
+    `This cannot be undone. Continue?`;
+  if (!confirm(firstMsg)) return;
+  if (!confirm(`Final check — really permanently delete ${unlinked.length} unlinked merch rows?`)) return;
+
+  const statusEl = document.getElementById('merch-dedup-status');
+  if (typeof setLoading === 'function') setLoading(true, `Deleting ${unlinked.length} unlinked merch rows…`);
+  if (statusEl) statusEl.textContent = `Deleting 0/${unlinked.length} unlinked merch rows…`;
+
+  try {
+    let done = 0;
+    for (let i = 0; i < unlinked.length; i += 8) {
+      const batch = unlinked.slice(i, i + 8);
+      await Promise.all(batch.map(r => deleteListItem(LISTS.merchInventory, r.id)));
+      done += batch.length;
+      if (typeof setLoading === 'function') setLoading(true, `Deleting unlinked merch ${done}/${unlinked.length}…`);
+      if (statusEl) statusEl.textContent = `Deleting ${done}/${unlinked.length} unlinked merch rows…`;
+    }
+    const deletedIds = new Set(unlinked.map(r => String(r.id)));
+    cache.merchInventory = (cache.merchInventory || []).filter(r => !deletedIds.has(String(r.id)));
+    _manualSelectedIds.clear();
+    if (typeof toast === 'function') toast('ok', `✓ Deleted ${unlinked.length} unlinked merch rows`);
+    findMerchDuplicates();
+    if (typeof renderCogs === 'function') renderCogs();
+  } catch (e) {
+    console.error('[dedup] bulk delete unlinked failed:', e);
+    if (typeof toast === 'function') toast('err', 'Bulk delete failed: ' + (e.message || e));
+    if (statusEl) statusEl.innerHTML = `<span style="color:var(--red)">Bulk delete failed: ${escHtml(e.message||e)}</span>`;
+  } finally {
+    if (typeof setLoading === 'function') setLoading(false);
+  }
+}
+
 // Force a fresh pull of BSC_MerchInventory from SharePoint before re-scanning.
 // Use this when you suspect cache is stale (e.g. merged dupes "still showing"
 // — a SignalR reload race, another tab writing, or manual edits in SP UI).
