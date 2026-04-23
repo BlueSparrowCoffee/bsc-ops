@@ -1307,7 +1307,11 @@ function renderCogsOverview() {
 
   const items = [];
 
-  // Coffee Bar — from snapshots
+  // Coffee Bar — from snapshots.
+  // Display name prefers the LIVE BSC_Menu item (which syncSquareCatalog keeps
+  // in lock-step with Square). The snapshot's MenuItemName is retained as
+  // `itemName` because openCogHistoryModal filters history by that name —
+  // changing it here would break the historical lookup for pre-rename rows.
   if (!typeFilter || typeFilter === 'coffee-bar') {
     Object.values(latestSnap).forEach(s => {
       const margin = parseFloat(s.GrossMargin);
@@ -1315,9 +1319,10 @@ function renderCogsOverview() {
       const menuItem = cache.menu.find(m => (m.SquareId || m.id) === s.MenuItemId);
       const spId = menuItem?.id || s.MenuItemId;
       const isHidden = _cogsHiddenIds.has(spId);
+      const liveName = menuItem?.ItemName || menuItem?.Title || s.MenuItemName;
       items.push({
         type: 'coffee-bar', typeLabel: 'Coffee Bar',
-        name: s.MenuItemName, variation: s.VariationName,
+        name: liveName, variation: s.VariationName,
         category: menuItem?.Category || 'Coffee Bar',
         margin, price: parseFloat(s.SellingPrice)||0, cog: parseFloat(s.COG)||0,
         snapshotDate: s.SnapshotDate,
