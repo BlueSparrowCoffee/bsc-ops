@@ -964,6 +964,17 @@ function cogIngDropKey(e, itemId, vi) {
 let _cogChartHiddenTypes = new Set();
 let _cogChartData        = [];   // last drawn points (for tooltip / click)
 let _cogChartTarget      = 65;
+// When true, the Selling Price axis uses log10 scaling — separates a crowd of
+// $3–$8 coffee-bar drinks that get jammed into the left edge under linear
+// scaling when a $250 merch item stretches the axis ceiling. Persisted in
+// localStorage so the user's preference survives reloads.
+let _cogChartLogScale    = (() => { try { return localStorage.getItem('bsc_cog_chart_log') === '1'; } catch { return false; } })();
+
+function toggleCogChartLogScale() {
+  _cogChartLogScale = !_cogChartLogScale;
+  try { localStorage.setItem('bsc_cog_chart_log', _cogChartLogScale ? '1' : '0'); } catch {}
+  renderCogsOverview();
+}
 
 // Marker config per inventory type. symbol is drawn as SVG path; color is the
 // outer stroke/ring so a dot's fill still encodes margin vs. target.
@@ -1101,9 +1112,21 @@ function renderCogsOverviewChart(items, target) {
   const plotH = VB_H - PAD_T - PAD_B;
 
   const maxPrice = Math.max(...visibleItems.map(i => i.price), 1);
+  const minPricePos = Math.max(0.5, Math.min(...visibleItems.map(i => i.price).filter(p => p > 0).concat([maxPrice])));
   const xCeil = Math.max(5, Math.ceil(maxPrice * 1.12 / 5) * 5); // nearest $5
 
-  const xScale = p => PAD_L + (p / xCeil) * plotW;
+  // X scale — linear by default, log10 when _cogChartLogScale is on. Log mode
+  // spreads out the dense $3–$8 cluster that dominates when a $200 merch item
+  // stretches the linear ceiling. Min is floored at $0.50 so log(price) stays
+  // finite even for unpriced items.
+  const useLog = !!_cogChartLogScale;
+  const LOG_FLOOR = 0.5;
+  const logMin = Math.log10(Math.max(LOG_FLOOR, Math.min(LOG_FLOOR, minPricePos / 1.4)));
+  const logMax = Math.log10(Math.max(LOG_FLOOR * 2, maxPrice * 1.15));
+  const logRange = Math.max(logMax - logMin, 0.3);
+  const xScale = useLog
+    ? p => PAD_L + ((Math.log10(Math.max(LOG_FLOOR, p)) - logMin) / logRange) * plotW
+    : p => PAD_L + (p / xCeil) * plotW;
   const yScale = m => PAD_T + plotH - (Math.min(100, Math.max(0, m)) / 100) * plotH;
   const dotColor = (m) => m >= target ? '#16a34a' : m >= target * 0.8 ? '#d97706' : '#dc2626';
 
@@ -1124,12 +1147,24 @@ function renderCogsOverviewChart(items, target) {
     svg.push(`<text x="${PAD_L - 8}" y="${y + 4}" text-anchor="end" font-size="10" fill="rgba(255,255,255,.45)">${m}%</text>`);
   });
 
-  // Grid — X
-  const xStep = xCeil <= 10 ? 2 : xCeil <= 20 ? 5 : xCeil <= 50 ? 10 : xCeil <= 100 ? 20 : 25;
-  for (let p = 0; p <= xCeil; p += xStep) {
-    const x = xScale(p);
-    svg.push(`<line x1="${x}" y1="${PAD_T}" x2="${x}" y2="${PAD_T + plotH}" stroke="rgba(255,255,255,.07)" stroke-width="1"/>`);
-    svg.push(`<text x="${x}" y="${PAD_T + plotH + 16}" text-anchor="middle" font-size="10" fill="rgba(255,255,255,.45)">$${p}</text>`);
+  // Grid — X (log or linear depending on toggle)
+  if (useLog) {
+    // Pick round decade + mid-decade ticks that fall inside the visible range.
+    const candidates = [0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
+    const lo = Math.pow(10, logMin) * 0.9;
+    const hi = Math.pow(10, logMax) * 1.1;
+    candidates.filter(v => v >= lo && v <= hi).forEach(p => {
+      const x = xScale(p);
+      svg.push(`<line x1="${x}" y1="${PAD_T}" x2="${x}" y2="${PAD_T + plotH}" stroke="rgba(255,255,255,.07)" stroke-width="1"/>`);
+      svg.push(`<text x="${x}" y="${PAD_T + plotH + 16}" text-anchor="middle" font-size="10" fill="rgba(255,255,255,.45)">$${p < 1 ? p : p}</text>`);
+    });
+  } else {
+    const xStep = xCeil <= 10 ? 2 : xCeil <= 20 ? 5 : xCeil <= 50 ? 10 : xCeil <= 100 ? 20 : 25;
+    for (let p = 0; p <= xCeil; p += xStep) {
+      const x = xScale(p);
+      svg.push(`<line x1="${x}" y1="${PAD_T}" x2="${x}" y2="${PAD_T + plotH}" stroke="rgba(255,255,255,.07)" stroke-width="1"/>`);
+      svg.push(`<text x="${x}" y="${PAD_T + plotH + 16}" text-anchor="middle" font-size="10" fill="rgba(255,255,255,.45)">$${p}</text>`);
+    }
   }
 
   // Axis borders
@@ -1137,7 +1172,7 @@ function renderCogsOverviewChart(items, target) {
   svg.push(`<line x1="${PAD_L}" y1="${PAD_T + plotH}" x2="${VB_W - PAD_R}" y2="${PAD_T + plotH}" stroke="rgba(255,255,255,.18)" stroke-width="1"/>`);
 
   // Axis labels
-  svg.push(`<text x="${PAD_L + plotW / 2}" y="${VB_H - 8}" text-anchor="middle" font-size="11" fill="rgba(255,255,255,.55)">Selling Price ($)</text>`);
+  svg.push(`<text x="${PAD_L + plotW / 2}" y="${VB_H - 8}" text-anchor="middle" font-size="11" fill="rgba(255,255,255,.55)">Selling Price ($)${useLog ? ' · log scale' : ''}</text>`);
   svg.push(`<text transform="rotate(-90)" x="${-(PAD_T + plotH / 2)}" y="14" text-anchor="middle" font-size="11" fill="rgba(255,255,255,.55)">Margin %</text>`);
 
   // Target line
@@ -1218,7 +1253,10 @@ function renderCogsOverviewChart(items, target) {
           <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.75);letter-spacing:.6px;">MARGIN VS. PRICE</div>
           <div style="font-size:11px;color:var(--muted);margin-top:2px;">Click a dot to drill in · click the chips to filter types</div>
         </div>
-        ${marginKey}
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <button type="button" onclick="toggleCogChartLogScale()" title="${useLog ? 'Switch to linear $ axis' : 'Switch to log₁₀ $ axis — spreads out dense low-price clusters'}" style="display:inline-flex;align-items:center;gap:5px;background:${useLog?'rgba(200,169,81,.18)':'rgba(255,255,255,.05)'};border:1px solid ${useLog?'rgba(200,169,81,.55)':'rgba(255,255,255,.15)'};border-radius:14px;padding:3px 10px;font-size:11px;color:${useLog?'#c8a951':'rgba(255,255,255,.75)'};cursor:pointer;line-height:1;font-weight:600;">${useLog ? '📐 Log $' : '📏 Linear $'}</button>
+          ${marginKey}
+        </div>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">${legendChips}</div>
       <div style="position:relative;">
@@ -1555,6 +1593,27 @@ function merchNameSimilarity(a, b) {
   return inter / (A.size + B.size - inter);
 }
 
+// Force a fresh pull of BSC_MerchInventory from SharePoint before re-scanning.
+// Use this when you suspect cache is stale (e.g. merged dupes "still showing"
+// — a SignalR reload race, another tab writing, or manual edits in SP UI).
+async function reloadMerchAndRescan() {
+  const statusEl = document.getElementById('merch-dedup-status');
+  if (statusEl) statusEl.textContent = 'Reloading BSC_MerchInventory from SharePoint…';
+  try {
+    const siteId = await getSiteId();
+    const fresh = await getListItems(siteId, LISTS.merchInventory);
+    cache.merchInventory = fresh || [];
+    console.log('[dedup] reloaded merch inventory, rows =', cache.merchInventory.length);
+    if (typeof toast === 'function') toast('ok', `✓ Reloaded ${cache.merchInventory.length} merch rows`);
+  } catch (e) {
+    console.error('[dedup] reload failed:', e);
+    if (typeof toast === 'function') toast('err', 'Reload failed: ' + (e.message || e));
+    if (statusEl) statusEl.innerHTML = `<span style="color:var(--red)">Reload failed: ${escHtml(e.message||e)}</span>`;
+    return;
+  }
+  findMerchDuplicates();
+}
+
 async function findMerchDuplicates() {
   console.log('[dedup] findMerchDuplicates fired; cache.merchInventory rows =', (cache.merchInventory||[]).length);
   const btn = document.getElementById('merch-dedup-btn');
@@ -1858,7 +1917,9 @@ async function findMerchDuplicates() {
       <div style="font-size:11px;color:var(--muted);margin:4px 0 8px;">Check any 2+ rows below, then press <strong>Build merge group</strong>. A keeper picker + preview + confirm flow opens below the table — same safety checks as the auto-groups.</div>
       <div style="margin:8px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <button id="manual-merge-build-btn" class="btn btn-primary" onclick="buildManualMergeGroup()" disabled style="font-size:12px;padding:6px 14px;">🔀 Build merge group from 0 selected</button>
+        <button id="manual-merge-delete-btn" class="btn btn-outline" onclick="deleteManualMergeSelection()" disabled style="font-size:12px;padding:6px 14px;color:var(--red);border-color:var(--red);">🗑 Delete 0 permanently</button>
         <button class="btn btn-outline" onclick="clearManualMergeSelection()" style="font-size:12px;padding:6px 14px;">Clear selection</button>
+        <span style="font-size:11px;color:var(--muted);">Merge preserves count history · Delete removes the row from BSC_MerchInventory entirely.</span>
       </div>
       <div id="manual-merge-panel" style="margin:10px 0;"></div>
       <table style="width:100%;font-size:11px;border-collapse:collapse;background:rgba(255,255,255,.02);border-radius:6px;overflow:hidden;">
@@ -1905,19 +1966,29 @@ function onManualMergeCheckboxChange(cb) {
   if (!id) return;
   if (cb.checked) _manualSelectedIds.add(id);
   else _manualSelectedIds.delete(id);
-  const btn = document.getElementById('manual-merge-build-btn');
-  if (btn) {
-    const n = _manualSelectedIds.size;
-    btn.textContent = `🔀 Build merge group from ${n} selected`;
-    btn.disabled = n < 2;
+  _refreshManualMergeButtons();
+}
+
+// Keep the Build + Delete button labels in sync with _manualSelectedIds.size.
+// Merge needs 2+ rows; delete accepts 1+.
+function _refreshManualMergeButtons() {
+  const n = _manualSelectedIds.size;
+  const build = document.getElementById('manual-merge-build-btn');
+  const del = document.getElementById('manual-merge-delete-btn');
+  if (build) {
+    build.textContent = `🔀 Build merge group from ${n} selected`;
+    build.disabled = n < 2;
+  }
+  if (del) {
+    del.textContent = `🗑 Delete ${n} permanently`;
+    del.disabled = n < 1;
   }
 }
 
 function clearManualMergeSelection() {
   _manualSelectedIds.clear();
   document.querySelectorAll('#merch-dedup-results input[type="checkbox"][data-id]').forEach(cb => { cb.checked = false; });
-  const btn = document.getElementById('manual-merge-build-btn');
-  if (btn) { btn.textContent = '🔀 Build merge group from 0 selected'; btn.disabled = true; }
+  _refreshManualMergeButtons();
   const panel = document.getElementById('manual-merge-panel');
   if (panel) panel.innerHTML = '';
 }
@@ -1934,6 +2005,55 @@ function buildManualMergeGroup() {
   if (!panel) return;
   panel.innerHTML = renderDedupGroup('Manual merge group (picked by you)', rows);
   panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// Hard-delete the picked merch rows from BSC_MerchInventory. Count-history
+// rows in BSC_{loc}_MerchCounts are NOT touched — they'll become orphans
+// (Title still references the deleted item, but no metadata row). Use merge
+// instead if you want Title rewrites and keeper-field consolidation.
+//
+// Two confirmations: the first spells out exactly what will happen, the
+// second is a final "really?" gate. Writes happen in batches of 8. Cache
+// and UI refresh on success.
+async function deleteManualMergeSelection() {
+  if (!_manualSelectedIds.size) return;
+  const merch = (cache.merchInventory || []).filter(i => !i.Archived);
+  const rows = merch.filter(r => _manualSelectedIds.has(String(r.id)));
+  if (!rows.length) return;
+  const nameList = rows.map(r => '  • ' + (r.ItemName || r.Title || '(unnamed id ' + r.id + ')')).join('\n');
+  const firstMsg =
+    `⚠ PERMANENT DELETE — ${rows.length} row${rows.length>1?'s':''}\n\n` +
+    `This will hard-delete the following from BSC_MerchInventory:\n\n${nameList}\n\n` +
+    `Count history in BSC_{loc}_MerchCounts will NOT be deleted. Those rows will become orphans ` +
+    `(referencing names that no longer exist in inventory). If you want Title rewrites to preserve ` +
+    `count history, use MERGE instead.\n\nThis cannot be undone. Continue?`;
+  if (!confirm(firstMsg)) return;
+  if (!confirm(`Last chance — really permanently delete ${rows.length} row${rows.length>1?'s':''}?`)) return;
+
+  const btn = document.getElementById('manual-merge-delete-btn');
+  const buildBtn = document.getElementById('manual-merge-build-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Deleting…'; }
+  if (buildBtn) buildBtn.disabled = true;
+
+  try {
+    const tasks = rows.map(r => () => deleteListItem(LISTS.merchInventory, r.id));
+    for (let i = 0; i < tasks.length; i += 8) {
+      await Promise.all(tasks.slice(i, i + 8).map(fn => fn()));
+    }
+    // Evict from cache so the next scan doesn't still show them.
+    const deletedIds = new Set(rows.map(r => String(r.id)));
+    cache.merchInventory = (cache.merchInventory || []).filter(r => !deletedIds.has(String(r.id)));
+    _manualSelectedIds.clear();
+    if (typeof toast === 'function') toast('ok', `✓ Deleted ${rows.length} merch row${rows.length>1?'s':''}`);
+    // Re-run the scan (which also clears selection state + re-renders the picker).
+    findMerchDuplicates();
+    if (typeof renderCogs === 'function') renderCogs();
+  } catch (e) {
+    console.error('[dedup] delete failed:', e);
+    if (typeof toast === 'function') toast('err', 'Delete failed: ' + (e.message || e));
+    if (btn) { btn.disabled = false; }
+    _refreshManualMergeButtons();
+  }
 }
 
 // Render one dedup group with a per-row keeper radio, a Preview button, and a
