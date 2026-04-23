@@ -111,11 +111,12 @@ const MERCH_LIST_COLS = [
   {name:'ItemName',text:{}},{name:'Category',text:{}},{name:'ItemNo',text:{}},
   {name:'CostPerUnit',number:{decimalPlaces:'automatic'}},
   {name:'SellingPrice',number:{decimalPlaces:'automatic'}},
-  {name:'SquareCatalogItemId',text:{}},{name:'Tags',text:{}},
-  {name:'Received',number:{decimalPlaces:'none'}},
-  {name:'ReceivedNotes',text:{allowMultipleLines:true}},
+  {name:'SquareCatalogItemId',text:{}},
   {name:'Archived',text:{}}
 ];
+// Tags / Received / ReceivedNotes removed 2026-04-23:
+//   - Square is the source of truth for merch identity → no tag editor in merch form
+//   - Monthly Received qty/notes now live in BSC_MerchReceived (draft/final), not buffered on master
 
 const MERCH_COUNTS_EXTRA_COLS = [
   {name:'ChangesSinceLastCount',number:{decimalPlaces:'automatic'}}
@@ -199,7 +200,7 @@ const INV_COG_CFG = {
 // Bump APP_VERSION any time a deploy has breaking localStorage changes.
 // On version mismatch the entire localStorage is wiped so stale prefs never
 // cause weirdness after an update.
-const APP_VERSION = '2026-04-22bk';
+const APP_VERSION = '2026-04-23a';
 (function() {
   try {
     if (localStorage.getItem('bsc_app_version') !== APP_VERSION) {
@@ -211,7 +212,7 @@ const APP_VERSION = '2026-04-22bk';
 
 // Bump when SharePoint schema changes. User must clear bsc_provision_v
 // from localStorage (or Settings → Clear Local Data) to trigger re-provisioning.
-const PROVISION_VERSION = '32';
+const PROVISION_VERSION = '33';
 
 // ── Data / cache TTLs ────────────────────────────────────────────
 const CACHE_MAX_AGE = 4 * 60 * 60 * 1000; // 4 hours
@@ -274,7 +275,7 @@ const PROVISIONED_COL_NAMES = new Set([
   // INV_LIST_COLS + MERCH_LIST_COLS + COUNTS + MENU_COUNTS + MERCH_COUNTS_EXTRA + FP_PAR
   'ItemName','Category','Supplier','OrderSize','OrderUnit','ParLevel','CostPerCase','ServingsPerUnit',
   'CostPerServing','ServingUnit','Unit','Tags','Archived',
-  'ItemNo','CostPerUnit','SellingPrice','SquareCatalogItemId','Received','ReceivedNotes',
+  'ItemNo','CostPerUnit','SellingPrice','SquareCatalogItemId',
   'WeekOf','StoreCount','StorageCount','TotalCount','Location','CountedBy','ChangesSinceLastCount','Quantity',
   // Transfers
   'FromLocation','ToLocation','TransferredBy','InventoryType',

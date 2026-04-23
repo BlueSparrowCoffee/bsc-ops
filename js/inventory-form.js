@@ -58,8 +58,18 @@ function openAddInvForm() {
   }
   const catCustom = document.getElementById('new-item-cat-custom');
   if (catCustom) { catCustom.style.display = 'none'; catCustom.value = ''; }
-  document.getElementById('inv-item-tags-editor').innerHTML = tagEditorHTML('inv-item');
-  initTagEditor('inv-item', '');
+  // Tags don't apply to merch (Square is source of truth) — hide the editor in merch mode.
+  const tagsContainer = document.getElementById('inv-item-tags-editor');
+  if (tagsContainer) {
+    if (cfg?.isMerch) {
+      tagsContainer.innerHTML = '';
+      if (tagsContainer.parentElement) tagsContainer.parentElement.style.display = 'none';
+    } else {
+      if (tagsContainer.parentElement) tagsContainer.parentElement.style.display = '';
+      tagsContainer.innerHTML = tagEditorHTML('inv-item');
+      initTagEditor('inv-item', '');
+    }
+  }
   calcCostPerServing();
   // Hide archive/delete — add mode only
   ['inv-modal-archive-btn','inv-modal-delete-btn'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
@@ -111,8 +121,18 @@ function openEditInvItem(id) {
       document.getElementById('new-item-servings').value   = item.ServingsPerUnit != null ? item.ServingsPerUnit : '';
     calcCostPerServing();
   }
-  document.getElementById('inv-item-tags-editor').innerHTML = tagEditorHTML('inv-item');
-  initTagEditor('inv-item', item.Tags||'');
+  // Tags don't apply to merch (Square is source of truth) — hide the editor in merch mode.
+  const tagsContainer2 = document.getElementById('inv-item-tags-editor');
+  if (tagsContainer2) {
+    if (cfg?.isMerch) {
+      tagsContainer2.innerHTML = '';
+      if (tagsContainer2.parentElement) tagsContainer2.parentElement.style.display = 'none';
+    } else {
+      if (tagsContainer2.parentElement) tagsContainer2.parentElement.style.display = '';
+      tagsContainer2.innerHTML = tagEditorHTML('inv-item');
+      initTagEditor('inv-item', item.Tags||'');
+    }
+  }
   // Show archive/delete buttons for edit mode (owner only)
   const archBtn = document.getElementById('inv-modal-archive-btn');
   const delBtn  = document.getElementById('inv-modal-delete-btn');
@@ -259,6 +279,7 @@ async function saveInventoryItem() {
   const cfg = invCfg();
   let fields;
   if (cfg.isMerch) {
+    // Tags dropped from BSC_MerchInventory 2026-04-23 (Square is source of truth; no merch-side tagging).
     fields = {
       ItemName:            name,
       Title:               name,
@@ -266,7 +287,6 @@ async function saveInventoryItem() {
       ItemNo:              document.getElementById('new-item-no').value.trim()||null,
       CostPerUnit:         parseFloat(document.getElementById('new-item-cost-unit').value)||null,
       SquareCatalogItemId: document.getElementById('new-item-square-id').value.trim()||null,
-      Tags:                getTagEditorValue('inv-item')||null,
     };
   } else {
     fields = {

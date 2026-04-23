@@ -36,7 +36,7 @@
  *     renderCountSheet, renderInventoryAnalytics, initImportTab,
  *     renderMerchMonthlyCost, populateTransferItemSelect,
  *     renderTransfers, renderLabelsInTab, renderFoodParsInTab,
- *     filterVendors, saveMerchReceivedItem, editMerchReceivedNotes,
+ *     filterVendors,
  *     openEditInvItem, toggleArchiveInvItem, deleteInvItem
  * ================================================================ */
 
@@ -234,7 +234,6 @@ function renderInvTableHeader() {
       <th onclick="sortInvBy('StorageCount')">Storage</th>
       <th onclick="sortInvBy('TotalCount')">Total</th>
       <th onclick="sortInvBy('TotalValue')">Value</th>
-      <th style="min-width:90px">Received</th>
       <th style="width:72px"></th>`;
   } else {
     tr.innerHTML = `
@@ -525,8 +524,7 @@ function renderMerchInventoryItems(query='', catFilter='') {
     const totalNum = counts.total  != null ? counts.total   : null;
     const cost    = i.CostPerUnit  != null ? i.CostPerUnit  : null;
     const value   = (cost != null && totalNum != null) ? '$'+(cost*totalNum).toFixed(2) : '—';
-    const canEditRcv = isOwnerOrAccounting();
-    const rcvQty = i.Received != null ? i.Received : 0;
+    // Received qty/notes moved to Monthly Cost tab (BSC_MerchReceived draft/final) 2026-04-23.
     return `<tr${i.Archived?' style="opacity:.45;"':''}>
       <td style="font-size:12px;color:var(--muted)">${escHtml(i.ItemNo||'—')}</td>
       <td class="fw">${escHtml(i.ItemName||'—')}${i.SquareId?'<span class="sq-badge" title="Synced with Square">SQ</span>':''}${i.Archived?'<span style="font-size:10px;background:var(--muted);color:#fff;padding:1px 5px;border-radius:8px;margin-left:4px;">archived</span>':''}</td>
@@ -536,20 +534,6 @@ function renderMerchInventoryItems(query='', catFilter='') {
       <td>${storage}</td>
       <td style="font-weight:600">${total}</td>
       <td style="font-size:12px;color:var(--muted)">${value}</td>
-      <td style="padding:4px 8px;">
-        ${canEditRcv
-          ? `<div style="display:flex;align-items:center;gap:4px;">
-               <input type="number" value="${rcvQty}" step="1"
-                 style="width:56px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;text-align:right;"
-                 data-id="${escHtml(i.id)}" data-name="${escHtml(i.ItemName||'')}"
-                 onchange="saveMerchReceivedItem(this.dataset.id,this.dataset.name,this.value,this)">
-               <button title="${escHtml(i.ReceivedNotes||'Add notes…')}"
-                 data-id="${escHtml(i.id)}" data-name="${escHtml(i.ItemName||'')}" data-notes="${escHtml(i.ReceivedNotes||'')}"
-                 onclick="editMerchReceivedNotes(this.dataset.id,this.dataset.name,this.dataset.notes)"
-                 style="background:none;border:none;cursor:pointer;font-size:13px;color:${i.ReceivedNotes?'var(--gold)':'var(--muted)'}">📝</button>
-             </div>`
-          : `<span style="font-size:13px">${rcvQty||'—'}</span>`}
-      </td>
       <td style="white-space:nowrap;">
         <button onclick="openEditInvItem('${i.id}')" title="Edit"
           style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:15px;padding:2px 4px;">✏️</button>
