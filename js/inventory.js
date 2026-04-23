@@ -226,7 +226,6 @@ function renderInvTableHeader() {
   const isMerch = !!(cfg?.isMerch);
   if (isMerch) {
     tr.innerHTML = `
-      <th onclick="sortInvBy('ItemNo')" style="width:80px">Item #</th>
       <th onclick="sortInvBy('ItemName')">Name</th>
       <th id="inv-th-category" onclick="sortInvBy('Category')">Category</th>
       <th onclick="sortInvBy('CostPerUnit')">Cost/Unit</th>
@@ -526,7 +525,6 @@ function renderMerchInventoryItems(query='', catFilter='') {
     const value   = (cost != null && totalNum != null) ? '$'+(cost*totalNum).toFixed(2) : '—';
     // Received qty/notes moved to Monthly Cost tab (BSC_MerchReceived draft/final) 2026-04-23.
     return `<tr${i.Archived?' style="opacity:.45;"':''}>
-      <td style="font-size:12px;color:var(--muted)">${escHtml(i.ItemNo||'—')}</td>
       <td class="fw">${escHtml(i.ItemName||'—')}${i.SquareId?'<span class="sq-badge" title="Synced with Square">SQ</span>':''}${i.Archived?'<span style="font-size:10px;background:var(--muted);color:#fff;padding:1px 5px;border-radius:8px;margin-left:4px;">archived</span>':''}</td>
       <td><span class="badge badge-teal">${escHtml(i.Category||'—')}</span></td>
       <td>${cost != null ? '$'+Number(cost).toFixed(2) : '—'}</td>
