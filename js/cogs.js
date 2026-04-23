@@ -1838,10 +1838,10 @@ async function findMerchDuplicates() {
     }
 
     if (!groupA.length && !groupB.length && !groupC.length && !groupD.length && !groupE.length) {
-      html.push('<div style="padding:24px 0;text-align:center;color:var(--muted);font-size:13px;">✨ Merch inventory looks clean — no duplicate rows or unlinked orphans found.</div>');
+      html.push('<div style="padding:18px 0 8px;text-align:center;color:var(--muted);font-size:13px;">✨ Auto-matcher found no dupes. Scroll down and use the <strong style="color:var(--gold);">manual row-picker</strong> to merge any two rows by hand.</div>');
     } else {
       html.push(`<div style="margin-top:18px;padding:12px 14px;background:rgba(200,169,81,.08);border:1px solid rgba(200,169,81,.25);border-radius:8px;font-size:12px;color:rgba(255,255,255,.75);">
-        <strong>Nothing was written.</strong> This was a read-only scan. If the list looks accurate, the next step is to wire up a merge tool that preserves count history (<code>BSC_{loc}_MerchCounts</code> <code>Title</code> rewrites) and deletes the dupe row from <code>BSC_MerchInventory</code>.
+        <strong>How to merge:</strong> in any group above, choose the row to keep (<em>Keep</em> radio), click <strong>🔍 Preview merge</strong> to see what will change across <code>BSC_{loc}_MerchCounts</code> + <code>BSC_MerchInventory</code>, then <strong>✓ Confirm merge</strong>. Losers are soft-archived, not deleted.
       </div>`);
     }
 
