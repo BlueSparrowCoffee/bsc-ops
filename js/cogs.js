@@ -1701,11 +1701,14 @@ async function findMerchDuplicates() {
     // ties with a +1 category match bonus. Then greedy-assign best-first with
     // no double-pairing. One shared token is the minimum signal.
     //
-    // This does NOT use the MERCH_DISTINGUISHING_TOKENS guard — that guard
-    // exists to prevent false positives in name-similarity matching, but here
-    // we're explicitly looking for rows that differ in name and overlap in
-    // data role. "Free Dog Toys" (cost-only promo row) paired with "Dog Toys"
-    // (Square-linked retail row) is exactly what we want to surface.
+    // Requires ≥2 shared tokens (tightened from 1 after real-world testing
+    // showed 1-token matches on generic category words like "mug", "matcha",
+    // "dog", "crewneck" produced unrelated pairs across distinct products).
+    // Also applies the MERCH_DISTINGUISHING_TOKENS guard symmetrically — an
+    // asymmetric "free" / "blake" / "platte" / etc. token kills the pair even
+    // if the 2-shared-token floor is met. Real 1-token pairs (e.g. "Beanie"
+    // ↔ "BSC Logo Beanie") still drop into the unmatched-cost-only info
+    // block below — visible for manual cleanup but no merge button fires.
     statusEl.textContent = 'Pairing cost-only rows with price-only rows…';
     const priceOnlyRows = merch.filter(r => (r.SquareCatalogItemId||'').trim());
     const costOnlyRows  = merch.filter(r => !(r.SquareCatalogItemId||'').trim());
@@ -1716,9 +1719,17 @@ async function findMerchDuplicates() {
       for (const pr of priceOnlyRows) {
         const pt = merchNameTokens(pr.ItemName || pr.Title || '');
         if (!pt.size) continue;
+        // Distinguishing-token guard: if a known disqualifying token appears in
+        // one name but not the other, skip. Catches "Free Dog Toys" ↔ "Dog
+        // Toys" even though they share 2 tokens (dog, toys).
+        let distinguishBroken = false;
+        for (const tok of MERCH_DISTINGUISHING_TOKENS) {
+          if (ct.has(tok) !== pt.has(tok)) { distinguishBroken = true; break; }
+        }
+        if (distinguishBroken) continue;
         let shared = 0;
         ct.forEach(t => { if (pt.has(t)) shared++; });
-        if (shared === 0) continue;
+        if (shared < 2) continue;  // require ≥2 shared tokens — 1 is too loose on category-generic words
         const catMatch = (cr.Category||'').toLowerCase() === (pr.Category||'').toLowerCase() ? 1 : 0;
         pairCandidates.push({ costRow: cr, priceRow: pr, shared, catMatch, score: shared * 10 + catMatch });
       }
@@ -1792,7 +1803,7 @@ async function findMerchDuplicates() {
     // the user can eyeball the list and catch anything the algorithm missed.
     if (unmatchedCostOnly.length) {
       html.push(`<div style="font-weight:700;font-size:13px;color:var(--muted);margin:18px 0 6px;">ℹ️ Cost-only rows with no auto-pair (${unmatchedCostOnly.length})</div>`);
-      html.push(`<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">No price-only row shared any name token with these. They're either legitimately standalone products needing their own Square listing, or their pair has a completely different name (check the full list below for any missed pair — tell me the two names and I'll tighten the matcher).</div>`);
+      html.push(`<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">No price-only row shared ≥2 name tokens with these (1-token matches are deliberately excluded — generic words like "mug" or "matcha" pair unrelated products). These rows are either legitimately standalone products needing their own Square listing, or their pair has a completely different name. Scroll the full list below and tell me any missed pair so I can expand the matcher.</div>`);
       html.push(`<table style="width:100%;font-size:12px;border-collapse:collapse;margin-bottom:6px;background:rgba(255,255,255,.02);border-radius:6px;overflow:hidden;">
         <thead><tr style="background:rgba(255,255,255,.05);">
           <th style="text-align:left;padding:6px 8px;">Item Name</th>
