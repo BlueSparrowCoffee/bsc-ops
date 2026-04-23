@@ -426,10 +426,11 @@ async function syncInvPricesFromSquare(tabKey) {
       return null;
     };
 
-    const priceMap = {}, catMap = {}, nameMap = {}, nameToSqId = {};
+    const priceMap = {}, catMap = {}, nameMap = {}, nameToSqId = {}, archivedMap = {};
     for (const obj of objects) {
       if (obj.type !== 'ITEM' || obj.is_deleted) continue;
       const d = obj.item_data || {};
+      archivedMap[obj.id] = !!d.is_archived;               // Square → SP archive propagation
       const vars = d.variations || [];
       const priced = vars.filter(v => v.item_variation_data?.price_money);
       const cat = resolveCategory(d);
@@ -443,14 +444,17 @@ async function syncInvPricesFromSquare(tabKey) {
       priceMap[obj.id] = priced[0].item_variation_data.price_money.amount / 100;
       for (const v of priced) { priceMap[v.id] = v.item_variation_data.price_money.amount / 100; catMap[v.id] = cat; }
     }
-    log(`Found ${Object.keys(priceMap).length} priced entries, ${Object.keys(categories).length} categories`);
+    const archivedCount = Object.values(archivedMap).filter(Boolean).length;
+    log(`Found ${Object.keys(priceMap).length} priced entries, ${Object.keys(categories).length} categories, ${archivedCount} archived items`);
 
-    // For Food & Grocery: import any missing items from the matching Square category
+    // For Food & Grocery: import any missing items from the matching Square category.
+    // Archived-in-Square items are NOT imported — user already hid them upstream.
     const squareCatItems = objects.filter(o => {
       if (o.type !== 'ITEM' || o.is_deleted) return false;
+      if (o.item_data?.is_archived) return false;
       return (resolveCategory(o.item_data || {})||'').toLowerCase() === cfg.squareCat.toLowerCase();
     });
-    log(`${squareCatItems.length} items in "${cfg.squareCat}" Square category`);
+    log(`${squareCatItems.length} active items in "${cfg.squareCat}" Square category (archived items skipped)`);
 
     const siteId = await getSiteId();
     const currentList = cache[cfg.cacheKey];
@@ -476,38 +480,51 @@ async function syncInvPricesFromSquare(tabKey) {
     // Update prices + names for all existing items. Square is the source of
     // truth for linked rows: if the Square name differs from the cached
     // ItemName/Title, we overwrite so renames in Square propagate here.
-    let updated = 0, autoLinked = 0, renamed = 0, unchanged = 0, notFound = 0;
+    // Also mirrors Square's is_archived flag back to SP (one-way — unarchiving
+    // in Square does NOT auto-unarchive here, since SP archived state may be
+    // user-driven for reasons unrelated to Square).
+    let updated = 0, autoLinked = 0, renamed = 0, autoArchived = 0, unchanged = 0, notFound = 0;
     for (const item of cache[cfg.cacheKey]) {
       const itemName = (item.ItemName || item.Title || '').trim();
       let sqId = (item.SquareCatalogItemId || '').trim();
       const wasLinked = !!sqId;
       if (!sqId) { sqId = nameToSqId[itemName.toLowerCase()] || ''; if (!sqId) { notFound++; continue; } }
+      const sqArchived = !!archivedMap[sqId];
       const price = priceMap[sqId];
-      if (price == null) { notFound++; log(`  ⚠ No price: ${itemName}`); continue; }
       const cat = catMap[sqId] || null;
       const sqName = (nameMap[sqId] || '').trim();
-      const fields = { SellingPrice: price };
+      const fields = {};
+      // Archive propagation — do this before the price short-circuit so items
+      // archived (and unpriced) in Square still get archived in SP.
+      if (sqArchived && !item.Archived) fields.Archived = 'yes';
+      // Price — only included when Square actually has one.
+      if (price != null) fields.SellingPrice = price;
       if (!wasLinked) fields.SquareCatalogItemId = sqId;
       if (cat && cat !== item.Category) fields.Category = cat;
-      // Name sync: only when linked (wasLinked OR we just found an id via name
-      // match — either way sqId is now authoritative). Write both ItemName +
-      // Title so the row displays correctly everywhere they're read.
       if (sqName && sqName !== itemName) {
         fields.ItemName = sqName;
         fields.Title = sqName;
       }
-      // Skip the PATCH entirely if nothing would change.
-      if (item.SellingPrice === price && wasLinked && !fields.Category && !fields.ItemName) {
+
+      // If we have no price AND nothing else to write, log and skip.
+      if (price == null && !fields.Archived && !fields.SquareCatalogItemId && !fields.Category && !fields.ItemName) {
+        notFound++; log(`  ⚠ No price: ${itemName}`); continue;
+      }
+      // Nothing actually changed — skip the PATCH.
+      if (!Object.keys(fields).length ||
+          (item.SellingPrice === price && wasLinked && !fields.Category && !fields.ItemName && !fields.Archived)) {
         unchanged++; continue;
       }
+
       await updateListItem(LISTS[cfg.listKey], item.id, fields);
       Object.assign(item, fields);
+      if (fields.Archived) { autoArchived++; log(`  📦 Archived (matches Square): ${sqName || itemName}`); }
       if (fields.ItemName) { renamed++; log(`  ✏️ Renamed "${itemName}" → "${sqName}"`); }
-      if (!wasLinked) { autoLinked++; log(`  🔗 ${sqName || itemName}: $${price.toFixed(2)}`); }
-      else if (!fields.ItemName) { updated++; log(`  ✓ ${sqName || itemName}: $${price.toFixed(2)}`); }
+      if (!wasLinked) { autoLinked++; log(`  🔗 ${sqName || itemName}${price != null ? ': $'+price.toFixed(2) : ''}`); }
+      else if (!fields.ItemName && !fields.Archived && price != null) { updated++; log(`  ✓ ${sqName || itemName}: $${price.toFixed(2)}`); }
     }
 
-    log(`\n✅ Done — ${imported} imported, ${updated} updated, ${autoLinked} auto-linked, ${renamed} renamed, ${unchanged} unchanged, ${notFound} not found`);
+    log(`\n✅ Done — ${imported} imported, ${updated} updated, ${autoLinked} auto-linked, ${renamed} renamed, ${autoArchived} auto-archived, ${unchanged} unchanged, ${notFound} not found`);
     renderInvCogCards(tabKey);
     toast('ok', `✓ ${cfg.squareCat} synced`);
   } catch(e) {
@@ -1614,6 +1631,190 @@ function merchNameSimilarity(a, b) {
   let inter = 0;
   A.forEach(t => { if (B.has(t)) inter++; });
   return inter / (A.size + B.size - inter);
+}
+
+// Dry-run audit of Square archive status vs. BSC_MerchInventory. Fetches the
+// live Square catalog, reads each ITEM's is_archived flag, and reports which
+// local rows are out-of-sync. Writes nothing — the Sync Prices button does the
+// actual work. Useful as a preview before sync.
+async function auditMerchSquareArchiveStatus() {
+  const statusEl = document.getElementById('merch-dedup-status');
+  const resultsEl = document.getElementById('merch-dedup-results');
+  if (!statusEl || !resultsEl) return;
+  statusEl.textContent = 'Fetching Square catalog…';
+  resultsEl.innerHTML = '';
+  try {
+    let objects = [], cursor = null;
+    do {
+      const params = `catalog/list?types=ITEM${cursor ? '&cursor='+encodeURIComponent(cursor) : ''}`;
+      const data = await squareAPI('GET', params);
+      objects = objects.concat(data.objects || []);
+      cursor = data.cursor || null;
+    } while (cursor);
+
+    const archivedMap = {}, nameMap = {}, deletedSet = new Set();
+    for (const obj of objects) {
+      if (obj.type !== 'ITEM') continue;
+      if (obj.is_deleted) { deletedSet.add(obj.id); continue; }
+      const d = obj.item_data || {};
+      archivedMap[obj.id] = !!d.is_archived;
+      if (d.name) nameMap[obj.id] = d.name;
+    }
+
+    const merch = (cache.merchInventory || []);
+    const active = merch.filter(r => !r.Archived);
+    const spArchived = merch.filter(r => !!r.Archived);
+
+    // Bucket active SP rows by Square state
+    const linkedActiveSq = [], linkedArchivedSq = [], linkedDeletedSq = [], linkedMissingSq = [], unlinked = [];
+    for (const r of active) {
+      const sqId = (r.SquareCatalogItemId || '').trim();
+      if (!sqId) { unlinked.push(r); continue; }
+      if (deletedSet.has(sqId)) { linkedDeletedSq.push(r); continue; }
+      if (!(sqId in archivedMap)) { linkedMissingSq.push(r); continue; }
+      if (archivedMap[sqId]) linkedArchivedSq.push(r); else linkedActiveSq.push(r);
+    }
+    // SP-archived rows whose Square row is still active (user may want to reactivate)
+    const spArchButSqActive = spArchived.filter(r => {
+      const sqId = (r.SquareCatalogItemId || '').trim();
+      return sqId && archivedMap[sqId] === false;
+    });
+
+    const totalSqArchived = Object.values(archivedMap).filter(Boolean).length;
+    const totalSqActive = Object.values(archivedMap).filter(v => v === false).length;
+
+    statusEl.innerHTML = `Square reports <strong>${totalSqActive}</strong> active and <strong>${totalSqArchived}</strong> archived items. Local rows: <strong>${active.length}</strong> active, <strong>${spArchived.length}</strong> archived.`;
+
+    const section = (title, rows, color, emptyHint) => {
+      if (!rows.length) return `<div style="margin-top:14px;font-size:12px;color:var(--muted);"><strong style="color:${color};">${title}:</strong> ${emptyHint}</div>`;
+      return `<div style="margin-top:14px;">
+        <div style="font-weight:700;font-size:13px;color:${color};margin-bottom:6px;">${title} (${rows.length})</div>
+        <div style="font-size:11px;max-height:180px;overflow:auto;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:6px;padding:8px 12px;">
+          ${rows.map(r => {
+            const sqId = (r.SquareCatalogItemId||'').trim();
+            const liveName = sqId && nameMap[sqId] ? nameMap[sqId] : (r.ItemName || r.Title || '');
+            const staleHint = sqId && nameMap[sqId] && nameMap[sqId] !== (r.ItemName||r.Title||'') ? ` <span style="color:var(--muted)">(Square: "${escHtml(nameMap[sqId])}", local: "${escHtml(r.ItemName||r.Title||'')}")</span>` : '';
+            return `<div>• ${escHtml(liveName)}${staleHint} <span style="color:var(--muted);font-family:monospace;font-size:10px;">${sqId?sqId.slice(0,12):'—'}</span></div>`;
+          }).join('')}
+        </div>
+      </div>`;
+    };
+
+    resultsEl.innerHTML = `
+      ${section('🚨 Active here, ARCHIVED in Square (candidates for auto-archive)', linkedArchivedSq, '#dc2626', 'none — everything active here is also active in Square. ✓')}
+      ${section('🗑 Active here, DELETED in Square', linkedDeletedSq, '#dc2626', 'none.')}
+      ${section('❓ Linked to a Square ID that no longer exists', linkedMissingSq, '#d97706', 'none.')}
+      ${section('🔓 Archived here, but still ACTIVE in Square', spArchButSqActive, '#d97706', 'none — all locally-archived rows are also archived/deleted in Square.')}
+      ${section('⚠ Not linked to Square', unlinked, '#c8a951', 'none — every active row has a SquareCatalogItemId.')}
+      <div style="margin-top:16px;padding:10px 12px;background:rgba(200,169,81,.08);border:1px solid rgba(200,169,81,.25);border-radius:8px;font-size:12px;color:rgba(255,255,255,.75);">
+        <strong>Nothing was written.</strong> To propagate Square's archive state into BSC_MerchInventory, click <strong>◼ Sync Prices from Square</strong> on the Merch tab — it now mirrors is_archived one-way (Square → SP) alongside the price/name/category updates.
+      </div>
+    `;
+  } catch (e) {
+    console.error('[audit] failed:', e);
+    statusEl.innerHTML = `<span style="color:var(--red)">Audit failed: ${escHtml(e.message||e)}</span>`;
+  }
+}
+
+// App-wide nuclear purge: fetches the Square catalog once, then hard-deletes
+// every linked row in BSC_Menu / BSC_MerchInventory / BSC_FoodInventory /
+// BSC_GroceryInventory whose Square counterpart is either archived or deleted.
+// Preview is shown in the first confirm dialog — names grouped by list, up to
+// 8 samples per list. COG snapshots and count-history rows are NOT touched
+// (they're historical; orphaning is intentional).
+async function purgeSquareArchivedAppWide() {
+  const statusEl = document.getElementById('merch-dedup-status');
+  const resultsEl = document.getElementById('merch-dedup-results');
+  if (statusEl) statusEl.textContent = 'Fetching Square catalog…';
+  if (resultsEl) resultsEl.innerHTML = '';
+
+  try {
+    let objects = [], cursor = null;
+    do {
+      const params = `catalog/list?types=ITEM${cursor ? '&cursor='+encodeURIComponent(cursor) : ''}`;
+      const data = await squareAPI('GET', params);
+      objects = objects.concat(data.objects || []);
+      cursor = data.cursor || null;
+    } while (cursor);
+
+    const archivedMap = {}, deletedSet = new Set();
+    for (const obj of objects) {
+      if (obj.type !== 'ITEM') continue;
+      if (obj.is_deleted) { deletedSet.add(obj.id); continue; }
+      archivedMap[obj.id] = !!obj.item_data?.is_archived;
+    }
+
+    // One plan per list. BSC_Menu stores the Square id under SquareId (not
+    // SquareCatalogItemId like the inventory lists), so we pass the field name.
+    const plans = [
+      { listKey: 'merchInventory',   cacheKey: 'merchInventory',   label: 'Merch',              sqIdField: 'SquareCatalogItemId' },
+      { listKey: 'foodInventory',    cacheKey: 'foodInventory',    label: 'Food',               sqIdField: 'SquareCatalogItemId' },
+      { listKey: 'groceryInventory', cacheKey: 'groceryInventory', label: 'Grocery',            sqIdField: 'SquareCatalogItemId' },
+      { listKey: 'menu',             cacheKey: 'menu',             label: 'Menu (Coffee Bar)',  sqIdField: 'SquareId' }
+    ];
+    for (const p of plans) {
+      const arr = cache[p.cacheKey] || [];
+      p.toPurge = arr.filter(r => {
+        const sq = (r[p.sqIdField] || '').trim();
+        if (!sq) return false;
+        return archivedMap[sq] === true || deletedSet.has(sq);
+      });
+    }
+
+    const total = plans.reduce((s, p) => s + p.toPurge.length, 0);
+    if (!total) {
+      if (statusEl) statusEl.innerHTML = '<span style="color:#16a34a">✓ Nothing to purge — no rows in Menu / Merch / Food / Grocery are linked to items archived or deleted in Square.</span>';
+      if (resultsEl) resultsEl.innerHTML = '';
+      return;
+    }
+
+    const summary = plans.filter(p => p.toPurge.length).map(p => {
+      const names = p.toPurge.slice(0, 8).map(r => '    • ' + (r.ItemName || r.Title || '(unnamed id '+r.id+')')).join('\n');
+      const more = p.toPurge.length > 8 ? `\n    …and ${p.toPurge.length - 8} more` : '';
+      return `${p.label} (${p.toPurge.length}):\n${names}${more}`;
+    }).join('\n\n');
+
+    const activeLists = plans.filter(p => p.toPurge.length).length;
+    const msg =
+      `⚠ PURGE ALL SQUARE-ARCHIVED ITEMS APP-WIDE — ${total} row${total>1?'s':''} across ${activeLists} list${activeLists>1?'s':''}\n\n` +
+      `This will hard-delete every row below from SharePoint. They're all linked to items that are archived or deleted in Square:\n\n` +
+      summary + `\n\n` +
+      `• Count history (BSC_{loc}_MerchCounts / *_Counts) and COG snapshots are NOT deleted — historical records stay, but become orphans referencing deleted rows.\n` +
+      `• Scope: Menu (Coffee Bar) + Merch + Food + Grocery inventories.\n\n` +
+      `Cannot be undone. Continue?`;
+    if (!confirm(msg)) return;
+    if (!confirm(`Final check — really hard-delete ${total} row${total>1?'s':''} app-wide?`)) return;
+
+    if (typeof setLoading === 'function') setLoading(true, `Purging ${total} Square-archived rows…`);
+    let done = 0;
+    for (const p of plans) {
+      if (!p.toPurge.length) continue;
+      for (let i = 0; i < p.toPurge.length; i += 8) {
+        const batch = p.toPurge.slice(i, i + 8);
+        await Promise.all(batch.map(r => deleteListItem(LISTS[p.listKey], r.id)));
+        done += batch.length;
+        if (typeof setLoading === 'function') setLoading(true, `Purging Square-archived ${done}/${total}…`);
+      }
+      const purgedIds = new Set(p.toPurge.map(r => String(r.id)));
+      cache[p.cacheKey] = (cache[p.cacheKey] || []).filter(r => !purgedIds.has(String(r.id)));
+    }
+
+    if (typeof toast === 'function') toast('ok', `✓ Purged ${total} Square-archived row${total>1?'s':''}`);
+    if (statusEl) {
+      statusEl.innerHTML = `<span style="color:#16a34a">✓ Purged ${total} row${total>1?'s':''} app-wide.</span> ` +
+        plans.filter(p=>p.toPurge.length).map(p => `${escHtml(p.label)}: ${p.toPurge.length}`).join(' · ');
+    }
+    if (resultsEl) resultsEl.innerHTML = '';
+    findMerchDuplicates();
+    if (typeof renderCogs === 'function') renderCogs();
+    if (typeof renderMenu === 'function') renderMenu();
+  } catch (e) {
+    console.error('[purge] failed:', e);
+    if (typeof toast === 'function') toast('err', 'Purge failed: ' + (e.message||e));
+    if (statusEl) statusEl.innerHTML = `<span style="color:var(--red)">Purge failed: ${escHtml(e.message||e)}</span>`;
+  } finally {
+    if (typeof setLoading === 'function') setLoading(false);
+  }
 }
 
 // Bulk hard-delete every active (non-archived) merch row whose

@@ -1658,7 +1658,9 @@ html,body{overscroll-behavior:none;}
       <div class="modal-body" style="padding:20px;">
         <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
           <button class="btn btn-outline" onclick="reloadMerchAndRescan()" style="font-size:12px;padding:6px 14px;" title="Force re-fetch BSC_MerchInventory from SharePoint then re-scan. Use if merged/deleted rows appear to persist.">↻ Reload from SharePoint + rescan</button>
+          <button class="btn btn-outline" onclick="auditMerchSquareArchiveStatus()" style="font-size:12px;padding:6px 14px;" title="Read-only audit: fetches Square catalog and reports which local rows are out-of-sync with Square's is_archived flag. No writes.">🔍 Check Square archive status</button>
           <button class="btn btn-outline" onclick="deleteAllUnlinkedMerch()" style="font-size:12px;padding:6px 14px;color:var(--red);border-color:rgba(220,38,38,.55);" title="Permanently delete every active merch row whose SquareCatalogItemId is blank. Two confirms required.">🗑 Delete all unlinked merch</button>
+          <button class="btn btn-outline" onclick="purgeSquareArchivedAppWide()" style="font-size:12px;padding:6px 14px;color:var(--red);border-color:rgba(220,38,38,.75);background:rgba(220,38,38,.08);" title="Hard-delete every Menu/Merch/Food/Grocery row linked to an item that is archived or deleted in Square. Two confirms required.">🗑 Purge ALL Square-archived (app-wide)</button>
         </div>
         <div id="merch-dedup-status" style="font-size:13px;color:var(--muted);margin-bottom:14px;"></div>
         <div id="merch-dedup-results"></div>
@@ -2223,33 +2225,33 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-04-22bf" defer></script>
-<script src="/js/utils.js?v=2026-04-22bf" defer></script>
-<script src="/js/state.js?v=2026-04-22bf" defer></script>
-<script src="/js/auth.js?v=2026-04-22bf" defer></script>
-<script src="/js/graph.js?v=2026-04-22bf" defer></script>
-<script src="/js/signalr.js?v=2026-04-22bf" defer></script>
-<script src="/js/tags.js?v=2026-04-22bf" defer></script>
-<script src="/js/nav.js?v=2026-04-22bf" defer></script>
-<script src="/js/settings.js?v=2026-04-22bf" defer></script>
-<script src="/js/dashboard.js?v=2026-04-22bf" defer></script>
-<script src="/js/inventory.js?v=2026-04-22bf" defer></script>
-<script src="/js/inventory-form.js?v=2026-04-22bf" defer></script>
-<script src="/js/counts.js?v=2026-04-22bf" defer></script>
-<script src="/js/foodpars.js?v=2026-04-22bf" defer></script>
-<script src="/js/labels.js?v=2026-04-22bf" defer></script>
-<script src="/js/pastry-sync.js?v=2026-04-22bf" defer></script>
-<script src="/js/recipes.js?v=2026-04-22bf" defer></script>
-<script src="/js/cogs.js?v=2026-04-22bf" defer></script>
-<script src="/js/vendors.js?v=2026-04-22bf" defer></script>
-<script src="/js/contacts.js?v=2026-04-22bf" defer></script>
-<script src="/js/maintenance.js?v=2026-04-22bf" defer></script>
-<script src="/js/checklists.js?v=2026-04-22bf" defer></script>
-<script src="/js/ordering.js?v=2026-04-22bf" defer></script>
-<script src="/js/parking.js?v=2026-04-22bf" defer></script>
-<script src="/js/prepItems.js?v=2026-04-22bf" defer></script>
-<script src="/js/square.js?v=2026-04-22bf" defer></script>
-<script src="/js/slack.js?v=2026-04-22bf" defer></script>
+<script src="/js/constants.js?v=2026-04-22bg" defer></script>
+<script src="/js/utils.js?v=2026-04-22bg" defer></script>
+<script src="/js/state.js?v=2026-04-22bg" defer></script>
+<script src="/js/auth.js?v=2026-04-22bg" defer></script>
+<script src="/js/graph.js?v=2026-04-22bg" defer></script>
+<script src="/js/signalr.js?v=2026-04-22bg" defer></script>
+<script src="/js/tags.js?v=2026-04-22bg" defer></script>
+<script src="/js/nav.js?v=2026-04-22bg" defer></script>
+<script src="/js/settings.js?v=2026-04-22bg" defer></script>
+<script src="/js/dashboard.js?v=2026-04-22bg" defer></script>
+<script src="/js/inventory.js?v=2026-04-22bg" defer></script>
+<script src="/js/inventory-form.js?v=2026-04-22bg" defer></script>
+<script src="/js/counts.js?v=2026-04-22bg" defer></script>
+<script src="/js/foodpars.js?v=2026-04-22bg" defer></script>
+<script src="/js/labels.js?v=2026-04-22bg" defer></script>
+<script src="/js/pastry-sync.js?v=2026-04-22bg" defer></script>
+<script src="/js/recipes.js?v=2026-04-22bg" defer></script>
+<script src="/js/cogs.js?v=2026-04-22bg" defer></script>
+<script src="/js/vendors.js?v=2026-04-22bg" defer></script>
+<script src="/js/contacts.js?v=2026-04-22bg" defer></script>
+<script src="/js/maintenance.js?v=2026-04-22bg" defer></script>
+<script src="/js/checklists.js?v=2026-04-22bg" defer></script>
+<script src="/js/ordering.js?v=2026-04-22bg" defer></script>
+<script src="/js/parking.js?v=2026-04-22bg" defer></script>
+<script src="/js/prepItems.js?v=2026-04-22bg" defer></script>
+<script src="/js/square.js?v=2026-04-22bg" defer></script>
+<script src="/js/slack.js?v=2026-04-22bg" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
