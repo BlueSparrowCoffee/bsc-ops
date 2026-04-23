@@ -1686,12 +1686,62 @@ async function findMerchDuplicates() {
       // Drop buckets where every row was already captured by Group A/B
       .filter(rows => rows.some(r => !alreadyGrouped.has(r.id)));
 
+    // Group E — complementary data pairs. Catches the dominant real-world
+    // duplicate pattern in this app: one row from Square sync (has Square ID +
+    // SellingPrice, usually no cost — Square's API doesn't return cost) and
+    // one row from a manual/spreadsheet import (has CostPerUnit, no Square ID,
+    // usually no price). The names diverge enough that Groups B/D miss them:
+    //   "Beanie" ↔ "BSC Logo Beanie"  (Jaccard 0.33 — far below threshold)
+    //   "Candle" ↔ "Chai Candle"       (Jaccard 0.50)
+    //   "Dog Toys" ↔ "Free Dog Toys"  (Jaccard 0.67 but killed by the
+    //                                  "free" distinguishing-token guard)
+    // Matching strategy: score every (cost-only × price-only) pair by
+    // token overlap count (NOT Jaccard — we want raw overlap because very
+    // short names like "Beanie" would otherwise drown in denominator). Break
+    // ties with a +1 category match bonus. Then greedy-assign best-first with
+    // no double-pairing. One shared token is the minimum signal.
+    //
+    // This does NOT use the MERCH_DISTINGUISHING_TOKENS guard — that guard
+    // exists to prevent false positives in name-similarity matching, but here
+    // we're explicitly looking for rows that differ in name and overlap in
+    // data role. "Free Dog Toys" (cost-only promo row) paired with "Dog Toys"
+    // (Square-linked retail row) is exactly what we want to surface.
+    statusEl.textContent = 'Pairing cost-only rows with price-only rows…';
+    const priceOnlyRows = merch.filter(r => (r.SquareCatalogItemId||'').trim());
+    const costOnlyRows  = merch.filter(r => !(r.SquareCatalogItemId||'').trim());
+    const pairCandidates = [];
+    for (const cr of costOnlyRows) {
+      const ct = merchNameTokens(cr.ItemName || cr.Title || '');
+      if (!ct.size) continue;
+      for (const pr of priceOnlyRows) {
+        const pt = merchNameTokens(pr.ItemName || pr.Title || '');
+        if (!pt.size) continue;
+        let shared = 0;
+        ct.forEach(t => { if (pt.has(t)) shared++; });
+        if (shared === 0) continue;
+        const catMatch = (cr.Category||'').toLowerCase() === (pr.Category||'').toLowerCase() ? 1 : 0;
+        pairCandidates.push({ costRow: cr, priceRow: pr, shared, catMatch, score: shared * 10 + catMatch });
+      }
+    }
+    pairCandidates.sort((a, b) => b.score - a.score);
+    const usedCostE = new Set();
+    const usedPriceE = new Set();
+    const groupE = [];
+    for (const c of pairCandidates) {
+      if (usedCostE.has(c.costRow.id) || usedPriceE.has(c.priceRow.id)) continue;
+      usedCostE.add(c.costRow.id);
+      usedPriceE.add(c.priceRow.id);
+      groupE.push(c);
+    }
+    const unmatchedCostOnly = costOnlyRows.filter(r => !usedCostE.has(r.id));
+
     // Render
     const lines = [
       `<strong>${merch.length}</strong> merch rows scanned.`,
       groupA.length ? `<span style="color:var(--red)">${groupA.length}</span> Square-ID collision${groupA.length!==1?'s':''}` : '',
       groupB.length ? `<span style="color:var(--orange)">${groupB.length}</span> same-name group${groupB.length!==1?'s':''}` : '',
       groupD.length ? `<span style="color:#d97706">${groupD.length}</span> fuzzy-match group${groupD.length!==1?'s':''}` : '',
+      groupE.length ? `<span style="color:#8a4fff">${groupE.length}</span> cost/price pair${groupE.length!==1?'s':''}` : '',
       groupC.length ? `<span style="color:var(--gold)">${groupC.length}</span> unlinked orphan${groupC.length!==1?'s':''} with Square match` : '',
       squareFetchError ? `<span style="color:var(--red)">⚠ Square catalog fetch failed: ${escHtml(squareFetchError)} — orphan detection skipped.</span>` : ''
     ].filter(Boolean).join(' · ');
@@ -1726,6 +1776,39 @@ async function findMerchDuplicates() {
       });
     }
 
+    // Group E render (cost/price pairs — the most useful for real merch cleanup)
+    if (groupE.length) {
+      html.push(`<div style="font-weight:700;font-size:13px;color:#8a4fff;margin:18px 0 6px;">🟣 Suspected cost/price pairs (${groupE.length})</div>`);
+      html.push(`<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Cost-only rows (no Square ID, has cost) paired with the most-likely price-only row (has Square ID, has price) via shared name tokens. This is usually the same product split across a manual import and a Square sync — merging consolidates cost + price + Square link onto one row. <strong>Review each pair carefully</strong> — a single shared word like "Mug" or "Candle" can pair unrelated products.</div>`);
+      groupE.forEach((p, idx) => {
+        const pname = p.priceRow.ItemName || p.priceRow.Title || '';
+        const cname = p.costRow.ItemName  || p.costRow.Title  || '';
+        const label = `Pair ${idx+1}: "${pname}" ↔ "${cname}" · ${p.shared} shared token${p.shared!==1?'s':''}${p.catMatch ? ', categories match' : ', categories differ'}`;
+        html.push(renderDedupGroup(label, [p.priceRow, p.costRow]));
+      });
+    }
+
+    // Unmatched cost-only info block — no merge buttons, just visibility so
+    // the user can eyeball the list and catch anything the algorithm missed.
+    if (unmatchedCostOnly.length) {
+      html.push(`<div style="font-weight:700;font-size:13px;color:var(--muted);margin:18px 0 6px;">ℹ️ Cost-only rows with no auto-pair (${unmatchedCostOnly.length})</div>`);
+      html.push(`<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">No price-only row shared any name token with these. They're either legitimately standalone products needing their own Square listing, or their pair has a completely different name (check the full list below for any missed pair — tell me the two names and I'll tighten the matcher).</div>`);
+      html.push(`<table style="width:100%;font-size:12px;border-collapse:collapse;margin-bottom:6px;background:rgba(255,255,255,.02);border-radius:6px;overflow:hidden;">
+        <thead><tr style="background:rgba(255,255,255,.05);">
+          <th style="text-align:left;padding:6px 8px;">Item Name</th>
+          <th style="text-align:left;padding:6px 8px;">Category</th>
+          <th style="text-align:right;padding:6px 8px;">Cost</th>
+          <th style="text-align:right;padding:6px 8px;">Price</th>
+        </tr></thead><tbody>
+        ${unmatchedCostOnly.map(r => `<tr style="border-top:1px solid rgba(255,255,255,.06);">
+          <td style="padding:5px 8px;">${escHtml(r.ItemName||r.Title||'')} <span style="font-size:10px;color:var(--red);">⚠ unlinked</span></td>
+          <td style="padding:5px 8px;color:var(--muted);">${escHtml(r.Category||'—')}</td>
+          <td style="padding:5px 8px;text-align:right;">${r.CostPerUnit ? '$'+parseFloat(r.CostPerUnit).toFixed(2) : '—'}</td>
+          <td style="padding:5px 8px;text-align:right;">${r.SellingPrice ? '$'+parseFloat(r.SellingPrice).toFixed(2) : '—'}</td>
+        </tr>`).join('')}
+        </tbody></table>`);
+    }
+
     // Group C render
     if (groupC.length) {
       html.push(`<div style="font-weight:700;font-size:13px;color:var(--gold);margin:18px 0 6px;">🟡 Unlinked orphans with a Square match (${groupC.length})</div>`);
@@ -1739,7 +1822,7 @@ async function findMerchDuplicates() {
       html.push('</div>');
     }
 
-    if (!groupA.length && !groupB.length && !groupC.length && !groupD.length) {
+    if (!groupA.length && !groupB.length && !groupC.length && !groupD.length && !groupE.length) {
       html.push('<div style="padding:24px 0;text-align:center;color:var(--muted);font-size:13px;">✨ Merch inventory looks clean — no duplicate rows or unlinked orphans found.</div>');
     } else {
       html.push(`<div style="margin-top:18px;padding:12px 14px;background:rgba(200,169,81,.08);border:1px solid rgba(200,169,81,.25);border-radius:8px;font-size:12px;color:rgba(255,255,255,.75);">
