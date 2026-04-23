@@ -1517,6 +1517,9 @@ function normalizeMerchName(raw) {
 // previewDedupMerge / confirmDedupMerge.
 const _dedupGroups = {};
 let _dedupGroupCounter = 0;
+// Manual-merge picker state — ids of rows the user has checked in the full
+// merch list below the auto-groups. Reset every scan.
+const _manualSelectedIds = new Set();
 
 // Token Jaccard similarity — splits on whitespace after normalization, strips
 // tokens shorter than 2 chars, then returns |A∩B| / |A∪B|.
@@ -1578,6 +1581,7 @@ async function findMerchDuplicates() {
     // Reset group state — previous scan's merge buttons are now dead DOM refs.
     Object.keys(_dedupGroups).forEach(k => delete _dedupGroups[k]);
     _dedupGroupCounter = 0;
+    _manualSelectedIds.clear();
 
     // Exclude archived rows — they're already soft-deleted and shouldn't surface
     // as duplicates. Same truthy convention as counts.js / vendors.js.
@@ -1841,18 +1845,25 @@ async function findMerchDuplicates() {
       </div>`);
     }
 
-    // Always include a collapsible "Show all merch rows" table — sorted by
-    // normalized name so near-duplicates sit next to each other and you can
-    // spot patterns my matcher didn't catch. Tell us which rows are the dupes
-    // and I'll tighten the matcher.
+    // Manual merge picker — sorted alphabetically by normalized name so near-
+    // duplicates sit next to each other. Check 2+ rows → "Build merge group"
+    // injects a standard dedup group (with keeper radio, preview, confirm)
+    // into the panel below. The auto-matcher only catches patterns we've
+    // taught it; this lets the user merge anything they can eyeball.
     const sortedAll = [...merch].sort((a, b) =>
       normalizeMerchName(a.ItemName||a.Title||'').localeCompare(normalizeMerchName(b.ItemName||b.Title||''))
     );
-    html.push(`<details style="margin-top:18px;">
-      <summary style="cursor:pointer;font-weight:700;font-size:13px;color:var(--muted);padding:6px 0;">📋 Show all ${sortedAll.length} merch rows (sorted by normalized name)</summary>
-      <div style="font-size:11px;color:var(--muted);margin:4px 0 8px;">Near-dupes will sit next to each other. Spot any pair I should have flagged? Tell me the two names and I'll tighten the matcher.</div>
+    html.push(`<details open style="margin-top:18px;">
+      <summary style="cursor:pointer;font-weight:700;font-size:13px;color:var(--gold);padding:6px 0;">🎯 Pick rows manually to merge (${sortedAll.length} merch rows)</summary>
+      <div style="font-size:11px;color:var(--muted);margin:4px 0 8px;">Check any 2+ rows below, then press <strong>Build merge group</strong>. A keeper picker + preview + confirm flow opens below the table — same safety checks as the auto-groups.</div>
+      <div style="margin:8px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button id="manual-merge-build-btn" class="btn btn-primary" onclick="buildManualMergeGroup()" disabled style="font-size:12px;padding:6px 14px;">🔀 Build merge group from 0 selected</button>
+        <button class="btn btn-outline" onclick="clearManualMergeSelection()" style="font-size:12px;padding:6px 14px;">Clear selection</button>
+      </div>
+      <div id="manual-merge-panel" style="margin:10px 0;"></div>
       <table style="width:100%;font-size:11px;border-collapse:collapse;background:rgba(255,255,255,.02);border-radius:6px;overflow:hidden;">
         <thead><tr style="background:rgba(255,255,255,.05);">
+          <th style="text-align:center;padding:6px 8px;width:40px;">Pick</th>
           <th style="text-align:left;padding:6px 8px;">Item Name</th>
           <th style="text-align:left;padding:6px 8px;">Normalized</th>
           <th style="text-align:left;padding:6px 8px;">Category</th>
@@ -1863,6 +1874,7 @@ async function findMerchDuplicates() {
         ${sortedAll.map(r => {
           const linked = !!(r.SquareCatalogItemId||'').trim();
           return `<tr style="border-top:1px solid rgba(255,255,255,.06);">
+            <td style="padding:5px 8px;text-align:center;"><input type="checkbox" data-id="${escHtml(String(r.id))}" onchange="onManualMergeCheckboxChange(this)" style="cursor:pointer;width:16px;height:16px;"></td>
             <td style="padding:5px 8px;">${escHtml(r.ItemName||r.Title||'')}${linked?'':' <span style="font-size:10px;color:var(--red);">⚠</span>'}</td>
             <td style="padding:5px 8px;color:var(--muted);font-family:monospace;font-size:10px;">${escHtml(normalizeMerchName(r.ItemName||r.Title||''))}</td>
             <td style="padding:5px 8px;color:var(--muted);">${escHtml(r.Category||'—')}</td>
@@ -1881,6 +1893,47 @@ async function findMerchDuplicates() {
   } finally {
     if (btn) btn.disabled = false;
   }
+}
+
+// Manual merge picker handlers ─────────────────────────────────────────────
+// The "Pick rows manually" table has a checkbox per row. Each toggle updates
+// _manualSelectedIds and relabels the Build button. Clicking Build renders a
+// standard dedup group (with keeper radio, preview, confirm) into the panel
+// above the table so the merge still goes through the same safety gates.
+function onManualMergeCheckboxChange(cb) {
+  const id = cb.dataset.id;
+  if (!id) return;
+  if (cb.checked) _manualSelectedIds.add(id);
+  else _manualSelectedIds.delete(id);
+  const btn = document.getElementById('manual-merge-build-btn');
+  if (btn) {
+    const n = _manualSelectedIds.size;
+    btn.textContent = `🔀 Build merge group from ${n} selected`;
+    btn.disabled = n < 2;
+  }
+}
+
+function clearManualMergeSelection() {
+  _manualSelectedIds.clear();
+  document.querySelectorAll('#merch-dedup-results input[type="checkbox"][data-id]').forEach(cb => { cb.checked = false; });
+  const btn = document.getElementById('manual-merge-build-btn');
+  if (btn) { btn.textContent = '🔀 Build merge group from 0 selected'; btn.disabled = true; }
+  const panel = document.getElementById('manual-merge-panel');
+  if (panel) panel.innerHTML = '';
+}
+
+function buildManualMergeGroup() {
+  if (_manualSelectedIds.size < 2) return;
+  const merch = (cache.merchInventory || []).filter(i => !i.Archived);
+  const rows = merch.filter(r => _manualSelectedIds.has(String(r.id)));
+  if (rows.length < 2) {
+    alert('Need at least 2 rows selected to build a merge group.');
+    return;
+  }
+  const panel = document.getElementById('manual-merge-panel');
+  if (!panel) return;
+  panel.innerHTML = renderDedupGroup('Manual merge group (picked by you)', rows);
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 // Render one dedup group with a per-row keeper radio, a Preview button, and a
