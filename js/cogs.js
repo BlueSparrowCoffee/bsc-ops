@@ -426,6 +426,15 @@ async function syncInvPricesFromSquare(tabKey) {
       return null;
     };
 
+    // Build a display name for a variation. If the variation's own name is
+    // blank or generic ("Regular"/"Default"), fall back to the parent name —
+    // otherwise render as "Parent - Variation".
+    const combinedNameFor = (parentName, variationName) => {
+      const v = (variationName || '').trim();
+      if (!v || /^(regular|default)$/i.test(v)) return parentName;
+      return `${parentName} - ${v}`;
+    };
+
     const priceMap = {}, catMap = {}, nameMap = {}, nameToSqId = {}, archivedMap = {};
     for (const obj of objects) {
       if (obj.type !== 'ITEM' || obj.is_deleted) continue;
@@ -442,13 +451,28 @@ async function syncInvPricesFromSquare(tabKey) {
       }
       if (!priced.length) continue;
       priceMap[obj.id] = priced[0].item_variation_data.price_money.amount / 100;
-      for (const v of priced) { priceMap[v.id] = v.item_variation_data.price_money.amount / 100; catMap[v.id] = cat; }
+      for (const v of priced) {
+        priceMap[v.id] = v.item_variation_data.price_money.amount / 100;
+        catMap[v.id] = cat;
+        // Propagate parent archive flag to each variation, OR-ed with variation's own flag.
+        archivedMap[v.id] = !!d.is_archived || !!v.item_variation_data?.is_archived;
+        // Per-variation name indexing — only emitted when the parent has >1
+        // priced variation (the "meaningful variations" case). Single-variation
+        // items stay keyed by parent ID so their behavior is unchanged.
+        if (priced.length > 1 && objName) {
+          const combined = combinedNameFor(objName, v.item_variation_data?.name || '');
+          nameMap[v.id] = combined;
+          nameToSqId[combined.toLowerCase()] = v.id;
+        }
+      }
     }
     const archivedCount = Object.values(archivedMap).filter(Boolean).length;
     log(`Found ${Object.keys(priceMap).length} priced entries, ${Object.keys(categories).length} categories, ${archivedCount} archived items`);
 
-    // For Food & Grocery: import any missing items from the matching Square category.
-    // Archived-in-Square items are NOT imported — user already hid them upstream.
+    // Import any missing items from the matching Square category. For merch,
+    // Square items with >1 priced variation are expanded — each variation
+    // becomes its own row (see importTargets below). Archived-in-Square
+    // items are NOT imported — user already hid them upstream.
     const squareCatItems = objects.filter(o => {
       if (o.type !== 'ITEM' || o.is_deleted) return false;
       if (o.item_data?.is_archived) return false;
@@ -461,19 +485,39 @@ async function syncInvPricesFromSquare(tabKey) {
     const existingNames = new Set(currentList.map(i => (i.ItemName||i.Title||'').toLowerCase().trim()));
     const existingIds   = new Set(currentList.map(i => (i.SquareCatalogItemId||'').trim()).filter(Boolean));
 
-    let imported = 0;
+    // Flatten Square category items into a list of import targets.
+    // For merch with >1 priced variation, we create one target per variation
+    // (linked to the variation's Square ID). Otherwise we create one target
+    // for the parent (current behavior — food & grocery always take this path).
+    const importTargets = [];
     for (const obj of squareCatItems) {
       const d = obj.item_data || {};
-      const name = (d.name || '').trim();
-      if (!name || existingNames.has(name.toLowerCase()) || existingIds.has(obj.id)) continue;
-      const price = priceMap[obj.id] ?? null;
-      const cat   = resolveCategory(d);
-      const fields = { ItemName: name, Category: cat || cfg.squareCat, SquareCatalogItemId: obj.id,
-        ...(price != null ? { SellingPrice: price } : {}) };
+      const parentName = (d.name || '').trim();
+      if (!parentName) continue;
+      const cat = resolveCategory(d);
+      const priced = (d.variations || []).filter(v => v.item_variation_data?.price_money);
+      if (tabKey === 'merch' && priced.length > 1) {
+        for (const v of priced) {
+          if (v.item_variation_data?.is_archived) continue;  // skip archived variation
+          const vn = combinedNameFor(parentName, v.item_variation_data?.name || '');
+          const vPrice = v.item_variation_data.price_money.amount / 100;
+          importTargets.push({ sqId: v.id, name: vn, price: vPrice, cat });
+        }
+      } else {
+        const price = priceMap[obj.id] ?? null;
+        importTargets.push({ sqId: obj.id, name: parentName, price, cat });
+      }
+    }
+
+    let imported = 0;
+    for (const t of importTargets) {
+      if (existingNames.has(t.name.toLowerCase()) || existingIds.has(t.sqId)) continue;
+      const fields = { ItemName: t.name, Category: t.cat || cfg.squareCat, SquareCatalogItemId: t.sqId,
+        ...(t.price != null ? { SellingPrice: t.price } : {}) };
       const newItem = await addListItem(LISTS[cfg.listKey], fields);
       cache[cfg.cacheKey].push(newItem);
-      existingNames.add(name.toLowerCase()); existingIds.add(obj.id);
-      imported++; log(`  + ${name}${price != null ? ' $'+price.toFixed(2) : ''}`);
+      existingNames.add(t.name.toLowerCase()); existingIds.add(t.sqId);
+      imported++; log(`  + ${t.name}${t.price != null ? ' $'+t.price.toFixed(2) : ''}`);
     }
     if (imported) log(`Imported ${imported} new items\n`);
 
