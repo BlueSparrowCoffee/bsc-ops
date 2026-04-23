@@ -14,12 +14,15 @@
  *     onPiTypeChange, onPiInvChange, removePiIngRow,
  *     updatePiCostPreview, getPiIngRows
  *   - savePrepItemForm / deletePrepItem
+ *   - loadPrepItemHistory / restorePrepItemVersion (SharePoint
+ *     version history; master fields only — ingredient rows live
+ *     in BSC_PrepItemIngredients and are not versioned here)
  *
  * Depends on:
  *   state.js     — cache
  *   constants.js — LISTS
  *   utils.js     — escHtml, toast, openModal, closeModal, setLoading
- *   graph.js     — addListItem, updateListItem, deleteListItem
+ *   graph.js     — graph, getSiteId, addListItem, updateListItem, deleteListItem
  *   inventory.js — invItemLink
  * ================================================================ */
 
@@ -166,7 +169,90 @@ function openPrepItemModal(id) {
   for (const ing of sortedIngs) addPrepIngRow(ing);
   updatePiNoIngsMsg();
   updatePiCostPreview();
+  // History button only meaningful when editing an existing item
+  const histBtn = document.getElementById('pi-history-btn');
+  if (histBtn) histBtn.style.display = id ? 'inline-flex' : 'none';
   openModal('modal-prep-item');
+}
+
+// Fetch SharePoint's built-in version history for this prep item. Only tracks
+// master fields (Title, Category, YieldQty, YieldUnit, Notes) — ingredient
+// rows live in BSC_PrepItemIngredients and are not versioned here.
+async function loadPrepItemHistory(id) {
+  if (!id) return;
+  const item = cache.prepItems.find(p => p.id === id);
+  document.getElementById('pi-history-title').textContent = `History — ${item?.Title || 'Prep Item'}`;
+  setLoading(true, 'Loading history…');
+  try {
+    const siteId = await getSiteId();
+    const res = await graph('GET', `/sites/${siteId}/lists/${LISTS.prepItems}/items/${id}/versions`);
+    const versions = res.value || [];
+    const el = document.getElementById('pi-history-list');
+    if (!versions.length) {
+      el.innerHTML = '<div style="padding:20px;color:var(--muted);font-size:13px;text-align:center;">No edit history found.<br><span style="font-size:11px;">History saves after each edit.</span></div>';
+    } else {
+      el.innerHTML = '<div style="padding:8px 16px 14px;font-size:11px;color:var(--muted);font-style:italic;">Tracks master fields only (name, category, yield, notes). Ingredient rows are not versioned.</div>' +
+        versions.map((v, i) => {
+          const d = new Date(v.lastModifiedDateTime);
+          const date = d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+          const time = d.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
+          const by = v.lastModifiedBy?.user?.displayName || 'Unknown';
+          const f = v.fields || {};
+          const title    = f.Title || '';
+          const category = f.Category || '';
+          const yieldQty = f.YieldQty;
+          const yieldUnit = f.YieldUnit || '';
+          const notes    = f.Notes || '';
+          const yieldStr = (yieldQty != null && yieldQty !== '') ? `${yieldQty} ${escHtml(yieldUnit || 'unit')}` : '—';
+          const isCurrent = i === 0;
+          return `<div style="padding:16px 0;border-bottom:1px solid var(--border);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+              <div>
+                <span style="font-weight:600;font-size:13px;">${escHtml(by)}</span>
+                <span style="font-size:11px;color:var(--muted);margin-left:8px;">${date} at ${time}</span>
+              </div>
+              ${isCurrent
+                ? '<span style="font-size:10px;padding:2px 8px;background:rgba(183,139,64,.15);color:var(--gold);border-radius:10px;font-weight:700;letter-spacing:.04em;">CURRENT</span>'
+                : `<button data-id="${escHtml(id)}" data-vid="${escHtml(v.id)}" onclick="restorePrepItemVersion(this.dataset.id,this.dataset.vid)" style="font-size:11px;color:var(--gold);border:1.5px solid var(--gold);border-radius:6px;padding:3px 10px;background:none;cursor:pointer;font-weight:600;">↩ Restore</button>`
+              }
+            </div>
+            <div style="font-size:12px;color:var(--ink);background:var(--cream);border-radius:6px;padding:10px 12px;line-height:1.6;">
+              <div><span style="color:var(--muted);">Name:</span> ${escHtml(title) || '<span style="color:var(--muted);font-style:italic;">—</span>'}</div>
+              <div><span style="color:var(--muted);">Category:</span> ${escHtml(category) || '<span style="color:var(--muted);font-style:italic;">—</span>'}</div>
+              <div><span style="color:var(--muted);">Yield:</span> ${yieldStr}</div>
+              ${notes ? `<div style="margin-top:4px;"><span style="color:var(--muted);">Notes:</span> ${escHtml(notes)}</div>` : ''}
+            </div>
+          </div>`;
+        }).join('');
+    }
+    closeModal('modal-prep-item');
+    openModal('modal-prep-item-history');
+  } catch(e) { toast('err', 'Could not load history: ' + e.message); }
+  finally { setLoading(false); }
+}
+
+async function restorePrepItemVersion(itemId, versionId) {
+  if (!confirm('Restore this version? Master fields (name, category, yield, notes) will be overwritten. Ingredient rows are not affected.')) return;
+  setLoading(true, 'Restoring version…');
+  try {
+    const siteId = await getSiteId();
+    const ver = await graph('GET', `/sites/${siteId}/lists/${LISTS.prepItems}/items/${itemId}/versions/${versionId}`);
+    const f = ver.fields || {};
+    const data = {
+      Title:     f.Title || '',
+      Category:  f.Category || '',
+      YieldQty:  f.YieldQty != null && f.YieldQty !== '' ? parseFloat(f.YieldQty) : null,
+      YieldUnit: f.YieldUnit || '',
+      Notes:     f.Notes || ''
+    };
+    await updateListItem(LISTS.prepItems, itemId, data);
+    const i = cache.prepItems.findIndex(p => p.id === itemId);
+    if (i !== -1) Object.assign(cache.prepItems[i], data);
+    renderPrepItems();
+    closeModal('modal-prep-item-history');
+    toast('ok', '✓ Version restored');
+  } catch(e) { toast('err', 'Restore failed: ' + e.message); }
+  finally { setLoading(false); }
 }
 
 function updatePiNoIngsMsg() {
