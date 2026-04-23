@@ -1512,9 +1512,22 @@ function normalizeMerchName(raw) {
 }
 
 // Token Jaccard similarity — splits on whitespace after normalization, strips
-// tokens shorter than 2 chars, then returns |A∩B| / |A∪B|. Threshold 0.6
-// means the two item names share ≥60% of their significant words, which
-// catches "Platte Blend 12oz" vs "Platte Blend 12oz Medium Roast" (4/5 = .8).
+// tokens shorter than 2 chars, then returns |A∩B| / |A∪B|.
+//
+// DISTINGUISHING TOKENS: words that, if present in one name but not the other,
+// mean the two rows are DIFFERENT products even when the rest overlaps. Examples
+// caught by this rule:
+//   "Sweatshirt, Platte st. Crewneck"  vs  "Sweatshirt, Blake st. Crewneck"
+//     → location differs (platte vs blake) → not a dupe
+//   "Free Dog Toys"  vs  "Dog Toys"
+//     → "free" is a modifier word on only one side → not a dupe (giveaway vs. retail)
+// We return 0 similarity whenever a distinguishing-token disagreement is found.
+const MERCH_DISTINGUISHING_TOKENS = new Set([
+  // Location words — a sweatshirt for Blake is a different SKU than one for Platte
+  'blake', 'platte', 'sherman', '17th',
+  // Modifier words — change the pricing/usage category, not the product
+  'free', 'sample', 'staff', 'promo', 'demo', 'test', 'damaged', 'refund', 'comp',
+]);
 function merchNameTokens(raw) {
   const n = normalizeMerchName(raw);
   return new Set(n.split(' ').filter(t => t.length >= 2));
@@ -1522,6 +1535,11 @@ function merchNameTokens(raw) {
 function merchNameSimilarity(a, b) {
   const A = merchNameTokens(a), B = merchNameTokens(b);
   if (!A.size || !B.size) return 0;
+  // Hard disqualifier: any distinguishing token that appears in one set but not
+  // the other → these are different products, no matter how much else overlaps.
+  for (const tok of MERCH_DISTINGUISHING_TOKENS) {
+    if (A.has(tok) !== B.has(tok)) return 0;
+  }
   let inter = 0;
   A.forEach(t => { if (B.has(t)) inter++; });
   return inter / (A.size + B.size - inter);
@@ -1627,7 +1645,10 @@ async function findMerchDuplicates() {
     // enough to escape Group B, e.g. one has extra descriptor words). Uses
     // union-find to merge transitively-similar rows into the same bucket.
     statusEl.textContent = 'Running fuzzy name match…';
-    const SIM_THRESHOLD = 0.6;
+    // Raised from 0.6 → 0.75 to cut false positives like "Sweatshirt, Platte" vs
+    // "Sweatshirt, Blake" (which also hits the distinguishing-token guard above,
+    // but the tighter threshold is a second line of defense for unseen cases).
+    const SIM_THRESHOLD = 0.75;
     const parent = merch.map((_, i) => i);
     const find = (x) => parent[x] === x ? x : (parent[x] = find(parent[x]));
     const union = (a, b) => { const ra = find(a), rb = find(b); if (ra !== rb) parent[ra] = rb; };
