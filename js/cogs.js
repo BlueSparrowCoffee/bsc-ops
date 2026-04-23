@@ -1278,7 +1278,7 @@ function renderCogsOverview() {
     const typeLabel = tabKey.charAt(0).toUpperCase() + tabKey.slice(1);
     const state = _invCogState[tabKey];
     (cache[cfg.cacheKey]||[]).forEach(i => {
-      if (i.Archived === 'Yes') return;  // drop archived items from overview chart, stats, and list
+      if (i.Archived) return;  // drop archived items from overview chart, stats, and list (truthy — matches 'yes', 'Yes', true, etc.)
       const cost  = parseFloat(i.CostPerUnit);
       const price = parseFloat(i.SellingPrice);
       if (!cost || !price) return;
@@ -1511,6 +1511,13 @@ function normalizeMerchName(raw) {
   return s;
 }
 
+// Module-level storage for dedup-merge UI state. Each group rendered in the
+// dedup modal gets a unique id so its button onclicks can look up the right
+// rows + user-picked keeper. Populated by renderDedupGroup, read by
+// previewDedupMerge / confirmDedupMerge.
+const _dedupGroups = {};
+let _dedupGroupCounter = 0;
+
 // Token Jaccard similarity — splits on whitespace after normalization, strips
 // tokens shorter than 2 chars, then returns |A∩B| / |A∪B|.
 //
@@ -1568,7 +1575,13 @@ async function findMerchDuplicates() {
   if (btn) btn.disabled = true;
 
   try {
-    const merch = cache.merchInventory || [];
+    // Reset group state — previous scan's merge buttons are now dead DOM refs.
+    Object.keys(_dedupGroups).forEach(k => delete _dedupGroups[k]);
+    _dedupGroupCounter = 0;
+
+    // Exclude archived rows — they're already soft-deleted and shouldn't surface
+    // as duplicates. Same truthy convention as counts.js / vendors.js.
+    const merch = (cache.merchInventory || []).filter(i => !i.Archived);
 
     // Group A — duplicate SquareCatalogItemId (strongest signal)
     const bySqId = {};
@@ -1776,10 +1789,23 @@ async function findMerchDuplicates() {
   }
 }
 
+// Render one dedup group with a per-row keeper radio, a Preview button, and a
+// disabled Confirm button. Clicking Preview fetches count history across all
+// locations and fills the preview panel; clicking Confirm runs the merge.
 function renderDedupGroup(label, rows) {
-  const hdr = `<div style="font-size:12px;color:rgba(255,255,255,.7);margin:10px 0 4px;">${label} · ${rows.length} rows</div>`;
+  const groupId = `grp_${++_dedupGroupCounter}`;
+  // Default keeper: prefer a Square-linked row (so the merged survivor stays in
+  // sync with Square), else the row with the highest numeric id (most recent).
+  const linkedRows = rows.filter(r => (r.SquareCatalogItemId||'').trim());
+  const defaultKeeper = linkedRows.length
+    ? linkedRows[0].id
+    : rows.slice().sort((a,b) => (+b.id||0) - (+a.id||0))[0].id;
+  _dedupGroups[groupId] = { rows, label, keeperId: defaultKeeper };
+
+  const hdr = `<div style="font-size:12px;color:rgba(255,255,255,.7);margin:10px 0 4px;">${escHtml(label)} · ${rows.length} rows</div>`;
   const table = `<table style="width:100%;font-size:12px;border-collapse:collapse;margin-bottom:6px;background:rgba(255,255,255,.02);border-radius:6px;overflow:hidden;">
     <thead><tr style="background:rgba(255,255,255,.05);">
+      <th style="text-align:center;padding:6px 4px;width:40px;">Keep</th>
       <th style="text-align:left;padding:6px 8px;">SP ID</th>
       <th style="text-align:left;padding:6px 8px;">Item Name</th>
       <th style="text-align:left;padding:6px 8px;">Category</th>
@@ -1789,7 +1815,9 @@ function renderDedupGroup(label, rows) {
     </tr></thead><tbody>
     ${rows.map(r => {
       const linked = !!(r.SquareCatalogItemId||'').trim();
+      const checked = r.id === defaultKeeper ? 'checked' : '';
       return `<tr style="border-top:1px solid rgba(255,255,255,.06);">
+        <td style="padding:6px 4px;text-align:center;"><input type="radio" name="keeper_${groupId}" value="${escHtml(r.id)}" ${checked} data-group-id="${groupId}" onchange="onDedupKeeperChange(this)"></td>
         <td style="padding:6px 8px;color:var(--muted);font-family:monospace;font-size:11px;">${escHtml(r.id)}</td>
         <td style="padding:6px 8px;">${escHtml(r.ItemName||r.Title||'')}${linked ? '' : ' <span style="font-size:10px;color:var(--red);">⚠ unlinked</span>'}</td>
         <td style="padding:6px 8px;color:var(--muted);">${escHtml(r.Category||'—')}</td>
@@ -1799,5 +1827,172 @@ function renderDedupGroup(label, rows) {
       </tr>`;
     }).join('')}
     </tbody></table>`;
-  return hdr + table;
+  const actions = `<div id="merge-preview-${groupId}" style="margin:6px 0;padding:10px 12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:6px;font-size:12px;line-height:1.6;display:none;"></div>
+    <div style="margin:4px 0 14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <button class="btn btn-outline btn-sm" data-group-id="${groupId}" onclick="previewDedupMerge(this.dataset.groupId)">🔍 Preview merge</button>
+      <button class="btn btn-primary btn-sm" id="confirm-btn-${groupId}" data-group-id="${groupId}" onclick="confirmDedupMerge(this.dataset.groupId)" disabled>✓ Confirm merge</button>
+      <span style="font-size:11px;color:var(--muted);">Keeper = Square-linked row by default. Preview is required before confirm.</span>
+    </div>`;
+  return hdr + table + actions;
+}
+
+// Keep _dedupGroups[gid].keeperId in sync with the radio selection. Invalidates
+// any preview that was already computed against the prior keeper so the user
+// can't Confirm a stale plan.
+function onDedupKeeperChange(inp) {
+  const gid = inp.dataset.groupId;
+  const g = _dedupGroups[gid];
+  if (!g) return;
+  g.keeperId = inp.value;
+  g.preview = null;
+  const panel = document.getElementById(`merge-preview-${gid}`);
+  const btn = document.getElementById(`confirm-btn-${gid}`);
+  if (panel) { panel.style.display = 'none'; panel.innerHTML = ''; }
+  if (btn) btn.disabled = true;
+}
+
+// Fetch count history across every location, find rows that reference any
+// loser's name, and compute what fields the keeper will gain. Writes nothing.
+async function previewDedupMerge(groupId) {
+  const g = _dedupGroups[groupId];
+  if (!g) { if (typeof toast==='function') toast('err','Group not found'); return; }
+  const panel = document.getElementById(`merge-preview-${groupId}`);
+  const confirmBtn = document.getElementById(`confirm-btn-${groupId}`);
+  if (!panel) return;
+  panel.style.display = 'block';
+  panel.innerHTML = `<em style="color:var(--muted);">Scanning count lists across all locations…</em>`;
+
+  const keeper = g.rows.find(r => r.id === g.keeperId);
+  const losers = g.rows.filter(r => r.id !== g.keeperId);
+  if (!keeper || !losers.length) {
+    panel.innerHTML = `<span style="color:var(--red)">Pick a keeper first.</span>`;
+    return;
+  }
+  const keeperName = (keeper.ItemName||keeper.Title||'').trim();
+  const loserNameSet = new Set(
+    losers.map(r => (r.ItemName||r.Title||'').trim().toLowerCase()).filter(Boolean)
+  );
+
+  let countRefs = {};
+  let countErrs = [];
+  try {
+    const siteId = await getSiteId();
+    const locs = (typeof getLocations === 'function' ? getLocations() : ['Blake','Platte','Sherman','17th']);
+    for (const loc of locs) {
+      const slug = loc.replace(/[\s\/\\]/g, '_');
+      const listName = `BSC_${slug}_MerchCounts`;
+      try {
+        const cntRows = await getCountHistoryForList(siteId, listName);
+        const matches = cntRows.filter(r => loserNameSet.has((r.Title||'').trim().toLowerCase()));
+        if (matches.length) countRefs[loc] = { listName, matches };
+      } catch (e) {
+        countErrs.push(`${loc}: ${e.message||e}`);
+      }
+    }
+  } catch (e) {
+    panel.innerHTML = `<span style="color:var(--red)">Preview failed: ${escHtml(e.message||e)}</span>`;
+    return;
+  }
+
+  // Field fills — copy loser value into keeper only where keeper is blank.
+  const copyFields = ['SquareCatalogItemId','CostPerUnit','SellingPrice','ItemNo','Category','Tags'];
+  const fills = {};
+  for (const f of copyFields) {
+    const kv = (keeper[f] == null ? '' : String(keeper[f])).trim();
+    if (kv) continue;
+    for (const l of losers) {
+      const lv = (l[f] == null ? '' : String(l[f])).trim();
+      if (lv) { fills[f] = lv; break; }
+    }
+  }
+
+  g.preview = { keeper, losers, keeperName, countRefs, fills };
+
+  const totalCount = Object.values(countRefs).reduce((s,o) => s + o.matches.length, 0);
+  const locBreakdown = Object.entries(countRefs)
+    .map(([loc, o]) => `<strong>${o.matches.length}</strong> in ${escHtml(loc)}`)
+    .join(' · ') || '<span style="color:var(--muted)">none</span>';
+
+  const fillPairs = Object.entries(fills)
+    .map(([k,v]) => `<code>${escHtml(k)}</code>=${escHtml(String(v).slice(0,40))}`)
+    .join(', ') || '<span style="color:var(--muted)">nothing to copy</span>';
+
+  panel.innerHTML = `
+    <div style="font-weight:700;margin-bottom:6px;">Merge plan</div>
+    <div>Keeper: <strong>${escHtml(keeperName)}</strong> <span style="color:var(--muted)">· id ${escHtml(keeper.id)}</span></div>
+    <div style="color:var(--muted);margin-top:2px;">Losers (${losers.length}): ${losers.map(l => escHtml(l.ItemName||l.Title||'')+` <span style="font-size:11px">(id ${escHtml(l.id)})</span>`).join(' · ')}</div>
+    <div style="margin-top:8px;">📋 Count rows to retitle → keeper's name: ${locBreakdown} · <strong>${totalCount} total</strong></div>
+    <div style="margin-top:4px;">➕ Keeper gains: ${fillPairs}</div>
+    <div style="margin-top:4px;">📦 Losers will be archived (soft-delete — the Archived='yes' field is set, rows are recoverable via inventory form).</div>
+    ${countErrs.length ? `<div style="margin-top:6px;color:var(--red);font-size:11px">⚠ Fetch errors: ${escHtml(countErrs.join('; '))}</div>` : ''}
+    <div style="margin-top:8px;font-size:11px;color:var(--muted);">Review above, then click <strong>Confirm merge</strong>. Nothing is written until you confirm.</div>
+  `;
+  if (confirmBtn) confirmBtn.disabled = false;
+}
+
+// Execute the merge plan stored on _dedupGroups[gid].preview. Runs in three
+// phases: retitle count rows, PATCH keeper with fills, archive losers. All
+// phases batch 8 concurrent writes (same pattern as bulk count submit).
+async function confirmDedupMerge(groupId) {
+  const g = _dedupGroups[groupId];
+  if (!g || !g.preview) {
+    if (typeof toast === 'function') toast('err','Run Preview first');
+    return;
+  }
+  const { keeper, losers, keeperName, countRefs, fills } = g.preview;
+  const totalCount = Object.values(countRefs).reduce((s,o) => s + o.matches.length, 0);
+
+  const msg = `Merge ${losers.length} row${losers.length>1?'s':''} into "${keeperName}"?\n\n` +
+              `• ${totalCount} count row${totalCount!==1?'s':''} will be retitled\n` +
+              `• Keeper will gain ${Object.keys(fills).length} field${Object.keys(fills).length!==1?'s':''}\n` +
+              `• ${losers.length} row${losers.length>1?'s':''} will be archived\n\n` +
+              `Losers are archived (reversible), not deleted.`;
+  if (!confirm(msg)) return;
+
+  const confirmBtn = document.getElementById(`confirm-btn-${groupId}`);
+  if (confirmBtn) confirmBtn.disabled = true;
+  if (typeof setLoading === 'function') setLoading(true, 'Merging…');
+
+  try {
+    // Phase 1 — retitle every matching count row to the keeper's name.
+    let done = 0;
+    for (const [loc, info] of Object.entries(countRefs)) {
+      for (let i = 0; i < info.matches.length; i += 8) {
+        const batch = info.matches.slice(i, i+8);
+        await Promise.all(batch.map(r => updateListItem(info.listName, r.id, { Title: keeperName })));
+        done += batch.length;
+        if (typeof setLoading === 'function') setLoading(true, `Retitling count history ${done}/${totalCount}…`);
+      }
+    }
+
+    // Phase 2 — copy missing fields onto the keeper.
+    if (Object.keys(fills).length) {
+      if (typeof setLoading === 'function') setLoading(true, 'Updating keeper…');
+      await updateListItem(LISTS.merchInventory, keeper.id, fills);
+      Object.assign(keeper, fills);  // mirror in cache
+    }
+
+    // Phase 3 — archive the losers.
+    for (let i = 0; i < losers.length; i += 8) {
+      if (typeof setLoading === 'function') setLoading(true, `Archiving losers ${Math.min(i+8, losers.length)}/${losers.length}…`);
+      const batch = losers.slice(i, i+8);
+      await Promise.all(batch.map(l => updateListItem(LISTS.merchInventory, l.id, { Archived: 'yes' })));
+      batch.forEach(l => { l.Archived = 'yes'; });
+    }
+
+    if (typeof toast === 'function') {
+      toast('ok', `✓ Merged ${losers.length+1} rows into "${keeperName}" · ${totalCount} count rows retitled`);
+    }
+
+    // Refresh dependent views. findMerchDuplicates filters Archived, so the
+    // merged losers disappear from the scan; renderCogs picks up the new cache.
+    if (typeof renderCogs === 'function') renderCogs();
+    findMerchDuplicates();
+  } catch (e) {
+    if (typeof toast === 'function') toast('err', 'Merge failed: ' + (e.message||e));
+    else alert('Merge failed: ' + (e.message||e));
+    if (confirmBtn) confirmBtn.disabled = false;
+  } finally {
+    if (typeof setLoading === 'function') setLoading(false);
+  }
 }
