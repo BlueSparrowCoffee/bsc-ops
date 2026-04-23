@@ -426,7 +426,7 @@ async function syncInvPricesFromSquare(tabKey) {
       return null;
     };
 
-    const priceMap = {}, catMap = {}, nameToSqId = {};
+    const priceMap = {}, catMap = {}, nameMap = {}, nameToSqId = {};
     for (const obj of objects) {
       if (obj.type !== 'ITEM' || obj.is_deleted) continue;
       const d = obj.item_data || {};
@@ -434,8 +434,11 @@ async function syncInvPricesFromSquare(tabKey) {
       const priced = vars.filter(v => v.item_variation_data?.price_money);
       const cat = resolveCategory(d);
       catMap[obj.id] = cat;
-      const objName = (d.name || '').toLowerCase().trim();
-      if (objName) nameToSqId[objName] = obj.id;
+      const objName = (d.name || '').trim();
+      if (objName) {
+        nameMap[obj.id] = objName;                         // Square → SP name propagation
+        nameToSqId[objName.toLowerCase()] = obj.id;        // name-based orphan linking
+      }
       if (!priced.length) continue;
       priceMap[obj.id] = priced[0].item_variation_data.price_money.amount / 100;
       for (const v of priced) { priceMap[v.id] = v.item_variation_data.price_money.amount / 100; catMap[v.id] = cat; }
@@ -470,26 +473,41 @@ async function syncInvPricesFromSquare(tabKey) {
     }
     if (imported) log(`Imported ${imported} new items\n`);
 
-    // Update prices for all existing items
-    let updated = 0, autoLinked = 0, unchanged = 0, notFound = 0;
+    // Update prices + names for all existing items. Square is the source of
+    // truth for linked rows: if the Square name differs from the cached
+    // ItemName/Title, we overwrite so renames in Square propagate here.
+    let updated = 0, autoLinked = 0, renamed = 0, unchanged = 0, notFound = 0;
     for (const item of cache[cfg.cacheKey]) {
       const itemName = (item.ItemName || item.Title || '').trim();
       let sqId = (item.SquareCatalogItemId || '').trim();
+      const wasLinked = !!sqId;
       if (!sqId) { sqId = nameToSqId[itemName.toLowerCase()] || ''; if (!sqId) { notFound++; continue; } }
       const price = priceMap[sqId];
       if (price == null) { notFound++; log(`  ⚠ No price: ${itemName}`); continue; }
       const cat = catMap[sqId] || null;
+      const sqName = (nameMap[sqId] || '').trim();
       const fields = { SellingPrice: price };
-      if (!item.SquareCatalogItemId) fields.SquareCatalogItemId = sqId;
+      if (!wasLinked) fields.SquareCatalogItemId = sqId;
       if (cat && cat !== item.Category) fields.Category = cat;
-      if (item.SellingPrice === price && item.SquareCatalogItemId && !fields.Category) { unchanged++; continue; }
+      // Name sync: only when linked (wasLinked OR we just found an id via name
+      // match — either way sqId is now authoritative). Write both ItemName +
+      // Title so the row displays correctly everywhere they're read.
+      if (sqName && sqName !== itemName) {
+        fields.ItemName = sqName;
+        fields.Title = sqName;
+      }
+      // Skip the PATCH entirely if nothing would change.
+      if (item.SellingPrice === price && wasLinked && !fields.Category && !fields.ItemName) {
+        unchanged++; continue;
+      }
       await updateListItem(LISTS[cfg.listKey], item.id, fields);
       Object.assign(item, fields);
-      if (!item.SquareCatalogItemId || fields.SquareCatalogItemId) { autoLinked++; log(`  🔗 ${itemName}: $${price.toFixed(2)}`); }
-      else { updated++; log(`  ✓ ${itemName}: $${price.toFixed(2)}`); }
+      if (fields.ItemName) { renamed++; log(`  ✏️ Renamed "${itemName}" → "${sqName}"`); }
+      if (!wasLinked) { autoLinked++; log(`  🔗 ${sqName || itemName}: $${price.toFixed(2)}`); }
+      else if (!fields.ItemName) { updated++; log(`  ✓ ${sqName || itemName}: $${price.toFixed(2)}`); }
     }
 
-    log(`\n✅ Done — ${imported} imported, ${updated} updated, ${autoLinked} auto-linked, ${unchanged} unchanged, ${notFound} not found`);
+    log(`\n✅ Done — ${imported} imported, ${updated} updated, ${autoLinked} auto-linked, ${renamed} renamed, ${unchanged} unchanged, ${notFound} not found`);
     renderInvCogCards(tabKey);
     toast('ok', `✓ ${cfg.squareCat} synced`);
   } catch(e) {
