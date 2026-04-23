@@ -205,6 +205,20 @@ function applyInvCategoryVisibility() {
   renderInvTableHeader();
 }
 
+// Inventory-tab merch sync. Runs the same Square sync used on the COGs
+// Merch tab (which also writes its log into the COGs-tab DOM), then
+// re-renders the inventory view so any newly-imported rows show up here.
+async function syncMerchInventoryFromSquare() {
+  const btn = document.getElementById('inv-merch-sq-sync-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Syncing…'; }
+  try {
+    await syncInvPricesFromSquare('merch');
+    if (typeof renderInventory === 'function') renderInventory();
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '◼ Sync from Square'; }
+  }
+}
+
 function renderInvTableHeader() {
   const tr = document.getElementById('inv-thead-row');
   if (!tr) return;

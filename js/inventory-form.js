@@ -29,6 +29,12 @@ let _editInvId = null;
 function openAddInvForm() {
   _editInvId = null;
   const cfg = invCfg();
+  // Merch inventory is source-of-truthed in Square — block manual adds so
+  // every row has a SquareCatalogItemId and prices/names stay in sync.
+  if (cfg?.isMerch) {
+    toast('err', 'Merch items must be added in Square. Use "◼ Sync from Square".');
+    return;
+  }
   document.querySelector('#modal-add-item .modal-title').textContent = 'Add ' + cfg.label + ' Item';
   document.querySelector('#modal-add-item .btn-primary').textContent = 'Save Item';
   // clear form

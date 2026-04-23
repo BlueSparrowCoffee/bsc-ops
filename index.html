@@ -629,7 +629,8 @@ html,body{overscroll-behavior:none;}
         </label>
         <span id="inv-count" style="font-size:13px;color:var(--muted);"></span>
         <button id="inv-seed-btn" class="btn btn-outline ml-auto inv-merch-only" style="display:none" onclick="seedMerchItems()">Seed Items</button>
-        <button class="btn btn-primary" onclick="openAddInvForm()">+ Add Item</button>
+        <button class="btn btn-primary inv-cons-only" onclick="openAddInvForm()">+ Add Item</button>
+        <button class="btn btn-primary inv-merch-only" style="display:none" id="inv-merch-sq-sync-btn" onclick="syncMerchInventoryFromSquare()" title="Merch items are managed in Square. This imports any missing items + updates prices, names, and archive state.">◼ Sync from Square</button>
       </div>
       <div class="table-wrap">
         <table>
@@ -2217,33 +2218,33 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-04-22bj" defer></script>
-<script src="/js/utils.js?v=2026-04-22bj" defer></script>
-<script src="/js/state.js?v=2026-04-22bj" defer></script>
-<script src="/js/auth.js?v=2026-04-22bj" defer></script>
-<script src="/js/graph.js?v=2026-04-22bj" defer></script>
-<script src="/js/signalr.js?v=2026-04-22bj" defer></script>
-<script src="/js/tags.js?v=2026-04-22bj" defer></script>
-<script src="/js/nav.js?v=2026-04-22bj" defer></script>
-<script src="/js/settings.js?v=2026-04-22bj" defer></script>
-<script src="/js/dashboard.js?v=2026-04-22bj" defer></script>
-<script src="/js/inventory.js?v=2026-04-22bj" defer></script>
-<script src="/js/inventory-form.js?v=2026-04-22bj" defer></script>
-<script src="/js/counts.js?v=2026-04-22bj" defer></script>
-<script src="/js/foodpars.js?v=2026-04-22bj" defer></script>
-<script src="/js/labels.js?v=2026-04-22bj" defer></script>
-<script src="/js/pastry-sync.js?v=2026-04-22bj" defer></script>
-<script src="/js/recipes.js?v=2026-04-22bj" defer></script>
-<script src="/js/cogs.js?v=2026-04-22bj" defer></script>
-<script src="/js/vendors.js?v=2026-04-22bj" defer></script>
-<script src="/js/contacts.js?v=2026-04-22bj" defer></script>
-<script src="/js/maintenance.js?v=2026-04-22bj" defer></script>
-<script src="/js/checklists.js?v=2026-04-22bj" defer></script>
-<script src="/js/ordering.js?v=2026-04-22bj" defer></script>
-<script src="/js/parking.js?v=2026-04-22bj" defer></script>
-<script src="/js/prepItems.js?v=2026-04-22bj" defer></script>
-<script src="/js/square.js?v=2026-04-22bj" defer></script>
-<script src="/js/slack.js?v=2026-04-22bj" defer></script>
+<script src="/js/constants.js?v=2026-04-22bk" defer></script>
+<script src="/js/utils.js?v=2026-04-22bk" defer></script>
+<script src="/js/state.js?v=2026-04-22bk" defer></script>
+<script src="/js/auth.js?v=2026-04-22bk" defer></script>
+<script src="/js/graph.js?v=2026-04-22bk" defer></script>
+<script src="/js/signalr.js?v=2026-04-22bk" defer></script>
+<script src="/js/tags.js?v=2026-04-22bk" defer></script>
+<script src="/js/nav.js?v=2026-04-22bk" defer></script>
+<script src="/js/settings.js?v=2026-04-22bk" defer></script>
+<script src="/js/dashboard.js?v=2026-04-22bk" defer></script>
+<script src="/js/inventory.js?v=2026-04-22bk" defer></script>
+<script src="/js/inventory-form.js?v=2026-04-22bk" defer></script>
+<script src="/js/counts.js?v=2026-04-22bk" defer></script>
+<script src="/js/foodpars.js?v=2026-04-22bk" defer></script>
+<script src="/js/labels.js?v=2026-04-22bk" defer></script>
+<script src="/js/pastry-sync.js?v=2026-04-22bk" defer></script>
+<script src="/js/recipes.js?v=2026-04-22bk" defer></script>
+<script src="/js/cogs.js?v=2026-04-22bk" defer></script>
+<script src="/js/vendors.js?v=2026-04-22bk" defer></script>
+<script src="/js/contacts.js?v=2026-04-22bk" defer></script>
+<script src="/js/maintenance.js?v=2026-04-22bk" defer></script>
+<script src="/js/checklists.js?v=2026-04-22bk" defer></script>
+<script src="/js/ordering.js?v=2026-04-22bk" defer></script>
+<script src="/js/parking.js?v=2026-04-22bk" defer></script>
+<script src="/js/prepItems.js?v=2026-04-22bk" defer></script>
+<script src="/js/square.js?v=2026-04-22bk" defer></script>
+<script src="/js/slack.js?v=2026-04-22bk" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
