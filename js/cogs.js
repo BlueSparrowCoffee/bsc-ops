@@ -1236,6 +1236,9 @@ function renderCogsOverviewChart(items, target) {
     svg.push(`<text x="${PAD_L - 8}" y="${y + 4}" text-anchor="end" font-size="10" fill="rgba(255,255,255,.45)">${m}%</text>`);
   });
 
+  // Format $ tick with thousands separator for big merch/equipment prices.
+  const fmtTick = (p) => p >= 1000 ? '$' + p.toLocaleString() : '$' + p;
+
   // Grid — X (log or linear depending on toggle)
   if (useLog) {
     // Pick round decade + mid-decade ticks that fall inside the visible range.
@@ -1245,35 +1248,35 @@ function renderCogsOverviewChart(items, target) {
     candidates.filter(v => v >= lo && v <= hi).forEach(p => {
       const x = xScale(p);
       svg.push(`<line x1="${x}" y1="${PAD_T}" x2="${x}" y2="${PAD_T + plotH}" stroke="rgba(255,255,255,.07)" stroke-width="1"/>`);
-      svg.push(`<text x="${x}" y="${PAD_T + plotH + 16}" text-anchor="middle" font-size="10" fill="rgba(255,255,255,.45)">$${p < 1 ? p : p}</text>`);
+      svg.push(`<text x="${x}" y="${PAD_T + plotH + 16}" text-anchor="middle" font-size="10" fill="rgba(255,255,255,.6)">${fmtTick(p)}</text>`);
     });
   } else {
     const xStep = xCeil <= 10 ? 2 : xCeil <= 20 ? 5 : xCeil <= 50 ? 10 : xCeil <= 100 ? 20 : 25;
     for (let p = 0; p <= xCeil; p += xStep) {
       const x = xScale(p);
       svg.push(`<line x1="${x}" y1="${PAD_T}" x2="${x}" y2="${PAD_T + plotH}" stroke="rgba(255,255,255,.07)" stroke-width="1"/>`);
-      svg.push(`<text x="${x}" y="${PAD_T + plotH + 16}" text-anchor="middle" font-size="10" fill="rgba(255,255,255,.45)">$${p}</text>`);
+      svg.push(`<text x="${x}" y="${PAD_T + plotH + 16}" text-anchor="middle" font-size="10" fill="rgba(255,255,255,.6)">${fmtTick(p)}</text>`);
     }
   }
 
   // Axis borders
-  svg.push(`<line x1="${PAD_L}" y1="${PAD_T}" x2="${PAD_L}" y2="${PAD_T + plotH}" stroke="rgba(255,255,255,.18)" stroke-width="1"/>`);
-  svg.push(`<line x1="${PAD_L}" y1="${PAD_T + plotH}" x2="${VB_W - PAD_R}" y2="${PAD_T + plotH}" stroke="rgba(255,255,255,.18)" stroke-width="1"/>`);
+  svg.push(`<line x1="${PAD_L}" y1="${PAD_T}" x2="${PAD_L}" y2="${PAD_T + plotH}" stroke="rgba(255,255,255,.25)" stroke-width="1"/>`);
+  svg.push(`<line x1="${PAD_L}" y1="${PAD_T + plotH}" x2="${VB_W - PAD_R}" y2="${PAD_T + plotH}" stroke="rgba(255,255,255,.25)" stroke-width="1"/>`);
 
-  // Axis labels
-  svg.push(`<text x="${PAD_L + plotW / 2}" y="${VB_H - 8}" text-anchor="middle" font-size="11" fill="rgba(255,255,255,.55)">Selling Price ($)${useLog ? ' · log scale' : ''}</text>`);
-  svg.push(`<text transform="rotate(-90)" x="${-(PAD_T + plotH / 2)}" y="14" text-anchor="middle" font-size="11" fill="rgba(255,255,255,.55)">Margin %</text>`);
+  // Axis labels — bolder + more prominent so they read clearly
+  svg.push(`<text x="${PAD_L + plotW / 2}" y="${VB_H - 6}" text-anchor="middle" font-size="12" font-weight="600" fill="rgba(255,255,255,.85)" letter-spacing=".3">Selling Price ($)${useLog ? '  —  log scale' : ''}</text>`);
+  svg.push(`<text transform="rotate(-90)" x="${-(PAD_T + plotH / 2)}" y="14" text-anchor="middle" font-size="12" font-weight="600" fill="rgba(255,255,255,.85)" letter-spacing=".3">Gross Margin (%)</text>`);
 
   // Target line
   svg.push(`<line x1="${PAD_L}" y1="${tyTar}" x2="${VB_W - PAD_R}" y2="${tyTar}" stroke="#c8a951" stroke-width="1.5" stroke-dasharray="6,4" opacity=".85"/>`);
-  svg.push(`<text x="${VB_W - PAD_R - 4}" y="${tyTar - 5}" text-anchor="end" font-size="10" fill="#c8a951" opacity=".95" font-weight="600">Target ${target}%</text>`);
+  svg.push(`<text x="${VB_W - PAD_R - 4}" y="${tyTar - 5}" text-anchor="end" font-size="10" fill="#c8a951" opacity=".95" font-weight="700">Target ${target}%</text>`);
 
-  // Avg line (visible items, not hidden)
+  // Avg line (visible items only)
   if (visibleItems.length) {
     const avg = visibleItems.reduce((s, i) => s + i.margin, 0) / visibleItems.length;
     const ya = yScale(avg);
-    svg.push(`<line x1="${PAD_L}" y1="${ya}" x2="${VB_W - PAD_R}" y2="${ya}" stroke="#7dd3fc" stroke-width="1" stroke-dasharray="2,3" opacity=".55"/>`);
-    svg.push(`<text x="${PAD_L + 6}" y="${ya - 4}" font-size="10" fill="#7dd3fc" opacity=".85">Avg ${avg.toFixed(1)}%</text>`);
+    svg.push(`<line x1="${PAD_L}" y1="${ya}" x2="${VB_W - PAD_R}" y2="${ya}" stroke="#7dd3fc" stroke-width="1" stroke-dasharray="2,3" opacity=".7"/>`);
+    svg.push(`<text x="${PAD_L + 6}" y="${ya - 4}" font-size="10" fill="#7dd3fc" opacity=".95" font-weight="600">Average ${avg.toFixed(1)}%</text>`);
   }
 
   // Collision-aware draw order — plot worst-first so at-target dots sit on top,
@@ -1329,25 +1332,40 @@ function renderCogsOverviewChart(items, target) {
     }).join('');
 
   const marginKey = `
-    <div style="display:flex;gap:10px;align-items:center;font-size:10px;color:rgba(255,255,255,.55);">
-      <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:#16a34a;"></span>≥${target}%</span>
-      <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:#d97706;"></span>≥${Math.round(target*0.8)}%</span>
-      <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:#dc2626;"></span>&lt;${Math.round(target*0.8)}%</span>
+    <div style="display:flex;gap:10px;align-items:center;font-size:11px;color:rgba(255,255,255,.75);flex-wrap:wrap;">
+      <span style="color:rgba(255,255,255,.55);font-weight:600;letter-spacing:.3px;">Margin:</span>
+      <span style="display:inline-flex;align-items:center;gap:5px;" title="At or above target margin"><span style="width:9px;height:9px;border-radius:50%;background:#16a34a;"></span>On target (≥${target}%)</span>
+      <span style="display:inline-flex;align-items:center;gap:5px;" title="Below target but above 80% of target"><span style="width:9px;height:9px;border-radius:50%;background:#d97706;"></span>Watch (${Math.round(target*0.8)}–${target-1}%)</span>
+      <span style="display:inline-flex;align-items:center;gap:5px;" title="Below 80% of target"><span style="width:9px;height:9px;border-radius:50%;background:#dc2626;"></span>Below (&lt;${Math.round(target*0.8)}%)</span>
+    </div>`;
+
+  const lineKey = `
+    <div style="display:flex;gap:12px;align-items:center;font-size:11px;color:rgba(255,255,255,.75);flex-wrap:wrap;">
+      <span style="color:rgba(255,255,255,.55);font-weight:600;letter-spacing:.3px;">Lines:</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;" title="Your target margin line"><svg width="20" height="6" style="flex-shrink:0;"><line x1="0" y1="3" x2="20" y2="3" stroke="#c8a951" stroke-width="1.6" stroke-dasharray="5,3"/></svg>Target</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;" title="Average margin across all active items"><svg width="20" height="6" style="flex-shrink:0;"><line x1="0" y1="3" x2="20" y2="3" stroke="#7dd3fc" stroke-width="1.4" stroke-dasharray="2,2"/></svg>Average</span>
     </div>`;
 
   el.innerHTML = `
     <div class="card" style="padding:16px;position:relative;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
         <div>
-          <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.75);letter-spacing:.6px;">MARGIN VS. PRICE</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px;">Click a dot to drill in · click the chips to filter types</div>
+          <div style="font-size:13px;font-weight:700;color:rgba(255,255,255,.9);letter-spacing:.5px;">Margin vs. Selling Price</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:3px;">Each dot is a priced item. Click a dot to see details · click a type chip to filter · ${useLog ? 'log' : 'linear'} scale on price.</div>
         </div>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <button type="button" onclick="toggleCogChartLogScale()" title="${useLog ? 'Switch to linear $ axis' : 'Switch to log₁₀ $ axis — spreads out dense low-price clusters'}" style="display:inline-flex;align-items:center;gap:5px;background:${useLog?'rgba(200,169,81,.18)':'rgba(255,255,255,.05)'};border:1px solid ${useLog?'rgba(200,169,81,.55)':'rgba(255,255,255,.15)'};border-radius:14px;padding:3px 10px;font-size:11px;color:${useLog?'#c8a951':'rgba(255,255,255,.75)'};cursor:pointer;line-height:1;font-weight:600;">${useLog ? '📐 Log $' : '📏 Linear $'}</button>
-          ${marginKey}
+          <button type="button" onclick="toggleCogChartLogScale()" title="${useLog ? 'Switch back to linear price axis' : 'Switch to log scale — spreads out the $3–$8 cluster when a $200 item compresses the linear axis'}" style="display:inline-flex;align-items:center;gap:5px;background:${useLog?'rgba(200,169,81,.18)':'rgba(255,255,255,.05)'};border:1px solid ${useLog?'rgba(200,169,81,.55)':'rgba(255,255,255,.15)'};border-radius:14px;padding:4px 12px;font-size:11px;color:${useLog?'#c8a951':'rgba(255,255,255,.85)'};cursor:pointer;line-height:1;font-weight:600;">${useLog ? '📐 Log scale' : '📏 Linear scale'}</button>
         </div>
       </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">${legendChips}</div>
+      <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:10px;padding:8px 10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:8px;">
+        ${marginKey}
+        <span style="width:1px;height:16px;background:rgba(255,255,255,.12);"></span>
+        ${lineKey}
+      </div>
+      <div style="margin-bottom:6px;">
+        <div style="font-size:10px;color:rgba(255,255,255,.55);font-weight:600;letter-spacing:.4px;text-transform:uppercase;margin-bottom:4px;">Filter by type</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">${legendChips}</div>
+      </div>
       <div style="position:relative;">
         <svg viewBox="0 0 ${VB_W} ${VB_H}" preserveAspectRatio="xMidYMid meet" style="display:block;width:100%;height:auto;max-height:360px;font-family:inherit;">
           <style>.cog-dot:hover{opacity:1 !important;transform:scale(1.35);} .cog-dot[data-hover="1"]{opacity:1 !important;transform:scale(1.35);}</style>
@@ -1368,7 +1386,6 @@ function renderCogsOverview() {
   const target     = parseFloat(document.getElementById('cogs-target-margin')?.value) || 65;
   const sort       = document.getElementById('cogs-overview-sort')?.value || 'margin-asc';
   const typeFilter = document.getElementById('cogs-overview-type')?.value || '';
-  const showHidden = document.getElementById('cogs-overview-show-hidden')?.checked || false;
 
   // Build latest snapshot per coffee-bar item (MenuItemId:VariationName)
   const latestSnap = {};
@@ -1428,25 +1445,24 @@ function renderCogsOverview() {
     });
   }
 
-  // Filter hidden for stats (always exclude hidden from numbers)
+  // Hidden items are fully excluded from the overview — stats, chart, and list.
+  // Users unhide from each tab's COG view (Coffee Bar, Merch, Food, Grocery).
   const visibleItems = items.filter(i => !i.isHidden);
 
-  // Sort all items (hidden ones shown dimmed at end if showHidden)
   const sortFn = sort === 'margin-asc' ? (a,b) => a.margin - b.margin
                : sort === 'margin-desc' ? (a,b) => b.margin - a.margin
                : (a,b) => a.name.localeCompare(b.name);
   visibleItems.sort(sortFn);
-  const hiddenItems = items.filter(i => i.isHidden).sort(sortFn);
-  const displayItems = showHidden ? [...visibleItems, ...hiddenItems] : visibleItems;
+  const displayItems = visibleItems;
 
-  // Stats — visible items only
+  // Stats — active items only
   const avg   = visibleItems.length ? visibleItems.reduce((s,i) => s+i.margin, 0) / visibleItems.length : 0;
   const below = visibleItems.filter(i => i.margin < target).length;
   const best  = visibleItems.reduce((b,i) => i.margin > (b?.margin??-Infinity) ? i : b, null);
   const worst = visibleItems.reduce((w,i) => i.margin < (w?.margin??Infinity)  ? i : w, null);
 
   statsEl.innerHTML = [
-    ['Total Items', items.length],
+    ['Total Items', visibleItems.length],
     ['Avg Margin', avg.toFixed(1)+'%'],
     [`Below ${target}%`, `<span style="color:${below>0?'var(--red)':'var(--text)'}">${below}</span>`],
     ['Best', best ? `<span title="${escHtml(best.name)}" style="font-size:12px;color:#16a34a">${best.margin.toFixed(1)}%</span>` : '—'],
@@ -1461,13 +1477,13 @@ function renderCogsOverview() {
   renderCogsOverviewChart(visibleItems, target);
 
   if (!displayItems.length) {
-    bodyEl.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:32px 0">No items with cost and price data yet. Snapshot Costs on the Coffee Bar tab, or set Cost/Price on Merch, Food, and Grocery items.</div>';
+    bodyEl.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:32px 0">No active items with cost and price data. Snapshot Costs on the Coffee Bar tab, or set Cost/Price on Merch, Food, and Grocery items. Hidden items are excluded — unhide from the item\'s own tab to include it here.</div>';
     return;
   }
 
   bodyEl.innerHTML = displayItems.map(item => {
     const m = item.margin;
-    const mColor = item.isHidden ? '#aaa' : m >= target ? '#16a34a' : m >= target * 0.8 ? '#d97706' : '#dc2626';
+    const mColor = m >= target ? '#16a34a' : m >= target * 0.8 ? '#d97706' : '#dc2626';
     const barW   = Math.min(100, Math.max(0, m)).toFixed(1);
     const typePill = `<span style="font-size:10px;background:var(--opal);color:var(--dark-blue);padding:1px 6px;border-radius:8px;">${escHtml(item.typeLabel)}</span>`;
     const histBtn  = item.histKey
@@ -1476,8 +1492,8 @@ function renderCogsOverview() {
     const hideBtn = `<button style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--muted);padding:0;"
       data-id="${escHtml(item.spId)}" data-type="${escHtml(item.type)}"
       onclick="toggleOverviewCogHidden(this.dataset.type,this.dataset.id)"
-      title="${item.isHidden ? 'Show in summary' : 'Hide from summary'}">${item.isHidden ? '👁 Show' : '🙈 Hide'}</button>`;
-    return `<div class="card" style="padding:14px 16px;${item.isHidden ? 'opacity:0.45;' : ''}">
+      title="Hide from summary (unhide from the item's tab)">🙈 Hide</button>`;
+    return `<div class="card" style="padding:14px 16px;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;margin-bottom:6px;">
         <div>
           <div style="font-weight:600;font-size:13px;">${escHtml(item.name)}</div>
