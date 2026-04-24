@@ -73,5 +73,99 @@ function renderDashboard() {
       <span style="margin-left:auto"><span class="badge badge-gold">${escHtml(o.Status)}</span></span>
     </div>`).join('');
 
+  renderInventoryValueByLocation();
+
   updateMaintDashboard();
+}
+
+// ── Inventory Value by Location card (owner/accounting only) ─────
+// Rows = each BSC location; cols = Consumables · Merch · Total.
+// Grand-total row aggregates across all locations.
+// Values = latest submitted counts × per-unit cost (consumables use
+// CostPerCase ÷ OrderSize, merch uses CostPerUnit).
+function renderInventoryValueByLocation() {
+  const card = document.getElementById('dash-inv-value-card');
+  if (!card) return;
+  if (!isOwnerOrAccounting()) { card.style.display = 'none'; return; }
+  card.style.display = '';
+
+  const body = document.getElementById('dash-inv-value-body');
+  if (!body) return;
+
+  const locations = getLocations();
+
+  // Lightweight per-location latest-counts reader that does NOT depend on
+  // invCfg()/current inventory tab. Returns { itemName → TotalCount }.
+  const latestCountsByItem = (countCache, loc) => {
+    const filtered = (!loc || loc === 'all') ? countCache : countCache.filter(r => r.Location === loc);
+    const map = {};
+    [...filtered].sort((a,b) => {
+      const aw = a.WeekOf||'', bw = b.WeekOf||'';
+      return aw < bw ? -1 : aw > bw ? 1 : 0;
+    }).forEach(r => {
+      const name = (r.Title || r.ItemName || '').trim();
+      if (name) map[name] = r.TotalCount || 0;
+    });
+    return map;
+  };
+
+  const consumableValue = (loc) => {
+    const counts = latestCountsByItem(cache.countHistory || [], loc);
+    return (cache.inventory || []).reduce((sum, i) => {
+      if (i.Archived) return sum;
+      const qty  = counts[i.ItemName || ''] || 0;
+      const cost = i.CostPerCase || 0;
+      const size = i.OrderSize   || 1;
+      return sum + qty * (cost / (size || 1));
+    }, 0);
+  };
+
+  const merchValue = (loc) => {
+    const counts = latestCountsByItem(cache.merchCountHistory || [], loc);
+    return (cache.merchInventory || []).reduce((sum, i) => {
+      if (i.Archived) return sum;
+      const qty  = counts[i.ItemName || ''] || 0;
+      const cost = i.CostPerUnit || 0;
+      return sum + qty * cost;
+    }, 0);
+  };
+
+  const fmt = n => '$' + (Number(n) || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+  let totalC = 0, totalM = 0;
+  const locRows = locations.map(loc => {
+    const c = consumableValue(loc);
+    const m = merchValue(loc);
+    totalC += c; totalM += m;
+    return `
+      <tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:8px 10px;font-weight:500">${escHtml(loc)}</td>
+        <td style="padding:8px 10px;text-align:right">${fmt(c)}</td>
+        <td style="padding:8px 10px;text-align:right">${fmt(m)}</td>
+        <td style="padding:8px 10px;text-align:right;font-weight:600">${fmt(c + m)}</td>
+      </tr>`;
+  }).join('');
+
+  body.innerHTML = `
+    <div style="overflow-x:auto;">
+      <table style="width:100%;font-size:13px;border-collapse:collapse;min-width:420px;">
+        <thead>
+          <tr style="border-bottom:2px solid var(--border);color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em;">
+            <th style="text-align:left;padding:8px 10px;">Location</th>
+            <th style="text-align:right;padding:8px 10px;">Consumables</th>
+            <th style="text-align:right;padding:8px 10px;">Merch</th>
+            <th style="text-align:right;padding:8px 10px;">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${locRows || `<tr><td colspan="4" style="padding:12px;color:var(--muted);text-align:center;">No locations configured.</td></tr>`}
+          <tr style="border-top:2px solid var(--border);background:var(--cream);font-weight:700;">
+            <td style="padding:10px;">All Locations</td>
+            <td style="padding:10px;text-align:right;">${fmt(totalC)}</td>
+            <td style="padding:10px;text-align:right;">${fmt(totalM)}</td>
+            <td style="padding:10px;text-align:right;">${fmt(totalC + totalM)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>`;
 }
