@@ -272,7 +272,16 @@ function renderCogs() {
   }
   document.getElementById('cogs-missing-costs').style.display = missingCosts ? '' : 'none';
 
+  // Re-render every sub-tab that has rendered DOM. SignalR refreshes pipe
+  // through here, and prior to this we only repainted the Coffee Bar cards —
+  // so the Overview chart, Merch/Food/Grocery COG views and History trend
+  // would all sit stale until the user tabbed away and back.
   renderCogCards();
+  renderCogsOverview();
+  if (document.getElementById('cogs-panel-merch')?.style.display !== 'none')   renderInvCogCards('merch');
+  if (document.getElementById('cogs-panel-food')?.style.display !== 'none')    renderInvCogCards('food');
+  if (document.getElementById('cogs-panel-grocery')?.style.display !== 'none') renderInvCogCards('grocery');
+  if (document.getElementById('cogs-panel-history')?.style.display !== 'none') renderCogHistory();
 }
 
 function toggleCogHidden(itemId) {
@@ -1180,12 +1189,12 @@ function renderCogsOverviewChart(items, target) {
   const visibleItems = items.filter(i => !_cogChartHiddenTypes.has(i.type));
   _cogChartData = visibleItems;
 
-  // Tooltip container — created once, reused
+  // Tooltip container — created once, reused. Light theme: dark-blue card on cream UI.
   let tip = document.getElementById('cog-chart-tip');
   if (!tip) {
     tip = document.createElement('div');
     tip.id = 'cog-chart-tip';
-    tip.style.cssText = 'position:absolute;display:none;pointer-events:none;background:rgba(12,15,22,.96);border:1px solid rgba(200,169,81,.35);border-radius:10px;padding:10px 12px;min-width:180px;max-width:260px;box-shadow:0 8px 24px rgba(0,0,0,.5);z-index:30;backdrop-filter:blur(6px);';
+    tip.style.cssText = 'position:absolute;display:none;pointer-events:none;background:#023d4a;color:#fff;border:1px solid #b78b40;border-radius:10px;padding:10px 12px;min-width:180px;max-width:260px;box-shadow:0 8px 24px rgba(2,61,74,.25);z-index:30;';
   }
   tip.style.display = 'none'; // reset on re-render so stale tooltip doesn't linger
 
@@ -1224,16 +1233,24 @@ function renderCogsOverviewChart(items, target) {
   // Target band — subtle green wash above target line
   const tyTop = yScale(100);
   const tyTar = yScale(target);
-  svg.push(`<rect x="${PAD_L}" y="${tyTop}" width="${plotW}" height="${tyTar - tyTop}" fill="#16a34a" opacity=".04"/>`);
+  svg.push(`<rect x="${PAD_L}" y="${tyTop}" width="${plotW}" height="${tyTar - tyTop}" fill="#16a34a" opacity=".07"/>`);
   // Danger band — below 80% of target
   const dangerY = yScale(target * 0.8);
-  svg.push(`<rect x="${PAD_L}" y="${dangerY}" width="${plotW}" height="${PAD_T + plotH - dangerY}" fill="#dc2626" opacity=".05"/>`);
+  svg.push(`<rect x="${PAD_L}" y="${dangerY}" width="${plotW}" height="${PAD_T + plotH - dangerY}" fill="#dc2626" opacity=".07"/>`);
+
+  // Theme palette — light cream UI, dark teal text. Hardcoded so SVG fills work.
+  const TEXT_DARK = '#023d4a';
+  const TEXT_MUTED = '#4d8a98';
+  const GRID_LINE = 'rgba(2,61,74,.10)';
+  const AXIS_LINE = 'rgba(2,61,74,.30)';
+  const TARGET_COL = '#b78b40';   // brand gold
+  const AVG_COL    = '#0e7490';   // deep cyan — readable on cream
 
   // Grid — Y
   [0, 25, 50, 75, 100].forEach(m => {
     const y = yScale(m);
-    svg.push(`<line x1="${PAD_L}" y1="${y}" x2="${VB_W - PAD_R}" y2="${y}" stroke="rgba(255,255,255,.07)" stroke-width="1"/>`);
-    svg.push(`<text x="${PAD_L - 8}" y="${y + 4}" text-anchor="end" font-size="10" fill="rgba(255,255,255,.45)">${m}%</text>`);
+    svg.push(`<line x1="${PAD_L}" y1="${y}" x2="${VB_W - PAD_R}" y2="${y}" stroke="${GRID_LINE}" stroke-width="1"/>`);
+    svg.push(`<text x="${PAD_L - 8}" y="${y + 4}" text-anchor="end" font-size="10" fill="${TEXT_MUTED}">${m}%</text>`);
   });
 
   // Format $ tick with thousands separator for big merch/equipment prices.
@@ -1247,36 +1264,36 @@ function renderCogsOverviewChart(items, target) {
     const hi = Math.pow(10, logMax) * 1.1;
     candidates.filter(v => v >= lo && v <= hi).forEach(p => {
       const x = xScale(p);
-      svg.push(`<line x1="${x}" y1="${PAD_T}" x2="${x}" y2="${PAD_T + plotH}" stroke="rgba(255,255,255,.07)" stroke-width="1"/>`);
-      svg.push(`<text x="${x}" y="${PAD_T + plotH + 16}" text-anchor="middle" font-size="10" fill="rgba(255,255,255,.6)">${fmtTick(p)}</text>`);
+      svg.push(`<line x1="${x}" y1="${PAD_T}" x2="${x}" y2="${PAD_T + plotH}" stroke="${GRID_LINE}" stroke-width="1"/>`);
+      svg.push(`<text x="${x}" y="${PAD_T + plotH + 16}" text-anchor="middle" font-size="10" fill="${TEXT_MUTED}">${fmtTick(p)}</text>`);
     });
   } else {
     const xStep = xCeil <= 10 ? 2 : xCeil <= 20 ? 5 : xCeil <= 50 ? 10 : xCeil <= 100 ? 20 : 25;
     for (let p = 0; p <= xCeil; p += xStep) {
       const x = xScale(p);
-      svg.push(`<line x1="${x}" y1="${PAD_T}" x2="${x}" y2="${PAD_T + plotH}" stroke="rgba(255,255,255,.07)" stroke-width="1"/>`);
-      svg.push(`<text x="${x}" y="${PAD_T + plotH + 16}" text-anchor="middle" font-size="10" fill="rgba(255,255,255,.6)">${fmtTick(p)}</text>`);
+      svg.push(`<line x1="${x}" y1="${PAD_T}" x2="${x}" y2="${PAD_T + plotH}" stroke="${GRID_LINE}" stroke-width="1"/>`);
+      svg.push(`<text x="${x}" y="${PAD_T + plotH + 16}" text-anchor="middle" font-size="10" fill="${TEXT_MUTED}">${fmtTick(p)}</text>`);
     }
   }
 
   // Axis borders
-  svg.push(`<line x1="${PAD_L}" y1="${PAD_T}" x2="${PAD_L}" y2="${PAD_T + plotH}" stroke="rgba(255,255,255,.25)" stroke-width="1"/>`);
-  svg.push(`<line x1="${PAD_L}" y1="${PAD_T + plotH}" x2="${VB_W - PAD_R}" y2="${PAD_T + plotH}" stroke="rgba(255,255,255,.25)" stroke-width="1"/>`);
+  svg.push(`<line x1="${PAD_L}" y1="${PAD_T}" x2="${PAD_L}" y2="${PAD_T + plotH}" stroke="${AXIS_LINE}" stroke-width="1"/>`);
+  svg.push(`<line x1="${PAD_L}" y1="${PAD_T + plotH}" x2="${VB_W - PAD_R}" y2="${PAD_T + plotH}" stroke="${AXIS_LINE}" stroke-width="1"/>`);
 
-  // Axis labels — bolder + more prominent so they read clearly
-  svg.push(`<text x="${PAD_L + plotW / 2}" y="${VB_H - 6}" text-anchor="middle" font-size="12" font-weight="600" fill="rgba(255,255,255,.85)" letter-spacing=".3">Selling Price ($)${useLog ? '  —  log scale' : ''}</text>`);
-  svg.push(`<text transform="rotate(-90)" x="${-(PAD_T + plotH / 2)}" y="14" text-anchor="middle" font-size="12" font-weight="600" fill="rgba(255,255,255,.85)" letter-spacing=".3">Gross Margin (%)</text>`);
+  // Axis labels — dark teal, bold so they read clearly on cream
+  svg.push(`<text x="${PAD_L + plotW / 2}" y="${VB_H - 6}" text-anchor="middle" font-size="12" font-weight="700" fill="${TEXT_DARK}" letter-spacing=".3">Selling Price ($)${useLog ? '  —  log scale' : ''}</text>`);
+  svg.push(`<text transform="rotate(-90)" x="${-(PAD_T + plotH / 2)}" y="14" text-anchor="middle" font-size="12" font-weight="700" fill="${TEXT_DARK}" letter-spacing=".3">Gross Margin (%)</text>`);
 
   // Target line
-  svg.push(`<line x1="${PAD_L}" y1="${tyTar}" x2="${VB_W - PAD_R}" y2="${tyTar}" stroke="#c8a951" stroke-width="1.5" stroke-dasharray="6,4" opacity=".85"/>`);
-  svg.push(`<text x="${VB_W - PAD_R - 4}" y="${tyTar - 5}" text-anchor="end" font-size="10" fill="#c8a951" opacity=".95" font-weight="700">Target ${target}%</text>`);
+  svg.push(`<line x1="${PAD_L}" y1="${tyTar}" x2="${VB_W - PAD_R}" y2="${tyTar}" stroke="${TARGET_COL}" stroke-width="1.6" stroke-dasharray="6,4" opacity=".95"/>`);
+  svg.push(`<text x="${VB_W - PAD_R - 4}" y="${tyTar - 5}" text-anchor="end" font-size="10" fill="${TARGET_COL}" font-weight="700">Target ${target}%</text>`);
 
   // Avg line (visible items only)
   if (visibleItems.length) {
     const avg = visibleItems.reduce((s, i) => s + i.margin, 0) / visibleItems.length;
     const ya = yScale(avg);
-    svg.push(`<line x1="${PAD_L}" y1="${ya}" x2="${VB_W - PAD_R}" y2="${ya}" stroke="#7dd3fc" stroke-width="1" stroke-dasharray="2,3" opacity=".7"/>`);
-    svg.push(`<text x="${PAD_L + 6}" y="${ya - 4}" font-size="10" fill="#7dd3fc" opacity=".95" font-weight="600">Average ${avg.toFixed(1)}%</text>`);
+    svg.push(`<line x1="${PAD_L}" y1="${ya}" x2="${VB_W - PAD_R}" y2="${ya}" stroke="${AVG_COL}" stroke-width="1.4" stroke-dasharray="3,3" opacity=".95"/>`);
+    svg.push(`<text x="${PAD_L + 6}" y="${ya - 4}" font-size="10" fill="${AVG_COL}" font-weight="700">Average ${avg.toFixed(1)}%</text>`);
   }
 
   // Collision-aware draw order — plot worst-first so at-target dots sit on top,
@@ -1324,46 +1341,46 @@ function renderCogsOverviewChart(items, target) {
         ? `<circle cx="7" cy="7" r="4.5" fill="#888" stroke="${cfg.ring}" stroke-width="1.4"/>`
         : `<path d="${cogMarkerPath(cfg.shape, 7, 7, 4.5)}" fill="#888" stroke="${cfg.ring}" stroke-width="1.4" stroke-linejoin="round"/>`;
       return `<button type="button" onclick="toggleCogChartType('${t}')" title="${hidden?'Show':'Hide'} ${escHtml(cfg.label)}"
-        style="display:inline-flex;align-items:center;gap:5px;background:${hidden?'transparent':'rgba(255,255,255,.05)'};border:1px solid ${hidden?'rgba(255,255,255,.1)':cfg.ring+'66'};border-radius:14px;padding:3px 9px 3px 6px;font-size:11px;color:${hidden?'rgba(255,255,255,.35)':'rgba(255,255,255,.85)'};cursor:pointer;line-height:1;">
+        style="display:inline-flex;align-items:center;gap:5px;background:${hidden?'transparent':'var(--milk)'};border:1px solid ${hidden?'var(--border)':cfg.ring};border-radius:14px;padding:4px 10px 4px 7px;font-size:11px;color:${hidden?'var(--muted)':'var(--text)'};cursor:pointer;line-height:1;font-weight:600;">
         <svg width="14" height="14" viewBox="0 0 14 14" style="flex-shrink:0;${hidden?'opacity:.4':''}">${prev}</svg>
         <span>${escHtml(cfg.label)}</span>
-        <span style="color:rgba(255,255,255,.45);font-variant-numeric:tabular-nums;">${count}</span>
+        <span style="color:var(--muted);font-variant-numeric:tabular-nums;font-weight:500;">${count}</span>
       </button>`;
     }).join('');
 
   const marginKey = `
-    <div style="display:flex;gap:10px;align-items:center;font-size:11px;color:rgba(255,255,255,.75);flex-wrap:wrap;">
-      <span style="color:rgba(255,255,255,.55);font-weight:600;letter-spacing:.3px;">Margin:</span>
-      <span style="display:inline-flex;align-items:center;gap:5px;" title="At or above target margin"><span style="width:9px;height:9px;border-radius:50%;background:#16a34a;"></span>On target (≥${target}%)</span>
-      <span style="display:inline-flex;align-items:center;gap:5px;" title="Below target but above 80% of target"><span style="width:9px;height:9px;border-radius:50%;background:#d97706;"></span>Watch (${Math.round(target*0.8)}–${target-1}%)</span>
-      <span style="display:inline-flex;align-items:center;gap:5px;" title="Below 80% of target"><span style="width:9px;height:9px;border-radius:50%;background:#dc2626;"></span>Below (&lt;${Math.round(target*0.8)}%)</span>
+    <div style="display:flex;gap:10px;align-items:center;font-size:11px;color:var(--text);flex-wrap:wrap;">
+      <span style="color:var(--muted);font-weight:700;letter-spacing:.3px;text-transform:uppercase;font-size:10px;">Margin</span>
+      <span style="display:inline-flex;align-items:center;gap:5px;" title="At or above target margin"><span style="width:10px;height:10px;border-radius:50%;background:#16a34a;border:1px solid rgba(0,0,0,.1);"></span>On target (≥${target}%)</span>
+      <span style="display:inline-flex;align-items:center;gap:5px;" title="Below target but above 80% of target"><span style="width:10px;height:10px;border-radius:50%;background:#d97706;border:1px solid rgba(0,0,0,.1);"></span>Watch (${Math.round(target*0.8)}–${target-1}%)</span>
+      <span style="display:inline-flex;align-items:center;gap:5px;" title="Below 80% of target"><span style="width:10px;height:10px;border-radius:50%;background:#dc2626;border:1px solid rgba(0,0,0,.1);"></span>Below (&lt;${Math.round(target*0.8)}%)</span>
     </div>`;
 
   const lineKey = `
-    <div style="display:flex;gap:12px;align-items:center;font-size:11px;color:rgba(255,255,255,.75);flex-wrap:wrap;">
-      <span style="color:rgba(255,255,255,.55);font-weight:600;letter-spacing:.3px;">Lines:</span>
-      <span style="display:inline-flex;align-items:center;gap:6px;" title="Your target margin line"><svg width="20" height="6" style="flex-shrink:0;"><line x1="0" y1="3" x2="20" y2="3" stroke="#c8a951" stroke-width="1.6" stroke-dasharray="5,3"/></svg>Target</span>
-      <span style="display:inline-flex;align-items:center;gap:6px;" title="Average margin across all active items"><svg width="20" height="6" style="flex-shrink:0;"><line x1="0" y1="3" x2="20" y2="3" stroke="#7dd3fc" stroke-width="1.4" stroke-dasharray="2,2"/></svg>Average</span>
+    <div style="display:flex;gap:12px;align-items:center;font-size:11px;color:var(--text);flex-wrap:wrap;">
+      <span style="color:var(--muted);font-weight:700;letter-spacing:.3px;text-transform:uppercase;font-size:10px;">Lines</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;" title="Your target margin line"><svg width="22" height="8" style="flex-shrink:0;"><line x1="0" y1="4" x2="22" y2="4" stroke="#b78b40" stroke-width="1.8" stroke-dasharray="5,3"/></svg>Target</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;" title="Average margin across all active items"><svg width="22" height="8" style="flex-shrink:0;"><line x1="0" y1="4" x2="22" y2="4" stroke="#0e7490" stroke-width="1.6" stroke-dasharray="3,3"/></svg>Average</span>
     </div>`;
 
   el.innerHTML = `
     <div class="card" style="padding:16px;position:relative;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
         <div>
-          <div style="font-size:13px;font-weight:700;color:rgba(255,255,255,.9);letter-spacing:.5px;">Margin vs. Selling Price</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:3px;">Each dot is a priced item. Click a dot to see details · click a type chip to filter · ${useLog ? 'log' : 'linear'} scale on price.</div>
+          <div style="font-size:14px;font-weight:700;color:var(--text);letter-spacing:.3px;">Margin vs. Selling Price</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:3px;">Each dot is a priced item. Click a dot to see details · click a type chip below to filter · ${useLog ? 'log' : 'linear'} scale on price.</div>
         </div>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <button type="button" onclick="toggleCogChartLogScale()" title="${useLog ? 'Switch back to linear price axis' : 'Switch to log scale — spreads out the $3–$8 cluster when a $200 item compresses the linear axis'}" style="display:inline-flex;align-items:center;gap:5px;background:${useLog?'rgba(200,169,81,.18)':'rgba(255,255,255,.05)'};border:1px solid ${useLog?'rgba(200,169,81,.55)':'rgba(255,255,255,.15)'};border-radius:14px;padding:4px 12px;font-size:11px;color:${useLog?'#c8a951':'rgba(255,255,255,.85)'};cursor:pointer;line-height:1;font-weight:600;">${useLog ? '📐 Log scale' : '📏 Linear scale'}</button>
+          <button type="button" onclick="toggleCogChartLogScale()" title="${useLog ? 'Switch back to linear price axis' : 'Switch to log scale — spreads out the $3–$8 cluster when a $200 item compresses the linear axis'}" style="display:inline-flex;align-items:center;gap:5px;background:${useLog?'var(--gold)':'var(--milk)'};border:1px solid ${useLog?'var(--gold)':'var(--border)'};border-radius:14px;padding:5px 14px;font-size:11px;color:${useLog?'#fff':'var(--text)'};cursor:pointer;line-height:1;font-weight:700;">${useLog ? '📐 Log scale' : '📏 Linear scale'}</button>
         </div>
       </div>
-      <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:10px;padding:8px 10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:8px;">
+      <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:10px;padding:8px 12px;background:var(--milk);border:1px solid var(--border);border-radius:8px;">
         ${marginKey}
-        <span style="width:1px;height:16px;background:rgba(255,255,255,.12);"></span>
+        <span style="width:1px;height:18px;background:var(--border);"></span>
         ${lineKey}
       </div>
-      <div style="margin-bottom:6px;">
-        <div style="font-size:10px;color:rgba(255,255,255,.55);font-weight:600;letter-spacing:.4px;text-transform:uppercase;margin-bottom:4px;">Filter by type</div>
+      <div style="margin-bottom:8px;">
+        <div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin-bottom:5px;">Filter by type</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;">${legendChips}</div>
       </div>
       <div style="position:relative;">
