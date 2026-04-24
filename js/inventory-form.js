@@ -360,25 +360,34 @@ function renderInvParTable(item) {
   const legacyPar  = item ? (+item.ParLevel        || 0) : 0;
   const legacyTrig = item ? (+item.ReorderTrigger  || 0) : 0;
   const rowsHtml = locs.map(loc => {
+    // Pre-populate inputs with the current effective threshold so users see
+    // the truth for this location. Precedence: per-location row → legacy
+    // master → blank. data-initial lets saveInvParTable detect untouched
+    // rows and skip their writes (no churn for unrelated edits).
     let par = '', trig = '';
     if (item) {
       const row = (typeof getInvParRow === 'function') ? getInvParRow(item.id, loc) : null;
       if (row) {
         if (row.ParLevel       != null && row.ParLevel       !== '') par  = row.ParLevel;
         if (row.ReorderTrigger != null && row.ReorderTrigger !== '') trig = row.ReorderTrigger;
+      } else {
+        // No per-location row yet — fall back to the legacy master so the
+        // user can see and edit (including clearing) the effective value.
+        if (legacyPar  > 0) par  = legacyPar;
+        if (legacyTrig > 0) trig = legacyTrig;
       }
-      // Show legacy master value as a hint only — don't populate the input,
-      // so submit doesn't silently copy it back (unless user wants to via Apply-to-all)
     }
     const locSafe = escHtml(loc);
+    const parStr  = par  === '' ? '' : escHtml(String(par));
+    const trigStr = trig === '' ? '' : escHtml(String(trig));
     return `<tr data-loc="${locSafe}">
       <td style="padding:6px 10px;font-size:13px;font-weight:600;white-space:nowrap;">${locSafe}</td>
-      <td style="padding:4px 6px;"><input class="inv-par-inp" data-loc="${locSafe}" type="number" step="0.1" placeholder="—" value="${par===''?'':escHtml(String(par))}" style="width:100%;padding:5px 8px;font-size:13px;"></td>
-      <td style="padding:4px 6px;"><input class="inv-trigger-inp" data-loc="${locSafe}" type="number" step="0.1" placeholder="—" value="${trig===''?'':escHtml(String(trig))}" style="width:100%;padding:5px 8px;font-size:13px;"></td>
+      <td style="padding:4px 6px;"><input class="inv-par-inp" data-loc="${locSafe}" data-initial="${parStr}" type="number" step="0.1" placeholder="—" value="${parStr}" style="width:100%;padding:5px 8px;font-size:13px;"></td>
+      <td style="padding:4px 6px;"><input class="inv-trigger-inp" data-loc="${locSafe}" data-initial="${trigStr}" type="number" step="0.1" placeholder="—" value="${trigStr}" style="width:100%;padding:5px 8px;font-size:13px;"></td>
     </tr>`;
   }).join('');
   const hint = (legacyPar > 0 || legacyTrig > 0)
-    ? `<div style="padding:6px 10px;font-size:11px;color:var(--muted);border-top:1px solid var(--border);background:var(--cream);">Legacy values — Par: ${legacyPar}, Trigger: ${legacyTrig}. Use “Apply to all” if you want these copied to every location.</div>`
+    ? `<div style="padding:6px 10px;font-size:11px;color:var(--muted);border-top:1px solid var(--border);background:var(--cream);">Legacy master — Par: ${legacyPar}, Trigger: ${legacyTrig}. Per-location values above override this. Clear a field to mean "no threshold for that location".</div>`
     : '';
   wrap.innerHTML = `
     <table style="width:100%;border-collapse:collapse;">
@@ -427,8 +436,15 @@ async function saveInvParTable(itemId) {
     const parVal  = parStr  === '' ? null : (parseFloat(parStr)  || 0);
     const trigVal = trigStr === '' ? null : (parseFloat(trigStr) || 0);
     const existing = (typeof getInvParRow === 'function') ? getInvParRow(itemId, loc) : null;
-    // Skip when row doesn't exist AND both values are blank — nothing to store
-    if (!existing && parVal == null && trigVal == null) continue;
+    // Initial-value tracking: inputs are rendered with their current
+    // effective value (row → legacy → blank). If the user didn't touch a
+    // field, skip the write — prevents unrelated item edits from churning
+    // par rows. If they did edit, always upsert (blank = explicit clear).
+    const initPar  = parInp?.dataset.initial  ?? '';
+    const initTrig = trigInp?.dataset.initial ?? '';
+    const parChanged  = parStr  !== initPar;
+    const trigChanged = trigStr !== initTrig;
+    if (!parChanged && !trigChanged) continue;
     try {
       if (existing) {
         const patch = { ParLevel: parVal, ReorderTrigger: trigVal };

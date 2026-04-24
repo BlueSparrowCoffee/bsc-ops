@@ -71,34 +71,54 @@ function getInvParRow(itemId, loc) {
   }
   return null;
 }
-// Numeric par for (item, location). Falls back to legacy item.ParLevel when
-// no per-location row exists yet (pre-migration or freshly-added location).
-// Returns null when loc === 'all' (owner's aggregated view — no single value).
+// Numeric par for (item, location). Returns null when:
+//   - item missing / loc === 'all' (no per-location context)
+//   - per-location row exists but value is blank (user explicitly cleared it)
+//   - no per-location row AND legacy master is blank
+// Only falls back to the legacy item.ParLevel when there's NO per-location
+// row at all (pre-migration items). Once a row exists, its value — including
+// blank — wins, so users can clear a threshold without the legacy master
+// silently re-asserting itself.
 function getItemPar(item, loc) {
-  if (!item) return 0;
+  if (!item) return null;
   if (loc === 'all') return null;
   const row = getInvParRow(item.id, loc);
-  if (row && row.ParLevel != null && row.ParLevel !== '') return +row.ParLevel || 0;
-  return +item.ParLevel || 0;
+  if (row) {
+    if (row.ParLevel == null || row.ParLevel === '') return null;
+    const n = +row.ParLevel;
+    return isFinite(n) ? n : null;
+  }
+  if (item.ParLevel == null || item.ParLevel === '') return null;
+  const n = +item.ParLevel;
+  return isFinite(n) ? n : null;
 }
 function getItemReorderTrigger(item, loc) {
-  if (!item) return 0;
+  if (!item) return null;
   if (loc === 'all') return null;
   const row = getInvParRow(item.id, loc);
-  if (row && row.ReorderTrigger != null && row.ReorderTrigger !== '') return +row.ReorderTrigger || 0;
-  return +item.ReorderTrigger || 0;
+  if (row) {
+    if (row.ReorderTrigger == null || row.ReorderTrigger === '') return null;
+    const n = +row.ReorderTrigger;
+    return isFinite(n) ? n : null;
+  }
+  if (item.ReorderTrigger == null || item.ReorderTrigger === '') return null;
+  const n = +item.ReorderTrigger;
+  return isFinite(n) ? n : null;
 }
 
 // ── Low-stock threshold ──────────────────────────────────────────
 // Returns the count level at-or-below which an item is considered LOW
 // for a given location. Prefers ReorderTrigger, falls back to ParLevel.
-// Returns null when loc === 'all' — callers should treat that as "no
-// per-location context" and skip status badges / low-stock flags.
+// Returns null when loc === 'all', when both par and trigger are blank,
+// or when both are zero — callers should treat null as "no threshold
+// configured" and skip Low/Out/OK badges + low-stock dashboard flags.
 function invLowThreshold(i, loc) {
   if (loc === 'all') return null;
   const t = getItemReorderTrigger(i, loc);
-  if (isFinite(t) && t > 0) return t;
-  return getItemPar(i, loc) || 0;
+  if (t != null && isFinite(t) && t > 0) return t;
+  const p = getItemPar(i, loc);
+  if (p != null && isFinite(p) && p > 0) return p;
+  return null;
 }
 
 // Suggested order qty = Par - Total, rounded up to the next whole unit.
@@ -442,10 +462,11 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
     const total   = (countsMap[i.ItemName||'']?.total??'—');
     const totalNum = (countsMap[i.ItemName||'']?.total??null);
     const parNum  = isAll ? null : getItemPar(i, currentLocation);
-    const parCell = isAll ? '—' : (parNum || 0);
+    const parCell = isAll ? '—' : (parNum == null ? '—' : parNum);
     const lowAt   = invLowThreshold(i, currentLocation);
-    const badge   = isAll ? 'badge-gray' : (totalNum===null?'badge-gray':totalNum===0?'badge-red':totalNum<=lowAt?'badge-orange':'badge-green');
-    const status  = isAll ? '—' : (totalNum===null?'—':totalNum===0?'Out':totalNum<=lowAt?'Low':'OK');
+    const hasThresh = lowAt != null && lowAt > 0;
+    const badge   = isAll ? 'badge-gray' : (totalNum===null?'badge-gray':!hasThresh?'badge-gray':totalNum===0?'badge-red':totalNum<=lowAt?'badge-orange':'badge-green');
+    const status  = isAll ? '—' : (totalNum===null?'—':!hasThresh?'—':totalNum===0?'Out':totalNum<=lowAt?'Low':'OK');
     const sugg    = suggestedOrderQty(i, currentLocation, totalNum);
     const suggCell = (sugg == null) ? '—' : sugg;
     const unit    = escHtml(i.OrderUnit||i.Unit||'');
