@@ -121,17 +121,18 @@ function renderVendors(query='') {
   });
 
   // Build the full ordered field list — union cache keys with known vendor fields
-  // so columns appear even if all vendor items currently have empty custom fields
+  // so columns appear even if all vendor items currently have empty custom fields.
+  // Tags is now included so it shows in the column-hide panel and can be reordered.
   const KNOWN_VENDOR_FIELDS = ['Title','Active','ContactPerson','Email','Phone',
-    'Website','OrderMethod','OrderDays','DeliveryDays','Terms','PaymentMethod'];
-  const cacheFields = Object.keys(sample).filter(k=>!SP_SYSTEM_FIELDS.has(k)&&k!=='Tags'&&k!=='VendorName'&&k!=='Category'&&k!=='Product'&&k!=='Split');
-  const allFields = [...new Set([...cacheFields, ...KNOWN_VENDOR_FIELDS])].filter(k=>!SP_SYSTEM_FIELDS.has(k)&&k!=='Tags'&&k!=='VendorName'&&k!=='Category'&&k!=='Product'&&k!=='Split');
+    'Website','OrderMethod','OrderDays','DeliveryDays','Terms','PaymentMethod','Tags'];
+  const cacheFields = Object.keys(sample).filter(k=>!SP_SYSTEM_FIELDS.has(k)&&k!=='VendorName'&&k!=='Category'&&k!=='Product'&&k!=='Split');
+  const allFields = [...new Set([...cacheFields, ...KNOWN_VENDOR_FIELDS])].filter(k=>!SP_SYSTEM_FIELDS.has(k)&&k!=='VendorName'&&k!=='Category'&&k!=='Product'&&k!=='Split');
   const ordered = getColOrder('vendors', allFields);
   // Apply hidden cols — show all known fields even if currently empty
   const fields = ordered.filter(k=>!hiddenCols.has(k));
 
   const isArchivedTab = tab === 'archived';
-  thead.innerHTML = `<tr>${fields.map(f=>`<th onclick="sortVendorBy('${f}')" class="${_vendorSort.col===f?(_vendorSort.dir===1?'sort-asc':'sort-desc'):''}"${f==='Phone'?' style="min-width:130px"':''}>${spFieldLabel(f,LISTS.vendors)}</th>`).join('')}<th>Tags</th></tr>`;
+  thead.innerHTML = `<tr>${fields.map(f=>`<th onclick="sortVendorBy('${f}')" class="${_vendorSort.col===f?(_vendorSort.dir===1?'sort-asc':'sort-desc'):''}"${f==='Phone'?' style="min-width:130px"':''}>${spFieldLabel(f,LISTS.vendors)}</th>`).join('')}</tr>`;
 
   const vendorCellInput = (f, r) => {
     const val = escHtml((r[f]??'').toString());
@@ -139,9 +140,15 @@ function renderVendors(query='') {
     return `<input data-vfield="${escHtml(f)}" value="${val}" style="font-size:12px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;width:100%;min-width:80px;box-sizing:border-box;">`;
   };
 
+  // Tags gets a custom pill renderer + stop-propagation so clicking a pill doesn't open the row modal.
+  const vendorCellDisplay = (f, r) => {
+    if (f === 'Tags') return renderVendorTagPills(r.Tags, r.id);
+    return spCellValue(f, r[f]??'');
+  };
+  const tdAttrs = (f) => f === 'Tags' ? ' onclick="event.stopPropagation()"' : '';
+
   tbody.innerHTML = rows.map(r=>`<tr data-gs-id="${escHtml(r.id)}"${!_vendorEditMode?` onclick="openVendorForm('${escHtml(r.id)}')" style="cursor:pointer;"`:''}>
-    ${fields.map(f=>`<td style="${_vendorEditMode?'padding:4px 6px;':''}">${_vendorEditMode ? vendorCellInput(f,r) : spCellValue(f,r[f]??'')}</td>`).join('')}
-    <td onclick="event.stopPropagation()">${renderVendorTagPills(r.Tags, r.id)}</td>
+    ${fields.map(f=>`<td${tdAttrs(f)} style="${_vendorEditMode?'padding:4px 6px;':''}">${_vendorEditMode && f !== 'Tags' ? vendorCellInput(f,r) : vendorCellDisplay(f,r)}</td>`).join('')}
   </tr>`).join('');
 
   countEl.textContent = rows.length+' records';
