@@ -119,6 +119,7 @@ async function snapshotCogs() {
     }
     toast('ok', `📸 Snapshot saved — ${count} variation records`);
     renderCogHistory();
+    renderCogsOverview(); // chart reads latest snapshot per item — refresh it
   } catch(e) {
     toast('err', 'Snapshot failed: ' + e.message);
   }
@@ -281,6 +282,7 @@ function toggleCogHidden(itemId) {
   localStorage.setItem('bsc_cogs_hidden', json);
   saveSetting('cogs_hidden', json).catch(() => {});
   renderCogCards();
+  renderCogsOverview();
 }
 
 function toggleOverviewCogHidden(type, id) {
@@ -336,6 +338,7 @@ async function syncGroceryCostFromInventory() {
 
     log(`\n✅ Done — ${updated} updated, ${unchanged} unchanged, ${notFound} not found in inventory`);
     renderInvCogCards('grocery');
+    renderCogsOverview();
     toast('ok', `✓ Grocery cost synced from inventory (${updated} updated)`);
   } catch(e) {
     log('Error: ' + e.message);
@@ -382,6 +385,7 @@ async function syncFoodCostFromPars() {
 
     log(`\n✅ Done — ${updated} updated, ${unchanged} unchanged, ${notFound} not found in pars`);
     renderInvCogCards('food');
+    renderCogsOverview();
     toast('ok', `✓ Cost synced from pars (${updated} updated)`);
   } catch(e) {
     log('Error: ' + e.message);
@@ -570,6 +574,7 @@ async function syncInvPricesFromSquare(tabKey) {
 
     log(`\n✅ Done — ${imported} imported, ${updated} updated, ${autoLinked} auto-linked, ${renamed} renamed, ${autoArchived} auto-archived, ${unchanged} unchanged, ${notFound} not found`);
     renderInvCogCards(tabKey);
+    renderCogsOverview();
     toast('ok', `✓ ${cfg.squareCat} synced`);
   } catch(e) {
     log(`❌ Error: ${e.message}`);
@@ -592,6 +597,7 @@ function toggleInvCogHidden(itemId, tabKey) {
   localStorage.setItem(cfg.hiddenKey, json);
   saveSetting(cfg.hiddenKey, json).catch(() => {});
   renderInvCogCards(tabKey);
+  renderCogsOverview();
 }
 
 async function updateInvCogField(id, field, rawValue, tabKey) {
@@ -602,6 +608,7 @@ async function updateInvCogField(id, field, rawValue, tabKey) {
     const item = cache[cfg.cacheKey].find(i => i.id === id);
     if (item) item[field] = isNaN(val) ? null : val;
     renderInvCogCards(tabKey);
+    renderCogsOverview(); // chart reads live CostPerUnit/SellingPrice for inv types
   } catch(e) { toast('err', 'Save failed: ' + e.message); }
 }
 
@@ -932,6 +939,7 @@ async function addCogIngredient(menuItemId, menuItemName, variationName, varIdx)
     if (ingIdEl) ingIdEl.value = '';
     if (qtyEl) qtyEl.value = '';
     renderCogCards();
+    renderCogsOverview();
   } catch(e) {
     toast('err', 'Failed to add ingredient: ' + e.message);
   }
@@ -946,6 +954,7 @@ async function updateCogIngredient(rowId, field, value) {
     if (rec) rec[field] = fields[field];
     // Refresh just the summary portion — re-render cards to update totals
     renderCogCards();
+    renderCogsOverview();
   } catch(e) {
     toast('err', 'Failed to update: ' + e.message);
   }
@@ -957,6 +966,7 @@ async function deleteCogIngredient(rowId, menuItemId, variationName) {
     await graph('DELETE', `/sites/${siteId}/lists/${LISTS.cogs}/items/${rowId}`);
     cache.cogsRecipes = cache.cogsRecipes.filter(r => r.id != rowId);
     renderCogCards();
+    renderCogsOverview();
   } catch(e) {
     toast('err', 'Failed to delete ingredient: ' + e.message);
   }
