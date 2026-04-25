@@ -5,9 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" href="/images/BSC%20Ops%20Logo.png">
-<link rel="apple-touch-icon-precomposed" href="/images/BSC%20Ops%20Logo.png">
-<link rel="icon" type="image/png" href="/images/BSC%20Ops%20Logo.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/images/icon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="BSC Ops">
@@ -44,7 +46,7 @@ h1,h2,h3,.stat-value{font-family:'IvyPresto Display','Hoefler Text',Georgia,seri
 /* ── AUTH SCREEN ── */
 #auth-screen{display:none;position:fixed;inset:0;background:var(--dark-blue);z-index:999;flex-direction:column;align-items:center;justify-content:center;gap:16px;color:#fff;}
 #auth-screen.show{display:flex;}
-.auth-feather{width:160px;height:160px;object-fit:contain;}
+.auth-logo{width:160px;height:160px;object-fit:contain;}
 .auth-title{font-size:32px;font-weight:600;}
 .auth-sub{font-size:14px;color:rgba(255,255,255,.8);}
 .btn-signin{margin-top:8px;padding:13px 40px;background:var(--gold);color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;}
@@ -472,7 +474,7 @@ html,body{overscroll-behavior:none;}
 
 <!-- AUTH -->
 <div id="auth-screen">
-  <img class="auth-feather" src="/images/BSC%20Ops%20Logo.png" alt="Blue Sparrow Coffee">
+  <img class="auth-logo" src="/images/BSC%20Ops%20Logo.png" alt="Blue Sparrow Coffee">
   <div class="auth-title">Blue Sparrow Coffee</div>
   <div class="auth-sub">Operations Platform · Sign in with your BSC Microsoft account</div>
   <button class="btn-signin" onclick="signIn()">Sign in with Microsoft</button>
@@ -2234,33 +2236,33 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-04-25c" defer></script>
-<script src="/js/utils.js?v=2026-04-25c" defer></script>
-<script src="/js/state.js?v=2026-04-25c" defer></script>
-<script src="/js/auth.js?v=2026-04-25c" defer></script>
-<script src="/js/graph.js?v=2026-04-25c" defer></script>
-<script src="/js/signalr.js?v=2026-04-25c" defer></script>
-<script src="/js/tags.js?v=2026-04-25c" defer></script>
-<script src="/js/nav.js?v=2026-04-25c" defer></script>
-<script src="/js/settings.js?v=2026-04-25c" defer></script>
-<script src="/js/dashboard.js?v=2026-04-25c" defer></script>
-<script src="/js/inventory.js?v=2026-04-25c" defer></script>
-<script src="/js/inventory-form.js?v=2026-04-25c" defer></script>
-<script src="/js/counts.js?v=2026-04-25c" defer></script>
-<script src="/js/foodpars.js?v=2026-04-25c" defer></script>
-<script src="/js/labels.js?v=2026-04-25c" defer></script>
-<script src="/js/pastry-sync.js?v=2026-04-25c" defer></script>
-<script src="/js/recipes.js?v=2026-04-25c" defer></script>
-<script src="/js/cogs.js?v=2026-04-25c" defer></script>
-<script src="/js/vendors.js?v=2026-04-25c" defer></script>
-<script src="/js/contacts.js?v=2026-04-25c" defer></script>
-<script src="/js/maintenance.js?v=2026-04-25c" defer></script>
-<script src="/js/checklists.js?v=2026-04-25c" defer></script>
-<script src="/js/ordering.js?v=2026-04-25c" defer></script>
-<script src="/js/parking.js?v=2026-04-25c" defer></script>
-<script src="/js/prepItems.js?v=2026-04-25c" defer></script>
-<script src="/js/square.js?v=2026-04-25c" defer></script>
-<script src="/js/slack.js?v=2026-04-25c" defer></script>
+<script src="/js/constants.js?v=2026-04-25d" defer></script>
+<script src="/js/utils.js?v=2026-04-25d" defer></script>
+<script src="/js/state.js?v=2026-04-25d" defer></script>
+<script src="/js/auth.js?v=2026-04-25d" defer></script>
+<script src="/js/graph.js?v=2026-04-25d" defer></script>
+<script src="/js/signalr.js?v=2026-04-25d" defer></script>
+<script src="/js/tags.js?v=2026-04-25d" defer></script>
+<script src="/js/nav.js?v=2026-04-25d" defer></script>
+<script src="/js/settings.js?v=2026-04-25d" defer></script>
+<script src="/js/dashboard.js?v=2026-04-25d" defer></script>
+<script src="/js/inventory.js?v=2026-04-25d" defer></script>
+<script src="/js/inventory-form.js?v=2026-04-25d" defer></script>
+<script src="/js/counts.js?v=2026-04-25d" defer></script>
+<script src="/js/foodpars.js?v=2026-04-25d" defer></script>
+<script src="/js/labels.js?v=2026-04-25d" defer></script>
+<script src="/js/pastry-sync.js?v=2026-04-25d" defer></script>
+<script src="/js/recipes.js?v=2026-04-25d" defer></script>
+<script src="/js/cogs.js?v=2026-04-25d" defer></script>
+<script src="/js/vendors.js?v=2026-04-25d" defer></script>
+<script src="/js/contacts.js?v=2026-04-25d" defer></script>
+<script src="/js/maintenance.js?v=2026-04-25d" defer></script>
+<script src="/js/checklists.js?v=2026-04-25d" defer></script>
+<script src="/js/ordering.js?v=2026-04-25d" defer></script>
+<script src="/js/parking.js?v=2026-04-25d" defer></script>
+<script src="/js/prepItems.js?v=2026-04-25d" defer></script>
+<script src="/js/square.js?v=2026-04-25d" defer></script>
+<script src="/js/slack.js?v=2026-04-25d" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
