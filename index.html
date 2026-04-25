@@ -224,7 +224,7 @@ body.is-loading{overflow:hidden;}
 #splash{display:none;position:fixed;inset:0;background:var(--dark-blue);z-index:2147483647;align-items:center;justify-content:center;opacity:0;transition:opacity .35s ease;}
 #splash.show{display:flex;opacity:1;}
 #splash.fade{opacity:0;}
-#splash img{width:min(60vmin,400px);height:auto;}
+#splash video{width:min(60vmin,400px);height:auto;display:block;}
 
 /* BSC isometric cube loader — compiled from the SCSS mixin-based design
  * the user supplied. 27 sub-cubes, each a .cube with .top/.left/.right
@@ -2233,33 +2233,33 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-04-25a" defer></script>
-<script src="/js/utils.js?v=2026-04-25a" defer></script>
-<script src="/js/state.js?v=2026-04-25a" defer></script>
-<script src="/js/auth.js?v=2026-04-25a" defer></script>
-<script src="/js/graph.js?v=2026-04-25a" defer></script>
-<script src="/js/signalr.js?v=2026-04-25a" defer></script>
-<script src="/js/tags.js?v=2026-04-25a" defer></script>
-<script src="/js/nav.js?v=2026-04-25a" defer></script>
-<script src="/js/settings.js?v=2026-04-25a" defer></script>
-<script src="/js/dashboard.js?v=2026-04-25a" defer></script>
-<script src="/js/inventory.js?v=2026-04-25a" defer></script>
-<script src="/js/inventory-form.js?v=2026-04-25a" defer></script>
-<script src="/js/counts.js?v=2026-04-25a" defer></script>
-<script src="/js/foodpars.js?v=2026-04-25a" defer></script>
-<script src="/js/labels.js?v=2026-04-25a" defer></script>
-<script src="/js/pastry-sync.js?v=2026-04-25a" defer></script>
-<script src="/js/recipes.js?v=2026-04-25a" defer></script>
-<script src="/js/cogs.js?v=2026-04-25a" defer></script>
-<script src="/js/vendors.js?v=2026-04-25a" defer></script>
-<script src="/js/contacts.js?v=2026-04-25a" defer></script>
-<script src="/js/maintenance.js?v=2026-04-25a" defer></script>
-<script src="/js/checklists.js?v=2026-04-25a" defer></script>
-<script src="/js/ordering.js?v=2026-04-25a" defer></script>
-<script src="/js/parking.js?v=2026-04-25a" defer></script>
-<script src="/js/prepItems.js?v=2026-04-25a" defer></script>
-<script src="/js/square.js?v=2026-04-25a" defer></script>
-<script src="/js/slack.js?v=2026-04-25a" defer></script>
+<script src="/js/constants.js?v=2026-04-25b" defer></script>
+<script src="/js/utils.js?v=2026-04-25b" defer></script>
+<script src="/js/state.js?v=2026-04-25b" defer></script>
+<script src="/js/auth.js?v=2026-04-25b" defer></script>
+<script src="/js/graph.js?v=2026-04-25b" defer></script>
+<script src="/js/signalr.js?v=2026-04-25b" defer></script>
+<script src="/js/tags.js?v=2026-04-25b" defer></script>
+<script src="/js/nav.js?v=2026-04-25b" defer></script>
+<script src="/js/settings.js?v=2026-04-25b" defer></script>
+<script src="/js/dashboard.js?v=2026-04-25b" defer></script>
+<script src="/js/inventory.js?v=2026-04-25b" defer></script>
+<script src="/js/inventory-form.js?v=2026-04-25b" defer></script>
+<script src="/js/counts.js?v=2026-04-25b" defer></script>
+<script src="/js/foodpars.js?v=2026-04-25b" defer></script>
+<script src="/js/labels.js?v=2026-04-25b" defer></script>
+<script src="/js/pastry-sync.js?v=2026-04-25b" defer></script>
+<script src="/js/recipes.js?v=2026-04-25b" defer></script>
+<script src="/js/cogs.js?v=2026-04-25b" defer></script>
+<script src="/js/vendors.js?v=2026-04-25b" defer></script>
+<script src="/js/contacts.js?v=2026-04-25b" defer></script>
+<script src="/js/maintenance.js?v=2026-04-25b" defer></script>
+<script src="/js/checklists.js?v=2026-04-25b" defer></script>
+<script src="/js/ordering.js?v=2026-04-25b" defer></script>
+<script src="/js/parking.js?v=2026-04-25b" defer></script>
+<script src="/js/prepItems.js?v=2026-04-25b" defer></script>
+<script src="/js/square.js?v=2026-04-25b" defer></script>
+<script src="/js/slack.js?v=2026-04-25b" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
@@ -4919,7 +4919,9 @@ async function graphAll(path) {
 <!-- WELCOME SPLASH — shown once per tab/session and after MSAL sign-in. Placed
      after #loading so equal z-index resolves to splash via DOM order. -->
 <div id="splash" aria-hidden="true">
-  <img src="/images/BSC%20Ops%20Logo%20Animated.gif" alt="">
+  <video autoplay muted playsinline loop preload="auto">
+    <source src="/images/BSC%20Ops%20Logo%20Animated%20V2.mp4" type="video/mp4">
+  </video>
 </div>
 </body>
 </html>
