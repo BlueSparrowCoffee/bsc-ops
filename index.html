@@ -5,10 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" href="/icon-180.png">
-<link rel="apple-touch-icon-precomposed" href="/icon-180.png">
-<link rel="icon" type="image/png" sizes="180x180" href="/icon-180.png">
-<link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
+<link rel="apple-touch-icon" href="/images/BSC%20Ops%20Logo%20Transparent.png">
+<link rel="apple-touch-icon-precomposed" href="/images/BSC%20Ops%20Logo%20Transparent.png">
+<link rel="icon" type="image/png" href="/images/BSC%20Ops%20Logo%20Transparent.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="BSC Ops">
@@ -57,6 +56,7 @@ h1,h2,h3,.stat-value{font-family:'IvyPresto Display','Hoefler Text',Georgia,seri
 #nav-backdrop{display:none;position:fixed;inset:56px 0 0 0;background:rgba(0,0,0,.45);z-index:90;}
 #nav-backdrop.show{display:block;}
 .topbar-logo{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:600;}
+.topbar-logo img{height:36px;width:36px;object-fit:contain;flex-shrink:0;}
 .topbar-logo span{font-size:22px;}
 .topbar-logo small{font-size:10px;color:rgba(255,255,255,.7);font-weight:400;display:block;margin-top:1px;}
 .location-switcher{display:flex;gap:4px;margin-left:24px;}
@@ -218,6 +218,13 @@ body.is-loading{overflow:hidden;}
 /* Fully opaque dark-blue overlay */
 #loading{display:none;position:fixed;inset:0;background:var(--dark-blue);z-index:2147483647;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:#fff;font-size:13px;isolation:isolate;contain:paint;}
 #loading.show{display:flex;}
+
+/* Welcome splash — first paint after fresh-tab / sign-in, then dismissed.
+ * Same z-index as #loading; placed later in DOM so it stacks on top. */
+#splash{display:none;position:fixed;inset:0;background:var(--dark-blue);z-index:2147483647;align-items:center;justify-content:center;opacity:0;transition:opacity .35s ease;}
+#splash.show{display:flex;opacity:1;}
+#splash.fade{opacity:0;}
+#splash img{width:min(60vmin,400px);height:auto;}
 
 /* BSC isometric cube loader — compiled from the SCSS mixin-based design
  * the user supplied. 27 sub-cubes, each a .cube with .top/.left/.right
@@ -464,7 +471,7 @@ html,body{overscroll-behavior:none;}
 
 <!-- AUTH -->
 <div id="auth-screen">
-  <img class="auth-feather" src="/logo.png" alt="Blue Sparrow Coffee">
+  <img class="auth-feather" src="/images/BSC%20Ops%20Logo%20Transparent.png" alt="Blue Sparrow Coffee">
   <div class="auth-title">Blue Sparrow Coffee</div>
   <div class="auth-sub">Operations Platform · Sign in with your BSC Microsoft account</div>
   <button class="btn-signin" onclick="signIn()">Sign in with Microsoft</button>
@@ -474,6 +481,7 @@ html,body{overscroll-behavior:none;}
 <div id="topbar">
   <button id="nav-toggle" onclick="toggleNav()" aria-label="Menu">☰</button>
   <div class="topbar-logo">
+    <img src="/images/feather.png" alt="" aria-hidden="true">
     <div><div>Blue Sparrow Coffee</div><small>Operations Platform</small></div>
   </div>
   <div class="location-switcher" id="loc-switcher">
@@ -2225,33 +2233,33 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-04-24m" defer></script>
-<script src="/js/utils.js?v=2026-04-24m" defer></script>
-<script src="/js/state.js?v=2026-04-24m" defer></script>
-<script src="/js/auth.js?v=2026-04-24m" defer></script>
-<script src="/js/graph.js?v=2026-04-24m" defer></script>
-<script src="/js/signalr.js?v=2026-04-24m" defer></script>
-<script src="/js/tags.js?v=2026-04-24m" defer></script>
-<script src="/js/nav.js?v=2026-04-24m" defer></script>
-<script src="/js/settings.js?v=2026-04-24m" defer></script>
-<script src="/js/dashboard.js?v=2026-04-24m" defer></script>
-<script src="/js/inventory.js?v=2026-04-24m" defer></script>
-<script src="/js/inventory-form.js?v=2026-04-24m" defer></script>
-<script src="/js/counts.js?v=2026-04-24m" defer></script>
-<script src="/js/foodpars.js?v=2026-04-24m" defer></script>
-<script src="/js/labels.js?v=2026-04-24m" defer></script>
-<script src="/js/pastry-sync.js?v=2026-04-24m" defer></script>
-<script src="/js/recipes.js?v=2026-04-24m" defer></script>
-<script src="/js/cogs.js?v=2026-04-24m" defer></script>
-<script src="/js/vendors.js?v=2026-04-24m" defer></script>
-<script src="/js/contacts.js?v=2026-04-24m" defer></script>
-<script src="/js/maintenance.js?v=2026-04-24m" defer></script>
-<script src="/js/checklists.js?v=2026-04-24m" defer></script>
-<script src="/js/ordering.js?v=2026-04-24m" defer></script>
-<script src="/js/parking.js?v=2026-04-24m" defer></script>
-<script src="/js/prepItems.js?v=2026-04-24m" defer></script>
-<script src="/js/square.js?v=2026-04-24m" defer></script>
-<script src="/js/slack.js?v=2026-04-24m" defer></script>
+<script src="/js/constants.js?v=2026-04-25a" defer></script>
+<script src="/js/utils.js?v=2026-04-25a" defer></script>
+<script src="/js/state.js?v=2026-04-25a" defer></script>
+<script src="/js/auth.js?v=2026-04-25a" defer></script>
+<script src="/js/graph.js?v=2026-04-25a" defer></script>
+<script src="/js/signalr.js?v=2026-04-25a" defer></script>
+<script src="/js/tags.js?v=2026-04-25a" defer></script>
+<script src="/js/nav.js?v=2026-04-25a" defer></script>
+<script src="/js/settings.js?v=2026-04-25a" defer></script>
+<script src="/js/dashboard.js?v=2026-04-25a" defer></script>
+<script src="/js/inventory.js?v=2026-04-25a" defer></script>
+<script src="/js/inventory-form.js?v=2026-04-25a" defer></script>
+<script src="/js/counts.js?v=2026-04-25a" defer></script>
+<script src="/js/foodpars.js?v=2026-04-25a" defer></script>
+<script src="/js/labels.js?v=2026-04-25a" defer></script>
+<script src="/js/pastry-sync.js?v=2026-04-25a" defer></script>
+<script src="/js/recipes.js?v=2026-04-25a" defer></script>
+<script src="/js/cogs.js?v=2026-04-25a" defer></script>
+<script src="/js/vendors.js?v=2026-04-25a" defer></script>
+<script src="/js/contacts.js?v=2026-04-25a" defer></script>
+<script src="/js/maintenance.js?v=2026-04-25a" defer></script>
+<script src="/js/checklists.js?v=2026-04-25a" defer></script>
+<script src="/js/ordering.js?v=2026-04-25a" defer></script>
+<script src="/js/parking.js?v=2026-04-25a" defer></script>
+<script src="/js/prepItems.js?v=2026-04-25a" defer></script>
+<script src="/js/square.js?v=2026-04-25a" defer></script>
+<script src="/js/slack.js?v=2026-04-25a" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
@@ -2312,12 +2320,34 @@ window.addEventListener('DOMContentLoaded', async () => {
   const accounts = msal.getAllAccounts();
   if (accounts.length) {
     currentUser = accounts[0];
+    maybeShowSplash();
     applyUser();
-    await bootstrapApp();
+    try { await bootstrapApp(); }
+    finally { hideSplash(); }
   } else {
     document.getElementById('auth-screen').classList.add('show');
   }
 });
+
+// Welcome splash — show on fresh tab/session OR explicit MSAL sign-in (signIn()
+// sets bsc_force_splash). Refreshes within a session see bsc_splash_seen and
+// skip the splash. sessionStorage clears when the tab closes, so a new tab is
+// always "fresh". MSAL's own sessionStorage cache keys are namespaced and
+// won't collide with these.
+function maybeShowSplash() {
+  const force = sessionStorage.getItem('bsc_force_splash');
+  const seen  = sessionStorage.getItem('bsc_splash_seen');
+  sessionStorage.removeItem('bsc_force_splash');
+  if (seen && !force) return;
+  sessionStorage.setItem('bsc_splash_seen', '1');
+  document.getElementById('splash')?.classList.add('show');
+}
+function hideSplash() {
+  const el = document.getElementById('splash');
+  if (!el || !el.classList.contains('show')) return;
+  el.classList.add('fade');
+  setTimeout(() => el.classList.remove('show','fade'), 400);
+}
 
 // signIn, signOut, applyUser, resolveCurrentStaffMember, updateTopbarStaffInfo,
 // getToken, getAdminToken, getSharePointToken moved to js/auth.js
@@ -3558,8 +3588,6 @@ function populateTransferItemSelect() {
 
 // getActiveVendorNames, populateInvVendorSelect, onInvCatChange,
 // finishInvCatNew moved to js/inventory-form.js
-
-// onVendorCatSelectChange, finishVendorCatNew → js/vendors.js
 
 // onInvVendorChange, createVendorQuick moved to js/inventory-form.js
 
@@ -4886,6 +4914,12 @@ async function graphAll(path) {
     </div>
   </div>
   <div id="loading-msg">Loading…</div>
+</div>
+
+<!-- WELCOME SPLASH — shown once per tab/session and after MSAL sign-in. Placed
+     after #loading so equal z-index resolves to splash via DOM order. -->
+<div id="splash" aria-hidden="true">
+  <img src="/images/BSC%20Ops%20Logo%20Animated.gif" alt="">
 </div>
 </body>
 </html>

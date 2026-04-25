@@ -264,8 +264,7 @@ async function openLabelsReconcileModal() {
     // Pull Square sales from the prior calendar month
     const startAt = lastMonthStart.toISOString();
     const endAt   = lastMonthEnd.toISOString();
-    const locMap  = getSquareLocMap();
-    const squareLocIds = Object.keys(locMap);
+    const squareLocIds = getSquareLocIds();
 
     let bagsSold = 0;
     const bagDetails = [];

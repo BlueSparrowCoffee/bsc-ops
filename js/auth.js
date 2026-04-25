@@ -43,7 +43,12 @@ const msal = new window.msal.PublicClientApplication({
 
 // ── Sign-in / sign-out ──────────────────────────────────────────
 async function signIn() {
-  try { await msal.loginRedirect({ scopes: SCOPES }); }
+  try {
+    // Trigger the welcome splash on the post-redirect page load. sessionStorage
+    // survives the round-trip to login.microsoftonline.com.
+    sessionStorage.setItem('bsc_force_splash', '1');
+    await msal.loginRedirect({ scopes: SCOPES });
+  }
   catch(e) { toast('err','Sign-in failed: '+e.message); }
 }
 

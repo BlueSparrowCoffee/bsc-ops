@@ -12,14 +12,11 @@
  *     — these are used only by the vendors table today but are
  *     generic enough that future list pages can reuse them
  *   - Form (openVendorForm, vendorFieldInput, syncDaysField,
- *     addVendorMultiRow, renderVendorFormPills, addVendorTag,
- *     addVendorTagFromInput, saveVendorForm)
+ *     addVendorMultiRow, saveVendorForm)
  *   - Archive / delete (modalArchiveVendor, modalDeleteVendor,
  *     archiveVendor, restoreVendor, deleteVendor, cascadeVendorRename)
  *   - Edit-in-place mode (toggleVendorEditMode, cancelVendorEditMode,
  *     saveAllVendors)
- *   - Category inline-new helpers (onVendorCatSelectChange,
- *     finishVendorCatNew)
  *   - Global autofill block (capture-phase focus listener)
  *
  * Depends on:
@@ -278,18 +275,6 @@ function vendorFieldInput(key, type, options, val, item) {
   if (type === 'textarea') {
     return `<textarea id="${id}" rows="3" style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;resize:vertical">${escHtml(v)}</textarea>`;
   }
-  if (type === 'category') {
-    const cats = [...new Set((cache.vendors||[]).map(vv=>vv.Category||'').filter(Boolean))].sort();
-    if (v && !cats.includes(v)) cats.push(v);
-    return `<select id="${id}" class="filter" style="width:100%;" onchange="onVendorCatSelectChange(this)">
-      <option value="">— Select category —</option>
-      ${cats.map(c=>`<option value="${escHtml(c)}" ${v===c?'selected':''}>${escHtml(c)}</option>`).join('')}
-      <option value="__new__">＋ New category…</option>
-    </select>
-    <input class="vendor-cat-new-inp field-input" placeholder="New category name" style="display:none;margin-top:5px;width:100%;"
-      onblur="finishVendorCatNew(this)"
-      onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">`;
-  }
   if (type === 'multi') {
     const values = (v||'').split('\n').map(s=>s.trim()).filter(Boolean);
     if (!values.length) values.push('');
@@ -380,40 +365,8 @@ function openVendorForm(id) {
   setTimeout(()=>document.getElementById('vf_ContactPerson')?.querySelector('input')?.focus(), MODAL_FOCUS_DELAY_MS);
 }
 
-// ── Tag editor pills (legacy; superseded by shared tags.js widget) ─
-let _vendorFormTags = [];
-
-function renderVendorFormPills() {
-  const container = document.getElementById('vf-tag-pills');
-  if (!container) return;
-  container.innerHTML = _vendorFormTags.map(t=>`
-    <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;background:rgba(183,139,64,.15);color:var(--gold);font-size:12px;font-weight:600;">
-      ${escHtml(t)}
-      <button type="button" data-tag="${escHtml(t)}" onclick="_vendorFormTags=_vendorFormTags.filter(x=>x!==this.dataset.tag);renderVendorFormPills();"
-        style="background:none;border:none;cursor:pointer;color:var(--gold);font-size:14px;line-height:1;padding:0;margin-left:2px;">×</button>
-    </span>`).join('');
-}
-
-function addVendorTag(tag) {
-  const t = tag.trim().toLowerCase().replace(/,/g,'');
-  if (!t || _vendorFormTags.includes(t)) return;
-  _vendorFormTags.push(t);
-  renderVendorFormPills();
-}
-
-function addVendorTagFromInput() {
-  const input = document.getElementById('vf-tag-input');
-  addVendorTag(input.value);
-  input.value = '';
-  document.getElementById('vf-tag-suggestions').style.display = 'none';
-}
-
 // ── Save / cascade / archive / delete ─────────────────────────────
 async function saveVendorForm() {
-  // Flush any in-progress new category entry before reading form
-  const catNewInp = document.querySelector('#vendor-form-fields .vendor-cat-new-inp');
-  if (catNewInp && catNewInp.style.display !== 'none') finishVendorCatNew(catNewInp);
-
   const data = {};
   // Collect all rendered vf_ inputs / selects / textareas
   document.querySelectorAll('#vendor-form-fields [id^="vf_"]').forEach(el => {
@@ -584,34 +537,4 @@ async function saveAllVendors() {
     cancelVendorEditMode();
   } catch(e) { toast('err', 'Save failed: ' + e.message); }
   finally { setLoading(false); }
-}
-
-// ── Category inline-new helpers ───────────────────────────────────
-function onVendorCatSelectChange(sel) {
-  const inp = sel.parentElement.querySelector('.vendor-cat-new-inp');
-  if (!inp) return;
-  if (sel.value === '__new__') {
-    inp.style.display = '';
-    inp.focus();
-  } else {
-    inp.style.display = 'none';
-    inp.value = '';
-  }
-}
-
-function finishVendorCatNew(inp) {
-  const val = inp.value.trim();
-  const sel = inp.parentElement.querySelector('select');
-  if (!sel) return;
-  if (!val) {
-    sel.value = '';
-  } else {
-    let opt = [...sel.options].find(o => o.value === val);
-    if (!opt) {
-      opt = new Option(val, val);
-      sel.insertBefore(opt, sel.querySelector('option[value="__new__"]'));
-    }
-    sel.value = val;
-  }
-  inp.style.display = 'none';
 }

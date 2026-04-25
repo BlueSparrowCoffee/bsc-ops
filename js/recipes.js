@@ -297,10 +297,10 @@ async function loadRecipeHistory(id) {
             </div>
             ${isCurrent
               ? '<span style="font-size:10px;padding:2px 8px;background:rgba(183,139,64,.15);color:var(--gold);border-radius:10px;font-weight:700;letter-spacing:.04em;">CURRENT</span>'
-              : `<button onclick="restoreRecipeVersion('${id}','${v.id}')" style="font-size:11px;color:var(--gold);border:1.5px solid var(--gold);border-radius:6px;padding:3px 10px;background:none;cursor:pointer;font-weight:600;">↩ Restore</button>`
+              : `<button data-rid="${escHtml(id)}" data-vid="${escHtml(v.id)}" onclick="restoreRecipeVersion(this.dataset.rid,this.dataset.vid)" style="font-size:11px;color:var(--gold);border:1.5px solid var(--gold);border-radius:6px;padding:3px 10px;background:none;cursor:pointer;font-weight:600;">↩ Restore</button>`
             }
           </div>
-          ${content ? `<div style="font-size:12px;color:var(--ink);background:var(--cream);border-radius:6px;padding:10px 12px;max-height:120px;overflow:hidden;white-space:pre-wrap;line-height:1.5;">${content.slice(0,300)}${content.length>300?'\n…':''}</div>` : '<div style="font-size:11px;color:var(--muted);font-style:italic;">No content</div>'}
+          ${content ? `<div style="font-size:12px;color:var(--ink);background:var(--cream);border-radius:6px;padding:10px 12px;max-height:120px;overflow:hidden;white-space:pre-wrap;line-height:1.5;">${escHtml(content.slice(0,300))}${content.length>300?'\n…':''}</div>` : '<div style="font-size:11px;color:var(--muted);font-style:italic;">No content</div>'}
         </div>`;
       }).join('');
     }

@@ -29,9 +29,10 @@ let _editInvId = null;
 function openAddInvForm() {
   _editInvId = null;
   const cfg = invCfg();
+  if (!cfg) return;
   // Merch inventory is source-of-truthed in Square — block manual adds so
   // every row has a SquareCatalogItemId and prices/names stay in sync.
-  if (cfg?.isMerch) {
+  if (cfg.isMerch) {
     toast('err', 'Merch items must be added in Square. Use "◼ Sync from Square".');
     return;
   }
@@ -78,6 +79,7 @@ function openAddInvForm() {
 
 function openEditInvItem(id) {
   const cfg = invCfg();
+  if (!cfg) return;
   const item = cache[cfg.cacheKey].find(i => i.id === id);
   if (!item) return;
   _editInvId = id;
@@ -182,6 +184,7 @@ async function toggleArchiveInvItem(id, isArchived) {
 async function deleteInvItem(id) {
   if (!isOwner()) { toast('err', 'Owner access required'); return; }
   const cfg = invCfg();
+  if (!cfg) return;
   const item = cache[cfg.cacheKey].find(i => i.id === id);
   if (!item) return;
   if (!confirm(`Delete "${item.ItemName}" from inventory? This cannot be undone.`)) return;
