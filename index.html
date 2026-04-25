@@ -228,8 +228,12 @@ body.is-loading{overflow:hidden;}
 #loading-msg{text-align:center;}
 #loading .cube{position:absolute;width:86px;height:100px;}
 #loading .face{height:52px;width:52px;position:absolute;transform-origin:0 0;}
+/* Cube faces — top is the visible "outside" of the cube (brand gold);
+   the two skewed side faces use the two BSC blues so each direction reads
+   distinctly. Right slopes one way (light blue), left slopes the other
+   (dark blue). */
 #loading .right{background:var(--light-blue);box-shadow:0 0 0 2px var(--light-blue);transform:rotate(-30deg) skewX(-30deg) translate(49px,65px) scaleY(.86);}
-#loading .left{background:var(--muted);box-shadow:0 0 0 2px var(--muted);transform:rotate(90deg) skewX(-30deg) scaleY(.86) translate(25px,-50px);}
+#loading .left{background:var(--dark-blue);box-shadow:0 0 0 2px var(--dark-blue);transform:rotate(90deg) skewX(-30deg) scaleY(.86) translate(25px,-50px);}
 #loading .top{background:var(--gold);box-shadow:0 0 0 2px var(--gold);transform:rotate(210deg) skew(-30deg) translate(-75px,-22px) scaleY(.86);z-index:2;}
 
 /* Per-cube animation binding (27 rules). Each cube has its own named @keyframes. */
@@ -2221,33 +2225,33 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-04-24i" defer></script>
-<script src="/js/utils.js?v=2026-04-24i" defer></script>
-<script src="/js/state.js?v=2026-04-24i" defer></script>
-<script src="/js/auth.js?v=2026-04-24i" defer></script>
-<script src="/js/graph.js?v=2026-04-24i" defer></script>
-<script src="/js/signalr.js?v=2026-04-24i" defer></script>
-<script src="/js/tags.js?v=2026-04-24i" defer></script>
-<script src="/js/nav.js?v=2026-04-24i" defer></script>
-<script src="/js/settings.js?v=2026-04-24i" defer></script>
-<script src="/js/dashboard.js?v=2026-04-24i" defer></script>
-<script src="/js/inventory.js?v=2026-04-24i" defer></script>
-<script src="/js/inventory-form.js?v=2026-04-24i" defer></script>
-<script src="/js/counts.js?v=2026-04-24i" defer></script>
-<script src="/js/foodpars.js?v=2026-04-24i" defer></script>
-<script src="/js/labels.js?v=2026-04-24i" defer></script>
-<script src="/js/pastry-sync.js?v=2026-04-24i" defer></script>
-<script src="/js/recipes.js?v=2026-04-24i" defer></script>
-<script src="/js/cogs.js?v=2026-04-24i" defer></script>
-<script src="/js/vendors.js?v=2026-04-24i" defer></script>
-<script src="/js/contacts.js?v=2026-04-24i" defer></script>
-<script src="/js/maintenance.js?v=2026-04-24i" defer></script>
-<script src="/js/checklists.js?v=2026-04-24i" defer></script>
-<script src="/js/ordering.js?v=2026-04-24i" defer></script>
-<script src="/js/parking.js?v=2026-04-24i" defer></script>
-<script src="/js/prepItems.js?v=2026-04-24i" defer></script>
-<script src="/js/square.js?v=2026-04-24i" defer></script>
-<script src="/js/slack.js?v=2026-04-24i" defer></script>
+<script src="/js/constants.js?v=2026-04-24j" defer></script>
+<script src="/js/utils.js?v=2026-04-24j" defer></script>
+<script src="/js/state.js?v=2026-04-24j" defer></script>
+<script src="/js/auth.js?v=2026-04-24j" defer></script>
+<script src="/js/graph.js?v=2026-04-24j" defer></script>
+<script src="/js/signalr.js?v=2026-04-24j" defer></script>
+<script src="/js/tags.js?v=2026-04-24j" defer></script>
+<script src="/js/nav.js?v=2026-04-24j" defer></script>
+<script src="/js/settings.js?v=2026-04-24j" defer></script>
+<script src="/js/dashboard.js?v=2026-04-24j" defer></script>
+<script src="/js/inventory.js?v=2026-04-24j" defer></script>
+<script src="/js/inventory-form.js?v=2026-04-24j" defer></script>
+<script src="/js/counts.js?v=2026-04-24j" defer></script>
+<script src="/js/foodpars.js?v=2026-04-24j" defer></script>
+<script src="/js/labels.js?v=2026-04-24j" defer></script>
+<script src="/js/pastry-sync.js?v=2026-04-24j" defer></script>
+<script src="/js/recipes.js?v=2026-04-24j" defer></script>
+<script src="/js/cogs.js?v=2026-04-24j" defer></script>
+<script src="/js/vendors.js?v=2026-04-24j" defer></script>
+<script src="/js/contacts.js?v=2026-04-24j" defer></script>
+<script src="/js/maintenance.js?v=2026-04-24j" defer></script>
+<script src="/js/checklists.js?v=2026-04-24j" defer></script>
+<script src="/js/ordering.js?v=2026-04-24j" defer></script>
+<script src="/js/parking.js?v=2026-04-24j" defer></script>
+<script src="/js/prepItems.js?v=2026-04-24j" defer></script>
+<script src="/js/square.js?v=2026-04-24j" defer></script>
+<script src="/js/slack.js?v=2026-04-24j" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
