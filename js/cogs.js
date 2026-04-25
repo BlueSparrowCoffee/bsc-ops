@@ -1457,45 +1457,45 @@ function renderCogsOverview() {
   const sort       = document.getElementById('cogs-overview-sort')?.value || 'margin-asc';
   const typeFilter = document.getElementById('cogs-overview-type')?.value || '';
 
-  // Build latest snapshot per coffee-bar item (MenuItemId:VariationName)
-  const latestSnap = {};
-  [...cache.cogSnapshots]
-    .sort((a,b) => new Date(a.SnapshotDate) - new Date(b.SnapshotDate))
-    .forEach(s => { latestSnap[`${s.MenuItemId}:${s.VariationName}`] = s; });
-
   const items = [];
 
-  // Coffee Bar — from snapshots.
-  // Display name prefers the LIVE BSC_Menu item (which syncSquareCatalog keeps
-  // in lock-step with Square). The snapshot's MenuItemName is retained as
-  // `itemName` because openCogHistoryModal filters history by that name —
-  // changing it here would break the historical lookup for pre-rename rows.
+  // Coffee Bar — LIVE recalculation against current recipes/inventory/prep
+  // (NOT BSC_CogSnapshots). Snapshots are point-in-time history; using them
+  // for the live chart caused the chart to lag behind recipe edits until the
+  // user remembered to hit "📸 Snapshot." Now the chart always reflects
+  // exactly what each item's COG card shows.
   if (!typeFilter || typeFilter === 'coffee-bar') {
-    Object.values(latestSnap).forEach(s => {
-      const margin = parseFloat(s.GrossMargin);
-      if (isNaN(margin)) return;
-      const menuItem = cache.menu.find(m => (m.SquareId || m.id) === s.MenuItemId);
-      // Drop stale snapshots: menu item was removed from Square/BSC_Menu, or is
-      // no longer in the Coffee Bar category (e.g. reassigned), or explicitly
-      // archived. Without this, the overview would keep showing ghost rows for
-      // items that haven't been sellable in months.
-      if (!menuItem) return;
+    const cogMap   = buildCogMap();
+    const invMap   = buildInvMap();
+    const invIdMap = buildInvIdMap();
+    const prepMap  = buildPrepItemMap();
+    cache.menu.forEach(menuItem => {
       if ((menuItem.Category||'').toLowerCase() !== 'coffee bar') return;
       if (menuItem.Archived) return;
-      const spId = menuItem.id || s.MenuItemId;
-      const cardId = menuItem.SquareId || menuItem.id || s.MenuItemId;
+      const itemId   = menuItem.SquareId || menuItem.id;
+      const liveName = menuItem.ItemName || menuItem.Title || itemId;
+      const spId     = menuItem.id || itemId;
+      const cardId   = menuItem.SquareId || menuItem.id || itemId;
       const isHidden = _cogsHiddenIds.has(spId) || _cogsHiddenIds.has(cardId);
-      const liveName = menuItem.ItemName || menuItem.Title || s.MenuItemName;
-      items.push({
-        type: 'coffee-bar', typeLabel: 'Coffee Bar',
-        name: liveName, variation: s.VariationName,
-        category: menuItem.Category || 'Coffee Bar',
-        margin, price: parseFloat(s.SellingPrice)||0, cog: parseFloat(s.COG)||0,
-        snapshotDate: s.SnapshotDate,
-        histKey: `${s.MenuItemId}:${s.VariationName}`,
-        itemName: s.MenuItemName, varName: s.VariationName,
-        spId, cardId, isHidden
-      });
+      const variations = getVariationNames(menuItem);
+      for (const v of variations) {
+        if (!v.price) continue;
+        const { cog, hasMissingCost } = calcCog(itemId, v.name, cogMap, invMap, prepMap, invIdMap);
+        // Drop variations with no recipe / unresolved ingredient cost — they'd
+        // plot at 100% margin and skew the chart.
+        if (hasMissingCost || !cog) continue;
+        const margin = ((v.price - cog) / v.price) * 100;
+        items.push({
+          type: 'coffee-bar', typeLabel: 'Coffee Bar',
+          name: liveName, variation: v.name,
+          category: menuItem.Category || 'Coffee Bar',
+          margin, price: v.price, cog,
+          snapshotDate: null,
+          histKey: `${itemId}:${v.name}`,
+          itemName: liveName, varName: v.name,
+          spId, cardId, isHidden
+        });
+      }
     });
   }
 
