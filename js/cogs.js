@@ -658,7 +658,7 @@ function renderInvCogCard(item, tabKey) {
     : cost == null ? 'Enter cost per unit' : 'Enter selling price';
 
   return `
-    <div class="card" style="padding:0;overflow:hidden;${isHidden?'opacity:0.5;':''}">
+    <div class="card" id="cogs-item-card-${escHtml(tabKey)}-${escHtml(item.id)}" data-cog-item-id="${escHtml(item.id)}" style="padding:0;overflow:hidden;transition:box-shadow .3s, transform .3s;${isHidden?'opacity:0.5;':''}">
       <div style="padding:14px 16px 10px;border-bottom:1.5px solid var(--border);">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
           <div style="flex:1;min-width:0;">
@@ -887,7 +887,7 @@ function renderCogCard(item, cogMap, invMap, prepMap, invIdMap) {
 
   const isHidden = _cogsHiddenIds.has(item.id);
   return `
-    <div class="card" data-gs-id="${escHtml(item.id)}" style="padding:0;overflow:hidden;${isHidden?'opacity:0.5;':''}">
+    <div class="card" id="cogs-item-card-coffee-bar-${escHtml(itemId)}" data-cog-item-id="${escHtml(itemId)}" data-gs-id="${escHtml(item.id)}" style="padding:0;overflow:hidden;transition:box-shadow .3s, transform .3s;${isHidden?'opacity:0.5;':''}">
       <div style="padding:14px 16px 10px;border-bottom:1.5px solid var(--border);">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
           <div>
@@ -1108,11 +1108,28 @@ function cogMarkerPath(shape, cx, cy, r) {
 function handleCogChartClick(idx) {
   const pt = _cogChartData[idx];
   if (!pt) return;
-  if (pt.type === 'coffee-bar') {
-    openCogHistoryModal(pt.itemName, pt.varName);
-    return;
-  }
-  if (typeof cogTab === 'function' && _cogChartData[idx].type) cogTab(_cogChartData[idx].type);
+  // Route dot click → switch to the item's tab, then scroll to and flash-
+  // highlight its card. Users previously had no way to "see the item" from a
+  // dot: coffee-bar dots jumped straight to the history modal and inv-type
+  // dots only opened the tab, leaving the user to hunt for the item.
+  if (typeof cogTab === 'function') cogTab(pt.type);
+  // Hide the tooltip so it doesn't linger as we re-render
+  const tip = document.getElementById('cog-chart-tip');
+  if (tip) tip.style.display = 'none';
+  // Let the tab's panel finish painting before we locate the card.
+  setTimeout(() => {
+    const cardId = `cogs-item-card-${pt.type}-${pt.cardId}`;
+    const card = document.getElementById(cardId);
+    if (!card) return;
+    card.scrollIntoView({ behavior:'smooth', block:'center' });
+    // Flash highlight — gold ring pulses then fades.
+    card.style.boxShadow = '0 0 0 3px var(--gold), var(--shadow)';
+    card.style.transform = 'scale(1.01)';
+    setTimeout(() => {
+      card.style.boxShadow = '';
+      card.style.transform = '';
+    }, 1800);
+  }, 60);
 }
 
 // Toggle a type's visibility from the legend chip.
@@ -1143,7 +1160,7 @@ function handleCogDotEnter(evt, idx) {
       <span>Price <strong style="color:#fff;">$${pt.price.toFixed(2)}</strong></span>
       <span>Cost <strong style="color:#fff;">$${pt.cog.toFixed(3)}</strong></span>
     </div>
-    ${pt.type === 'coffee-bar' ? '<div style="font-size:10px;color:var(--gold);margin-top:6px;">Click for history →</div>' : '<div style="font-size:10px;color:var(--gold);margin-top:6px;">Click to open tab →</div>'}
+    <div style="font-size:10px;color:var(--gold);margin-top:6px;font-weight:600;">Click dot to open item →</div>
   `;
   const rect = host.getBoundingClientRect();
   const mx = evt.clientX - rect.left;
@@ -1284,16 +1301,28 @@ function renderCogsOverviewChart(items, target) {
   svg.push(`<text x="${PAD_L + plotW / 2}" y="${VB_H - 6}" text-anchor="middle" font-size="12" font-weight="700" fill="${TEXT_DARK}" letter-spacing=".3">Selling Price ($)${useLog ? '  —  log scale' : ''}</text>`);
   svg.push(`<text transform="rotate(-90)" x="${-(PAD_T + plotH / 2)}" y="14" text-anchor="middle" font-size="12" font-weight="700" fill="${TEXT_DARK}" letter-spacing=".3">Gross Margin (%)</text>`);
 
-  // Target line
+  // Target line — horizontal, marks the target margin on the Y axis
   svg.push(`<line x1="${PAD_L}" y1="${tyTar}" x2="${VB_W - PAD_R}" y2="${tyTar}" stroke="${TARGET_COL}" stroke-width="1.6" stroke-dasharray="6,4" opacity=".95"/>`);
   svg.push(`<text x="${VB_W - PAD_R - 4}" y="${tyTar - 5}" text-anchor="end" font-size="10" fill="${TARGET_COL}" font-weight="700">Target ${target}%</text>`);
 
-  // Avg line (visible items only)
+  // Average line — vertical, marks the average SELLING PRICE on the X axis.
+  // Previously drawn horizontally at avg-margin — but margin% on a margin axis
+  // is redundant, whereas "where does the middle of our pricing sit?" is a
+  // useful visual reference that pairs with the horizontal target line.
   if (visibleItems.length) {
-    const avg = visibleItems.reduce((s, i) => s + i.margin, 0) / visibleItems.length;
-    const ya = yScale(avg);
-    svg.push(`<line x1="${PAD_L}" y1="${ya}" x2="${VB_W - PAD_R}" y2="${ya}" stroke="${AVG_COL}" stroke-width="1.4" stroke-dasharray="3,3" opacity=".95"/>`);
-    svg.push(`<text x="${PAD_L + 6}" y="${ya - 4}" font-size="10" fill="${AVG_COL}" font-weight="700">Average ${avg.toFixed(1)}%</text>`);
+    const avgPrice = visibleItems.reduce((s, i) => s + (i.price||0), 0) / visibleItems.length;
+    if (avgPrice > 0) {
+      const xa = xScale(avgPrice);
+      // Guard: only draw if the avg price actually falls inside the plot area.
+      if (xa >= PAD_L && xa <= VB_W - PAD_R) {
+        svg.push(`<line x1="${xa}" y1="${PAD_T}" x2="${xa}" y2="${PAD_T + plotH}" stroke="${AVG_COL}" stroke-width="1.4" stroke-dasharray="3,3" opacity=".95"/>`);
+        const label = `Avg $${avgPrice.toFixed(2)}`;
+        // Anchor label so it stays visible near either edge of the plot.
+        const anchor = xa > VB_W - PAD_R - 70 ? 'end' : 'start';
+        const lx = anchor === 'end' ? xa - 4 : xa + 4;
+        svg.push(`<text x="${lx}" y="${PAD_T + 12}" text-anchor="${anchor}" font-size="10" fill="${AVG_COL}" font-weight="700">${label}</text>`);
+      }
+    }
   }
 
   // Collision-aware draw order — plot worst-first so at-target dots sit on top,
@@ -1359,8 +1388,8 @@ function renderCogsOverviewChart(items, target) {
   const lineKey = `
     <div style="display:flex;gap:12px;align-items:center;font-size:11px;color:var(--text);flex-wrap:wrap;">
       <span style="color:var(--muted);font-weight:700;letter-spacing:.3px;text-transform:uppercase;font-size:10px;">Lines</span>
-      <span style="display:inline-flex;align-items:center;gap:6px;" title="Your target margin line"><svg width="22" height="8" style="flex-shrink:0;"><line x1="0" y1="4" x2="22" y2="4" stroke="#b78b40" stroke-width="1.8" stroke-dasharray="5,3"/></svg>Target</span>
-      <span style="display:inline-flex;align-items:center;gap:6px;" title="Average margin across all active items"><svg width="22" height="8" style="flex-shrink:0;"><line x1="0" y1="4" x2="22" y2="4" stroke="#0e7490" stroke-width="1.6" stroke-dasharray="3,3"/></svg>Average</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;" title="Horizontal line at your target margin %"><svg width="22" height="8" style="flex-shrink:0;"><line x1="0" y1="4" x2="22" y2="4" stroke="#b78b40" stroke-width="1.8" stroke-dasharray="5,3"/></svg>Target margin</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;" title="Vertical line at the average selling price across active items"><svg width="10" height="18" style="flex-shrink:0;"><line x1="5" y1="0" x2="5" y2="18" stroke="#0e7490" stroke-width="1.6" stroke-dasharray="3,3"/></svg>Avg price</span>
     </div>`;
 
   el.innerHTML = `
@@ -1422,18 +1451,26 @@ function renderCogsOverview() {
       const margin = parseFloat(s.GrossMargin);
       if (isNaN(margin)) return;
       const menuItem = cache.menu.find(m => (m.SquareId || m.id) === s.MenuItemId);
-      const spId = menuItem?.id || s.MenuItemId;
-      const isHidden = _cogsHiddenIds.has(spId);
-      const liveName = menuItem?.ItemName || menuItem?.Title || s.MenuItemName;
+      // Drop stale snapshots: menu item was removed from Square/BSC_Menu, or is
+      // no longer in the Coffee Bar category (e.g. reassigned), or explicitly
+      // archived. Without this, the overview would keep showing ghost rows for
+      // items that haven't been sellable in months.
+      if (!menuItem) return;
+      if ((menuItem.Category||'').toLowerCase() !== 'coffee bar') return;
+      if (menuItem.Archived) return;
+      const spId = menuItem.id || s.MenuItemId;
+      const cardId = menuItem.SquareId || menuItem.id || s.MenuItemId;
+      const isHidden = _cogsHiddenIds.has(spId) || _cogsHiddenIds.has(cardId);
+      const liveName = menuItem.ItemName || menuItem.Title || s.MenuItemName;
       items.push({
         type: 'coffee-bar', typeLabel: 'Coffee Bar',
         name: liveName, variation: s.VariationName,
-        category: menuItem?.Category || 'Coffee Bar',
+        category: menuItem.Category || 'Coffee Bar',
         margin, price: parseFloat(s.SellingPrice)||0, cog: parseFloat(s.COG)||0,
         snapshotDate: s.SnapshotDate,
         histKey: `${s.MenuItemId}:${s.VariationName}`,
         itemName: s.MenuItemName, varName: s.VariationName,
-        spId, isHidden
+        spId, cardId, isHidden
       });
     });
   }
@@ -1457,7 +1494,7 @@ function renderCogsOverview() {
         margin, price, cog: cost,
         snapshotDate: null, histKey: null,
         itemName: i.ItemName, varName: '',
-        spId: i.id, isHidden
+        spId: i.id, cardId: i.id, isHidden
       });
     });
   }

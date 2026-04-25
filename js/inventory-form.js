@@ -170,6 +170,10 @@ async function toggleArchiveInvItem(id, isArchived) {
     await graph('PATCH', `/sites/${siteId}/lists/${LISTS[cfg.listKey]}/items/${id}/fields`, { Archived: newVal });
     item.Archived = newVal;
     renderInventory();
+    // Merch/food/grocery inventory lists double as the COGs overview source.
+    // Without this call the COGs overview kept showing archived rows until the
+    // user navigated away and back.
+    if (typeof renderCogsOverview === 'function') renderCogsOverview();
     toast('ok', isArchived ? '✓ Item unarchived' : '✓ Item archived');
   } catch(e) { toast('err', 'Failed: ' + e.message); }
   finally { setLoading(false); }
