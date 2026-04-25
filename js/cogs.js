@@ -1160,7 +1160,6 @@ function handleCogDotEnter(evt, idx) {
       <span>Price <strong style="color:#fff;">$${pt.price.toFixed(2)}</strong></span>
       <span>Cost <strong style="color:#fff;">$${pt.cog.toFixed(3)}</strong></span>
     </div>
-    <div style="font-size:10px;color:var(--gold);margin-top:6px;font-weight:600;">Click dot to open item →</div>
   `;
   const rect = host.getBoundingClientRect();
   const mx = evt.clientX - rect.left;
