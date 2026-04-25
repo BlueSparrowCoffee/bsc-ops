@@ -1,4 +1,4 @@
-const CACHE = 'bsc-ops-v13';
+const CACHE = 'bsc-ops-v14';
 const STATIC_ASSETS = ['/images/icon-32.png', '/images/icon-180.png', '/images/icon-192.png', '/images/icon-512.png', '/images/BSC%20Ops%20Logo.png', '/images/BSC%20Ops%20Logo%20Animated%20V2.gif', '/images/feather.png', '/manifest.json'];
 
 self.addEventListener('install', e => {
