@@ -1221,8 +1221,7 @@ function renderCogsOverviewChart(items, target) {
 
   // Responsive SVG — fills container width, stays 300px tall visually.
   const VB_W = 680, VB_H = 320;
-  // Right pad widened to fit the secondary $-profit axis ticks/label.
-  const PAD_L = 52, PAD_R = 60, PAD_T = 20, PAD_B = 50;
+  const PAD_L = 52, PAD_R = 20, PAD_T = 20, PAD_B = 50;
   const plotW = VB_W - PAD_L - PAD_R;
   const plotH = VB_H - PAD_T - PAD_B;
 
@@ -1261,40 +1260,12 @@ function renderCogsOverviewChart(items, target) {
   const GRID_LINE = 'rgba(2,61,74,.10)';
   const AXIS_LINE = 'rgba(2,61,74,.30)';
   const TARGET_COL = '#b78b40';   // brand gold
-  const AVG_COL    = '#0e7490';   // deep cyan — readable on cream
 
-  // ── Right-side $-profit scale ─────────────────────────────────────
-  // Independent secondary Y axis used by the horizontal "Avg profit"
-  // line. We compute it once from the visible items (profit = price-cog),
-  // then map gridline positions to round $ ticks on the right edge.
-  const profitsArr = visibleItems.map(i => Math.max(0, (i.price||0) - (i.cog||0)));
-  const avgProfit  = profitsArr.length ? profitsArr.reduce((s,p)=>s+p, 0) / profitsArr.length : 0;
-  const maxProfit  = profitsArr.length ? Math.max(...profitsArr) : 0;
-  // Round profit ceiling to a clean number so the right-axis ticks read
-  // as $5/$10/$25 etc rather than weird fractions.
-  const niceCeil = (v) => {
-    if (v <= 0) return 1;
-    const pow = Math.pow(10, Math.floor(Math.log10(v)));
-    const n   = v / pow;
-    const step = n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10;
-    return step * pow;
-  };
-  const profitCeil = niceCeil(Math.max(maxProfit, avgProfit) * 1.1) || 1;
-  const yScaleProfit = $ => PAD_T + plotH - (Math.max(0, $) / profitCeil) * plotH;
-  const fmtProfit = (v) => v >= 1000 ? '$' + Math.round(v).toLocaleString()
-                          : v >= 100  ? '$' + Math.round(v)
-                          : v >= 10   ? '$' + v.toFixed(0)
-                          :             '$' + v.toFixed(2).replace(/\.00$/,'');
-
-  // Grid — Y (left = margin %, right = profit $; both share gridlines)
+  // Grid — Y (left = margin %)
   [0, 25, 50, 75, 100].forEach(m => {
     const y = yScale(m);
     svg.push(`<line x1="${PAD_L}" y1="${y}" x2="${VB_W - PAD_R}" y2="${y}" stroke="${GRID_LINE}" stroke-width="1"/>`);
     svg.push(`<text x="${PAD_L - 8}" y="${y + 4}" text-anchor="end" font-size="10" fill="${TEXT_MUTED}">${m}%</text>`);
-    // Right-edge $-profit tick label, aligned to the same gridline so the
-    // user can read either scale at a glance.
-    const dollarVal = (m / 100) * profitCeil;
-    svg.push(`<text x="${VB_W - PAD_R + 8}" y="${y + 4}" text-anchor="start" font-size="10" fill="${AVG_COL}" opacity=".85">${fmtProfit(dollarVal)}</text>`);
   });
 
   // Format $ tick with thousands separator for big merch/equipment prices.
@@ -1327,27 +1298,11 @@ function renderCogsOverviewChart(items, target) {
   // Axis labels — dark teal, bold so they read clearly on cream
   svg.push(`<text x="${PAD_L + plotW / 2}" y="${VB_H - 6}" text-anchor="middle" font-size="12" font-weight="700" fill="${TEXT_DARK}" letter-spacing=".3">Selling Price ($)${useLog ? '  —  log scale' : ''}</text>`);
   svg.push(`<text transform="rotate(-90)" x="${-(PAD_T + plotH / 2)}" y="14" text-anchor="middle" font-size="12" font-weight="700" fill="${TEXT_DARK}" letter-spacing=".3">Gross Margin (%)</text>`);
-  // Right-axis label — rotated 90° clockwise, sitting just outside the right edge
-  svg.push(`<text transform="rotate(90)" x="${PAD_T + plotH / 2}" y="${-(VB_W - 14)}" text-anchor="middle" font-size="12" font-weight="700" fill="${AVG_COL}" letter-spacing=".3">Profit ($)</text>`);
 
   // Target line — horizontal, marks the target margin on the Y axis
   svg.push(`<line x1="${PAD_L}" y1="${tyTar}" x2="${VB_W - PAD_R}" y2="${tyTar}" stroke="${TARGET_COL}" stroke-width="1.6" stroke-dasharray="6,4" opacity=".95"/>`);
   svg.push(`<text x="${VB_W - PAD_R - 4}" y="${tyTar - 5}" text-anchor="end" font-size="10" fill="${TARGET_COL}" font-weight="700">Target ${target}%</text>`);
 
-  // Average profit line — horizontal, plotted against the right-side $ axis
-  // (independent of the left % scale). Shows the average gross-profit-per-unit
-  // ($ price − $ cost) across all visible items so the user can read at a
-  // glance "what does our typical item make us in dollars?"
-  if (visibleItems.length && avgProfit > 0) {
-    const ya = yScaleProfit(avgProfit);
-    if (ya >= PAD_T && ya <= PAD_T + plotH) {
-      svg.push(`<line x1="${PAD_L}" y1="${ya}" x2="${VB_W - PAD_R}" y2="${ya}" stroke="${AVG_COL}" stroke-width="1.6" stroke-dasharray="3,3" opacity=".95"/>`);
-      const label = `Avg profit ${fmtProfit(avgProfit)}`;
-      // Position the label just above the line, anchored to the left edge so
-      // it sits inside the plot regardless of the line's height.
-      svg.push(`<text x="${PAD_L + 6}" y="${ya - 5}" text-anchor="start" font-size="10" fill="${AVG_COL}" font-weight="700">${label}</text>`);
-    }
-  }
 
   // Collision-aware draw order — plot worst-first so at-target dots sit on top,
   // and tiny jitter (deterministic, based on name hash) separates exact overlaps.
@@ -1413,7 +1368,6 @@ function renderCogsOverviewChart(items, target) {
     <div style="display:flex;gap:12px;align-items:center;font-size:11px;color:var(--text);flex-wrap:wrap;">
       <span style="color:var(--muted);font-weight:700;letter-spacing:.3px;text-transform:uppercase;font-size:10px;">Lines</span>
       <span style="display:inline-flex;align-items:center;gap:6px;" title="Horizontal line at your target margin %"><svg width="22" height="8" style="flex-shrink:0;"><line x1="0" y1="4" x2="22" y2="4" stroke="#b78b40" stroke-width="1.8" stroke-dasharray="5,3"/></svg>Target margin</span>
-      <span style="display:inline-flex;align-items:center;gap:6px;" title="Average gross profit per item ($ price − $ cost). Read against the right-side dollar axis."><svg width="22" height="8" style="flex-shrink:0;"><line x1="0" y1="4" x2="22" y2="4" stroke="#0e7490" stroke-width="1.8" stroke-dasharray="3,3"/></svg>Avg profit ($)</span>
     </div>`;
 
   el.innerHTML = `
