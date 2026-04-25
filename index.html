@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" href="/images/BSC%20Ops%20Logo%20Transparent.png">
-<link rel="apple-touch-icon-precomposed" href="/images/BSC%20Ops%20Logo%20Transparent.png">
-<link rel="icon" type="image/png" href="/images/BSC%20Ops%20Logo%20Transparent.png">
+<link rel="apple-touch-icon" href="/images/BSC%20Ops%20Logo.png">
+<link rel="apple-touch-icon-precomposed" href="/images/BSC%20Ops%20Logo.png">
+<link rel="icon" type="image/png" href="/images/BSC%20Ops%20Logo.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="BSC Ops">
@@ -221,10 +221,11 @@ body.is-loading{overflow:hidden;}
 
 /* Welcome splash — first paint after fresh-tab / sign-in, then dismissed.
  * Same z-index as #loading; placed later in DOM so it stacks on top. */
-#splash{display:none;position:fixed;inset:0;background:var(--dark-blue);z-index:2147483647;align-items:center;justify-content:center;opacity:0;transition:opacity .35s ease;}
+#splash{display:none;position:fixed;inset:0;background:var(--dark-blue);z-index:2147483647;flex-direction:column;align-items:center;justify-content:center;gap:20px;opacity:0;transition:opacity .35s ease;}
 #splash.show{display:flex;opacity:1;}
 #splash.fade{opacity:0;}
-#splash video{width:min(60vmin,400px);height:auto;display:block;}
+#splash img{width:min(60vmin,400px);height:auto;display:block;}
+#splash-msg{color:rgba(255,255,255,.85);font-size:14px;font-weight:500;text-align:center;letter-spacing:.02em;}
 
 /* BSC isometric cube loader — compiled from the SCSS mixin-based design
  * the user supplied. 27 sub-cubes, each a .cube with .top/.left/.right
@@ -471,7 +472,7 @@ html,body{overscroll-behavior:none;}
 
 <!-- AUTH -->
 <div id="auth-screen">
-  <img class="auth-feather" src="/images/BSC%20Ops%20Logo%20Transparent.png" alt="Blue Sparrow Coffee">
+  <img class="auth-feather" src="/images/BSC%20Ops%20Logo.png" alt="Blue Sparrow Coffee">
   <div class="auth-title">Blue Sparrow Coffee</div>
   <div class="auth-sub">Operations Platform · Sign in with your BSC Microsoft account</div>
   <button class="btn-signin" onclick="signIn()">Sign in with Microsoft</button>
@@ -2233,33 +2234,33 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-04-25b" defer></script>
-<script src="/js/utils.js?v=2026-04-25b" defer></script>
-<script src="/js/state.js?v=2026-04-25b" defer></script>
-<script src="/js/auth.js?v=2026-04-25b" defer></script>
-<script src="/js/graph.js?v=2026-04-25b" defer></script>
-<script src="/js/signalr.js?v=2026-04-25b" defer></script>
-<script src="/js/tags.js?v=2026-04-25b" defer></script>
-<script src="/js/nav.js?v=2026-04-25b" defer></script>
-<script src="/js/settings.js?v=2026-04-25b" defer></script>
-<script src="/js/dashboard.js?v=2026-04-25b" defer></script>
-<script src="/js/inventory.js?v=2026-04-25b" defer></script>
-<script src="/js/inventory-form.js?v=2026-04-25b" defer></script>
-<script src="/js/counts.js?v=2026-04-25b" defer></script>
-<script src="/js/foodpars.js?v=2026-04-25b" defer></script>
-<script src="/js/labels.js?v=2026-04-25b" defer></script>
-<script src="/js/pastry-sync.js?v=2026-04-25b" defer></script>
-<script src="/js/recipes.js?v=2026-04-25b" defer></script>
-<script src="/js/cogs.js?v=2026-04-25b" defer></script>
-<script src="/js/vendors.js?v=2026-04-25b" defer></script>
-<script src="/js/contacts.js?v=2026-04-25b" defer></script>
-<script src="/js/maintenance.js?v=2026-04-25b" defer></script>
-<script src="/js/checklists.js?v=2026-04-25b" defer></script>
-<script src="/js/ordering.js?v=2026-04-25b" defer></script>
-<script src="/js/parking.js?v=2026-04-25b" defer></script>
-<script src="/js/prepItems.js?v=2026-04-25b" defer></script>
-<script src="/js/square.js?v=2026-04-25b" defer></script>
-<script src="/js/slack.js?v=2026-04-25b" defer></script>
+<script src="/js/constants.js?v=2026-04-25c" defer></script>
+<script src="/js/utils.js?v=2026-04-25c" defer></script>
+<script src="/js/state.js?v=2026-04-25c" defer></script>
+<script src="/js/auth.js?v=2026-04-25c" defer></script>
+<script src="/js/graph.js?v=2026-04-25c" defer></script>
+<script src="/js/signalr.js?v=2026-04-25c" defer></script>
+<script src="/js/tags.js?v=2026-04-25c" defer></script>
+<script src="/js/nav.js?v=2026-04-25c" defer></script>
+<script src="/js/settings.js?v=2026-04-25c" defer></script>
+<script src="/js/dashboard.js?v=2026-04-25c" defer></script>
+<script src="/js/inventory.js?v=2026-04-25c" defer></script>
+<script src="/js/inventory-form.js?v=2026-04-25c" defer></script>
+<script src="/js/counts.js?v=2026-04-25c" defer></script>
+<script src="/js/foodpars.js?v=2026-04-25c" defer></script>
+<script src="/js/labels.js?v=2026-04-25c" defer></script>
+<script src="/js/pastry-sync.js?v=2026-04-25c" defer></script>
+<script src="/js/recipes.js?v=2026-04-25c" defer></script>
+<script src="/js/cogs.js?v=2026-04-25c" defer></script>
+<script src="/js/vendors.js?v=2026-04-25c" defer></script>
+<script src="/js/contacts.js?v=2026-04-25c" defer></script>
+<script src="/js/maintenance.js?v=2026-04-25c" defer></script>
+<script src="/js/checklists.js?v=2026-04-25c" defer></script>
+<script src="/js/ordering.js?v=2026-04-25c" defer></script>
+<script src="/js/parking.js?v=2026-04-25c" defer></script>
+<script src="/js/prepItems.js?v=2026-04-25c" defer></script>
+<script src="/js/square.js?v=2026-04-25c" defer></script>
+<script src="/js/slack.js?v=2026-04-25c" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
@@ -4919,9 +4920,8 @@ async function graphAll(path) {
 <!-- WELCOME SPLASH — shown once per tab/session and after MSAL sign-in. Placed
      after #loading so equal z-index resolves to splash via DOM order. -->
 <div id="splash" aria-hidden="true">
-  <video autoplay muted playsinline loop preload="auto">
-    <source src="/images/BSC%20Ops%20Logo%20Animated%20V2.mp4" type="video/mp4">
-  </video>
+  <img src="/images/BSC%20Ops%20Logo%20Animated%20V2.gif" alt="">
+  <div id="splash-msg">Loading BSC Operations…</div>
 </div>
 </body>
 </html>

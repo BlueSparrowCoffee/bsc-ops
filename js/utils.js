@@ -36,7 +36,13 @@ function toast(type, msg = '✓ Saved') {
 function setLoading(on, msg = '') {
   document.getElementById('loading').classList.toggle('show', on);
   document.body.classList.toggle('is-loading', on);
-  if (msg) document.getElementById('loading-msg').textContent = msg;
+  if (msg) {
+    document.getElementById('loading-msg').textContent = msg;
+    // Splash overlay (when present) is on top of #loading and hides its own
+    // message — keep its label in sync so users see real progress text.
+    const sp = document.getElementById('splash-msg');
+    if (sp) sp.textContent = msg;
+  }
 }
 
 // ── Per-key input debounce (search/filter) ───────────────────────
