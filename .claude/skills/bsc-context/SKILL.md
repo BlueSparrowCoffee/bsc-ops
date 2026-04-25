@@ -11,19 +11,25 @@ Load and summarize all critical context for the BSC Ops project so the session i
 - `/Users/jeffreyknott/.claude/projects/-Users-jeffreyknott-Desktop-BSC-x-Claude-1-0/memory/bsc_brand_guide.md`
 - `/Users/jeffreyknott/.claude/projects/-Users-jeffreyknott-Desktop-BSC-x-Claude-1-0/memory/bsc_integrations.md`
 
-## Read these live values from index.html
+## Read these live values
 
-File: `/Users/jeffreyknott/Desktop/BSC x Claude 1.0/bsc-ops/index.html`
+**Note (post module-split, 2026-04):** Constants moved from `index.html` into `js/constants.js`. Form-field arrays and CFGs may still live in either file or in their feature module — search both.
+
+Files to inspect:
+- `/Users/jeffreyknott/Desktop/BSC x Claude 1.0/bsc-ops/js/constants.js`
+- `/Users/jeffreyknott/Desktop/BSC x Claude 1.0/bsc-ops/index.html`
+- `/Users/jeffreyknott/Desktop/BSC x Claude 1.0/bsc-ops/js/*.js` (feature modules)
 
 Extract and report:
-1. **PROVISION_VERSION** — grep for `const PROVISION_VERSION`
-2. **LISTS constant** — grep for `const LISTS` and read the full object
-3. **INV_TYPE_CFG** — grep for `const INV_TYPE_CFG` and read inventory type definitions
-4. **INV_COG_CFG** — grep for `const INV_COG_CFG`
-5. **MODULES array** — grep for `const MODULES`
-6. **MAINT_FORM_FIELDS** — grep for `const MAINT_FORM_FIELDS`
-7. **VENDOR_FORM_FIELDS** — grep for `const VENDOR_FORM_FIELDS`
-8. **Current line count** — run `wc -l` on index.html
+1. **APP_VERSION** — grep `const APP_VERSION` in `js/constants.js`
+2. **PROVISION_VERSION** — grep `const PROVISION_VERSION` in `js/constants.js`
+3. **LISTS constant** — grep `const LISTS` (likely `js/constants.js`); read full object
+4. **INV_TYPE_CFG** — grep `const INV_TYPE_CFG`
+5. **INV_COG_CFG** — grep `const INV_COG_CFG`
+6. **MODULES array** — grep `const MODULES`
+7. **MAINT_FORM_FIELDS** — grep `const MAINT_FORM_FIELDS`
+8. **VENDOR_FORM_FIELDS** — grep `const VENDOR_FORM_FIELDS`
+9. **Line counts** — run `wc -l index.html js/*.js` (index.html should be well below 10k post-split — currently ~4,900)
 
 ## Report format
 
@@ -143,6 +149,12 @@ Always use the `deploy` skill after index.html changes. It stages only index.htm
 ### COGs ingredient dropdown
 - `position:fixed` + `getBoundingClientRect()` to escape overflow:auto containers.
 
+### COGs overview chart (post 2026-04-25)
+- **Coffee-bar dots use LIVE `calcCog`** against current cogMap/invMap/prepMap — **NOT** `BSC_CogSnapshots`. Snapshots are history-only now. If chart looks "stale" don't tell the user to take a snapshot — the chart is decoupled.
+- Chart is repainted by `renderCogsOverview()` on every COG mutation (snapshot, ingredient add/edit/delete, sync buttons, hide toggles, archive toggles in Inventory).
+- Dot click navigates: switches tab via `cogTab(type)`, scrolls to `#cogs-item-card-${type}-${cardId}`, flashes gold ring. Don't add tooltip-embedded action links — the tooltip vanishes on mouseleave.
+- Card IDs follow the convention `cogs-item-card-${type}-${id}` where `type ∈ {coffee-bar, merch, food, grocery}` and `id` is `SquareId || sp_id` for coffee-bar, sp `id` for inv types.
+
 ### Count records
 - Written ONLY by `submitWeeklyCount()` / `submitMerchCount()` on explicit button press.
 - SignalR and `updateCountTotal` never write to count lists.
@@ -186,6 +198,15 @@ Always use the `deploy` skill after index.html changes. It stages only index.htm
 - `connect-src` includes `https://cdn.jsdelivr.net` for SignalR CDN.
 - Edit this file alongside index.html when adding new external domains.
 
+### Schema change → re-provisioning
+- Add columns to `ensureList(...)` in `ensureAllLists()`.
+- Bump `PROVISION_VERSION` in `js/constants.js`.
+- Tell user to clear `bsc_provision_v` from localStorage (Settings → Clear Local Data) so re-provisioning fires.
+
+### "Remove" means delete completely
+Per `feedback_remove_means_delete.md`: when the user says remove/delete/kill/drop, delete every supporting line — helpers, constants, CSS classes, legend entries, comments. Never just hide with `display:none`, `if (false)`, or feature flags. After the obvious deletion, search for orphaned references and remove them in the same edit.
+
 ## Also flag
-- If index.html is over 10,000 lines: recommend splitting into JS modules
-- If PROVISION_VERSION hasn't been bumped after a schema change: remind user
+- If `index.html` is over 10,000 lines again: recommend further module split
+- If `PROVISION_VERSION` hasn't been bumped after a schema change: remind user
+- If `APP_VERSION` in `js/constants.js` doesn't match the 27 cache-bust strings in `index.html`: bump both
