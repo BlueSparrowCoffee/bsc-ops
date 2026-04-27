@@ -1241,7 +1241,37 @@ function renderCogsOverviewChart(items, target) {
   const xScale = useLog
     ? p => PAD_L + ((Math.log10(Math.max(LOG_FLOOR, p)) - logMin) / logRange) * plotW
     : p => PAD_L + (p / xCeil) * plotW;
-  const yScale = m => PAD_T + plotH - (Math.min(100, Math.max(0, m)) / 100) * plotH;
+  // Auto-fit Y axis to visible margin range. Always include the target line so
+  // the dashed reference doesn't fall off the chart. Clamp to [-50, 100] so a
+  // single outlier loss doesn't blow the scale out, and round to nice 5% bounds.
+  const margins = visibleItems.map(i => i.margin).filter(m => Number.isFinite(m));
+  let yMin, yMax;
+  if (!margins.length) {
+    yMin = 0; yMax = 100;
+  } else {
+    let lo = Math.min(...margins, target);
+    let hi = Math.max(...margins, target);
+    if (hi - lo < 10) {
+      const mid = (lo + hi) / 2;
+      lo = mid - 10; hi = mid + 10;
+    } else {
+      const buf = (hi - lo) * 0.1;
+      lo -= buf; hi += buf;
+    }
+    yMin = Math.max(-50, Math.floor(lo / 5) * 5);
+    yMax = Math.min(100, Math.ceil(hi / 5) * 5);
+    if (yMax <= yMin) yMax = yMin + 5;
+  }
+  const yRange = yMax - yMin;
+  const yScale = m => {
+    const clamped = Math.min(yMax, Math.max(yMin, m));
+    return PAD_T + plotH - ((clamped - yMin) / yRange) * plotH;
+  };
+  // Pick a tick step that yields ~4-6 grid lines
+  const yStep = yRange <= 25 ? 5 : yRange <= 50 ? 10 : yRange <= 100 ? 20 : 25;
+  const yTicks = [];
+  for (let m = Math.ceil(yMin / yStep) * yStep; m <= yMax; m += yStep) yTicks.push(m);
+
   const dotColor = (m) => m >= target ? '#16a34a' : m >= target * 0.8 ? '#d97706' : '#dc2626';
 
   const svg = [];
@@ -1261,8 +1291,8 @@ function renderCogsOverviewChart(items, target) {
   const AXIS_LINE = 'rgba(2,61,74,.30)';
   const TARGET_COL = '#b78b40';   // brand gold
 
-  // Grid — Y (left = margin %)
-  [0, 25, 50, 75, 100].forEach(m => {
+  // Grid — Y (left = margin %); ticks computed from the auto-fit range
+  yTicks.forEach(m => {
     const y = yScale(m);
     svg.push(`<line x1="${PAD_L}" y1="${y}" x2="${VB_W - PAD_R}" y2="${y}" stroke="${GRID_LINE}" stroke-width="1"/>`);
     svg.push(`<text x="${PAD_L - 8}" y="${y + 4}" text-anchor="end" font-size="10" fill="${TEXT_MUTED}">${m}%</text>`);
