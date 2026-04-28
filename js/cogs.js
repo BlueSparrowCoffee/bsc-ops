@@ -65,6 +65,7 @@ function calcCog(menuItemId, variationName, cogMap, invMap, prepMap, invIdMap) {
     else cog += lineCost;
     return { ...ing, costPerServing, lineCost, isPrepItem, servingUnit: isPrepItem ? (source?.YieldUnit || '') : (source?.ServingUnit || '') };
   });
+  lines.sort((a, b) => String(a.IngredientName||'').localeCompare(String(b.IngredientName||''), undefined, {sensitivity:'base'}));
   return { cog, lines, hasMissingCost };
 }
 
