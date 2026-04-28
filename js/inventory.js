@@ -474,7 +474,7 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
     const costServing = i.CostPerServing != null ? '$'+Number(i.CostPerServing).toFixed(4) : '—';
     const servings    = i.ServingsPerUnit!= null ? Number(i.ServingsPerUnit).toLocaleString()+' '+escHtml(i.ServingUnit||'')  : '—';
     return `<tr data-inv-id="${escHtml(i.id)}" onclick="openEditInvItem('${escHtml(i.id)}')" style="cursor:pointer;${i.Archived?'opacity:.45;':''}">
-      <td class="fw">${escHtml(i.ItemName||'—')}${i.SquareId?'<span class="sq-badge" title="Synced with Square">🔄 Square</span>':''}${i.Archived?'<span style="font-size:10px;background:var(--muted);color:#fff;padding:1px 5px;border-radius:8px;margin-left:4px;">archived</span>':''}${i.Tags?renderTagPills(i.Tags):''}</td>
+      <td class="fw">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png" alt="" title="Synced with Square">':''}${i.Archived?'<span style="font-size:10px;background:var(--muted);color:#fff;padding:1px 5px;border-radius:8px;margin-left:4px;">archived</span>':''}${i.Tags?renderTagPills(i.Tags):''}</td>
       ${invHasCategory() ? `<td><span class="badge badge-teal">${escHtml(i.Category||'—')}</span></td>` : ''}
       <td style="font-size:12px">${i.Supplier ? `<a href="#" data-supplier="${escHtml(i.Supplier||'')}" onclick="event.stopPropagation();nav('vendors');setTimeout(()=>{const s=document.querySelector('#page-vendors .search-input');if(s){s.value=this.dataset.supplier;filterVendors(s.value);}},300);return false;" style="color:var(--gold);text-decoration:none;">${escHtml(i.Supplier)}</a>` : '<span style="color:var(--muted)">—</span>'}</td>
       <td>${store}</td>
@@ -546,7 +546,7 @@ function renderMerchInventoryItems(query='', catFilter='') {
     const value   = (cost != null && totalNum != null) ? '$'+(cost*totalNum).toFixed(2) : '—';
     // Received qty/notes moved to Monthly Cost tab (BSC_MerchReceived draft/final) 2026-04-23.
     return `<tr${i.Archived?' style="opacity:.45;"':''}>
-      <td class="fw">${escHtml(i.ItemName||'—')}${(i.SquareId||i.SquareCatalogItemId)?'<span class="sq-badge" title="Synced with Square">🔄 Square</span>':''}${i.Archived?'<span style="font-size:10px;background:var(--muted);color:#fff;padding:1px 5px;border-radius:8px;margin-left:4px;">archived</span>':''}</td>
+      <td class="fw">${escHtml(i.ItemName||'—')}${(i.SquareId||i.SquareCatalogItemId)?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png" alt="" title="Synced with Square">':''}${i.Archived?'<span style="font-size:10px;background:var(--muted);color:#fff;padding:1px 5px;border-radius:8px;margin-left:4px;">archived</span>':''}</td>
       <td><span class="badge badge-teal">${escHtml(i.Category||'—')}</span></td>
       <td>${cost != null ? '$'+Number(cost).toFixed(2) : '—'}</td>
       <td>${store}</td>
