@@ -326,10 +326,12 @@ async function submitWeeklyCount() {
 
     const cfg = invCfg();
     const cntList = cfg.countsPrefix.replace('{loc}', (loc||'').replace(/[\s\/\\]/g, '_'));
-    const invList = LISTS[cfg.listKey];
-    if (!cntList || !invList) { toast('err','Select a specific location to submit counts'); setLoading(false); btn.disabled=false; return; }
+    if (!cntList) { toast('err','Select a specific location to submit counts'); setLoading(false); btn.disabled=false; return; }
 
-    // batch save to location counts list (8 concurrent)
+    // batch save to location counts list (8 concurrent). Stock totals live on
+    // the count record only — the inventory item master has no CurrentStock /
+    // StoreCount / StorageCount columns. Display reads via getLatestCountsMap()
+    // / recentMap, so writing back to the item is unnecessary (and used to 400).
     const countTasks = entries.map(e => () => addListItem(cntList, {
       Title: e.name,
       WeekOf: countedAt,
@@ -340,23 +342,9 @@ async function submitWeeklyCount() {
       CountedBy: countedBy
     }));
 
-    // batch PATCH inventory items
-    const invCacheKey = cfg.cacheKey;
-    const invTasks = entries.map(e => () => {
-      const item = cache[invCacheKey].find(i=>String(i.id)===String(e.id));
-      if (!item) return Promise.resolve();
-      item.CurrentStock = e.total;
-      item.StoreCount = e.store;
-      item.StorageCount = e.storage;
-      return updateListItem(invList, e.id, {
-        CurrentStock: e.total, StoreCount: e.store, StorageCount: e.storage
-      });
-    });
-
-    const allTasks = [...countTasks, ...invTasks];
-    for (let i=0; i<allTasks.length; i+=8) {
-      await Promise.all(allTasks.slice(i,i+8).map(t=>t()));
-      prog.textContent = `${Math.min(i+8,allTasks.length)}/${allTasks.length}`;
+    for (let i=0; i<countTasks.length; i+=8) {
+      await Promise.all(countTasks.slice(i,i+8).map(t=>t()));
+      prog.textContent = `${Math.min(i+8,countTasks.length)}/${countTasks.length}`;
     }
 
     // update cache — assign synthetic ids higher than any existing so recentMap tiebreak picks these
@@ -371,7 +359,7 @@ async function submitWeeklyCount() {
 
     // Slack alert for low items
     const lowItems = entries.filter(e => {
-      const item = cache[invCacheKey].find(i=>String(i.id)===String(e.id));
+      const item = cache[cfg.cacheKey].find(i=>String(i.id)===String(e.id));
       if (!item) return false;
       const thresh = invLowThreshold(item, loc);
       if (thresh == null) return false;
