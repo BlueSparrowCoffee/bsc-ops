@@ -352,7 +352,7 @@ async function syncSquareCatalog() {
     const existMap = {};
     existing.forEach(i => { if (i.SquareId) existMap[i.SquareId] = i; });
 
-    let created = 0, updated = 0;
+    let created = 0, updated = 0, failed = 0;
     for (const item of items) {
       const d = item.item_data || {};
       const name = d.name || item.id;
@@ -396,15 +396,24 @@ async function syncSquareCatalog() {
         // Note: Hidden flag is intentionally NOT overwritten — preserved from existing record
       };
 
-      if (existMap[item.id]) {
-        // Preserve Hidden flag — don't overwrite user's hide/show preference
-        await updateListItem(LISTS.menu, existMap[item.id].id, fields);
-        updated++;
-        sqLog(logId, `  ↻ ${name} (${cat})`);
-      } else {
-        await addListItem(LISTS.menu, fields);
-        created++;
-        sqLog(logId, `  + ${name} (${cat})`);
+      // Skip-and-continue: one bad item shouldn't abort the whole sync.
+      // graph() already retries 429/503/504 — anything throwing here is a
+      // hard failure (400 invalid field, 403 perms, exhausted retries, etc).
+      try {
+        if (existMap[item.id]) {
+          // Preserve Hidden flag — don't overwrite user's hide/show preference
+          await updateListItem(LISTS.menu, existMap[item.id].id, fields);
+          updated++;
+          sqLog(logId, `  ↻ ${name} (${cat})`);
+        } else {
+          await addListItem(LISTS.menu, fields);
+          created++;
+          sqLog(logId, `  + ${name} (${cat})`);
+        }
+      } catch (e) {
+        failed++;
+        sqLog(logId, `  ✗ ${name} — ${e.message}`);
+        console.warn(`[syncSquareCatalog] failed to write "${name}":`, e);
       }
     }
 
@@ -413,9 +422,14 @@ async function syncSquareCatalog() {
     for (const item of archived) {
       const existing = existMap[item.id];
       if (existing && existing.Hidden !== 'Yes') {
-        await updateListItem(LISTS.menu, existing.id, { Hidden: 'Yes' });
-        autoHidden++;
-        sqLog(logId, `  👁 Hidden (archived in Square): ${item.item_data?.name || item.id}`);
+        try {
+          await updateListItem(LISTS.menu, existing.id, { Hidden: 'Yes' });
+          autoHidden++;
+          sqLog(logId, `  👁 Hidden (archived in Square): ${item.item_data?.name || item.id}`);
+        } catch (e) {
+          failed++;
+          sqLog(logId, `  ✗ Failed to hide ${item.item_data?.name || item.id} — ${e.message}`);
+        }
       }
     }
 
@@ -424,10 +438,11 @@ async function syncSquareCatalog() {
     cache.menu = await getListItems(sId, LISTS.menu).catch(()=>[]);
     renderMenu();
 
-    sqLog(logId, `<br>✅ Done — ${created} added, ${updated} updated${autoHidden ? `, ${autoHidden} auto-hidden (archived in Square)` : ''}`);
+    const failSuffix = failed ? `, ⚠ ${failed} failed (see log above)` : '';
+    sqLog(logId, `<br>${failed ? '⚠️' : '✅'} Done — ${created} added, ${updated} updated${autoHidden ? `, ${autoHidden} auto-hidden (archived in Square)` : ''}${failSuffix}`);
     localStorage.setItem('sq_last_catalog', new Date().toISOString());
     document.getElementById('sq-catalog-last').textContent = `Last synced: ${new Date().toLocaleString()}`;
-    toast('ok', `✓ Catalog synced to Menu — ${created} added, ${updated} updated`);
+    toast(failed ? 'err' : 'ok', `${failed ? '⚠' : '✓'} Catalog synced — ${created} added, ${updated} updated${failSuffix}`);
   } catch(e) {
     sqLog(logId, `❌ Error: ${e.message}`);
     toast('err', 'Catalog sync failed: ' + e.message);

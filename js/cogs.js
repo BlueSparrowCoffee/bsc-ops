@@ -692,7 +692,7 @@ function renderInvCogCard(item, tabKey) {
           </div>
           <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
             <span style="font-size:13px;color:var(--muted);white-space:nowrap;">Selling price
-              ${item.SquareCatalogItemId?'<span style="font-size:10px;background:#1a1a1a;color:#fff;padding:1px 5px;border-radius:8px;vertical-align:middle;margin-left:4px;">◼ Square</span>':''}
+              ${item.SquareCatalogItemId?'<span class="sq-badge" title="Synced with Square">🔄 Square</span>':''}
             </span>
             <div style="display:flex;align-items:center;gap:4px;">
               <span style="color:var(--muted);font-size:13px;">$</span>

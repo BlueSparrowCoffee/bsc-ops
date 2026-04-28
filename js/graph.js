@@ -14,13 +14,30 @@
 // graphAdmin() — admin scopes, used for staff sync / tenant ops
 // Both throw "[status] message" on non-2xx, return parsed JSON on 2xx,
 // and return null on 204 No Content.
-async function graph(method, path, body = null) {
+// Retry transient failures (429 throttling, 503/504 service blips). Honors
+// Retry-After header when Microsoft sends one; otherwise 1s / 2s / 4s backoff.
+// Other status codes throw immediately as before.
+const _GRAPH_RETRY_STATUSES = new Set([429, 503, 504]);
+const _GRAPH_MAX_RETRIES = 3;
+function _graphBackoffMs(res, retriesLeft) {
+  const ra = parseInt(res.headers.get('Retry-After') || '', 10);
+  if (Number.isFinite(ra) && ra > 0) return Math.min(ra, 30) * 1000;
+  return ((_GRAPH_MAX_RETRIES - retriesLeft) ** 2) * 1000 + 1000; // 1s, 2s, 5s
+}
+
+async function graph(method, path, body = null, _retries = _GRAPH_MAX_RETRIES) {
   const token = await getToken();
   const res = await fetch(`https://graph.microsoft.com/v1.0${path}`, {
     method,
     headers: { 'Authorization':'Bearer '+token, 'Content-Type':'application/json' },
     body: body ? JSON.stringify(body) : null
   });
+  if (_GRAPH_RETRY_STATUSES.has(res.status) && _retries > 0) {
+    const waitMs = _graphBackoffMs(res, _retries);
+    console.warn(`[Graph ${res.status}] ${method} ${path} — retrying in ${waitMs}ms (${_retries} left)`);
+    await new Promise(r => setTimeout(r, waitMs));
+    return graph(method, path, body, _retries - 1);
+  }
   if (!res.ok) {
     const e = await res.json().catch(()=>({}));
     const inner = e?.error?.innerError?.message || e?.error?.innererror?.message;
@@ -32,13 +49,19 @@ async function graph(method, path, body = null) {
   return res.status === 204 ? null : res.json();
 }
 
-async function graphAdmin(method, path, body = null) {
+async function graphAdmin(method, path, body = null, _retries = _GRAPH_MAX_RETRIES) {
   const token = await getAdminToken();
   const res = await fetch(`https://graph.microsoft.com/v1.0${path}`, {
     method,
     headers: { 'Authorization':'Bearer '+token, 'Content-Type':'application/json' },
     body: body ? JSON.stringify(body) : null
   });
+  if (_GRAPH_RETRY_STATUSES.has(res.status) && _retries > 0) {
+    const waitMs = _graphBackoffMs(res, _retries);
+    console.warn(`[GraphAdmin ${res.status}] ${method} ${path} — retrying in ${waitMs}ms (${_retries} left)`);
+    await new Promise(r => setTimeout(r, waitMs));
+    return graphAdmin(method, path, body, _retries - 1);
+  }
   if (!res.ok) {
     const e = await res.json().catch(()=>({}));
     throw new Error(`[${res.status}] ${e?.error?.message || 'Graph error'}`);
