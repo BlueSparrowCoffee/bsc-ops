@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-04-29b">
-<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-04-29b">
-<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-04-29b">
-<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-04-29b">
-<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-04-29b">
+<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-04-29c">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-04-29c">
+<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-04-29c">
+<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-04-29c">
+<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-04-29c">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="BSC Ops">
@@ -225,12 +225,18 @@ body.is-loading{overflow:hidden;}
 
 /* Welcome splash — first paint after fresh-tab / sign-in, then dismissed.
  * Same z-index as #loading; placed later in DOM so it stacks on top.
- * Bg alpha follows --load-progress; opacity is reserved for show/hide. */
-#splash{display:none;position:fixed;inset:0;background-color:rgba(2,61,74,calc(1 - var(--load-progress,0)));z-index:2147483647;flex-direction:column;align-items:center;justify-content:center;gap:20px;opacity:0;transition:opacity .35s ease, background-color .4s ease;}
-#splash.show{display:flex;opacity:1;}
-#splash.fade{opacity:0;}
+ * Background fades from opaque navy → transparent over 30s, starting the
+ * moment .show is applied. Dismiss is instant (no fade-out). */
+@keyframes splash-bg-fade {
+  from { background-color: rgba(2,61,74,1); }
+  to   { background-color: rgba(2,61,74,0); }
+}
+#splash{display:none;position:fixed;inset:0;background-color:rgba(2,61,74,1);z-index:2147483647;flex-direction:column;align-items:center;justify-content:center;gap:20px;opacity:0;transition:opacity .35s ease;}
+#splash.show{display:flex;opacity:1;animation:splash-bg-fade 30s linear forwards;}
 #splash img{width:min(48vmin,320px);height:auto;display:block;}
 #splash-msg{color:rgba(255,255,255,.85);font-size:14px;font-weight:500;text-align:center;letter-spacing:.02em;}
+/* While the splash is up, suppress the cube loader entirely. */
+body.splash-active #loading{display:none !important;}
 
 /* BSC isometric cube loader — compiled from the SCSS mixin-based design
  * the user supplied. 27 sub-cubes, each a .cube with .top/.left/.right
@@ -1910,6 +1916,10 @@ html,body{overscroll-behavior:none;}
         </div>
       </div>
       <div class="card" style="grid-column:1/-1">
+        <div class="card-title" style="margin-bottom:16px">🔄 Auto-Sync from Square</div>
+        <div id="auto-sync-card-body"></div>
+      </div>
+      <div class="card" style="grid-column:1/-1">
         <div class="card-title" style="margin-bottom:4px">🔑 Microsoft Staff Access</div>
         <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">
           <b>Sync Access</b> — silently grants SharePoint site access to all active staff. No emails sent.<br>
@@ -2246,33 +2256,34 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-04-29b" defer></script>
-<script src="/js/utils.js?v=2026-04-29b" defer></script>
-<script src="/js/state.js?v=2026-04-29b" defer></script>
-<script src="/js/auth.js?v=2026-04-29b" defer></script>
-<script src="/js/graph.js?v=2026-04-29b" defer></script>
-<script src="/js/signalr.js?v=2026-04-29b" defer></script>
-<script src="/js/tags.js?v=2026-04-29b" defer></script>
-<script src="/js/nav.js?v=2026-04-29b" defer></script>
-<script src="/js/settings.js?v=2026-04-29b" defer></script>
-<script src="/js/dashboard.js?v=2026-04-29b" defer></script>
-<script src="/js/inventory.js?v=2026-04-29b" defer></script>
-<script src="/js/inventory-form.js?v=2026-04-29b" defer></script>
-<script src="/js/counts.js?v=2026-04-29b" defer></script>
-<script src="/js/foodpars.js?v=2026-04-29b" defer></script>
-<script src="/js/labels.js?v=2026-04-29b" defer></script>
-<script src="/js/pastry-sync.js?v=2026-04-29b" defer></script>
-<script src="/js/recipes.js?v=2026-04-29b" defer></script>
-<script src="/js/cogs.js?v=2026-04-29b" defer></script>
-<script src="/js/vendors.js?v=2026-04-29b" defer></script>
-<script src="/js/contacts.js?v=2026-04-29b" defer></script>
-<script src="/js/maintenance.js?v=2026-04-29b" defer></script>
-<script src="/js/checklists.js?v=2026-04-29b" defer></script>
-<script src="/js/ordering.js?v=2026-04-29b" defer></script>
-<script src="/js/parking.js?v=2026-04-29b" defer></script>
-<script src="/js/prepItems.js?v=2026-04-29b" defer></script>
-<script src="/js/square.js?v=2026-04-29b" defer></script>
-<script src="/js/slack.js?v=2026-04-29b" defer></script>
+<script src="/js/constants.js?v=2026-04-29c" defer></script>
+<script src="/js/utils.js?v=2026-04-29c" defer></script>
+<script src="/js/state.js?v=2026-04-29c" defer></script>
+<script src="/js/auth.js?v=2026-04-29c" defer></script>
+<script src="/js/graph.js?v=2026-04-29c" defer></script>
+<script src="/js/signalr.js?v=2026-04-29c" defer></script>
+<script src="/js/tags.js?v=2026-04-29c" defer></script>
+<script src="/js/nav.js?v=2026-04-29c" defer></script>
+<script src="/js/settings.js?v=2026-04-29c" defer></script>
+<script src="/js/dashboard.js?v=2026-04-29c" defer></script>
+<script src="/js/inventory.js?v=2026-04-29c" defer></script>
+<script src="/js/inventory-form.js?v=2026-04-29c" defer></script>
+<script src="/js/counts.js?v=2026-04-29c" defer></script>
+<script src="/js/foodpars.js?v=2026-04-29c" defer></script>
+<script src="/js/labels.js?v=2026-04-29c" defer></script>
+<script src="/js/pastry-sync.js?v=2026-04-29c" defer></script>
+<script src="/js/recipes.js?v=2026-04-29c" defer></script>
+<script src="/js/cogs.js?v=2026-04-29c" defer></script>
+<script src="/js/vendors.js?v=2026-04-29c" defer></script>
+<script src="/js/contacts.js?v=2026-04-29c" defer></script>
+<script src="/js/maintenance.js?v=2026-04-29c" defer></script>
+<script src="/js/checklists.js?v=2026-04-29c" defer></script>
+<script src="/js/ordering.js?v=2026-04-29c" defer></script>
+<script src="/js/parking.js?v=2026-04-29c" defer></script>
+<script src="/js/prepItems.js?v=2026-04-29c" defer></script>
+<script src="/js/square.js?v=2026-04-29c" defer></script>
+<script src="/js/slack.js?v=2026-04-29c" defer></script>
+<script src="/js/auto-sync.js?v=2026-04-29c" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
@@ -2354,12 +2365,18 @@ function maybeShowSplash() {
   if (seen && !force) return;
   sessionStorage.setItem('bsc_splash_seen', '1');
   document.getElementById('splash')?.classList.add('show');
+  // Force-hide the cube loader for the entire splash lifecycle so the
+  // partial-opacity fade in/out doesn't reveal it underneath.
+  document.body.classList.add('splash-active');
 }
 function hideSplash() {
   const el = document.getElementById('splash');
   if (!el || !el.classList.contains('show')) return;
-  el.classList.add('fade');
-  setTimeout(() => el.classList.remove('show','fade'), 400);
+  // Instant dismiss — removing .show drops display:flex → display:none in
+  // the same frame. The 30s background-fade keyframe animation cancels
+  // automatically because its selector (.show) no longer matches.
+  el.classList.remove('show');
+  document.body.classList.remove('splash-active');
 }
 
 // signIn, signOut, applyUser, resolveCurrentStaffMember, updateTopbarStaffInfo,
@@ -2423,6 +2440,9 @@ async function bootstrapApp() {
             'Synced '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
           initSignalR();
           registerWebhooks();
+          // Daily Square auto-sync — no-op if disabled, recently run, or
+          // already locked by another browser. Owner-only. Background.
+          if (typeof tryAutoSync === 'function') tryAutoSync();
         })
         .catch(e => {
           document.getElementById('sync-label').textContent = '⚠ Refresh failed';
@@ -2437,6 +2457,7 @@ async function bootstrapApp() {
       // Start real-time sync — non-blocking, app works fine if either fails
       initSignalR();
       registerWebhooks();
+      if (typeof tryAutoSync === 'function') tryAutoSync();
     }
   } catch(e) {
     setLoading(false);
@@ -4315,7 +4336,7 @@ function renderMenu(query='', catFilter='') {
     const stockDisplay = stock != null ? stock : '—';
     const vars = (i.Variations||'').split('\n').filter(Boolean);
     return `<tr data-gs-id="${escHtml(i.id)}" style="${isHidden?'opacity:0.45;':''}">
-      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-04-29b" alt="" title="Synced with Square">':''}</td>
+      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-04-29c" alt="" title="Synced with Square">':''}</td>
       <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${escHtml(i.Category||'—')}</span></td>
       <td style="font-size:12px;color:var(--muted);max-width:220px">${escHtml(i.Description||'')}</td>
       <td>${i.Price != null ? '$'+Number(i.Price).toFixed(2) : '—'}</td>

@@ -95,7 +95,7 @@ function nav(page) {
     const denied = !isOwner();
     document.getElementById('settings-access-denied').style.display = denied ? '' : 'none';
     document.getElementById('settings-body').style.display = denied ? 'none' : '';
-    if (!denied) { renderRoles(); renderLocations(); renderSlackSettings(); renderSquareSettings(); renderTagsSettings(); initColMgr(); }
+    if (!denied) { renderRoles(); renderLocations(); renderSlackSettings(); renderSquareSettings(); renderTagsSettings(); initColMgr(); if (typeof renderAutoSyncCard === 'function') renderAutoSyncCard(); }
   }
   if (page==='square')      renderSquarePage();
   if (page==='menu')        renderMenu();

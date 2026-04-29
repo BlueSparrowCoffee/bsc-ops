@@ -11,6 +11,8 @@ const SEARCH_DEBOUNCE_MS    = 150;  // ms to debounce search/filter inputs
 const MODAL_FOCUS_DELAY_MS  = 100;  // ms to wait before focusing first field in a modal
 const SP_PAGE_SIZE          = 500;  // Graph API $top — max items per list fetch
 const WEBHOOK_EXPIRY_DAYS   = 170;  // SharePoint webhook max lifetime (days)
+const AUTO_SYNC_INTERVAL_HOURS = 24;       // daily Square→SP auto-sync cooldown
+const AUTO_SYNC_LOCK_TTL_MS    = 5 * 60 * 1000; // hot lock duration (5 min)
 
 // ── App modules / navigation ─────────────────────────────────────
 const MODULES = ['Dashboard','Inventory','Transfers','Ordering','Checklists','Vendors','Recipes','Staff','Maintenance','Contacts','Menu','Prep','Square','COGs','Settings'];
@@ -200,7 +202,7 @@ const INV_COG_CFG = {
 // Bump APP_VERSION any time a deploy has breaking localStorage changes.
 // On version mismatch the entire localStorage is wiped so stale prefs never
 // cause weirdness after an update.
-const APP_VERSION = '2026-04-29b';
+const APP_VERSION = '2026-04-29c';
 (function() {
   try {
     if (localStorage.getItem('bsc_app_version') !== APP_VERSION) {
