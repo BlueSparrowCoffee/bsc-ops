@@ -33,9 +33,16 @@ function toast(type, msg = '✓ Saved') {
 // ── Full-screen loading overlay ──────────────────────────────────
 // Toggles #loading.show AND locks body scroll (body.is-loading) so nothing
 // can render on top of the overlay via Safari's sticky-under-fixed bug.
+// Resets --load-progress to 0 (fully opaque bg) on every show; bootstrapApp
+// repopulates it via setLoadingTotal/bumpLoadingProgress as fetches resolve.
 function setLoading(on, msg = '') {
   document.getElementById('loading').classList.toggle('show', on);
   document.body.classList.toggle('is-loading', on);
+  if (on) {
+    _loadingTotal = 0;
+    _loadingDone  = 0;
+    document.documentElement.style.setProperty('--load-progress', '0');
+  }
   if (msg) {
     document.getElementById('loading-msg').textContent = msg;
     // Splash overlay (when present) is on top of #loading and hides its own
@@ -43,6 +50,28 @@ function setLoading(on, msg = '') {
     const sp = document.getElementById('splash-msg');
     if (sp) sp.textContent = msg;
   }
+}
+
+// ── Loading-screen progress fade ─────────────────────────────────
+// Drives `--load-progress` (0→1) on <html>; CSS turns that into the
+// rgba alpha of #loading / #splash backgrounds. Call setLoadingTotal(N)
+// before kicking off N tracked promises, then bumpLoadingProgress() as
+// each resolves (or use trackLoad(promise) to wire it in one step).
+let _loadingTotal = 0;
+let _loadingDone  = 0;
+function setLoadingTotal(n) {
+  _loadingTotal = Math.max(0, n | 0);
+  _loadingDone  = 0;
+  document.documentElement.style.setProperty('--load-progress', '0');
+}
+function bumpLoadingProgress() {
+  if (!_loadingTotal) return;
+  _loadingDone++;
+  const p = Math.min(1, _loadingDone / _loadingTotal);
+  document.documentElement.style.setProperty('--load-progress', String(p));
+}
+function trackLoad(promise) {
+  return Promise.resolve(promise).finally(bumpLoadingProgress);
 }
 
 // ── Per-key input debounce (search/filter) ───────────────────────

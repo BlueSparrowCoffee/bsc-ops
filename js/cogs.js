@@ -538,10 +538,11 @@ async function syncInvPricesFromSquare(tabKey) {
     // Update prices + names for all existing items. Square is the source of
     // truth for linked rows: if the Square name differs from the cached
     // ItemName/Title, we overwrite so renames in Square propagate here.
-    // Also mirrors Square's is_archived flag back to SP (one-way — unarchiving
-    // in Square does NOT auto-unarchive here, since SP archived state may be
-    // user-driven for reasons unrelated to Square).
-    let updated = 0, autoLinked = 0, renamed = 0, autoArchived = 0, unchanged = 0, notFound = 0, failed = 0;
+    // Archive propagation is two-way for merch/food/grocery (Square is
+    // authoritative for catalog state on these tabs): archive in Square →
+    // archive in SP; unarchive in Square → unarchive in SP. Items without a
+    // Square link aren't touched.
+    let updated = 0, autoLinked = 0, renamed = 0, autoArchived = 0, autoUnarchived = 0, unchanged = 0, notFound = 0, failed = 0;
     for (const item of cache[cfg.cacheKey]) {
       const itemName = (item.ItemName || item.Title || '').trim();
       let sqId = (item.SquareCatalogItemId || '').trim();
@@ -552,9 +553,11 @@ async function syncInvPricesFromSquare(tabKey) {
       const cat = catMap[sqId] || null;
       const sqName = (nameMap[sqId] || '').trim();
       const fields = {};
-      // Archive propagation — do this before the price short-circuit so items
-      // archived (and unpriced) in Square still get archived in SP.
-      if (sqArchived && !item.Archived) fields.Archived = 'yes';
+      // Archive propagation (two-way) — do this before the price short-circuit
+      // so items archived (and unpriced) in Square still get archived in SP.
+      if (sqArchived && !item.Archived)       fields.Archived = 'yes';
+      else if (!sqArchived && item.Archived)  fields.Archived = '';   // unset on Square unarchive
+      const archiveChanged = 'Archived' in fields;
       // Price — only included when Square actually has one.
       if (price != null) fields.SellingPrice = price;
       if (!wasLinked) fields.SquareCatalogItemId = sqId;
@@ -565,12 +568,13 @@ async function syncInvPricesFromSquare(tabKey) {
       }
 
       // If we have no price AND nothing else to write, log and skip.
-      if (price == null && !fields.Archived && !fields.SquareCatalogItemId && !fields.Category && !fields.ItemName) {
+      if (price == null && !archiveChanged && !fields.SquareCatalogItemId && !fields.Category && !fields.ItemName) {
         notFound++; log(`  ⚠ No price: ${itemName}`); continue;
       }
-      // Nothing actually changed — skip the PATCH.
+      // Nothing actually changed — skip the PATCH. Use `archiveChanged` (not
+      // `!fields.Archived`) so unarchive (fields.Archived = '') still triggers.
       if (!Object.keys(fields).length ||
-          (item.SellingPrice === price && wasLinked && !fields.Category && !fields.ItemName && !fields.Archived)) {
+          (item.SellingPrice === price && wasLinked && !fields.Category && !fields.ItemName && !archiveChanged)) {
         unchanged++; continue;
       }
 
@@ -580,10 +584,11 @@ async function syncInvPricesFromSquare(tabKey) {
       try {
         await updateListItem(LISTS[cfg.listKey], item.id, fields);
         Object.assign(item, fields);
-        if (fields.Archived) { autoArchived++; log(`  📦 Archived (matches Square): ${sqName || itemName}`); }
+        if (fields.Archived === 'yes') { autoArchived++; log(`  📦 Archived (matches Square): ${sqName || itemName}`); }
+        else if (fields.Archived === '') { autoUnarchived++; log(`  📤 Unarchived (matches Square): ${sqName || itemName}`); }
         if (fields.ItemName) { renamed++; log(`  ✏️ Renamed "${itemName}" → "${sqName}"`); }
         if (!wasLinked) { autoLinked++; log(`  🔗 ${sqName || itemName}${price != null ? ': $'+price.toFixed(2) : ''}`); }
-        else if (!fields.ItemName && !fields.Archived && price != null) { updated++; log(`  ✓ ${sqName || itemName}: $${price.toFixed(2)}`); }
+        else if (!fields.ItemName && !archiveChanged && price != null) { updated++; log(`  ✓ ${sqName || itemName}: $${price.toFixed(2)}`); }
       } catch (e) {
         failed++;
         log(`  ✗ ${itemName} — ${e.message}`);
@@ -592,7 +597,7 @@ async function syncInvPricesFromSquare(tabKey) {
     }
 
     const failSuffix = failed ? `, ⚠ ${failed} failed (see log above)` : '';
-    log(`\n${failed ? '⚠️' : '✅'} Done — ${imported} imported, ${updated} updated, ${autoLinked} auto-linked, ${renamed} renamed, ${autoArchived} auto-archived, ${unchanged} unchanged, ${notFound} not found${failSuffix}`);
+    log(`\n${failed ? '⚠️' : '✅'} Done — ${imported} imported, ${updated} updated, ${autoLinked} auto-linked, ${renamed} renamed, ${autoArchived} auto-archived, ${autoUnarchived} auto-unarchived, ${unchanged} unchanged, ${notFound} not found${failSuffix}`);
     renderInvCogCards(tabKey);
     renderCogsOverview();
     toast('ok', `✓ ${cfg.squareCat} synced`);

@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-04-28j">
-<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-04-28j">
-<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-04-28j">
-<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-04-28j">
-<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-04-28j">
+<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-04-29a">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-04-29a">
+<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-04-29a">
+<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-04-29a">
+<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-04-29a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="BSC Ops">
@@ -217,13 +217,16 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
  * when animating border-top-color + transform:rotate that render as faint
  * horizontal bands on top of the element. */
 body.is-loading{overflow:hidden;}
-/* Fully opaque dark-blue overlay */
-#loading{display:none;position:fixed;inset:0;background:var(--dark-blue);z-index:2147483647;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:#fff;font-size:13px;isolation:isolate;contain:paint;}
+/* Dark-blue overlay — bg alpha is driven by --load-progress (set by
+ * bootstrapApp/loadAllData as list fetches resolve), so the backdrop fades
+ * from opaque to transparent as the app loads. */
+#loading{display:none;position:fixed;inset:0;background-color:rgba(2,61,74,calc(1 - var(--load-progress,0)));transition:background-color .4s ease;z-index:2147483647;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:#fff;font-size:13px;isolation:isolate;contain:paint;}
 #loading.show{display:flex;}
 
 /* Welcome splash — first paint after fresh-tab / sign-in, then dismissed.
- * Same z-index as #loading; placed later in DOM so it stacks on top. */
-#splash{display:none;position:fixed;inset:0;background:var(--dark-blue);z-index:2147483647;flex-direction:column;align-items:center;justify-content:center;gap:20px;opacity:0;transition:opacity .35s ease;}
+ * Same z-index as #loading; placed later in DOM so it stacks on top.
+ * Bg alpha follows --load-progress; opacity is reserved for show/hide. */
+#splash{display:none;position:fixed;inset:0;background-color:rgba(2,61,74,calc(1 - var(--load-progress,0)));z-index:2147483647;flex-direction:column;align-items:center;justify-content:center;gap:20px;opacity:0;transition:opacity .35s ease, background-color .4s ease;}
 #splash.show{display:flex;opacity:1;}
 #splash.fade{opacity:0;}
 #splash img{width:min(48vmin,320px);height:auto;display:block;}
@@ -2236,33 +2239,33 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-04-28j" defer></script>
-<script src="/js/utils.js?v=2026-04-28j" defer></script>
-<script src="/js/state.js?v=2026-04-28j" defer></script>
-<script src="/js/auth.js?v=2026-04-28j" defer></script>
-<script src="/js/graph.js?v=2026-04-28j" defer></script>
-<script src="/js/signalr.js?v=2026-04-28j" defer></script>
-<script src="/js/tags.js?v=2026-04-28j" defer></script>
-<script src="/js/nav.js?v=2026-04-28j" defer></script>
-<script src="/js/settings.js?v=2026-04-28j" defer></script>
-<script src="/js/dashboard.js?v=2026-04-28j" defer></script>
-<script src="/js/inventory.js?v=2026-04-28j" defer></script>
-<script src="/js/inventory-form.js?v=2026-04-28j" defer></script>
-<script src="/js/counts.js?v=2026-04-28j" defer></script>
-<script src="/js/foodpars.js?v=2026-04-28j" defer></script>
-<script src="/js/labels.js?v=2026-04-28j" defer></script>
-<script src="/js/pastry-sync.js?v=2026-04-28j" defer></script>
-<script src="/js/recipes.js?v=2026-04-28j" defer></script>
-<script src="/js/cogs.js?v=2026-04-28j" defer></script>
-<script src="/js/vendors.js?v=2026-04-28j" defer></script>
-<script src="/js/contacts.js?v=2026-04-28j" defer></script>
-<script src="/js/maintenance.js?v=2026-04-28j" defer></script>
-<script src="/js/checklists.js?v=2026-04-28j" defer></script>
-<script src="/js/ordering.js?v=2026-04-28j" defer></script>
-<script src="/js/parking.js?v=2026-04-28j" defer></script>
-<script src="/js/prepItems.js?v=2026-04-28j" defer></script>
-<script src="/js/square.js?v=2026-04-28j" defer></script>
-<script src="/js/slack.js?v=2026-04-28j" defer></script>
+<script src="/js/constants.js?v=2026-04-29a" defer></script>
+<script src="/js/utils.js?v=2026-04-29a" defer></script>
+<script src="/js/state.js?v=2026-04-29a" defer></script>
+<script src="/js/auth.js?v=2026-04-29a" defer></script>
+<script src="/js/graph.js?v=2026-04-29a" defer></script>
+<script src="/js/signalr.js?v=2026-04-29a" defer></script>
+<script src="/js/tags.js?v=2026-04-29a" defer></script>
+<script src="/js/nav.js?v=2026-04-29a" defer></script>
+<script src="/js/settings.js?v=2026-04-29a" defer></script>
+<script src="/js/dashboard.js?v=2026-04-29a" defer></script>
+<script src="/js/inventory.js?v=2026-04-29a" defer></script>
+<script src="/js/inventory-form.js?v=2026-04-29a" defer></script>
+<script src="/js/counts.js?v=2026-04-29a" defer></script>
+<script src="/js/foodpars.js?v=2026-04-29a" defer></script>
+<script src="/js/labels.js?v=2026-04-29a" defer></script>
+<script src="/js/pastry-sync.js?v=2026-04-29a" defer></script>
+<script src="/js/recipes.js?v=2026-04-29a" defer></script>
+<script src="/js/cogs.js?v=2026-04-29a" defer></script>
+<script src="/js/vendors.js?v=2026-04-29a" defer></script>
+<script src="/js/contacts.js?v=2026-04-29a" defer></script>
+<script src="/js/maintenance.js?v=2026-04-29a" defer></script>
+<script src="/js/checklists.js?v=2026-04-29a" defer></script>
+<script src="/js/ordering.js?v=2026-04-29a" defer></script>
+<script src="/js/parking.js?v=2026-04-29a" defer></script>
+<script src="/js/prepItems.js?v=2026-04-29a" defer></script>
+<script src="/js/square.js?v=2026-04-29a" defer></script>
+<script src="/js/slack.js?v=2026-04-29a" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
@@ -2636,7 +2639,7 @@ async function ensureAllLists() {
 // ════════════════════════════════════════════════════════════════════════════
 async function loadAllData() {
   const siteId = await getSiteId();
-  const [xfers, orders, cls, roles, vendors,,recipes,,contacts,staff,sched,log,appSettings,clGroups,clCompletions,labelRows,foodParRows,parkingRows,contactArchiveRows,prepItemsRows,prepItemIngsRows,tagsRows,merchReceivedRows,merchMonthsRows,lastCountRows,invParsRows,clProgressRows] = await Promise.all([
+  const firstBatch = [
     getListItems(siteId, LISTS.transfers),
     getListItems(siteId, LISTS.orders),
     getListItems(siteId, LISTS.checklists),
@@ -2664,7 +2667,10 @@ async function loadAllData() {
     getListItems(siteId, LISTS.lastCount).catch(()=>[]),
     getListItems(siteId, LISTS.inventoryPars).catch(()=>[]),
     getListItems(siteId, LISTS.clProgress).catch(()=>[])
-  ]);
+  ];
+  // Drive the loading-screen fade: bg alpha follows fetches/total.
+  setLoadingTotal(firstBatch.length + 4); // +4 for cogs+history+inv+menu
+  const [xfers, orders, cls, roles, vendors,,recipes,,contacts,staff,sched,log,appSettings,clGroups,clCompletions,labelRows,foodParRows,parkingRows,contactArchiveRows,prepItemsRows,prepItemIngsRows,tagsRows,merchReceivedRows,merchMonthsRows,lastCountRows,invParsRows,clProgressRows] = await Promise.all(firstBatch.map(trackLoad));
   cache.transfers=xfers; cache.orders=orders;
   cache.checklists=cls; cache.roles=roles; cache.vendors=vendors;
   cache.recipes=recipes; cache.maintContacts=contacts;
@@ -2705,7 +2711,7 @@ async function loadAllData() {
     getListItems(siteId, LISTS.cogHistory).catch(()=>[]),
     loadInventoryData(siteId),
     loadMenuData(siteId)
-  ]);
+  ].map(trackLoad));
   cache.cogsRecipes = cogsRecipes;
   cache.cogSnapshots = cogSnapshots;
   resolveCurrentStaffMember(); // match login email → BSC_Staff record
@@ -4302,7 +4308,7 @@ function renderMenu(query='', catFilter='') {
     const stockDisplay = stock != null ? stock : '—';
     const vars = (i.Variations||'').split('\n').filter(Boolean);
     return `<tr data-gs-id="${escHtml(i.id)}" style="${isHidden?'opacity:0.45;':''}">
-      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-04-28j" alt="" title="Synced with Square">':''}</td>
+      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-04-29a" alt="" title="Synced with Square">':''}</td>
       <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${escHtml(i.Category||'—')}</span></td>
       <td style="font-size:12px;color:var(--muted);max-width:220px">${escHtml(i.Description||'')}</td>
       <td>${i.Price != null ? '$'+Number(i.Price).toFixed(2) : '—'}</td>
