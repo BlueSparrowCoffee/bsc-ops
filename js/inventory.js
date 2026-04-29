@@ -239,8 +239,7 @@ function renderInvTableHeader() {
       <th onclick="sortInvBy('StoreCount')">Store</th>
       <th onclick="sortInvBy('StorageCount')">Storage</th>
       <th onclick="sortInvBy('TotalCount')">Total</th>
-      <th onclick="sortInvBy('TotalValue')">Value</th>
-      <th style="width:72px"></th>`;
+      <th onclick="sortInvBy('TotalValue')">Value</th>`;
   } else {
     tr.innerHTML = `
       <th onclick="sortInvBy('ItemName')">Item</th>
@@ -532,7 +531,9 @@ function renderMerchInventoryItems(query='', catFilter='') {
     const cost    = i.CostPerUnit  != null ? i.CostPerUnit  : null;
     const value   = (cost != null && totalNum != null) ? '$'+(cost*totalNum).toFixed(2) : '—';
     // Received qty/notes moved to Monthly Cost tab (BSC_MerchReceived draft/final) 2026-04-23.
-    return `<tr${i.Archived?' style="opacity:.45;"':''}>
+    // Row is clickable to open the edit modal — same pattern as consumable inventory.
+    // Archive + delete live in the modal footer (inv-modal-archive-btn / inv-modal-delete-btn).
+    return `<tr data-inv-id="${escHtml(i.id)}" onclick="openEditInvItem('${escHtml(i.id)}')" style="cursor:pointer;${i.Archived?'opacity:.45;':''}">
       <td class="fw">${escHtml(i.ItemName||'—')}${(i.SquareId||i.SquareCatalogItemId)?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-04-28h" alt="" title="Synced with Square">':''}${i.Archived?'<span style="font-size:10px;background:var(--muted);color:#fff;padding:1px 5px;border-radius:8px;margin-left:4px;">archived</span>':''}</td>
       <td><span class="badge badge-teal">${escHtml(i.Category||'—')}</span></td>
       <td style="font-size:12px">${i.Supplier ? `<a href="#" data-supplier="${escHtml(i.Supplier||'')}" onclick="event.stopPropagation();nav('vendors');setTimeout(()=>{const s=document.querySelector('#page-vendors .search-input');if(s){s.value=this.dataset.supplier;filterVendors(s.value);}},300);return false;" style="color:var(--gold);text-decoration:none;">${escHtml(i.Supplier)}</a>` : '<span style="color:var(--muted)">—</span>'}</td>
@@ -541,14 +542,6 @@ function renderMerchInventoryItems(query='', catFilter='') {
       <td>${storage}</td>
       <td style="font-weight:600">${total}</td>
       <td style="font-size:12px;color:var(--muted)">${value}</td>
-      <td style="white-space:nowrap;">
-        <button onclick="openEditInvItem('${i.id}')" title="Edit"
-          style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:15px;padding:2px 4px;">✏️</button>
-        ${isOwner() ? `<button data-id="${escHtml(i.id)}" data-archived="${i.Archived?'1':''}" onclick="toggleArchiveInvItem(this.dataset.id,this.dataset.archived==='1')" title="${i.Archived?'Unarchive':'Archive'}"
-          style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:15px;padding:2px 4px;">${i.Archived?'📤':'📦'}</button>
-        <button onclick="deleteInvItem('${i.id}')" title="Delete"
-          style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:15px;padding:2px 4px;">🗑️</button>` : ''}
-      </td>
     </tr>`;
   }).join('');
 
