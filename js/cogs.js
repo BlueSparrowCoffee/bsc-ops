@@ -317,6 +317,69 @@ function toggleOverviewCogHidden(type, id) {
 
 // ── Merch Costs ──────────────────────────────────────────────────────────────
 
+// Match key for cost-sync source/destination lookup. Robust against common
+// Square rename patterns: case changes, extra whitespace, punctuation
+// differences, and trailing " - {variation}" suffixes (e.g. " - 12oz", " - L").
+// Stricter `lcTrim` is preferred; this normalized form is the fallback.
+function _normalizeForMatch(s) {
+  return String(s || '')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ')                  // collapse whitespace
+    .replace(/\s*-\s*[^-]+$/, '')           // strip trailing " - X" variation suffix
+    .replace(/[^a-z0-9 ]/g, '')            // drop punctuation + emoji
+    .replace(/\s+/g, ' ')                  // re-collapse after punctuation strip
+    .trim();
+}
+
+async function syncMerchCostFromInventory() {
+  const btn   = document.getElementById('merch-inv-sync-btn');
+  const logEl = document.getElementById('merch-inv-sync-log');
+  btn.disabled = true; btn.textContent = 'Syncing…';
+  logEl.style.display = ''; logEl.textContent = '';
+  const log = msg => { logEl.textContent += msg + '\n'; logEl.scrollTop = logEl.scrollHeight; };
+
+  try {
+    // Build dual maps from consumable inventory: strict (lowercase + trim) and
+    // normalized (also strips variation suffixes + punctuation). Strict wins
+    // when both match; normalized is the fallback for renamed/variation rows.
+    const strictMap = {}, normMap = {};
+    for (const item of (cache.inventory || [])) {
+      const raw  = item.ItemName || item.Title || '';
+      const cost = parseFloat(item.CostPerServing);
+      if (!raw || isNaN(cost) || cost <= 0) continue;
+      strictMap[raw.toLowerCase().trim()] = { cost, raw };
+      const norm = _normalizeForMatch(raw);
+      if (norm && !normMap[norm]) normMap[norm] = { cost, raw };
+    }
+    log(`Found ${Object.keys(strictMap).length} costed items in consumable inventory`);
+
+    let updated = 0, unchanged = 0, notFound = 0, fuzzyHits = 0;
+    for (const item of (cache.merchInventory || [])) {
+      const raw   = item.ItemName || item.Title || '';
+      const match = strictMap[raw.toLowerCase().trim()] || normMap[_normalizeForMatch(raw)];
+      if (!match) { notFound++; log(`  ⚠ Not in inventory: ${raw}`); continue; }
+      if (item.CostPerUnit === match.cost) { unchanged++; continue; }
+      await updateListItem(LISTS.merchInventory, item.id, { CostPerUnit: match.cost });
+      item.CostPerUnit = match.cost;
+      updated++;
+      const fuzzy = !strictMap[raw.toLowerCase().trim()];
+      if (fuzzy) fuzzyHits++;
+      log(`  ✓ ${raw}: $${match.cost.toFixed(4)}${fuzzy ? `  (fuzzy match → "${match.raw}")` : ''}`);
+    }
+
+    log(`\n✅ Done — ${updated} updated${fuzzyHits ? ` (${fuzzyHits} via fuzzy match)` : ''}, ${unchanged} unchanged, ${notFound} not found in inventory`);
+    renderInvCogCards('merch');
+    renderCogsOverview();
+    toast('ok', `✓ Merch cost synced from inventory (${updated} updated)`);
+  } catch(e) {
+    log('Error: ' + e.message);
+    toast('err', 'Sync failed: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '🛍️ Sync Cost from Inventory';
+  }
+}
+
 async function syncGroceryCostFromInventory() {
   const btn   = document.getElementById('grocery-inv-sync-btn');
   const logEl = document.getElementById('grocery-inv-sync-log');
@@ -325,28 +388,34 @@ async function syncGroceryCostFromInventory() {
   const log = msg => { logEl.textContent += msg + '\n'; logEl.scrollTop = logEl.scrollHeight; };
 
   try {
-    // Build name → CostPerServing map from consumable inventory
-    const invCostMap = {};
+    // Dual-map matching (strict + normalized fallback) — see header comment
+    // on _normalizeForMatch for the rules.
+    const strictMap = {}, normMap = {};
     for (const item of (cache.inventory || [])) {
-      const name = (item.ItemName || item.Title || '').toLowerCase().trim();
+      const raw  = item.ItemName || item.Title || '';
       const cost = parseFloat(item.CostPerServing);
-      if (name && !isNaN(cost) && cost > 0) invCostMap[name] = { cost, raw: item.ItemName || item.Title };
+      if (!raw || isNaN(cost) || cost <= 0) continue;
+      strictMap[raw.toLowerCase().trim()] = { cost, raw };
+      const norm = _normalizeForMatch(raw);
+      if (norm && !normMap[norm]) normMap[norm] = { cost, raw };
     }
-    log(`Found ${Object.keys(invCostMap).length} costed items in consumable inventory`);
+    log(`Found ${Object.keys(strictMap).length} costed items in consumable inventory`);
 
-    let updated = 0, unchanged = 0, notFound = 0;
+    let updated = 0, unchanged = 0, notFound = 0, fuzzyHits = 0;
     for (const item of (cache.groceryInventory || [])) {
-      const itemName = (item.ItemName || item.Title || '').toLowerCase().trim();
-      const match = invCostMap[itemName];
-      if (!match) { notFound++; log(`  ⚠ Not in inventory: ${item.ItemName || item.Title}`); continue; }
+      const raw   = item.ItemName || item.Title || '';
+      const match = strictMap[raw.toLowerCase().trim()] || normMap[_normalizeForMatch(raw)];
+      if (!match) { notFound++; log(`  ⚠ Not in inventory: ${raw}`); continue; }
       if (item.CostPerUnit === match.cost) { unchanged++; continue; }
       await updateListItem(LISTS.groceryInventory, item.id, { CostPerUnit: match.cost });
       item.CostPerUnit = match.cost;
       updated++;
-      log(`  ✓ ${item.ItemName || item.Title}: $${match.cost.toFixed(4)}`);
+      const fuzzy = !strictMap[raw.toLowerCase().trim()];
+      if (fuzzy) fuzzyHits++;
+      log(`  ✓ ${raw}: $${match.cost.toFixed(4)}${fuzzy ? `  (fuzzy match → "${match.raw}")` : ''}`);
     }
 
-    log(`\n✅ Done — ${updated} updated, ${unchanged} unchanged, ${notFound} not found in inventory`);
+    log(`\n✅ Done — ${updated} updated${fuzzyHits ? ` (${fuzzyHits} via fuzzy match)` : ''}, ${unchanged} unchanged, ${notFound} not found in inventory`);
     renderInvCogCards('grocery');
     renderCogsOverview();
     toast('ok', `✓ Grocery cost synced from inventory (${updated} updated)`);
@@ -366,42 +435,51 @@ async function syncFoodCostFromPars() {
   const log = msg => { logEl.textContent += msg + '\n'; logEl.scrollTop = logEl.scrollHeight; };
 
   try {
-    // Build name → cost map from pastry + sandwich par master items
+    // Source: pastry + sandwich par master items (from BSC_FoodPars). Despite
+    // the button label "Sync Cost from Inventory" (renamed for UX consistency
+    // with the merch/grocery buttons), the actual source is FoodPars — Square
+    // doesn't expose cost, and FoodPars.Price is the closest standing data.
     const parItems = (cache.foodPars || []).filter(p => {
       const cat = (p.Category || '').toLowerCase();
       return cat === 'pastries' || cat === 'sandwiches';
     });
     log(`Found ${parItems.length} pastry/sandwich par items`);
 
-    // Build a normalised name map: lowercase + trim
-    const parCostMap = {};
+    // Dual-map matching (strict + normalized fallback) — see header comment
+    // on _normalizeForMatch for the rules.
+    const strictMap = {}, normMap = {};
     for (const p of parItems) {
-      const name = (p.Title || p.ItemName || '').toLowerCase().trim();
+      const raw  = p.Title || p.ItemName || '';
       const cost = parseFloat(p.Price);
-      if (name && !isNaN(cost)) parCostMap[name] = { cost, raw: p.Title || p.ItemName || '' };
+      if (!raw || isNaN(cost)) continue;
+      strictMap[raw.toLowerCase().trim()] = { cost, raw };
+      const norm = _normalizeForMatch(raw);
+      if (norm && !normMap[norm]) normMap[norm] = { cost, raw };
     }
 
-    let updated = 0, unchanged = 0, notFound = 0;
+    let updated = 0, unchanged = 0, notFound = 0, fuzzyHits = 0;
     for (const item of (cache.foodInventory || [])) {
-      const itemName = (item.ItemName || item.Title || '').toLowerCase().trim();
-      const match = parCostMap[itemName];
-      if (!match) { notFound++; log(`  ⚠ No par match: ${item.ItemName || item.Title}`); continue; }
+      const raw   = item.ItemName || item.Title || '';
+      const match = strictMap[raw.toLowerCase().trim()] || normMap[_normalizeForMatch(raw)];
+      if (!match) { notFound++; log(`  ⚠ No par match: ${raw}`); continue; }
       if (item.CostPerUnit === match.cost) { unchanged++; continue; }
       await updateListItem(LISTS.foodInventory, item.id, { CostPerUnit: match.cost });
       item.CostPerUnit = match.cost;
       updated++;
-      log(`  ✓ ${item.ItemName || item.Title}: $${match.cost.toFixed(2)}`);
+      const fuzzy = !strictMap[raw.toLowerCase().trim()];
+      if (fuzzy) fuzzyHits++;
+      log(`  ✓ ${raw}: $${match.cost.toFixed(2)}${fuzzy ? `  (fuzzy match → "${match.raw}")` : ''}`);
     }
 
-    log(`\n✅ Done — ${updated} updated, ${unchanged} unchanged, ${notFound} not found in pars`);
+    log(`\n✅ Done — ${updated} updated${fuzzyHits ? ` (${fuzzyHits} via fuzzy match)` : ''}, ${unchanged} unchanged, ${notFound} not found in pars`);
     renderInvCogCards('food');
     renderCogsOverview();
-    toast('ok', `✓ Cost synced from pars (${updated} updated)`);
+    toast('ok', `✓ Food cost synced (${updated} updated)`);
   } catch(e) {
     log('Error: ' + e.message);
     toast('err', 'Sync failed: ' + e.message);
   } finally {
-    btn.disabled = false; btn.textContent = '🥐 Sync Cost from Pars';
+    btn.disabled = false; btn.textContent = '🥐 Sync Cost from Inventory';
   }
 }
 

@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-04-29d">
-<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-04-29d">
-<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-04-29d">
-<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-04-29d">
-<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-04-29d">
+<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-04-29e">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-04-29e">
+<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-04-29e">
+<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-04-29e">
+<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-04-29e">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="BSC Ops">
@@ -170,7 +170,7 @@ td[contenteditable="true"]:focus{background:#fffdf5;box-shadow:inset 0 0 0 2px v
 .badge-gray{background:#e8e8e8;color:#444;}
 .badge-teal{background:var(--opal);color:var(--dark-blue);}
 .badge-orange{background:#fce4d0;color:#7a3000;}
-.sq-badge{display:inline-block;width:20px;height:20px;vertical-align:middle;margin-left:6px;flex-shrink:0;}
+.sq-badge{display:inline-block;width:16px;height:16px;vertical-align:middle;margin-left:6px;flex-shrink:0;}
 
 /* ── FORMS ── */
 .form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;margin-bottom:20px;}
@@ -1587,7 +1587,9 @@ html,body{overscroll-behavior:none;}
           <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);cursor:pointer;white-space:nowrap;">
             <input type="checkbox" id="merch-cogs-show-hidden" onchange="renderInvCogCards('merch')"> Show hidden
           </label>
+          <button class="btn btn-outline" onclick="syncMerchCostFromInventory()" id="merch-inv-sync-btn" style="font-size:12px;padding:6px 14px;">🛍️ Sync Cost from Inventory</button>
         </div>
+        <div id="merch-inv-sync-log" style="display:none;background:var(--cream);border-radius:8px;padding:10px 14px;font-size:12px;font-family:monospace;margin-bottom:14px;white-space:pre-wrap;max-height:160px;overflow-y:auto;"></div>
         <div id="merch-cogs-empty" style="display:none;text-align:center;padding:60px;color:var(--muted);">
           <div style="font-size:36px;margin-bottom:8px;">🛍️</div>
           <div style="font-weight:600;margin-bottom:4px;">No merch items found</div>
@@ -1606,7 +1608,7 @@ html,body{overscroll-behavior:none;}
           <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);cursor:pointer;white-space:nowrap;">
             <input type="checkbox" id="food-cogs-show-hidden" onchange="renderInvCogCards('food')"> Show hidden
           </label>
-          <button class="btn btn-outline" onclick="syncFoodCostFromPars()" id="food-pars-sync-btn" style="font-size:12px;padding:6px 14px;">🥐 Sync Cost from Pars</button>
+          <button class="btn btn-outline" onclick="syncFoodCostFromPars()" id="food-pars-sync-btn" style="font-size:12px;padding:6px 14px;">🥐 Sync Cost from Inventory</button>
         </div>
         <div id="food-pars-sync-log" style="display:none;background:var(--cream);border-radius:8px;padding:10px 14px;font-size:12px;font-family:monospace;margin-bottom:14px;white-space:pre-wrap;max-height:160px;overflow-y:auto;"></div>
         <div id="food-cogs-empty" style="display:none;text-align:center;padding:60px;color:var(--muted);">
@@ -1703,7 +1705,7 @@ html,body{overscroll-behavior:none;}
         <div class="card-title">👥 Team Members</div>
         <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Sync Square team members into BSC Staff. Matches on email — creates new records or updates existing ones.</p>
         <div id="sq-team-last" style="font-size:11px;color:var(--muted);margin-bottom:12px;"></div>
-        <button class="btn btn-primary" onclick="syncSquareTeam()" id="sq-btn-team">Sync Team Members</button>
+        <button class="btn btn-outline" onclick="syncSquareTeam()" id="sq-btn-team">Sync Team Members</button>
         <div id="sq-log-team" style="margin-top:12px;font-size:12px;line-height:1.8;color:#444;background:#f9f9f9;border-radius:8px;padding:10px 14px;display:none;max-height:160px;overflow-y:auto;"></div>
       </div>
 
@@ -1721,7 +1723,7 @@ html,body{overscroll-behavior:none;}
         <div class="card-title">☕ Catalog / Menu Items</div>
         <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Pull your Square catalog — items, categories, and pricing — into the BSC Menu page.</p>
         <div id="sq-catalog-last" style="font-size:11px;color:var(--muted);margin-bottom:12px;"></div>
-        <button class="btn btn-primary" onclick="syncSquareCatalog()" id="sq-btn-catalog">Sync Catalog → Menu</button>
+        <button class="btn btn-outline" onclick="syncSquareCatalog()" id="sq-btn-catalog">Sync Catalog → Menu</button>
         <div id="sq-log-catalog" style="margin-top:12px;font-size:12px;line-height:1.8;color:#444;background:#f9f9f9;border-radius:8px;padding:10px 14px;display:none;max-height:160px;overflow-y:auto;"></div>
       </div>
 
@@ -1730,9 +1732,9 @@ html,body{overscroll-behavior:none;}
         <div class="card-title">🗂️ Inventory Categories</div>
         <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Pull merchandise, food, and grocery items from their Square catalog categories into BSC. Updates prices, names, categories, and propagates archive state both ways.</p>
         <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
-          <button class="btn btn-primary" onclick="syncInvPricesFromSquare('merch')" id="merch-sq-sync-btn">🛍️ Sync Merchandise</button>
-          <button class="btn btn-primary" onclick="syncInvPricesFromSquare('food')" id="food-sq-sync-btn">🥐 Sync Food</button>
-          <button class="btn btn-primary" onclick="syncInvPricesFromSquare('grocery')" id="grocery-sq-sync-btn">🛒 Sync Grocery</button>
+          <button class="btn btn-outline" onclick="syncInvPricesFromSquare('merch')" id="merch-sq-sync-btn">🛍️ Sync Merchandise</button>
+          <button class="btn btn-outline" onclick="syncInvPricesFromSquare('food')" id="food-sq-sync-btn">🥐 Sync Food</button>
+          <button class="btn btn-outline" onclick="syncInvPricesFromSquare('grocery')" id="grocery-sq-sync-btn">🛒 Sync Grocery</button>
         </div>
         <div id="merch-sq-sync-log" style="display:none;margin-top:12px;background:#f9f9f9;border-radius:8px;padding:10px 14px;font-size:12px;font-family:monospace;white-space:pre-wrap;max-height:160px;overflow-y:auto;"></div>
         <div id="food-sq-sync-log" style="display:none;margin-top:12px;background:#f9f9f9;border-radius:8px;padding:10px 14px;font-size:12px;font-family:monospace;white-space:pre-wrap;max-height:160px;overflow-y:auto;"></div>
@@ -1744,7 +1746,7 @@ html,body{overscroll-behavior:none;}
         <div class="card-title">📦 Inventory Counts</div>
         <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Pull current menu item stock counts from Square into per-location Menu Counts lists.</p>
         <div id="sq-inv-last" style="font-size:11px;color:var(--muted);margin-bottom:12px;"></div>
-        <button class="btn btn-primary" onclick="syncSquareInventory()" id="sq-btn-inv">Sync Menu Counts</button>
+        <button class="btn btn-outline" onclick="syncSquareInventory()" id="sq-btn-inv">Sync Menu Counts</button>
         <div id="sq-log-inv" style="margin-top:12px;font-size:12px;line-height:1.8;color:#444;background:#f9f9f9;border-radius:8px;padding:10px 14px;display:none;max-height:160px;overflow-y:auto;"></div>
       </div>
 
@@ -2256,34 +2258,34 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-04-29d" defer></script>
-<script src="/js/utils.js?v=2026-04-29d" defer></script>
-<script src="/js/state.js?v=2026-04-29d" defer></script>
-<script src="/js/auth.js?v=2026-04-29d" defer></script>
-<script src="/js/graph.js?v=2026-04-29d" defer></script>
-<script src="/js/signalr.js?v=2026-04-29d" defer></script>
-<script src="/js/tags.js?v=2026-04-29d" defer></script>
-<script src="/js/nav.js?v=2026-04-29d" defer></script>
-<script src="/js/settings.js?v=2026-04-29d" defer></script>
-<script src="/js/dashboard.js?v=2026-04-29d" defer></script>
-<script src="/js/inventory.js?v=2026-04-29d" defer></script>
-<script src="/js/inventory-form.js?v=2026-04-29d" defer></script>
-<script src="/js/counts.js?v=2026-04-29d" defer></script>
-<script src="/js/foodpars.js?v=2026-04-29d" defer></script>
-<script src="/js/labels.js?v=2026-04-29d" defer></script>
-<script src="/js/pastry-sync.js?v=2026-04-29d" defer></script>
-<script src="/js/recipes.js?v=2026-04-29d" defer></script>
-<script src="/js/cogs.js?v=2026-04-29d" defer></script>
-<script src="/js/vendors.js?v=2026-04-29d" defer></script>
-<script src="/js/contacts.js?v=2026-04-29d" defer></script>
-<script src="/js/maintenance.js?v=2026-04-29d" defer></script>
-<script src="/js/checklists.js?v=2026-04-29d" defer></script>
-<script src="/js/ordering.js?v=2026-04-29d" defer></script>
-<script src="/js/parking.js?v=2026-04-29d" defer></script>
-<script src="/js/prepItems.js?v=2026-04-29d" defer></script>
-<script src="/js/square.js?v=2026-04-29d" defer></script>
-<script src="/js/slack.js?v=2026-04-29d" defer></script>
-<script src="/js/auto-sync.js?v=2026-04-29d" defer></script>
+<script src="/js/constants.js?v=2026-04-29e" defer></script>
+<script src="/js/utils.js?v=2026-04-29e" defer></script>
+<script src="/js/state.js?v=2026-04-29e" defer></script>
+<script src="/js/auth.js?v=2026-04-29e" defer></script>
+<script src="/js/graph.js?v=2026-04-29e" defer></script>
+<script src="/js/signalr.js?v=2026-04-29e" defer></script>
+<script src="/js/tags.js?v=2026-04-29e" defer></script>
+<script src="/js/nav.js?v=2026-04-29e" defer></script>
+<script src="/js/settings.js?v=2026-04-29e" defer></script>
+<script src="/js/dashboard.js?v=2026-04-29e" defer></script>
+<script src="/js/inventory.js?v=2026-04-29e" defer></script>
+<script src="/js/inventory-form.js?v=2026-04-29e" defer></script>
+<script src="/js/counts.js?v=2026-04-29e" defer></script>
+<script src="/js/foodpars.js?v=2026-04-29e" defer></script>
+<script src="/js/labels.js?v=2026-04-29e" defer></script>
+<script src="/js/pastry-sync.js?v=2026-04-29e" defer></script>
+<script src="/js/recipes.js?v=2026-04-29e" defer></script>
+<script src="/js/cogs.js?v=2026-04-29e" defer></script>
+<script src="/js/vendors.js?v=2026-04-29e" defer></script>
+<script src="/js/contacts.js?v=2026-04-29e" defer></script>
+<script src="/js/maintenance.js?v=2026-04-29e" defer></script>
+<script src="/js/checklists.js?v=2026-04-29e" defer></script>
+<script src="/js/ordering.js?v=2026-04-29e" defer></script>
+<script src="/js/parking.js?v=2026-04-29e" defer></script>
+<script src="/js/prepItems.js?v=2026-04-29e" defer></script>
+<script src="/js/square.js?v=2026-04-29e" defer></script>
+<script src="/js/slack.js?v=2026-04-29e" defer></script>
+<script src="/js/auto-sync.js?v=2026-04-29e" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
@@ -4336,7 +4338,7 @@ function renderMenu(query='', catFilter='') {
     const stockDisplay = stock != null ? stock : '—';
     const vars = (i.Variations||'').split('\n').filter(Boolean);
     return `<tr data-gs-id="${escHtml(i.id)}" style="${isHidden?'opacity:0.45;':''}">
-      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-04-29d" alt="" title="Synced with Square">':''}</td>
+      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-04-29e" alt="" title="Synced with Square">':''}</td>
       <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${escHtml(i.Category||'—')}</span></td>
       <td style="font-size:12px;color:var(--muted);max-width:220px">${escHtml(i.Description||'')}</td>
       <td>${i.Price != null ? '$'+Number(i.Price).toFixed(2) : '—'}</td>
