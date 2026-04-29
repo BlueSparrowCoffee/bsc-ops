@@ -605,7 +605,12 @@ async function syncInvPricesFromSquare(tabKey) {
     log(`❌ Error: ${e.message}`);
     toast('err', 'Sync failed: ' + e.message);
   }
-  btn.disabled = false; btn.textContent = tabKey === 'merch' ? '◼ Sync Prices from Square' : '◼ Sync from Square';
+  btn.disabled = false;
+  // Restore the per-tab button label that was set in the Square page card.
+  btn.textContent = tabKey === 'merch'   ? '🛍️ Sync Merchandise'
+                  : tabKey === 'food'    ? '🥐 Sync Food'
+                  : tabKey === 'grocery' ? '🛒 Sync Grocery'
+                  : '◼ Sync';
 }
 
 function filterInvCogs(q, tabKey) {
