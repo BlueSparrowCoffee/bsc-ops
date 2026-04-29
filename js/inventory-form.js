@@ -102,12 +102,13 @@ function openEditInvItem(id) {
     }
     catSel.value = cat;
   }
+  // Vendor select shows for both merch and consumable now.
+  populateInvVendorSelect(item.Supplier || '');
   if (cfg.isMerch) {
     document.getElementById('new-item-no').value          = item.ItemNo || '';
     document.getElementById('new-item-cost-unit').value   = item.CostPerUnit != null ? item.CostPerUnit : '';
     document.getElementById('new-item-square-id').value   = item.SquareCatalogItemId || '';
   } else {
-    populateInvVendorSelect(item.Supplier || '');
     document.getElementById('new-item-order-size').value   = item.OrderSize != null ? item.OrderSize : '';
     document.getElementById('new-item-unit').value         = item.OrderUnit || item.Unit || '';
     // Per-location par + reorder trigger table (reads existing BSC_InventoryPars rows)
@@ -291,6 +292,7 @@ async function saveInventoryItem() {
       ItemName:            name,
       Title:               name,
       Category:            (() => { const s = document.getElementById('new-item-cat'); return s.value === '__new__' ? (document.getElementById('new-item-cat-custom')?.value?.trim()||'') : s.value; })(),
+      Supplier:            (() => { const s = document.getElementById('new-item-supplier'); return s.value === '__new__' ? (document.getElementById('new-item-supplier-name')?.value?.trim()||'') : s.value; })(),
       ItemNo:              document.getElementById('new-item-no').value.trim()||null,
       CostPerUnit:         parseFloat(document.getElementById('new-item-cost-unit').value)||null,
       SquareCatalogItemId: document.getElementById('new-item-square-id').value.trim()||null,
