@@ -39,7 +39,7 @@ function openAddInvForm() {
   document.querySelector('#modal-add-item .modal-title').textContent = 'Add ' + cfg.label + ' Item';
   document.querySelector('#modal-add-item .btn-primary').textContent = 'Save Item';
   // clear form
-  ['new-item-name','new-item-no','new-item-cost-unit','new-item-square-id',
+  ['new-item-name','new-item-cost-unit','new-item-square-id',
    'new-item-order-size','new-item-unit',
    'new-item-cost','new-item-serving-unit','new-item-servings',
    'inv-par-apply-all','inv-trigger-apply-all'
@@ -105,7 +105,6 @@ function openEditInvItem(id) {
   // Vendor select shows for both merch and consumable now.
   populateInvVendorSelect(item.Supplier || '');
   if (cfg.isMerch) {
-    document.getElementById('new-item-no').value          = item.ItemNo || '';
     document.getElementById('new-item-cost-unit').value   = item.CostPerUnit != null ? item.CostPerUnit : '';
     document.getElementById('new-item-square-id').value   = item.SquareCatalogItemId || '';
   } else {
@@ -287,13 +286,12 @@ async function saveInventoryItem() {
   const cfg = invCfg();
   let fields;
   if (cfg.isMerch) {
-    // Tags dropped from BSC_MerchInventory 2026-04-23 (Square is source of truth; no merch-side tagging).
+    // Tags / Category / ItemNo dropped from BSC_MerchInventory: Square is the
+    // identity source for merch; no per-row tagging or categorization here.
     fields = {
       ItemName:            name,
       Title:               name,
-      Category:            (() => { const s = document.getElementById('new-item-cat'); return s.value === '__new__' ? (document.getElementById('new-item-cat-custom')?.value?.trim()||'') : s.value; })(),
       Supplier:            (() => { const s = document.getElementById('new-item-supplier'); return s.value === '__new__' ? (document.getElementById('new-item-supplier-name')?.value?.trim()||'') : s.value; })(),
-      ItemNo:              document.getElementById('new-item-no').value.trim()||null,
       CostPerUnit:         parseFloat(document.getElementById('new-item-cost-unit').value)||null,
       SquareCatalogItemId: document.getElementById('new-item-square-id').value.trim()||null,
     };

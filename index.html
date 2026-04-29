@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-04-29i">
-<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-04-29i">
-<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-04-29i">
-<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-04-29i">
-<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-04-29i">
+<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-04-29j">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-04-29j">
+<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-04-29j">
+<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-04-29j">
+<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-04-29j">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="BSC Ops">
@@ -658,8 +658,7 @@ html,body{overscroll-behavior:none;}
           <input type="checkbox" id="inv-show-archived" onchange="filterInventory(document.getElementById('inv-search-input')?.value||'')"> Archived
         </label>
         <span id="inv-count" style="font-size:13px;color:var(--muted);"></span>
-        <button id="inv-seed-btn" class="btn btn-outline ml-auto inv-merch-only" style="display:none" onclick="seedMerchItems()">Seed Items</button>
-        <button class="btn btn-primary inv-cons-only" onclick="openAddInvForm()">+ Add Item</button>
+        <button class="btn btn-primary inv-cons-only ml-auto" onclick="openAddInvForm()">+ Add Item</button>
       </div>
       <div class="table-wrap">
         <table>
@@ -2053,7 +2052,6 @@ html,body{overscroll-behavior:none;}
           onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
       </div>
       <!-- Merch-only fields -->
-      <div class="form-group inv-merch-only" style="display:none"><label>Item No.</label><input id="new-item-no" placeholder="e.g. BSC001"></div>
       <div class="form-group inv-merch-only" style="display:none"><label>Cost / Unit</label><input id="new-item-cost-unit" type="number" step="0.01" placeholder="0.00"></div>
       <div class="form-group inv-merch-only" style="display:none" style="grid-column:1/-1"><label>Square Catalog Item ID</label><input id="new-item-square-id" placeholder="Square catalog item ID"></div>
       <!-- Vendor — shown for both consumable and merch -->
@@ -2258,34 +2256,34 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-04-29i" defer></script>
-<script src="/js/utils.js?v=2026-04-29i" defer></script>
-<script src="/js/state.js?v=2026-04-29i" defer></script>
-<script src="/js/auth.js?v=2026-04-29i" defer></script>
-<script src="/js/graph.js?v=2026-04-29i" defer></script>
-<script src="/js/signalr.js?v=2026-04-29i" defer></script>
-<script src="/js/tags.js?v=2026-04-29i" defer></script>
-<script src="/js/nav.js?v=2026-04-29i" defer></script>
-<script src="/js/settings.js?v=2026-04-29i" defer></script>
-<script src="/js/dashboard.js?v=2026-04-29i" defer></script>
-<script src="/js/inventory.js?v=2026-04-29i" defer></script>
-<script src="/js/inventory-form.js?v=2026-04-29i" defer></script>
-<script src="/js/counts.js?v=2026-04-29i" defer></script>
-<script src="/js/foodpars.js?v=2026-04-29i" defer></script>
-<script src="/js/labels.js?v=2026-04-29i" defer></script>
-<script src="/js/pastry-sync.js?v=2026-04-29i" defer></script>
-<script src="/js/recipes.js?v=2026-04-29i" defer></script>
-<script src="/js/cogs.js?v=2026-04-29i" defer></script>
-<script src="/js/vendors.js?v=2026-04-29i" defer></script>
-<script src="/js/contacts.js?v=2026-04-29i" defer></script>
-<script src="/js/maintenance.js?v=2026-04-29i" defer></script>
-<script src="/js/checklists.js?v=2026-04-29i" defer></script>
-<script src="/js/ordering.js?v=2026-04-29i" defer></script>
-<script src="/js/parking.js?v=2026-04-29i" defer></script>
-<script src="/js/prepItems.js?v=2026-04-29i" defer></script>
-<script src="/js/square.js?v=2026-04-29i" defer></script>
-<script src="/js/slack.js?v=2026-04-29i" defer></script>
-<script src="/js/auto-sync.js?v=2026-04-29i" defer></script>
+<script src="/js/constants.js?v=2026-04-29j" defer></script>
+<script src="/js/utils.js?v=2026-04-29j" defer></script>
+<script src="/js/state.js?v=2026-04-29j" defer></script>
+<script src="/js/auth.js?v=2026-04-29j" defer></script>
+<script src="/js/graph.js?v=2026-04-29j" defer></script>
+<script src="/js/signalr.js?v=2026-04-29j" defer></script>
+<script src="/js/tags.js?v=2026-04-29j" defer></script>
+<script src="/js/nav.js?v=2026-04-29j" defer></script>
+<script src="/js/settings.js?v=2026-04-29j" defer></script>
+<script src="/js/dashboard.js?v=2026-04-29j" defer></script>
+<script src="/js/inventory.js?v=2026-04-29j" defer></script>
+<script src="/js/inventory-form.js?v=2026-04-29j" defer></script>
+<script src="/js/counts.js?v=2026-04-29j" defer></script>
+<script src="/js/foodpars.js?v=2026-04-29j" defer></script>
+<script src="/js/labels.js?v=2026-04-29j" defer></script>
+<script src="/js/pastry-sync.js?v=2026-04-29j" defer></script>
+<script src="/js/recipes.js?v=2026-04-29j" defer></script>
+<script src="/js/cogs.js?v=2026-04-29j" defer></script>
+<script src="/js/vendors.js?v=2026-04-29j" defer></script>
+<script src="/js/contacts.js?v=2026-04-29j" defer></script>
+<script src="/js/maintenance.js?v=2026-04-29j" defer></script>
+<script src="/js/checklists.js?v=2026-04-29j" defer></script>
+<script src="/js/ordering.js?v=2026-04-29j" defer></script>
+<script src="/js/parking.js?v=2026-04-29j" defer></script>
+<script src="/js/prepItems.js?v=2026-04-29j" defer></script>
+<script src="/js/square.js?v=2026-04-29j" defer></script>
+<script src="/js/slack.js?v=2026-04-29j" defer></script>
+<script src="/js/auto-sync.js?v=2026-04-29j" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
@@ -2575,7 +2573,9 @@ async function ensureAllLists() {
     {name:'GrossMargin',number:{decimalPlaces:'automatic'}},
     {name:'SnapshotDate',dateTime:{displayAs:'default'}}
   ]);
-  // Merch item master — uses merch-specific schema (ItemNo, CostPerUnit, SquareCatalogItemId)
+  // Merch / food / grocery item masters — share MERCH_LIST_COLS schema
+  // (ItemName, Category, Supplier, CostPerUnit, SellingPrice, SquareCatalogItemId, Archived).
+  // Merch ignores Category at the UI/save level (hasCategory:false in INV_TYPE_CFG).
   await ensureList(LISTS.merchInventory,   MERCH_LIST_COLS);
   await ensureList(LISTS.foodInventory,    MERCH_LIST_COLS);
   await ensureList(LISTS.groceryInventory, MERCH_LIST_COLS);
@@ -2844,66 +2844,9 @@ function renderAll() {
 //   - Food pars, bag labels, pastries/sandwiches sync, analytics,
 //     import, transfers, monthly cost
 // ════════════════════════════════════════════════════════════════════════════
-async function seedMerchItems() {
-  const cfg = invCfg();
-  const existing = cache[cfg.cacheKey] || [];
-  if (existing.length > 0 && !confirm(`Merch inventory already has ${existing.length} item(s). Seed will add any missing items. Continue?`)) return;
-
-  const SEED = [
-    // Drinkware
-    { ItemNo:'BSC001', ItemName:'32oz Tumbler',              Category:'Drinkware',     CostPerUnit: 32.25 },
-    { ItemNo:'BSC002', ItemName:'20oz Tumbler',              Category:'Drinkware',     CostPerUnit: 16.47 },
-    { ItemNo:'BSC005', ItemName:'Feather Ceramic 12oz',      Category:'Drinkware',     CostPerUnit: 10.16 },
-    { ItemNo:'BSC021', ItemName:'GandyxBSC Tumbler',         Category:'Drinkware',     CostPerUnit: 18.50 },
-    // Coffee Tools
-    { ItemNo:'BSC003', ItemName:'Small Press',               Category:'Coffee Tools',  CostPerUnit: 67.00 },
-    { ItemNo:'BSC004', ItemName:'Porcelain Press',           Category:'Coffee Tools',  CostPerUnit: 78.00 },
-    { ItemNo:'BSC006', ItemName:'Matcha Whisk',              Category:'Coffee Tools',  CostPerUnit:  8.00 },
-    { ItemNo:'BSC007', ItemName:'Matcha Jars',               Category:'Coffee Tools',  CostPerUnit: 30.00 },
-    { ItemNo:'BSC008', ItemName:'Matcha Bowl',               Category:'Coffee Tools',  CostPerUnit: 20.00 },
-    { ItemNo:'BSC025', ItemName:'Matcha Kit',                Category:'Coffee Tools',  CostPerUnit: 30.00 },
-    // Books & Art
-    { ItemNo:'BSC009', ItemName:'Breakfast',                 Category:'Books & Art',   CostPerUnit: 25.97 },
-    { ItemNo:'BSC010', ItemName:'Art Record Covers',         Category:'Books & Art',   CostPerUnit: 38.50 },
-    { ItemNo:'BSC011', ItemName:'Velo 3D Gear',              Category:'Books & Art',   CostPerUnit: 24.98 },
-    { ItemNo:'BSC012', ItemName:'Annie Leibovitz at Work',   Category:'Books & Art',   CostPerUnit: 25.97 },
-    { ItemNo:'BSC013', ItemName:'HHH - Hardcover',           Category:'Books & Art',   CostPerUnit: 11.75 },
-    // Apparel
-    { ItemNo:'BSC018', ItemName:'Feather Crewneck',          Category:'Apparel',       CostPerUnit: 30.93 },
-    { ItemNo:'BSC019', ItemName:'Store Crewneck',            Category:'Apparel',       CostPerUnit: 34.59 },
-    { ItemNo:'BSC020', ItemName:'Eyes Closed Tee',           Category:'Apparel',       CostPerUnit: 19.30 },
-    { ItemNo:'BSC023', ItemName:'BSC Logo Beanie',           Category:'Apparel',       CostPerUnit: 10.07 },
-    // Lifestyle
-    { ItemNo:'BSC014', ItemName:'Chai Candle',               Category:'Lifestyle',     CostPerUnit: 16.00 },
-    // Dog
-    { ItemNo:'BSC015', ItemName:'Dog Leash',                 Category:'Dog',           CostPerUnit: 10.25 },
-    { ItemNo:'BSC016', ItemName:'Dog Plush - Mug',           Category:'Dog',           CostPerUnit:  9.00 },
-    { ItemNo:'BSC017', ItemName:'Dog Plush - Port',          Category:'Dog',           CostPerUnit:  9.50 },
-    { ItemNo:'BSC022', ItemName:'Free Dog Toys',             Category:'Dog',           CostPerUnit:  0.00 },
-    { ItemNo:'BSC026', ItemName:'Dog Plush - Coffee Bag',    Category:'Dog',           CostPerUnit:  9.70 },
-    // Packaging
-    { ItemNo:'BSC024', ItemName:'Pacific Bags',              Category:'Packaging',     CostPerUnit:  1.099 },
-  ];
-
-  const existingNames = new Set(existing.map(i=>(i.ItemName||'').trim()));
-  const toAdd = SEED.filter(s => !existingNames.has(s.ItemName));
-  if (!toAdd.length) { toast('ok','All seed items already exist'); return; }
-
-  setLoading(true, `Seeding ${toAdd.length} merch items…`);
-  try {
-    for (let i=0; i<toAdd.length; i+=4) {
-      const batch = toAdd.slice(i,i+4);
-      const results = await Promise.all(batch.map(item => addListItem(LISTS[cfg.listKey], {
-        Title: item.ItemName, ItemName: item.ItemName,
-        Category: item.Category, ItemNo: item.ItemNo, CostPerUnit: item.CostPerUnit
-      })));
-      results.forEach(r => cache[cfg.cacheKey].push(r));
-    }
-    toast('ok', `✓ Seeded ${toAdd.length} merch items`);
-    renderInventory();
-  } catch(e) { toast('err','Seed failed: '+e.message); }
-  finally { setLoading(false); }
-}
+// seedMerchItems removed 2026-04-29 — merch is Square-source-of-truth, the
+// seed flow was for initial setup that's long since done, and it referenced
+// the now-removed Category/ItemNo fields.
 
 // renderCountSheet, updateCountTotal moved to js/counts.js
 
@@ -4338,7 +4281,7 @@ function renderMenu(query='', catFilter='') {
     const stockDisplay = stock != null ? stock : '—';
     const vars = (i.Variations||'').split('\n').filter(Boolean);
     return `<tr data-gs-id="${escHtml(i.id)}" style="${isHidden?'opacity:0.45;':''}">
-      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-04-29i" alt="" title="Synced with Square">':''}</td>
+      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-04-29j" alt="" title="Synced with Square">':''}</td>
       <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${escHtml(i.Category||'—')}</span></td>
       <td style="font-size:12px;color:var(--muted);max-width:220px">${escHtml(i.Description||'')}</td>
       <td>${i.Price != null ? '$'+Number(i.Price).toFixed(2) : '—'}</td>

@@ -450,23 +450,15 @@ function renderMerchCountSheet() {
       };
     });
 
-  const items = [...(cache[cfg.cacheKey]||[])].sort((a,b)=>{
-    const ca = a.Category||'', cb = b.Category||'';
-    if (ca!==cb) return ca.localeCompare(cb);
-    return (a.ItemNo||'').localeCompare(b.ItemNo||'');
-  });
-  const byCategory = {};
-  items.forEach(i => {
-    const cat = i.Category||'Other';
-    if (!byCategory[cat]) byCategory[cat]=[];
-    byCategory[cat].push(i);
-  });
+  // Merch no longer tracks Category or ItemNo — sort alphabetically by name.
+  const items = [...(cache[cfg.cacheKey]||[])].sort((a,b) =>
+    (a.ItemName||'').localeCompare(b.ItemName||'')
+  );
 
   container.innerHTML = `
     <div style="overflow-x:auto">
     <table style="width:100%;border-collapse:collapse;font-size:13px">
       <thead><tr style="background:var(--opal);border-bottom:2px solid var(--border)">
-        <th style="padding:8px 12px;text-align:left;font-weight:600">Item #</th>
         <th style="padding:8px 12px;text-align:left;font-weight:600">Item</th>
         <th style="padding:8px 12px;text-align:center;font-weight:600">Store</th>
         <th style="padding:8px 12px;text-align:center;font-weight:600">Storage</th>
@@ -474,14 +466,9 @@ function renderMerchCountSheet() {
         <th style="padding:8px 12px;text-align:center;font-weight:600" title="Units sold since last count (from Square)">Sold</th>
       </tr></thead>
       <tbody>
-      ${Object.entries(byCategory).sort(([a],[b])=>a>b?1:-1).map(([cat, catItems])=>`
-        <tr style="background:var(--cream)">
-          <td colspan="6" style="padding:8px 12px;font-weight:700;font-size:12px;color:var(--dark-blue);letter-spacing:.04em;text-transform:uppercase;border-top:2px solid var(--border)">${escHtml(cat)}</td>
-        </tr>
-        ${catItems.map(item => {
+      ${items.map(item => {
           const last = recentMap[item.ItemName||''];
           return `<tr class="merch-count-row" data-id="${item.id}" data-name="${(item.ItemName||'').replace(/"/g,'&quot;')}" style="border-bottom:1px solid var(--border)">
-            <td style="padding:8px 12px;color:var(--muted);font-size:12px">${escHtml(item.ItemNo||'')}</td>
             <td style="padding:8px 12px;font-weight:500">${escHtml(item.ItemName||'—')}</td>
             <td style="padding:6px 8px;text-align:center">
               <input type="number" class="count-num-input merch-store" min="0" step="1" placeholder="0"
@@ -503,7 +490,6 @@ function renderMerchCountSheet() {
             </td>
           </tr>`;
         }).join('')}
-      `).join('')}
       </tbody>
     </table>
     </div>`;

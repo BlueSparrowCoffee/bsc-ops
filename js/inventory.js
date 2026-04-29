@@ -233,7 +233,6 @@ function renderInvTableHeader() {
   if (isMerch) {
     tr.innerHTML = `
       <th onclick="sortInvBy('ItemName')">Name</th>
-      <th id="inv-th-category" onclick="sortInvBy('Category')">Category</th>
       <th onclick="sortInvBy('Supplier')">Vendor</th>
       <th onclick="sortInvBy('CostPerUnit')">Cost/Unit</th>
       <th onclick="sortInvBy('StoreCount')">Store</th>
@@ -400,7 +399,7 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
   if (!cfg) return; // non-inventory type (food pars, labels, transfers)
 
   if (cfg.isMerch) {
-    renderMerchInventoryItems(query, catFilter);
+    renderMerchInventoryItems(query);
     return;
   }
 
@@ -494,16 +493,13 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
     suppliers.map(s=>`<option value="${escHtml(s)}" ${s===curSup?'selected':''}>${escHtml(s)}</option>`).join('');
 }
 
-function renderMerchInventoryItems(query='', catFilter='') {
+function renderMerchInventoryItems(query='') {
   const cfg = invCfg();
   const countsMap = getLatestCountsMap(currentLocation);
   const showArchived = document.getElementById('inv-show-archived')?.checked || false;
   let items = cache[cfg.cacheKey] || [];
   if (!showArchived) items = items.filter(i => !i.Archived);
-  if (query) items = items.filter(i=>(i.ItemName||'').toLowerCase().includes(query.toLowerCase())||
-    (i.ItemNo||'').toLowerCase().includes(query.toLowerCase())||
-    (i.Category||'').toLowerCase().includes(query.toLowerCase()));
-  if (catFilter) items = items.filter(i=>i.Category===catFilter);
+  if (query) items = items.filter(i => (i.ItemName||'').toLowerCase().includes(query.toLowerCase()));
 
   if (_invSort.col) {
     items = [...items].sort((a,b) => {
@@ -535,7 +531,6 @@ function renderMerchInventoryItems(query='', catFilter='') {
     // Archive + delete live in the modal footer (inv-modal-archive-btn / inv-modal-delete-btn).
     return `<tr data-inv-id="${escHtml(i.id)}" onclick="openEditInvItem('${escHtml(i.id)}')" style="cursor:pointer;${i.Archived?'opacity:.45;':''}">
       <td class="fw">${escHtml(i.ItemName||'—')}${(i.SquareId||i.SquareCatalogItemId)?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-04-28h" alt="" title="Synced with Square">':''}${i.Archived?'<span style="font-size:10px;background:var(--muted);color:#fff;padding:1px 5px;border-radius:8px;margin-left:4px;">archived</span>':''}</td>
-      <td><span class="badge badge-teal">${escHtml(i.Category||'—')}</span></td>
       <td style="font-size:12px">${i.Supplier ? `<a href="#" data-supplier="${escHtml(i.Supplier||'')}" onclick="event.stopPropagation();nav('vendors');setTimeout(()=>{const s=document.querySelector('#page-vendors .search-input');if(s){s.value=this.dataset.supplier;filterVendors(s.value);}},300);return false;" style="color:var(--gold);text-decoration:none;">${escHtml(i.Supplier)}</a>` : '<span style="color:var(--muted)">—</span>'}</td>
       <td>${cost != null ? '$'+Number(cost).toFixed(2) : '—'}</td>
       <td>${store}</td>

@@ -604,7 +604,10 @@ async function syncInvPricesFromSquare(tabKey) {
     let imported = 0;
     for (const t of importTargets) {
       if (existingNames.has(t.name.toLowerCase()) || existingIds.has(t.sqId)) continue;
-      const fields = { ItemName: t.name, Category: t.cat || cfg.squareCat, SquareCatalogItemId: t.sqId,
+      // Merch doesn't track Category at the BSC level (Square is identity source) —
+      // skip Category on import. Food/grocery still record it for grouping.
+      const fields = { ItemName: t.name, SquareCatalogItemId: t.sqId,
+        ...(tabKey !== 'merch' ? { Category: t.cat || cfg.squareCat } : {}),
         ...(t.price != null ? { SellingPrice: t.price } : {}) };
       const newItem = await addListItem(LISTS[cfg.listKey], fields);
       cache[cfg.cacheKey].push(newItem);
@@ -639,7 +642,8 @@ async function syncInvPricesFromSquare(tabKey) {
       // Price — only included when Square actually has one.
       if (price != null) fields.SellingPrice = price;
       if (!wasLinked) fields.SquareCatalogItemId = sqId;
-      if (cat && cat !== item.Category) fields.Category = cat;
+      // Merch doesn't track Category at the BSC level — skip the write. Food/grocery still propagate.
+      if (tabKey !== 'merch' && cat && cat !== item.Category) fields.Category = cat;
       if (sqName && sqName !== itemName) {
         fields.ItemName = sqName;
         fields.Title = sqName;
@@ -734,8 +738,7 @@ function renderInvCogCards(tabKey) {
   // both are "things normally not shown." Default view filters them out.
   if (!showHidden) items = items.filter(i => !i.Archived && !state.hiddenIds.has(i.id));
   if (state.query) items = items.filter(i =>
-    (i.ItemName||i.Title||'').toLowerCase().includes(state.query) ||
-    (i.ItemNo||'').toLowerCase().includes(state.query));
+    (i.ItemName||i.Title||'').toLowerCase().includes(state.query));
   items = [...items].sort((a,b) => (a.ItemName||a.Title||'').localeCompare(b.ItemName||b.Title||''));
 
   if (!items.length) {
@@ -765,8 +768,8 @@ function renderInvCogCard(item, tabKey) {
           <div style="flex:1;min-width:0;">
             <div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(item.ItemName||item.Title||'Untitled')}</div>
             <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;">
-              ${item.Category?`<span class="text-hint">${escHtml(item.Category)}</span>`:''}
-              ${item.ItemNo?`<span style="font-size:11px;color:var(--muted);">· ${escHtml(item.ItemNo)}</span>`:''}
+              ${tabKey !== 'merch' && item.Category ? `<span class="text-hint">${escHtml(item.Category)}</span>` : ''}
+              ${tabKey !== 'merch' && item.ItemNo   ? `<span style="font-size:11px;color:var(--muted);">· ${escHtml(item.ItemNo)}</span>` : ''}
             </div>
           </div>
           <button data-id="${escHtml(item.id)}" data-tab="${escHtml(tabKey)}"
