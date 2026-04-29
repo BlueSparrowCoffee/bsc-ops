@@ -541,7 +541,7 @@ async function syncInvPricesFromSquare(tabKey) {
     // Also mirrors Square's is_archived flag back to SP (one-way — unarchiving
     // in Square does NOT auto-unarchive here, since SP archived state may be
     // user-driven for reasons unrelated to Square).
-    let updated = 0, autoLinked = 0, renamed = 0, autoArchived = 0, unchanged = 0, notFound = 0;
+    let updated = 0, autoLinked = 0, renamed = 0, autoArchived = 0, unchanged = 0, notFound = 0, failed = 0;
     for (const item of cache[cfg.cacheKey]) {
       const itemName = (item.ItemName || item.Title || '').trim();
       let sqId = (item.SquareCatalogItemId || '').trim();
@@ -574,15 +574,25 @@ async function syncInvPricesFromSquare(tabKey) {
         unchanged++; continue;
       }
 
-      await updateListItem(LISTS[cfg.listKey], item.id, fields);
-      Object.assign(item, fields);
-      if (fields.Archived) { autoArchived++; log(`  📦 Archived (matches Square): ${sqName || itemName}`); }
-      if (fields.ItemName) { renamed++; log(`  ✏️ Renamed "${itemName}" → "${sqName}"`); }
-      if (!wasLinked) { autoLinked++; log(`  🔗 ${sqName || itemName}${price != null ? ': $'+price.toFixed(2) : ''}`); }
-      else if (!fields.ItemName && !fields.Archived && price != null) { updated++; log(`  ✓ ${sqName || itemName}: $${price.toFixed(2)}`); }
+      // Skip-and-continue: a single bad item shouldn't abort the whole sync.
+      // Without this, the next ~30 items silently never get processed (e.g.
+      // archive flags don't propagate from Square — see Eyes Closed Tee 4/28).
+      try {
+        await updateListItem(LISTS[cfg.listKey], item.id, fields);
+        Object.assign(item, fields);
+        if (fields.Archived) { autoArchived++; log(`  📦 Archived (matches Square): ${sqName || itemName}`); }
+        if (fields.ItemName) { renamed++; log(`  ✏️ Renamed "${itemName}" → "${sqName}"`); }
+        if (!wasLinked) { autoLinked++; log(`  🔗 ${sqName || itemName}${price != null ? ': $'+price.toFixed(2) : ''}`); }
+        else if (!fields.ItemName && !fields.Archived && price != null) { updated++; log(`  ✓ ${sqName || itemName}: $${price.toFixed(2)}`); }
+      } catch (e) {
+        failed++;
+        log(`  ✗ ${itemName} — ${e.message}`);
+        console.warn(`[syncInvPricesFromSquare] failed to update "${itemName}":`, e);
+      }
     }
 
-    log(`\n✅ Done — ${imported} imported, ${updated} updated, ${autoLinked} auto-linked, ${renamed} renamed, ${autoArchived} auto-archived, ${unchanged} unchanged, ${notFound} not found`);
+    const failSuffix = failed ? `, ⚠ ${failed} failed (see log above)` : '';
+    log(`\n${failed ? '⚠️' : '✅'} Done — ${imported} imported, ${updated} updated, ${autoLinked} auto-linked, ${renamed} renamed, ${autoArchived} auto-archived, ${unchanged} unchanged, ${notFound} not found${failSuffix}`);
     renderInvCogCards(tabKey);
     renderCogsOverview();
     toast('ok', `✓ ${cfg.squareCat} synced`);
@@ -632,7 +642,9 @@ function renderInvCogCards(tabKey) {
   const showHidden = document.getElementById(`${tabKey}-cogs-show-hidden`)?.checked;
 
   let items = cache[cfg.cacheKey] || [];
-  if (!showHidden) items = items.filter(i => !state.hiddenIds.has(i.id));
+  // "Show hidden" surfaces both manually-hidden AND Square-archived items —
+  // both are "things normally not shown." Default view filters them out.
+  if (!showHidden) items = items.filter(i => !i.Archived && !state.hiddenIds.has(i.id));
   if (state.query) items = items.filter(i =>
     (i.ItemName||i.Title||'').toLowerCase().includes(state.query) ||
     (i.ItemNo||'').toLowerCase().includes(state.query));
