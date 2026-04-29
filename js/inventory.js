@@ -234,6 +234,7 @@ function renderInvTableHeader() {
     tr.innerHTML = `
       <th onclick="sortInvBy('ItemName')">Name</th>
       <th id="inv-th-category" onclick="sortInvBy('Category')">Category</th>
+      <th onclick="sortInvBy('Supplier')">Vendor</th>
       <th onclick="sortInvBy('CostPerUnit')">Cost/Unit</th>
       <th onclick="sortInvBy('StoreCount')">Store</th>
       <th onclick="sortInvBy('StorageCount')">Storage</th>
@@ -534,6 +535,7 @@ function renderMerchInventoryItems(query='', catFilter='') {
     return `<tr${i.Archived?' style="opacity:.45;"':''}>
       <td class="fw">${escHtml(i.ItemName||'—')}${(i.SquareId||i.SquareCatalogItemId)?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-04-28h" alt="" title="Synced with Square">':''}${i.Archived?'<span style="font-size:10px;background:var(--muted);color:#fff;padding:1px 5px;border-radius:8px;margin-left:4px;">archived</span>':''}</td>
       <td><span class="badge badge-teal">${escHtml(i.Category||'—')}</span></td>
+      <td style="font-size:12px">${i.Supplier ? `<a href="#" data-supplier="${escHtml(i.Supplier||'')}" onclick="event.stopPropagation();nav('vendors');setTimeout(()=>{const s=document.querySelector('#page-vendors .search-input');if(s){s.value=this.dataset.supplier;filterVendors(s.value);}},300);return false;" style="color:var(--gold);text-decoration:none;">${escHtml(i.Supplier)}</a>` : '<span style="color:var(--muted)">—</span>'}</td>
       <td>${cost != null ? '$'+Number(cost).toFixed(2) : '—'}</td>
       <td>${store}</td>
       <td>${storage}</td>
