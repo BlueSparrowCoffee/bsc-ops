@@ -29,7 +29,8 @@ Extract and report:
 6. **MODULES array** — grep `const MODULES`
 7. **MAINT_FORM_FIELDS** — grep `const MAINT_FORM_FIELDS`
 8. **VENDOR_FORM_FIELDS** — grep `const VENDOR_FORM_FIELDS`
-9. **Line counts** — run `wc -l index.html js/*.js` (index.html should be well below 10k post-split — currently ~4,900)
+9. **Line counts** — run `wc -l index.html js/*.js` (index.html should be well below 10k post-split — currently ~4,917)
+10. **`js/auto-sync.js`** (added 2026-04-29) — daily client-side Square→SP auto-sync orchestrator (Approach A). Default OFF. Owner-gated. ~217 lines.
 
 ## Report format
 
@@ -73,7 +74,7 @@ Always use the `deploy` skill after index.html changes. It stages only index.htm
 
 ### Schema changes
 - Add columns to `ensureList(...)` calls in `ensureAllLists()`
-- Bump `PROVISION_VERSION` (currently '28')
+- Bump `PROVISION_VERSION` (currently '33')
 - Tell user to clear `bsc_provision_v` from localStorage to trigger re-provisioning
 
 ### Tag system (added v23)
@@ -174,6 +175,44 @@ Always use the `deploy` skill after index.html changes. It stages only index.htm
   - NEVER use `Object.values(locMap)` or `locMap[bscName]` for IDs
 - **Diagnostic**: Settings → ◼ Square API → 🔍 Test Square APIs — probes 5 endpoints independently
 - **Personal Access Token scopes**: Square requires explicit scope grants now. If Orders returns 403 but other endpoints work, add `ORDERS_READ` in Square Developer Dashboard
+- **All catalog-related sync buttons live on the Square page** (since 2026-04-29): Team / Locations / Catalog→Menu / 🗂️ Inventory Categories card (Merch/Food/Grocery) / Inventory Counts. All `btn-outline` styling.
+- **"Pull from Square" on merch count entry** is now labeled "Populate Sales from Square" (function name `pullMerchSalesFromSquare` unchanged).
+
+### Square sync resilience (2026-04-29)
+- **`graph()` and `graphAdmin()`** auto-retry **429/503/504** with exponential backoff (1s/2s/5s; honors `Retry-After` header up to 30s; max 3 retries). Constants `_GRAPH_RETRY_STATUSES`, `_graphBackoffMs()` in `js/graph.js`.
+- **`syncSquareCatalog`** + **`syncInvPricesFromSquare`** wrap each item in try/catch. Single-item failure logs `✗ {item} — {error}` and the loop continues. Final summary shows `failed` count.
+- **Two-way archive sync** for merch/food/grocery: `syncInvPricesFromSquare` propagates BOTH archive AND unarchive from Square. Uses `'Archived' in fields` (not `!fields.Archived`) for "skip-if-nothing-changed" so empty-string writes still trigger PATCH.
+- **`tabKey === 'merch'` skips Category writes** — merch items have `hasCategory: false` and don't track Category in BSC.
+
+### Welcome splash (2026-04-29)
+- `#splash` element placed AFTER `#loading` in DOM (same z-index 2147483647 → DOM order wins).
+- **Show: instant.** No opacity transition. `.show` class = `display:flex` immediately.
+- **Background fade**: 40s linear keyframe `splash-bg-fade` (rgba navy 1 → 0). Starts the moment `.show` is added.
+- **Dismiss: instant.** `hideSplash()` removes `.show` → display none same frame; animation cancels because selector no longer matches.
+- **`body.splash-active`** class (added on show, removed on hide) suppresses `#loading` via `body.splash-active #loading{display:none !important}`.
+- **Gating**: shown on fresh tab/session OR explicit MSAL sign-in. sessionStorage `bsc_splash_seen` (set on first show this tab) + `bsc_force_splash` (set by `signIn()` before `loginRedirect`, survives the round-trip). Refreshes within an existing tab skip splash.
+- **Splash GIF**: `/images/BSC Ops Logo V3 Animated.gif` (25.3 MB, SW-precached at v20). Sized at `min(48vmin, 320px)`.
+- **Loading message** under the GIF (`#splash-msg`); `setLoading(msg)` in `utils.js` mirrors its label into the splash so users see real progress text.
+
+### Auto-sync — Approach A (2026-04-29)
+`js/auto-sync.js` — daily client-side Square → SP catalog sync orchestrator.
+- **Default OFF.** Toggle in Settings → 🔄 Auto-Sync from Square card. State at `BSC_Settings.auto_sync_enabled`.
+- **Cooldown 24h** (`AUTO_SYNC_INTERVAL_HOURS`) via `BSC_Settings.auto_sync_last_run`.
+- **Lock 5min TTL** (`AUTO_SYNC_LOCK_TTL_MS`) via `BSC_Settings.auto_sync_lock` ({ owner, ts }).
+- **Random 0–3s startup jitter** to mitigate concurrent-tab races.
+- **Owner-gated** — non-owners silently skip.
+- **Sequential syncs**: catalog → merch → food → grocery (each underlying sync has its own skip-and-continue).
+- **Topbar status** flips to "🔄 Auto-syncing…" while running.
+- Wired into `bootstrapApp()` (cold + cached load paths) after `loadAllData()`, non-blocking.
+- **Manual "Run Now"** in Settings card bypasses cooldown but respects lock.
+
+### Merch UX (2026-04-30)
+- **Click-to-edit row** — same pattern as consumable. No inline action buttons. Archive/Delete/Hide via modal footer.
+- **No Category, no ItemNo** — `INV_TYPE_CFG.merch.hasCategory: false` (auto-hides toolbar filter + form Category select); ItemNo entirely removed from schema, form, and UI.
+- **`Supplier` field added** (Vendor) — column in inventory table (clickable, jumps to Vendors filtered), dropdown in edit modal, written by save.
+- **Hide/show toggle** — separate from Archive. State in `_merchInvHidden` Set (module-level `let` in `js/inventory.js`); persists to `localStorage.bsc_merch_inv_hidden` + `BSC_Settings.bsc_merch_inv_hidden`. `applyHiddenSettings()` rehydrates on data load. Toggle via modal footer (`#inv-modal-hide-btn`); "Show hidden" toolbar checkbox surfaces them.
+- **Merch row Square badge** checks `i.SquareId || i.SquareCatalogItemId` (merch sync writes the latter; menu sync writes the former).
+- **Merch count inputs pre-filled** with `recentMap.{store,storage}` for current location + month (consumable still renders blank).
 
 ### Coffee bag labels (v27+)
 - Auto-syncs BagsSold + Adjustment (`ceil(BagsSold × 1.1)`) + EndBalance + TotalValue on tab open
@@ -209,4 +248,5 @@ Per `feedback_remove_means_delete.md`: when the user says remove/delete/kill/dro
 ## Also flag
 - If `index.html` is over 10,000 lines again: recommend further module split
 - If `PROVISION_VERSION` hasn't been bumped after a schema change: remind user
-- If `APP_VERSION` in `js/constants.js` doesn't match the 27 cache-bust strings in `index.html`: bump both
+- If `APP_VERSION` in `js/constants.js` doesn't match the 34 cache-bust strings in `index.html`: bump both (28 JS modules + 5 favicon links + 1 sq-badge image; verify count with `grep -c "v=NEW" index.html`)
+- If SW precache list (`STATIC_ASSETS` in `sw.js`) changes: bump the SW cache version (`bsc-ops-vN`) so existing clients refetch — currently `v20`
