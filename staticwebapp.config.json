@@ -8,6 +8,6 @@
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
-    "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://alcdn.msauth.net https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; connect-src 'self' https://login.microsoftonline.com https://graph.microsoft.com https://*.sharepoint.com https://hooks.slack.com https://*.service.signalr.net wss://*.service.signalr.net https://cdn.jsdelivr.net; img-src 'self' data: https:; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self';"
+    "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://alcdn.msauth.net https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; connect-src 'self' https://login.microsoftonline.com https://graph.microsoft.com https://*.sharepoint.com https://hooks.slack.com https://*.service.signalr.net wss://*.service.signalr.net https://cdn.jsdelivr.net https://script.google.com https://script.googleusercontent.com; img-src 'self' data: https:; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self';"
   }
 }

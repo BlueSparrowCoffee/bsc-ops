@@ -89,12 +89,12 @@ async function runPastryOrderSync() {
     });
 
     // ── POST to Apps Script Web App ───────────────────────────────────────
+    // Apps Script doPost reads e.postData.contents as a string regardless of
+    // Content-Type. text/plain avoids a CORS preflight (script.google.com
+    // doesn't return Access-Control-Allow-Headers).
     log(`Sending ${masterPastries.length} items × ${locations.length} locations to Google Sheet…`);
     const res = await fetch(PASTRY_ORDER_SYNC_URL, {
       method: 'POST',
-      // Apps Script doPost reads e.postData.contents as a string regardless of
-      // Content-Type. Using text/plain avoids a CORS preflight that otherwise
-      // fails against script.google.com (no Access-Control-Allow-Headers).
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ headers, rows: dataRows })
     });
