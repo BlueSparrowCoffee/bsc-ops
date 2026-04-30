@@ -78,8 +78,8 @@ async function runPastryOrderSync() {
     for (const loc of locations) for (const d of DAYS) headers.push(`${loc} ${d}`);
 
     const dataRows = masterPastries.map(p => {
-      const key        = (p.Title||'').toLowerCase().trim();          // always look up pars by internal name
-      const exportName = (p.ExportName||'').trim() || p.Title || ''; // vendor-facing name in col A
+      const key        = (p.Title||'').toLowerCase().trim();             // always look up pars by internal name
+      const exportName = (p.ExportName||'').trim() || (p.Title||'').trim() || ''; // vendor-facing name in col A — trim both sides of the fallback so a stray space in BSC doesn't break VLOOKUP
       const row = [exportName];
       for (const m of locMaps) {
         const v = m[key] || {};
@@ -113,11 +113,12 @@ async function runPastryOrderSync() {
       const baseIdx = 2 + li * 7; // 1-based column index for Mon of this location
       log(`${loc} tab  (replace hard-coded numbers in B, C, D, E, F, G, H):`);
       DAYS.forEach((d, di) => {
-        log(`  ${d}: =IFERROR(VLOOKUP($A4,BSC_Data!$A:$${lastCol},${baseIdx + di},0),0)`);
+        log(`  ${d}: =IFERROR(VLOOKUP(TRIM($A4),BSC_Data!$A:$${lastCol},${baseIdx + di},0),0)`);
       });
       log('');
     });
     log('Note: change $A4 to match the row of your first item on each tab.');
+    log('TRIM($A4) makes the lookup whitespace-tolerant — stray spaces in your label cell won\'t break it.');
 
     toast('ok', '✓ BSC_Data synced — see log for VLOOKUP formulas');
   } catch(e) {
