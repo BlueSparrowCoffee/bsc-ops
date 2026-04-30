@@ -126,6 +126,22 @@ const MERCH_COUNTS_EXTRA_COLS = [
   {name:'ChangesSinceLastCount',number:{decimalPlaces:'automatic'}}
 ];
 
+// Coffee bag labels — per-location list (BSC_<Loc>_CoffeeBagLabels). Lazy-
+// provisioned in labels.js via ensureList on first save. No Location column
+// because the location is encoded in the list name.
+const BAG_LABELS_LIST_COLS = [
+  {name:'Month',        text:{}},
+  {name:'StartBalance', number:{decimalPlaces:'automatic'}},
+  {name:'BagsSold',     number:{decimalPlaces:'automatic'}},
+  {name:'Adjustment',   number:{decimalPlaces:'automatic'}},
+  {name:'EndBalance',   number:{decimalPlaces:'automatic'}},
+  {name:'CostPerLabel', number:{decimalPlaces:'automatic'}},
+  {name:'TotalValue',   number:{decimalPlaces:'automatic'}},
+  {name:'Notes',        text:{allowMultipleLines:true}},
+  {name:'ReconcileBy',  text:{}},
+  {name:'SquareData',   text:{allowMultipleLines:true}}
+];
+
 // ── Master SharePoint list registry ──────────────────────────────
 const LISTS = {
   inventory:      'BSC_Inventory',          // shared consumable item master
@@ -149,7 +165,6 @@ const LISTS = {
   maintSchedule:  'BSC_MaintSchedule',
   maintLog:       'BSC_MaintLog',
   settings:       'BSC_Settings',
-  labels:         'BSC_CoffeeBagLabels',
   foodPars:            'BSC_FoodPars',
   parking:             'BSC_Parking',
   prepItems:           'BSC_PrepItems',
@@ -204,7 +219,7 @@ const INV_COG_CFG = {
 // Bump APP_VERSION any time a deploy has breaking localStorage changes.
 // On version mismatch the entire localStorage is wiped so stale prefs never
 // cause weirdness after an update.
-const APP_VERSION = '2026-04-29m';
+const APP_VERSION = '2026-04-30a';
 (function() {
   try {
     if (localStorage.getItem('bsc_app_version') !== APP_VERSION) {

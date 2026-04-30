@@ -182,6 +182,10 @@ async function setLocation(loc, btn) {
       const fpLn = foodParsListName(loc);
       cache.foodParValues = fpLn ? await getListItems(siteId, fpLn).catch(() => []) : [];
     }
+    // Reload coffee-bag labels (per-location lists, tagged with _loc)
+    if (typeof loadLabelsForLocation === 'function') {
+      await loadLabelsForLocation().catch(e => console.warn('Labels reload failed:', e));
+    }
   } catch(e) { console.warn('Counts reload failed:', e); }
   renderInventory();
   renderDashboard();
@@ -189,5 +193,11 @@ async function setLocation(loc, btn) {
   // Re-render food pars if that panel is currently visible
   if (document.getElementById('inv-tab-foodpars')?.style.display !== 'none' && _invType) {
     renderFoodParsInTab(_invType);
+  }
+  // Re-render labels page if that panel is currently visible
+  if (document.getElementById('inv-tab-labels')?.style.display !== 'none' &&
+      typeof renderLabelsPage === 'function') {
+    renderLabelsPage();
+    if (typeof syncLabelsBagsSold === 'function') syncLabelsBagsSold();
   }
 }

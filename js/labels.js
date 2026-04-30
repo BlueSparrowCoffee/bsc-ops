@@ -3,35 +3,75 @@
  * Coffee-bag label tracking: monthly balance, bags-sold sync from
  * Square (auto-backfill), and end-of-month reconciliation.
  *
+ * Per-location: each location has its own SharePoint list
+ * BSC_<Loc>_CoffeeBagLabels (lazy-provisioned via ensureList on first
+ * save). cache.labels holds rows for the current scope, with each row
+ * tagged `_loc` so 'all' mode can group/sum across locations.
+ *
  * Formula:
  *   Adjustment  = ceil(BagsSold × 1.1)   // 10% buffer for misprints
  *   EndBalance  = max(0, StartBalance − Adjustment)
  *   TotalValue  = EndBalance × CostPerLabel (if cost set)
  *
  * syncLabelsBagsSold runs fire-and-forget on tab enter, rate-limited
- * to one call per 5 minutes. It backfills current + prior month in
- * case the new-month record was created before month-end Square
- * sales finished.
+ * per location to one call per 5 minutes. It backfills current + prior
+ * month in case the new-month record was created before month-end
+ * Square sales finished.
  *
  * Depends on:
- *   - state.js (cache, currentUser)
- *   - constants.js (LISTS, COFFEE_BAG_PATTERNS)
- *   - graph.js (addListItem, updateListItem)
+ *   - state.js (cache, currentUser, currentLocation)
+ *   - constants.js (BAG_LABELS_LIST_COLS, COFFEE_BAG_PATTERNS)
+ *   - graph.js (ensureList, addListItem, updateListItem, getListItems, getSiteId)
+ *   - settings.js (getLocations)
  *   - utils.js (escHtml, toast, setLoading, openModal, closeModal)
  *   - index.html globals resolved at call time:
- *     getSquareLocIds, getSquareLocMap, squareAPI
+ *     bscNameToSquareLocId, squareAPI
  * ================================================================ */
 
-let _labelsSyncedAt = 0;
+function labelsListName(loc) {
+  const l = loc || currentLocation;
+  if (!l || l === 'all') return null;
+  return 'BSC_' + l.replace(/[\s\/\\]/g, '_') + '_CoffeeBagLabels';
+}
+
+// Per-location rate-limit timestamps for syncLabelsBagsSold
+let _labelsSyncedAt = {};
+
+// Pending reconcile data (set during preview, used on confirm)
+let _labelsPendingReconcile = null;
+
+async function loadLabelsForLocation() {
+  const siteId = await getSiteId();
+  const tag = (rows, loc) => rows.map(r => ({ ...r, _loc: loc }));
+  if (currentLocation === 'all') {
+    const arrays = await Promise.all(
+      getLocations().map(l => {
+        const ln = labelsListName(l);
+        return ln ? getListItems(siteId, ln).catch(() => []).then(rows => tag(rows, l))
+                  : Promise.resolve([]);
+      })
+    );
+    cache.labels = arrays.flat();
+  } else {
+    const ln = labelsListName(currentLocation);
+    const rows = ln ? await getListItems(siteId, ln).catch(() => []) : [];
+    cache.labels = tag(rows, currentLocation);
+  }
+}
 
 async function syncLabelsBagsSold() {
-  // Rate-limit: skip if synced within last 5 minutes
-  if (Date.now() - _labelsSyncedAt < 5 * 60 * 1000) return;
+  if (currentLocation === 'all') return; // aggregate view is read-only
+  const loc = currentLocation;
+  // Per-location rate-limit: skip if synced within last 5 minutes
+  if (Date.now() - (_labelsSyncedAt[loc] || 0) < 5 * 60 * 1000) return;
 
-  const squareLocIds = getSquareLocIds();
-  if (!squareLocIds.length) return; // Square not configured
+  const sqLocId = bscNameToSquareLocId(loc);
+  if (!sqLocId) return; // location not mapped to Square
 
-  _labelsSyncedAt = Date.now();
+  const listName = labelsListName(loc);
+  if (!listName) return;
+
+  _labelsSyncedAt[loc] = Date.now();
 
   const now = new Date();
 
@@ -54,7 +94,7 @@ async function syncLabelsBagsSold() {
     let cursor = null, total = 0;
     do {
       const payload = {
-        location_ids: squareLocIds,
+        location_ids: [sqLocId],
         query: { filter: {
           date_time_filter: { created_at: { start_at: startAt, end_at: endAt } },
           state_filter: { states: ['COMPLETED'] }
@@ -90,7 +130,10 @@ async function syncLabelsBagsSold() {
     let changed = false;
     for (const { label, bags } of results) {
       const labelKey = _monthKey(label);
+      // Match within current location only — cache.labels in single-loc mode
+      // is already scoped, but defensively filter by _loc anyway.
       const rec = cache.labels.find(r => {
+        if (r._loc && r._loc !== loc) return false;
         const m = r.Month || r.Title || '';
         return m === label || _monthKey(m) === labelKey;
       });
@@ -105,7 +148,7 @@ async function syncLabelsBagsSold() {
       if (needsUpdate) {
         const patch = { BagsSold: bags, Adjustment: adjustment, EndBalance: endBal };
         if (cost > 0) patch.TotalValue = totalValue;
-        await updateListItem(LISTS.labels, rec.id, patch);
+        await updateListItem(listName, rec.id, patch);
         rec.BagsSold = bags;
         rec.Adjustment = adjustment;
         rec.EndBalance = endBal;
@@ -114,9 +157,9 @@ async function syncLabelsBagsSold() {
       }
     }
     if (changed) renderLabelsPage();
-    toast('ok', `Bags sold synced: ${results.map(r => `${r.label} → ${r.bags}`).join(', ')}`);
+    toast('ok', `Bags sold synced (${loc}): ${results.map(r => `${r.label} → ${r.bags}`).join(', ')}`);
   } catch(e) {
-    _labelsSyncedAt = 0; // reset rate-limit so it retries next time
+    _labelsSyncedAt[loc] = 0; // reset rate-limit so it retries next time
     const lower = (e.message || '').toLowerCase();
     const msg = (lower.includes('permission') || lower.includes('forbidden') || lower.includes('403') || lower.includes('not authorized'))
       ? 'Square Orders API permission denied — enable ORDERS_READ in your Square app settings'
@@ -129,85 +172,132 @@ async function syncLabelsBagsSold() {
 function renderLabelsInTab() {
   const container = document.getElementById('inv-labels-content');
   if (!container) return;
+  // Skeleton: just the wrapping containers — renderLabelsPage owns all content
   if (!container.querySelector('#labels-summary-bar')) {
     container.innerHTML = `
-      <div id="labels-summary-bar" style="display:flex;gap:16px;flex-wrap:wrap;margin:16px 0 20px;">
-        <div class="card" style="flex:1;min-width:140px;text-align:center;padding:18px 12px;">
-          <div style="font-size:26px;font-weight:700;color:var(--dark-blue)" id="labels-balance-num">—</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:4px">Current Balance</div>
-        </div>
-        <div class="card" style="flex:1;min-width:140px;text-align:center;padding:18px 12px;">
-          <div style="font-size:26px;font-weight:700;color:var(--gold)" id="labels-value-num">—</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:4px">Estimated Value</div>
-        </div>
-        <div class="card" style="flex:1;min-width:140px;text-align:center;padding:18px 12px;">
-          <div style="font-size:20px;font-weight:700;color:var(--muted)" id="labels-last-month">—</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:4px">Last Reconciliation</div>
-        </div>
-      </div>
-      <div class="toolbar" style="margin-bottom:16px;">
-        <button class="btn btn-primary" onclick="openLabelsEntryModal()">+ Update Balance</button>
-        <button class="btn btn-outline" onclick="openLabelsReconcileModal()" id="labels-reconcile-btn">📊 Reconcile Month</button>
-        <span id="labels-reconcile-hint" style="font-size:12px;color:var(--muted);align-self:center;margin-left:8px;"></span>
-      </div>
-      <div class="table-wrap">
-        <table class="data-table">
-          <thead><tr>
-            <th>Month</th><th>Start</th><th>Bags Sold</th><th>Adjustment</th><th>End Balance</th><th>Cost/Label</th><th>Total Value</th><th>Notes</th><th>By</th>
-          </tr></thead>
-          <tbody id="labels-history-body"></tbody>
-        </table>
-        <div class="no-data" id="labels-empty" style="display:none">No label records yet. Click "Update Balance" to set your starting count.</div>
-      </div>`;
+      <div id="labels-summary-bar" style="display:flex;gap:16px;flex-wrap:wrap;margin:16px 0 20px;"></div>
+      <div id="labels-toolbar" class="toolbar" style="margin-bottom:16px;"></div>
+      <div id="labels-history-wrap"></div>`;
   }
   renderLabelsPage();
   syncLabelsBagsSold(); // fire-and-forget — updates BagsSold from Square in background
 }
 
 function renderLabelsPage() {
-  const rows = [...cache.labels].sort((a,b)=>(a.Month||'')>(b.Month||'')?-1:1);
-  // Summary bar
-  const latest = rows[0];
-  document.getElementById('labels-balance-num').textContent =
-    latest ? (+latest.EndBalance).toLocaleString() : '—';
-  document.getElementById('labels-value-num').textContent =
-    latest && latest.TotalValue != null ? '$' + (+latest.TotalValue).toFixed(2) : '—';
-  document.getElementById('labels-last-month').textContent =
-    latest ? (latest.Month || '—') : 'None yet';
+  const summaryBar = document.getElementById('labels-summary-bar');
+  const toolbar    = document.getElementById('labels-toolbar');
+  const wrap       = document.getElementById('labels-history-wrap');
+  if (!summaryBar || !toolbar || !wrap) return;
 
-  // Reconcile hint — suggest running if we're on/after the 1st and no record for last month
-  const now = new Date();
-  const lastMonthLabel = new Date(now.getFullYear(), now.getMonth()-1, 1)
-    .toLocaleDateString('en-US', {month:'long', year:'numeric'});
-  const hasLastMonth = rows.some(r => r.Month === lastMonthLabel);
-  const hint = document.getElementById('labels-reconcile-hint');
-  if (!hasLastMonth && now.getDate() >= 1) {
-    hint.textContent = `💡 ${lastMonthLabel} not reconciled yet`;
-    hint.style.color = 'var(--gold)';
+  const allMode = currentLocation === 'all';
+
+  // ── Summary cards ─────────────────────────────────────────────
+  let balanceNum, valueNum, lastMonthLabel;
+  if (allMode) {
+    // Group by location, take latest record per location, sum balances + values
+    const byLoc = {};
+    for (const r of cache.labels) {
+      const l = r._loc || '—';
+      if (!byLoc[l]) byLoc[l] = [];
+      byLoc[l].push(r);
+    }
+    let totalBal = 0, totalVal = 0, anyVal = false, latestOverall = null;
+    for (const l of Object.keys(byLoc)) {
+      const sorted = byLoc[l].sort((a,b) => (a.Month||'') > (b.Month||'') ? -1 : 1);
+      const latest = sorted[0];
+      if (!latest) continue;
+      totalBal += parseFloat(latest.EndBalance) || 0;
+      if (latest.TotalValue != null) { totalVal += parseFloat(latest.TotalValue) || 0; anyVal = true; }
+      if (!latestOverall || (latest.Month||'') > (latestOverall.Month||'')) latestOverall = latest;
+    }
+    balanceNum     = totalBal.toLocaleString();
+    valueNum       = anyVal ? '$' + totalVal.toFixed(2) : '—';
+    lastMonthLabel = latestOverall ? (latestOverall.Month || '—') : 'None yet';
   } else {
-    hint.textContent = '';
+    const rows = [...cache.labels].sort((a,b) => (a.Month||'') > (b.Month||'') ? -1 : 1);
+    const latest = rows[0];
+    balanceNum     = latest ? (+latest.EndBalance).toLocaleString() : '—';
+    valueNum       = latest && latest.TotalValue != null ? '$' + (+latest.TotalValue).toFixed(2) : '—';
+    lastMonthLabel = latest ? (latest.Month || '—') : 'None yet';
+  }
+  const balLabel = allMode ? 'Total Current Balance' : 'Current Balance';
+  const valLabel = allMode ? 'Total Estimated Value' : 'Estimated Value';
+  summaryBar.innerHTML = `
+    <div class="card" style="flex:1;min-width:140px;text-align:center;padding:18px 12px;">
+      <div style="font-size:26px;font-weight:700;color:var(--dark-blue)">${balanceNum}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px">${balLabel}</div>
+    </div>
+    <div class="card" style="flex:1;min-width:140px;text-align:center;padding:18px 12px;">
+      <div style="font-size:26px;font-weight:700;color:var(--gold)">${valueNum}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px">${valLabel}</div>
+    </div>
+    <div class="card" style="flex:1;min-width:140px;text-align:center;padding:18px 12px;">
+      <div style="font-size:20px;font-weight:700;color:var(--muted)">${escHtml(lastMonthLabel)}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px">Last Reconciliation</div>
+    </div>`;
+
+  // ── Toolbar ───────────────────────────────────────────────────
+  if (allMode) {
+    toolbar.innerHTML = `<span style="font-size:13px;color:var(--muted);">📍 Aggregate view across all locations — pick a location to update or reconcile.</span>`;
+  } else {
+    // Reconcile hint — suggest running if we're on/after the 1st and no record for last month
+    const now = new Date();
+    const lastMonthStr = new Date(now.getFullYear(), now.getMonth()-1, 1)
+      .toLocaleDateString('en-US', {month:'long', year:'numeric'});
+    const hasLastMonth = cache.labels.some(r => r.Month === lastMonthStr);
+    const hint = (!hasLastMonth && now.getDate() >= 1)
+      ? `<span style="font-size:12px;color:var(--gold);align-self:center;margin-left:8px;">💡 ${lastMonthStr} not reconciled yet</span>`
+      : '';
+    toolbar.innerHTML = `
+      <button class="btn btn-primary" onclick="openLabelsEntryModal()">+ Update Balance</button>
+      <button class="btn btn-outline" onclick="openLabelsReconcileModal()" id="labels-reconcile-btn">📊 Reconcile Month</button>
+      ${hint}`;
   }
 
-  // Table
-  const tbody = document.getElementById('labels-history-body');
-  const empty = document.getElementById('labels-empty');
-  if (!rows.length) { tbody.innerHTML=''; empty.style.display='block'; return; }
-  empty.style.display = 'none';
-  tbody.innerHTML = rows.map(r => `<tr>
-    <td><b>${escHtml(r.Month||'—')}</b></td>
-    <td>${r.StartBalance != null ? (+r.StartBalance).toLocaleString() : '—'}</td>
-    <td>${r.BagsSold != null ? (+r.BagsSold).toLocaleString() : '—'}</td>
-    <td>${r.Adjustment != null ? (+r.Adjustment).toLocaleString() : '—'}</td>
-    <td><b>${r.EndBalance != null ? (+r.EndBalance).toLocaleString() : '—'}</b></td>
-    <td>${r.CostPerLabel != null ? '$'+parseFloat(r.CostPerLabel).toFixed(4) : '—'}</td>
-    <td>${r.TotalValue != null ? '$'+parseFloat(r.TotalValue).toFixed(2) : '—'}</td>
-    <td class="text-hint">${escHtml(r.Notes||'')}</td>
-    <td class="text-hint">${escHtml(r.ReconcileBy||'')}</td>
-  </tr>`).join('');
+  // ── History table ─────────────────────────────────────────────
+  // Sort: Month desc, then Location asc (in 'all' mode)
+  const rows = [...cache.labels].sort((a,b) => {
+    const am = a.Month || '', bm = b.Month || '';
+    if (am !== bm) return am > bm ? -1 : 1;
+    return (a._loc || '').localeCompare(b._loc || '');
+  });
+
+  if (!rows.length) {
+    wrap.innerHTML = `<div class="no-data" style="padding:32px 0;">No label records yet${allMode ? '' : '. Click "Update Balance" to set your starting count'}.</div>`;
+    return;
+  }
+
+  const headLoc = allMode ? '<th>Location</th>' : '';
+  const bodyHtml = rows.map(r => {
+    const locCell = allMode ? `<td>${escHtml(r._loc || '—')}</td>` : '';
+    return `<tr>
+      <td><b>${escHtml(r.Month||'—')}</b></td>
+      ${locCell}
+      <td>${r.StartBalance != null ? (+r.StartBalance).toLocaleString() : '—'}</td>
+      <td>${r.BagsSold != null ? (+r.BagsSold).toLocaleString() : '—'}</td>
+      <td>${r.Adjustment != null ? (+r.Adjustment).toLocaleString() : '—'}</td>
+      <td><b>${r.EndBalance != null ? (+r.EndBalance).toLocaleString() : '—'}</b></td>
+      <td>${r.CostPerLabel != null ? '$'+parseFloat(r.CostPerLabel).toFixed(4) : '—'}</td>
+      <td>${r.TotalValue != null ? '$'+parseFloat(r.TotalValue).toFixed(2) : '—'}</td>
+      <td class="text-hint">${escHtml(r.Notes||'')}</td>
+      <td class="text-hint">${escHtml(r.ReconcileBy||'')}</td>
+    </tr>`;
+  }).join('');
+
+  wrap.innerHTML = `
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr>
+          <th>Month</th>${headLoc}<th>Start</th><th>Bags Sold</th><th>Adjustment</th><th>End Balance</th><th>Cost/Label</th><th>Total Value</th><th>Notes</th><th>By</th>
+        </tr></thead>
+        <tbody>${bodyHtml}</tbody>
+      </table>
+    </div>`;
 }
 
 function openLabelsEntryModal() {
-  // Pre-fill cost from last record
+  if (currentLocation === 'all') { toast('err','Select a location first'); return; }
+  // Pre-fill cost from this location's most recent record
   const latest = [...cache.labels].sort((a,b)=>(a.Month||'')>(b.Month||'')?-1:1)[0];
   document.getElementById('labels-balance-input').value = '';
   document.getElementById('labels-cost-input').value = latest?.CostPerLabel ? parseFloat(latest.CostPerLabel).toFixed(4) : '';
@@ -219,6 +309,8 @@ function openLabelsEntryModal() {
 }
 
 async function saveLabelsEntry() {
+  const listName = labelsListName(currentLocation);
+  if (!listName) { toast('err','Select a location first'); return; }
   const bal = parseFloat(document.getElementById('labels-balance-input').value);
   const cost = parseFloat(document.getElementById('labels-cost-input').value) || 0;
   const month = document.getElementById('labels-date-input').value.trim();
@@ -227,6 +319,7 @@ async function saveLabelsEntry() {
   if (!month) { toast('err','Enter a month/date label'); return; }
   setLoading(true,'Saving…');
   try {
+    await ensureList(listName, BAG_LABELS_LIST_COLS);
     const fields = {
       Title: month, Month: month,
       StartBalance: bal, EndBalance: bal,
@@ -235,8 +328,8 @@ async function saveLabelsEntry() {
       Notes: notes,
       ReconcileBy: currentUser?.name || currentUser?.username || ''
     };
-    const item = await addListItem(LISTS.labels, fields);
-    cache.labels.push(item);
+    const item = await addListItem(listName, fields);
+    cache.labels.push({ ...item, _loc: currentLocation });
     renderLabelsPage();
     closeModal('modal-labels-entry');
     toast('ok','✓ Balance saved');
@@ -244,10 +337,8 @@ async function saveLabelsEntry() {
   finally { setLoading(false); }
 }
 
-// Pending reconcile data (set during preview, used on confirm)
-let _labelsPendingReconcile = null;
-
 async function openLabelsReconcileModal() {
+  if (currentLocation === 'all') { toast('err','Select a location first'); return; }
   const body = document.getElementById('labels-reconcile-body');
   const confirmBtn = document.getElementById('labels-reconcile-confirm-btn');
   _labelsPendingReconcile = null;
@@ -261,26 +352,24 @@ async function openLabelsReconcileModal() {
   const monthLabel = lastMonthStart.toLocaleDateString('en-US', {month:'long', year:'numeric'});
 
   try {
-    // Pull Square sales from the prior calendar month
     const startAt = lastMonthStart.toISOString();
     const endAt   = lastMonthEnd.toISOString();
-    const squareLocIds = getSquareLocIds();
+    const sqLocId = bscNameToSquareLocId(currentLocation);
 
     let bagsSold = 0;
-    const bagDetails = [];
 
-    if (squareLocIds.length === 0) {
-      body.innerHTML = '<div style="color:var(--orange);padding:12px 0;">⚠ No Square location mapping set up. Go to Square → Location Mapping first.</div>';
+    if (!sqLocId) {
+      body.innerHTML = `<div style="color:var(--orange);padding:12px 0;">⚠ ${escHtml(currentLocation)} is not mapped to a Square location. Go to Square → Location Mapping first.</div>`;
       return;
     }
 
-    // Fetch orders from Square for prior month across all mapped locations
+    // Fetch orders from Square for prior month, scoped to this location only
     body.innerHTML = '<div style="color:var(--muted);padding:4px 0;">Fetching Square sales…</div>';
     let cursor = null;
     const coffeeLineItems = [];
     do {
       const payload = {
-        location_ids: squareLocIds,
+        location_ids: [sqLocId],
         query: {
           filter: {
             date_time_filter: {
@@ -321,7 +410,8 @@ async function openLabelsReconcileModal() {
     _labelsPendingReconcile = {
       month: monthLabel, startBalance: startBal, bagsSold, adjustment,
       endBalance: endBal, costPerLabel: costPerLabel || null,
-      totalValue, squareData: JSON.stringify(byName)
+      totalValue, squareData: JSON.stringify(byName),
+      location: currentLocation
     };
 
     const breakdownRows = Object.entries(byName).sort(([,a],[,b])=>b-a)
@@ -331,7 +421,7 @@ async function openLabelsReconcileModal() {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
         <div style="background:var(--cream);border-radius:8px;padding:12px;">
           <div style="font-size:11px;color:var(--muted);margin-bottom:2px">Month</div>
-          <div style="font-weight:700">${escHtml(monthLabel)}</div>
+          <div style="font-weight:700">${escHtml(monthLabel)} — ${escHtml(currentLocation)}</div>
         </div>
         <div style="background:var(--cream);border-radius:8px;padding:12px;">
           <div style="font-size:11px;color:var(--muted);margin-bottom:2px">Starting Balance</div>
@@ -369,8 +459,11 @@ async function openLabelsReconcileModal() {
 async function confirmLabelsReconcile() {
   if (!_labelsPendingReconcile) return;
   const d = _labelsPendingReconcile;
+  const listName = labelsListName(d.location);
+  if (!listName) { toast('err','Lost location context — re-open Reconcile'); return; }
   setLoading(true,'Saving reconciliation…');
   try {
+    await ensureList(listName, BAG_LABELS_LIST_COLS);
     const fields = {
       Title: d.month, Month: d.month,
       StartBalance: d.startBalance,
@@ -382,11 +475,11 @@ async function confirmLabelsReconcile() {
       SquareData: d.squareData,
       ReconcileBy: currentUser?.name || currentUser?.username || ''
     };
-    const item = await addListItem(LISTS.labels, fields);
-    cache.labels.push(item);
+    const item = await addListItem(listName, fields);
+    cache.labels.push({ ...item, _loc: d.location });
     renderLabelsPage();
     closeModal('modal-labels-reconcile');
-    toast('ok',`✓ ${d.month} reconciled — ${d.endBalance.toLocaleString()} labels remaining`);
+    toast('ok',`✓ ${d.month} reconciled (${d.location}) — ${d.endBalance.toLocaleString()} labels remaining`);
     _labelsPendingReconcile = null;
   } catch(e) { toast('err','Save failed: '+e.message); }
   finally { setLoading(false); }
