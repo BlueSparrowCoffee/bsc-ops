@@ -472,13 +472,13 @@ function renderMerchCountSheet() {
             <td style="padding:8px 12px;font-weight:500">${escHtml(item.ItemName||'—')}</td>
             <td style="padding:6px 8px;text-align:center">
               <input type="number" class="count-num-input merch-store" min="0" step="1" placeholder="0"
-                value=""
+                value="${last ? last.store : ''}"
                 oninput="updateMerchCountTotal(this)"
                 style="width:64px;text-align:center;padding:4px 6px;border:1.5px solid var(--border);border-radius:6px;font-size:13px">
             </td>
             <td style="padding:6px 8px;text-align:center">
               <input type="number" class="count-num-input merch-storage" min="0" step="1" placeholder="0"
-                value=""
+                value="${last ? last.storage : ''}"
                 oninput="updateMerchCountTotal(this)"
                 style="width:64px;text-align:center;padding:4px 6px;border:1.5px solid var(--border);border-radius:6px;font-size:13px">
             </td>
