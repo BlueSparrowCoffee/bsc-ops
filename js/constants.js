@@ -157,6 +157,20 @@ const RETAIL_BAGS_LIST_COLS = [
   {name:'SquareData',   text:{allowMultipleLines:true}}
 ];
 
+// 5 LB bag labels — per-location list (BSC_<Loc>_FiveLbBagLabels). Manual
+// entry only: no Square sync, no waste assumption, no auto-adjustment.
+// EndBalance = StartBalance − Adjustment (computed at save time).
+const FIVE_LB_BAG_LABELS_LIST_COLS = [
+  {name:'Month',        text:{}},
+  {name:'StartBalance', number:{decimalPlaces:'automatic'}},
+  {name:'Adjustment',   number:{decimalPlaces:'automatic'}},
+  {name:'EndBalance',   number:{decimalPlaces:'automatic'}},
+  {name:'CostPerLabel', number:{decimalPlaces:'automatic'}},
+  {name:'TotalValue',   number:{decimalPlaces:'automatic'}},
+  {name:'Notes',        text:{allowMultipleLines:true}},
+  {name:'ReconcileBy',  text:{}}
+];
+
 // Waste-rate fallbacks (used when BSC_Settings is empty/unreachable). Live
 // values are configurable via Settings → ☕ Coffee Bags and stored as integer
 // percentages under bsc_label_waste_pct / bsc_retail_bag_waste_pct.
@@ -240,7 +254,7 @@ const INV_COG_CFG = {
 // Bump APP_VERSION any time a deploy has breaking localStorage changes.
 // On version mismatch the entire localStorage is wiped so stale prefs never
 // cause weirdness after an update.
-const APP_VERSION = '2026-04-30b';
+const APP_VERSION = '2026-04-30d';
 (function() {
   try {
     if (localStorage.getItem('bsc_app_version') !== APP_VERSION) {

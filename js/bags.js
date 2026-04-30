@@ -267,7 +267,7 @@ function renderRetailBagsPage() {
     <div class="table-wrap">
       <table class="data-table">
         <thead><tr>
-          <th>Month</th>${headLoc}<th>Start</th><th>Bags Sold</th><th>Adjustment</th><th>End Balance</th><th>Cost/Bag</th><th>Total Value</th><th>Notes</th><th>By</th>
+          <th>Month</th>${headLoc}<th>Start</th><th>Bags Sold</th><th><a href="#" onclick="navToCoffeeBagSettings('retail-bag-waste-pct-input');return false;" style="color:inherit;text-decoration:underline dotted;cursor:pointer;" title="Click to adjust waste %">Adjusted</a></th><th>End Balance</th><th>Cost/Bag</th><th>Total Value</th><th>Notes</th><th>By</th>
         </tr></thead>
         <tbody>${bodyHtml}</tbody>
       </table>

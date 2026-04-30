@@ -175,9 +175,9 @@ async function syncLabelsBagsSold() {
   }
 }
 
-// Page entry point — builds the wrapping structure for both sections
-// (Retail Bag Inventory on top, Bag Labels on bottom) and triggers each
-// section's render + Square sync.
+// Page entry point — builds the wrapping structure for all three sections
+// (Retail Bag Inventory, 12oz Bag Labels, 5 LB Bag Labels) and triggers
+// each section's render + Square sync.
 function renderLabelsInTab() {
   const container = document.getElementById('inv-labels-content');
   if (!container) return;
@@ -191,14 +191,22 @@ function renderLabelsInTab() {
       </section>
       <hr style="border:none;border-top:1px solid var(--border);margin:28px 0;">
       <section>
-        <h2 style="font-size:18px;margin:0 0 4px;">🏷️ Bag Labels</h2>
+        <h2 style="font-size:18px;margin:0 0 4px;">🏷️ 12oz Retail Bag Labels</h2>
         <div id="labels-summary-bar" style="display:flex;gap:16px;flex-wrap:wrap;margin:12px 0 16px;"></div>
         <div id="labels-toolbar" class="toolbar" style="margin-bottom:14px;"></div>
         <div id="labels-history-wrap"></div>
+      </section>
+      <hr style="border:none;border-top:1px solid var(--border);margin:28px 0;">
+      <section>
+        <h2 style="font-size:18px;margin:0 0 4px;">🏷️ 5 LB Bag Labels</h2>
+        <div id="five-lb-labels-summary-bar" style="display:flex;gap:16px;flex-wrap:wrap;margin:12px 0 16px;"></div>
+        <div id="five-lb-labels-toolbar" class="toolbar" style="margin-bottom:14px;"></div>
+        <div id="five-lb-labels-history-wrap"></div>
       </section>`;
   }
   if (typeof renderRetailBagsPage === 'function') renderRetailBagsPage();
   renderLabelsPage();
+  if (typeof renderFiveLbLabelsPage === 'function') renderFiveLbLabelsPage();
   if (typeof syncRetailBagsSold === 'function') syncRetailBagsSold(); // fire-and-forget
   syncLabelsBagsSold(); // fire-and-forget — updates BagsSold from Square in background
 }
@@ -308,7 +316,7 @@ function renderLabelsPage() {
     <div class="table-wrap">
       <table class="data-table">
         <thead><tr>
-          <th>Month</th>${headLoc}<th>Start</th><th>Bags Sold</th><th>Adjustment</th><th>End Balance</th><th>Cost/Label</th><th>Total Value</th><th>Notes</th><th>By</th>
+          <th>Month</th>${headLoc}<th>Start</th><th>Bags Sold</th><th><a href="#" onclick="navToCoffeeBagSettings('label-waste-pct-input');return false;" style="color:inherit;text-decoration:underline dotted;cursor:pointer;" title="Click to adjust waste %">Adjusted</a></th><th>End Balance</th><th>Cost/Label</th><th>Total Value</th><th>Notes</th><th>By</th>
         </tr></thead>
         <tbody>${bodyHtml}</tbody>
       </table>

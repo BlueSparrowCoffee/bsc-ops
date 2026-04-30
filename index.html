@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-04-30b">
-<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-04-30b">
-<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-04-30b">
-<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-04-30b">
-<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-04-30b">
+<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-04-30d">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-04-30d">
+<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-04-30d">
+<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-04-30d">
+<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-04-30d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="BSC Ops">
@@ -624,7 +624,7 @@ html,body{overscroll-behavior:none;}
       <button class="inv-type-tab" data-type="equipment" onclick="switchInvType('equipment')"
 >🔧 Equipment &amp; Smallwares</button>
       <button id="inv-tab-labels-btn" class="inv-type-tab" data-type="labels" onclick="switchInvType('labels')"
->🏷️ Bag Labels</button>
+>🏷️ Bags &amp; Labels</button>
       <button class="inv-type-tab" data-type="pastries" onclick="switchInvType('pastries')"
 >🥐 Pastries</button>
       <button class="inv-type-tab" data-type="sandwiches" onclick="switchInvType('sandwiches')"
@@ -1372,6 +1372,45 @@ html,body{overscroll-behavior:none;}
     </div>
   </div>
 
+  <!-- 5 LB BAG LABELS — Add Entry Modal (manual: no Square sync, no waste assumption) -->
+  <div class="modal-overlay" id="modal-5lb-labels-entry">
+    <div class="modal" style="max-width:440px;">
+      <div class="modal-header">
+        <div class="modal-title">Add 5 LB Label Entry</div>
+        <button class="modal-close" onclick="closeModal('modal-5lb-labels-entry')">×</button>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Effective Date</label>
+          <input type="text" id="five-lb-labels-date-input" class="field-input" placeholder="e.g. May 2026">
+        </div>
+        <div class="form-group">
+          <label>Cost Per Label ($)</label>
+          <input type="number" id="five-lb-labels-cost-input" class="field-input" placeholder="e.g. 0.85" step="0.0001" min="0">
+        </div>
+        <div class="form-group">
+          <label>Starting Balance</label>
+          <input type="number" id="five-lb-labels-balance-input" class="field-input" placeholder="e.g. 200" min="0" oninput="updateFiveLbLabelsEndPreview()">
+        </div>
+        <div class="form-group">
+          <label>Adjustment (used / wasted)</label>
+          <input type="number" id="five-lb-labels-adjustment-input" class="field-input" placeholder="e.g. 12" min="0" oninput="updateFiveLbLabelsEndPreview()">
+        </div>
+        <div class="form-group" style="grid-column:span 2;">
+          <div id="five-lb-labels-end-preview" style="font-size:13px;color:var(--gold);font-weight:600;padding:6px 10px;background:var(--cream);border-radius:6px;">End Balance: —</div>
+        </div>
+        <div class="form-group" style="grid-column:span 2;">
+          <label>Notes</label>
+          <textarea id="five-lb-labels-notes-input" class="field-input" rows="2" placeholder="e.g. Received new shipment of 200"></textarea>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="saveFiveLbLabelsEntry()">Save</button>
+        <button class="btn btn-outline" onclick="closeModal('modal-5lb-labels-entry')">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <!-- RECIPE HISTORY MODAL -->
   <div class="modal-overlay" id="modal-recipe-history">
     <div class="modal" style="max-width:600px;">
@@ -1974,7 +2013,7 @@ html,body{overscroll-behavior:none;}
         <div class="card-title" style="margin-bottom:16px">🔄 Auto-Sync from Square</div>
         <div id="auto-sync-card-body"></div>
       </div>
-      <div class="card" style="grid-column:1/-1">
+      <div class="card" id="settings-coffee-bags" style="grid-column:1/-1">
         <div class="card-title" style="margin-bottom:16px">☕ Coffee Bags</div>
         <p style="font-size:13px;color:var(--muted);margin:0 0 16px;">Waste assumptions applied to monthly reconciliation. Each bag sold deducts an additional % from on-hand inventory to account for misprints (labels) or damage/expiry (retail bags).</p>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;">
@@ -2335,35 +2374,36 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-04-30b" defer></script>
-<script src="/js/utils.js?v=2026-04-30b" defer></script>
-<script src="/js/state.js?v=2026-04-30b" defer></script>
-<script src="/js/auth.js?v=2026-04-30b" defer></script>
-<script src="/js/graph.js?v=2026-04-30b" defer></script>
-<script src="/js/signalr.js?v=2026-04-30b" defer></script>
-<script src="/js/tags.js?v=2026-04-30b" defer></script>
-<script src="/js/nav.js?v=2026-04-30b" defer></script>
-<script src="/js/settings.js?v=2026-04-30b" defer></script>
-<script src="/js/dashboard.js?v=2026-04-30b" defer></script>
-<script src="/js/inventory.js?v=2026-04-30b" defer></script>
-<script src="/js/inventory-form.js?v=2026-04-30b" defer></script>
-<script src="/js/counts.js?v=2026-04-30b" defer></script>
-<script src="/js/foodpars.js?v=2026-04-30b" defer></script>
-<script src="/js/labels.js?v=2026-04-30b" defer></script>
-<script src="/js/bags.js?v=2026-04-30b" defer></script>
-<script src="/js/pastry-sync.js?v=2026-04-30b" defer></script>
-<script src="/js/recipes.js?v=2026-04-30b" defer></script>
-<script src="/js/cogs.js?v=2026-04-30b" defer></script>
-<script src="/js/vendors.js?v=2026-04-30b" defer></script>
-<script src="/js/contacts.js?v=2026-04-30b" defer></script>
-<script src="/js/maintenance.js?v=2026-04-30b" defer></script>
-<script src="/js/checklists.js?v=2026-04-30b" defer></script>
-<script src="/js/ordering.js?v=2026-04-30b" defer></script>
-<script src="/js/parking.js?v=2026-04-30b" defer></script>
-<script src="/js/prepItems.js?v=2026-04-30b" defer></script>
-<script src="/js/square.js?v=2026-04-30b" defer></script>
-<script src="/js/slack.js?v=2026-04-30b" defer></script>
-<script src="/js/auto-sync.js?v=2026-04-30b" defer></script>
+<script src="/js/constants.js?v=2026-04-30d" defer></script>
+<script src="/js/utils.js?v=2026-04-30d" defer></script>
+<script src="/js/state.js?v=2026-04-30d" defer></script>
+<script src="/js/auth.js?v=2026-04-30d" defer></script>
+<script src="/js/graph.js?v=2026-04-30d" defer></script>
+<script src="/js/signalr.js?v=2026-04-30d" defer></script>
+<script src="/js/tags.js?v=2026-04-30d" defer></script>
+<script src="/js/nav.js?v=2026-04-30d" defer></script>
+<script src="/js/settings.js?v=2026-04-30d" defer></script>
+<script src="/js/dashboard.js?v=2026-04-30d" defer></script>
+<script src="/js/inventory.js?v=2026-04-30d" defer></script>
+<script src="/js/inventory-form.js?v=2026-04-30d" defer></script>
+<script src="/js/counts.js?v=2026-04-30d" defer></script>
+<script src="/js/foodpars.js?v=2026-04-30d" defer></script>
+<script src="/js/labels.js?v=2026-04-30d" defer></script>
+<script src="/js/bags.js?v=2026-04-30d" defer></script>
+<script src="/js/bag-labels-5lb.js?v=2026-04-30d" defer></script>
+<script src="/js/pastry-sync.js?v=2026-04-30d" defer></script>
+<script src="/js/recipes.js?v=2026-04-30d" defer></script>
+<script src="/js/cogs.js?v=2026-04-30d" defer></script>
+<script src="/js/vendors.js?v=2026-04-30d" defer></script>
+<script src="/js/contacts.js?v=2026-04-30d" defer></script>
+<script src="/js/maintenance.js?v=2026-04-30d" defer></script>
+<script src="/js/checklists.js?v=2026-04-30d" defer></script>
+<script src="/js/ordering.js?v=2026-04-30d" defer></script>
+<script src="/js/parking.js?v=2026-04-30d" defer></script>
+<script src="/js/prepItems.js?v=2026-04-30d" defer></script>
+<script src="/js/square.js?v=2026-04-30d" defer></script>
+<script src="/js/slack.js?v=2026-04-30d" defer></script>
+<script src="/js/auto-sync.js?v=2026-04-30d" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
@@ -2806,6 +2846,8 @@ async function loadAllData() {
   await loadLabelsForLocation().catch(e => { console.warn('Labels load failed:', e); cache.labels = []; });
   // Load per-location retail bag inventory (lazy-provisioned lists; missing → [])
   await loadRetailBagsForLocation().catch(e => { console.warn('Retail bags load failed:', e); cache.retailBags = []; });
+  // Load per-location 5 LB bag labels (lazy-provisioned lists; missing → [])
+  await loadFiveLbLabelsForLocation().catch(e => { console.warn('5LB labels load failed:', e); cache.fiveLbLabels = []; });
   // Load location-specific inventory and menu data, plus COGs
   const [cogsRecipes, cogSnapshots] = await Promise.all([
     getListItems(siteId, LISTS.cogs).catch(()=>[]),
@@ -4352,7 +4394,7 @@ function renderMenu(query='', catFilter='') {
     const stockDisplay = stock != null ? stock : '—';
     const vars = (i.Variations||'').split('\n').filter(Boolean);
     return `<tr data-gs-id="${escHtml(i.id)}" style="${isHidden?'opacity:0.45;':''}">
-      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-04-30b" alt="" title="Synced with Square">':''}</td>
+      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-04-30d" alt="" title="Synced with Square">':''}</td>
       <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${escHtml(i.Category||'—')}</span></td>
       <td style="font-size:12px;color:var(--muted);max-width:220px">${escHtml(i.Description||'')}</td>
       <td>${i.Price != null ? '$'+Number(i.Price).toFixed(2) : '—'}</td>

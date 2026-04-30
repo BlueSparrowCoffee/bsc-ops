@@ -190,6 +190,10 @@ async function setLocation(loc, btn) {
     if (typeof loadRetailBagsForLocation === 'function') {
       await loadRetailBagsForLocation().catch(e => console.warn('Retail bags reload failed:', e));
     }
+    // Reload 5 LB bag labels (per-location lists, tagged with _loc)
+    if (typeof loadFiveLbLabelsForLocation === 'function') {
+      await loadFiveLbLabelsForLocation().catch(e => console.warn('5LB labels reload failed:', e));
+    }
   } catch(e) { console.warn('Counts reload failed:', e); }
   renderInventory();
   renderDashboard();
@@ -198,10 +202,11 @@ async function setLocation(loc, btn) {
   if (document.getElementById('inv-tab-foodpars')?.style.display !== 'none' && _invType) {
     renderFoodParsInTab(_invType);
   }
-  // Re-render Coffee Bags page (both retail bags + labels sections live here)
+  // Re-render Coffee Bags page (retail bags + 12oz labels + 5LB labels sections live here)
   if (document.getElementById('inv-tab-labels')?.style.display !== 'none') {
     if (typeof renderRetailBagsPage === 'function') renderRetailBagsPage();
     if (typeof renderLabelsPage === 'function') renderLabelsPage();
+    if (typeof renderFiveLbLabelsPage === 'function') renderFiveLbLabelsPage();
     if (typeof syncRetailBagsSold === 'function') syncRetailBagsSold();
     if (typeof syncLabelsBagsSold === 'function') syncLabelsBagsSold();
   }
@@ -232,4 +237,18 @@ async function saveRetailBagWastePct() {
   if (isNaN(v) || v < 0 || v > 100) { toast('err','Enter a number between 0 and 100'); return; }
   await saveSetting('bsc_retail_bag_waste_pct', String(v));
   toast('ok',`✓ Retail bag waste saved (${v}%)`);
+}
+
+// Jumps from any "Adjusted" column header to the Coffee Bags settings card,
+// scrolling it into view and focusing the relevant waste-% input.
+function navToCoffeeBagSettings(focusInputId) {
+  if (typeof nav === 'function') nav('settings');
+  setTimeout(() => {
+    const card = document.getElementById('settings-coffee-bags');
+    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (focusInputId) {
+      const input = document.getElementById(focusInputId);
+      if (input) { input.focus(); input.select?.(); }
+    }
+  }, 150);
 }
