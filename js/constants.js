@@ -122,10 +122,6 @@ const MERCH_LIST_COLS = [
   {name:'Archived',text:{}}
 ];
 
-const MERCH_COUNTS_EXTRA_COLS = [
-  {name:'ChangesSinceLastCount',number:{decimalPlaces:'automatic'}}
-];
-
 // Coffee bag labels — per-location list (BSC_<Loc>_CoffeeBagLabels). Lazy-
 // provisioned in labels.js via ensureList on first save. No Location column
 // because the location is encoded in the list name.
@@ -254,7 +250,7 @@ const INV_COG_CFG = {
 // Bump APP_VERSION any time a deploy has breaking localStorage changes.
 // On version mismatch the entire localStorage is wiped so stale prefs never
 // cause weirdness after an update.
-const APP_VERSION = '2026-04-30d';
+const APP_VERSION = '2026-04-30f';
 (function() {
   try {
     if (localStorage.getItem('bsc_app_version') !== APP_VERSION) {
@@ -330,7 +326,7 @@ const PROVISIONED_COL_NAMES = new Set([
   'ItemName','Category','Supplier','OrderSize','OrderUnit','ParLevel','CostPerCase','ServingsPerUnit',
   'CostPerServing','ServingUnit','Unit','Tags','Archived',
   'CostPerUnit','SellingPrice','SquareCatalogItemId',
-  'WeekOf','StoreCount','StorageCount','TotalCount','Location','CountedBy','ChangesSinceLastCount','Quantity',
+  'WeekOf','StoreCount','StorageCount','TotalCount','Location','CountedBy','Quantity',
   // Transfers
   'FromLocation','ToLocation','TransferredBy','InventoryType',
   // Orders

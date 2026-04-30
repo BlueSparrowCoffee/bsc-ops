@@ -16,7 +16,7 @@
  *   - inventory.js (invCfg)
  *   - dashboard.js (renderDashboard)
  *   - index.html globals resolved at call time:
- *     sendSlackAlert, pullMerchSalesFromSquare
+ *     sendSlackAlert
  * ================================================================ */
 
 // ── Autosave drafts ───────────────────────────────────────────────
@@ -37,15 +37,12 @@ function saveCountDraft(rowSelector, cfg, loc, monthStr) {
       if (!id) return;
       const storeEl   = row.querySelector('.count-store, .merch-store');
       const storageEl = row.querySelector('.count-storage, .merch-storage');
-      const soldEl    = row.querySelector('.merch-sold');
       const store   = storeEl   ? storeEl.value   : '';
       const storage = storageEl ? storageEl.value : '';
-      const sold    = soldEl    ? soldEl.value    : '';
-      if (store !== '' || storage !== '' || sold !== '') {
+      if (store !== '' || storage !== '') {
         const rec = {};
         if (store   !== '') rec.store   = store;
         if (storage !== '') rec.storage = storage;
-        if (sold    !== '') rec.sold    = sold;
         data[id] = rec;
       }
     });
@@ -68,10 +65,8 @@ function restoreCountDraft(rowSelector, cfg, loc, monthStr, updateTotalFn) {
       if (!rec) return;
       const storeEl   = row.querySelector('.count-store, .merch-store');
       const storageEl = row.querySelector('.count-storage, .merch-storage');
-      const soldEl    = row.querySelector('.merch-sold');
       if (storeEl   && rec.store   != null) { storeEl.value   = rec.store;   restored++; }
       if (storageEl && rec.storage != null) { storageEl.value = rec.storage; restored++; }
-      if (soldEl    && rec.sold    != null) { soldEl.value    = rec.sold;    restored++; }
       if (typeof updateTotalFn === 'function' && (storeEl || storageEl)) {
         updateTotalFn(storeEl || storageEl);
       }
@@ -411,7 +406,6 @@ function renderMerchCountSheet() {
         <div style="font-size:13px;color:var(--muted)">${currentUser?.name || currentUser?.username || ''}</div>
       </div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        <button class="btn btn-outline" id="merch-sq-btn" onclick="pullMerchSalesFromSquare()">Populate Sales from Square</button>
         <span id="count-draft-indicator" style="font-size:12px;color:var(--gold);opacity:0;transition:opacity .2s;"></span>
         <span id="merch-count-submit-progress" style="font-size:13px;color:var(--muted)"></span>
         <button class="btn btn-outline" onclick="clearMerchCountSheet()">Clear</button>
@@ -437,18 +431,29 @@ function renderMerchCountSheet() {
   const d = new Date(now.getFullYear(), now.getMonth() + _merchCountMonth, 1);
   const monthStr = d.toISOString().split('T')[0].slice(0,7); // "YYYY-MM"
 
-  // Find most recent count for this month+loc per item
+  // Most recent count per item: prefer this-month records; fall back to the
+  // most recent record from any earlier month so a fresh month opens with the
+  // prior month's values pre-filled (manager updates only what changed).
   const recentMap = {};
+  const priorMap  = {};
   (cache[cfg.countKey]||[])
-    .filter(r => r.Location === loc && (r.WeekOf||'').startsWith(monthStr))
+    .filter(r => r.Location === loc)
     .sort((a,b)=>(a.WeekOf||'')>(b.WeekOf||'')?1:-1)
     .forEach(r => {
       const name = (r.Title||r.ItemName||'').trim();
-      if (name) recentMap[name] = {
+      if (!name) return;
+      const wk = r.WeekOf||'';
+      const snap = {
         store: r.StoreCount||0, storage: r.StorageCount||0,
-        total: r.TotalCount||0, sold: r.ChangesSinceLastCount||0
+        total: r.TotalCount||0
       };
+      if (wk.startsWith(monthStr))      recentMap[name] = snap;
+      else if (wk.slice(0,7) < monthStr) priorMap[name]  = snap; // sorted asc → last write wins (most recent prior)
     });
+  // Apply prior-month fallback for items missing a this-month entry
+  for (const [name, snap] of Object.entries(priorMap)) {
+    if (!recentMap[name]) recentMap[name] = snap;
+  }
 
   // Merch no longer tracks Category or ItemNo — sort alphabetically by name.
   const items = [...(cache[cfg.cacheKey]||[])].sort((a,b) =>
@@ -463,7 +468,6 @@ function renderMerchCountSheet() {
         <th style="padding:8px 12px;text-align:center;font-weight:600">Store</th>
         <th style="padding:8px 12px;text-align:center;font-weight:600">Storage</th>
         <th style="padding:8px 12px;text-align:center;font-weight:600">Total</th>
-        <th style="padding:8px 12px;text-align:center;font-weight:600" title="Units sold since last count (from Square)">Sold</th>
       </tr></thead>
       <tbody>
       ${items.map(item => {
@@ -483,11 +487,6 @@ function renderMerchCountSheet() {
                 style="width:64px;text-align:center;padding:4px 6px;border:1.5px solid var(--border);border-radius:6px;font-size:13px">
             </td>
             <td style="padding:8px 12px;text-align:center;font-weight:700" id="merch-total-${item.id}">${last ? last.total : 0}</td>
-            <td style="padding:6px 8px;text-align:center">
-              <input type="number" class="merch-sold" min="0" step="1" placeholder="0"
-                value="${last ? last.sold : ''}"
-                style="width:64px;text-align:center;padding:4px 6px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;background:var(--opal)" title="Pulled from Square">
-            </td>
           </tr>`;
         }).join('')}
       </tbody>
@@ -527,7 +526,6 @@ function updateMerchCountTotal(input) {
 
 function clearMerchCountSheet() {
   document.querySelectorAll('.merch-count-row .count-num-input').forEach(i=>i.value='');
-  document.querySelectorAll('.merch-count-row .merch-sold').forEach(i=>i.value='');
   document.querySelectorAll('[id^="merch-total-"]').forEach(el=>el.textContent='0');
   const cfg = invCfg();
   if (cfg && currentLocation !== 'all') clearCountDraft(cfg, currentLocation, _currentMerchMonthStr());
@@ -547,7 +545,6 @@ async function submitMerchCount() {
   rows.forEach(row => {
     const storeVal = row.querySelector('.merch-store').value.trim();
     const storageVal = row.querySelector('.merch-storage').value.trim();
-    const soldVal = row.querySelector('.merch-sold').value.trim();
     if (storeVal==='' && storageVal==='') return;
     const store = parseFloat(storeVal)||0;
     const storage = parseFloat(storageVal)||0;
@@ -555,8 +552,7 @@ async function submitMerchCount() {
       id: row.dataset.id,
       name: row.dataset.name,
       store, storage,
-      total: store + storage,
-      sold: parseFloat(soldVal)||0
+      total: store + storage
     });
   });
 
@@ -578,7 +574,6 @@ async function submitMerchCount() {
       StoreCount: e.store,
       StorageCount: e.storage,
       TotalCount: e.total,
-      ChangesSinceLastCount: e.sold,
       Location: loc,
       CountedBy: countedBy
     }));
@@ -592,7 +587,7 @@ async function submitMerchCount() {
       id: maxExistingId + idx + 1,
       Title: e.name, WeekOf: monthDate+'T00:00:00Z',
       StoreCount: e.store, StorageCount: e.storage, TotalCount: e.total,
-      ChangesSinceLastCount: e.sold, Location: loc, CountedBy: countedBy
+      Location: loc, CountedBy: countedBy
     }));
     cache[cfg.countKey].unshift(...newRecords);
     upsertLastCount(cfg, loc, countedBy); // fire-and-forget

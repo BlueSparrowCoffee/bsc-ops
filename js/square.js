@@ -1,8 +1,7 @@
 /* ================================================================
  * BSC Ops — square.js
  * Square integration: core API helper, settings, diagnostics, location
- * mapping, and the four sync flows (team, catalog, menu counts, merch
- * sales).
+ * mapping, and the sync flows (team, catalog, menu counts).
  *
  * Contents:
  *   - squareAPI(method, path, body) — proxied through /api/square/…
@@ -14,7 +13,6 @@
  *   - testSquareConnection
  *   - loadSquareLocations / saveSquareLocationMap
  *   - syncSquareTeam / syncSquareCatalog / syncSquareInventory
- *   - pullMerchSalesFromSquare (called from merch count sheet)
  *
  * Depends on:
  *   state.js     — cache, currentUser, currentLocation
@@ -23,7 +21,7 @@
  *   auth.js      — getToken
  *   graph.js     — getSiteId, getListItems, addListItem, updateListItem, ensureList
  *   settings.js  — getSetting, saveSetting
- *   inventory.js — invCfg, _merchCountMonth (merch count state), menuCountsListName
+ *   inventory.js — invCfg, menuCountsListName
  *   menu.js      — loadMenuData, renderMenu
  *   contacts/staff — renderStaff
  *   locations.js — getLocations
@@ -562,66 +560,3 @@ async function syncSquareInventory() {
   btn.disabled = false; btn.textContent = 'Sync Menu Counts';
 }
 
-// ── Merch sales pull ───────────────────────────────────────────────────────
-// Called from the merch count sheet "Pull from Square" button.
-async function pullMerchSalesFromSquare() {
-  const btn = document.getElementById('merch-sq-btn');
-  if (btn) { btn.disabled=true; btn.textContent='Pulling…'; }
-
-  try {
-    const now = new Date();
-    const d = new Date(now.getFullYear(), now.getMonth() + _merchCountMonth, 1);
-    const endD = new Date(now.getFullYear(), now.getMonth() + _merchCountMonth + 1, 0);
-    const startAt = d.toISOString();
-    const endAt   = new Date(endD.getFullYear(), endD.getMonth(), endD.getDate(), 23, 59, 59).toISOString();
-
-    // Build catalog-id → item name map from merch cache
-    const cfg = invCfg();
-    const catalogMap = {}; // squareCatalogItemId → ItemName
-    (cache[cfg.cacheKey]||[]).forEach(i => {
-      if (i.SquareCatalogItemId) catalogMap[i.SquareCatalogItemId.trim()] = i.ItemName;
-    });
-    if (!Object.keys(catalogMap).length) {
-      toast('warn','No Square Catalog IDs set on merch items — add them via Edit');
-      return;
-    }
-
-    // Square Orders API — search orders for the location
-    const loc = currentLocation;
-    const squareLocId = bscNameToSquareLocId(loc);
-    if (!squareLocId) { toast('err',`No Square location mapped for "${loc}"`); return; }
-
-    let cursor = null, salesMap = {}; // itemName → qty sold
-    do {
-      const body = {
-        location_ids: [squareLocId],
-        query: { filter: { date_time_filter: { created_at: { start_at: startAt, end_at: endAt } },
-          state_filter: { states: ['COMPLETED'] } } },
-        ...(cursor ? { cursor } : {})
-      };
-      const resp = await squareAPI('POST', 'orders/search', body);
-      (resp.orders||[]).forEach(order => {
-        (order.line_items||[]).forEach(li => {
-          const catId = li.catalog_object_id;
-          if (!catId) return;
-          const name = catalogMap[catId];
-          if (!name) return;
-          salesMap[name] = (salesMap[name]||0) + parseInt(li.quantity||0, 10);
-        });
-      });
-      cursor = resp.cursor || null;
-    } while (cursor);
-
-    // Fill Sold inputs
-    let filled = 0;
-    document.querySelectorAll('.merch-count-row').forEach(row => {
-      const name = row.dataset.name;
-      if (salesMap[name] !== undefined) {
-        row.querySelector('.merch-sold').value = salesMap[name];
-        filled++;
-      }
-    });
-    toast('ok', filled ? `✓ Pulled Square sales — ${filled} items updated` : 'No matching sales found for this period');
-  } catch(e) { toast('err','Square pull failed: '+e.message); }
-  finally { if (btn) { btn.disabled=false; btn.textContent='Populate Sales from Square'; } }
-}

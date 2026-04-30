@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-04-30d">
-<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-04-30d">
-<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-04-30d">
-<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-04-30d">
-<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-04-30d">
+<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-04-30f">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-04-30f">
+<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-04-30f">
+<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-04-30f">
+<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-04-30f">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="BSC Ops">
@@ -20,7 +20,6 @@
 <meta http-equiv="Expires" content="0">
 <script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/@microsoft/signalr@8.0.0/dist/browser/signalr.min.js" defer></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous" defer></script>
 <style>
 :root {
   --dark-blue: #023d4a;
@@ -636,7 +635,6 @@ html,body{overscroll-behavior:none;}
       <button class="tab-btn active" onclick="switchInvTab('items',this)">📋 Items</button>
       <button class="tab-btn" onclick="switchInvTab('count',this)">✏️ Count Entry</button>
       <button class="tab-btn" onclick="switchInvTab('analytics',this)">📊 Analytics</button>
-      <button class="tab-btn" onclick="switchInvTab('import',this)">📥 Import</button>
       <button id="inv-monthly-tab-btn" class="tab-btn" style="display:none" onclick="switchInvTab('monthly',this)">📊 Monthly Cost</button>
     </div>
 
@@ -754,50 +752,6 @@ html,body{overscroll-behavior:none;}
       <div id="inv-merch-monthly-content" style="padding-top:4px"></div>
     </div>
 
-    <!-- Import tab -->
-    <div id="inv-tab-import" style="display:none">
-      <div style="max-width:580px;padding-top:8px">
-        <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-          <div style="flex:1;min-width:160px">
-            <label class="field-label">Location name</label>
-            <input type="text" id="imp-location" class="field-input" placeholder="Sherman, Blake…" style="width:100%" oninput="updateImportListNames()">
-          </div>
-          <div style="width:90px">
-            <label class="field-label">Year</label>
-            <input type="text" id="imp-year" class="field-input" value="2026" style="width:100%">
-          </div>
-        </div>
-        <div style="margin-bottom:16px">
-          <label class="field-label">Inventory spreadsheet (.xlsx)</label>
-          <input type="file" id="imp-file" accept=".xlsx" onchange="previewImportFile()"
-            style="display:block;width:100%;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;cursor:pointer;background:#fff">
-        </div>
-        <div id="imp-preview" style="display:none;margin-bottom:16px">
-          <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
-            <div style="background:#f9f9f9;border-radius:8px;padding:10px 16px;text-align:center;flex:1">
-              <div style="font-size:20px;font-weight:700" id="imp-stat-items">—</div>
-              <div class="text-hint">Items</div>
-            </div>
-            <div style="background:#f9f9f9;border-radius:8px;padding:10px 16px;text-align:center;flex:1">
-              <div style="font-size:20px;font-weight:700" id="imp-stat-weeks">—</div>
-              <div class="text-hint">Weeks</div>
-            </div>
-            <div style="background:#f9f9f9;border-radius:8px;padding:10px 16px;text-align:center;flex:1">
-              <div style="font-size:20px;font-weight:700" id="imp-stat-records">—</div>
-              <div class="text-hint">Count Records</div>
-            </div>
-          </div>
-          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:8px">
-            <input type="checkbox" id="imp-opt-master" checked> Update item master (<span id="imp-list-name-inv" style="font-family:monospace;font-size:12px;color:var(--muted)">—</span>)
-          </label>
-          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:16px">
-            <input type="checkbox" id="imp-opt-history" checked> Import count history (<span id="imp-list-name-cnt" style="font-family:monospace;font-size:12px;color:var(--muted)">—</span>)
-          </label>
-          <button class="btn btn-primary" id="imp-run-btn" onclick="runInventoryImport()">Import Data</button>
-        </div>
-        <div id="imp-log" style="margin-top:14px;font-size:12px;line-height:1.9;color:#444;background:#f9f9f9;border-radius:8px;padding:12px 14px;display:none;max-height:220px;overflow-y:auto;"></div>
-      </div>
-    </div>
   </div>
 
   <!-- TRANSFERS — now lives inside inventory as a pill tab -->
@@ -2374,36 +2328,36 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-04-30d" defer></script>
-<script src="/js/utils.js?v=2026-04-30d" defer></script>
-<script src="/js/state.js?v=2026-04-30d" defer></script>
-<script src="/js/auth.js?v=2026-04-30d" defer></script>
-<script src="/js/graph.js?v=2026-04-30d" defer></script>
-<script src="/js/signalr.js?v=2026-04-30d" defer></script>
-<script src="/js/tags.js?v=2026-04-30d" defer></script>
-<script src="/js/nav.js?v=2026-04-30d" defer></script>
-<script src="/js/settings.js?v=2026-04-30d" defer></script>
-<script src="/js/dashboard.js?v=2026-04-30d" defer></script>
-<script src="/js/inventory.js?v=2026-04-30d" defer></script>
-<script src="/js/inventory-form.js?v=2026-04-30d" defer></script>
-<script src="/js/counts.js?v=2026-04-30d" defer></script>
-<script src="/js/foodpars.js?v=2026-04-30d" defer></script>
-<script src="/js/labels.js?v=2026-04-30d" defer></script>
-<script src="/js/bags.js?v=2026-04-30d" defer></script>
-<script src="/js/bag-labels-5lb.js?v=2026-04-30d" defer></script>
-<script src="/js/pastry-sync.js?v=2026-04-30d" defer></script>
-<script src="/js/recipes.js?v=2026-04-30d" defer></script>
-<script src="/js/cogs.js?v=2026-04-30d" defer></script>
-<script src="/js/vendors.js?v=2026-04-30d" defer></script>
-<script src="/js/contacts.js?v=2026-04-30d" defer></script>
-<script src="/js/maintenance.js?v=2026-04-30d" defer></script>
-<script src="/js/checklists.js?v=2026-04-30d" defer></script>
-<script src="/js/ordering.js?v=2026-04-30d" defer></script>
-<script src="/js/parking.js?v=2026-04-30d" defer></script>
-<script src="/js/prepItems.js?v=2026-04-30d" defer></script>
-<script src="/js/square.js?v=2026-04-30d" defer></script>
-<script src="/js/slack.js?v=2026-04-30d" defer></script>
-<script src="/js/auto-sync.js?v=2026-04-30d" defer></script>
+<script src="/js/constants.js?v=2026-04-30f" defer></script>
+<script src="/js/utils.js?v=2026-04-30f" defer></script>
+<script src="/js/state.js?v=2026-04-30f" defer></script>
+<script src="/js/auth.js?v=2026-04-30f" defer></script>
+<script src="/js/graph.js?v=2026-04-30f" defer></script>
+<script src="/js/signalr.js?v=2026-04-30f" defer></script>
+<script src="/js/tags.js?v=2026-04-30f" defer></script>
+<script src="/js/nav.js?v=2026-04-30f" defer></script>
+<script src="/js/settings.js?v=2026-04-30f" defer></script>
+<script src="/js/dashboard.js?v=2026-04-30f" defer></script>
+<script src="/js/inventory.js?v=2026-04-30f" defer></script>
+<script src="/js/inventory-form.js?v=2026-04-30f" defer></script>
+<script src="/js/counts.js?v=2026-04-30f" defer></script>
+<script src="/js/foodpars.js?v=2026-04-30f" defer></script>
+<script src="/js/labels.js?v=2026-04-30f" defer></script>
+<script src="/js/bags.js?v=2026-04-30f" defer></script>
+<script src="/js/bag-labels-5lb.js?v=2026-04-30f" defer></script>
+<script src="/js/pastry-sync.js?v=2026-04-30f" defer></script>
+<script src="/js/recipes.js?v=2026-04-30f" defer></script>
+<script src="/js/cogs.js?v=2026-04-30f" defer></script>
+<script src="/js/vendors.js?v=2026-04-30f" defer></script>
+<script src="/js/contacts.js?v=2026-04-30f" defer></script>
+<script src="/js/maintenance.js?v=2026-04-30f" defer></script>
+<script src="/js/checklists.js?v=2026-04-30f" defer></script>
+<script src="/js/ordering.js?v=2026-04-30f" defer></script>
+<script src="/js/parking.js?v=2026-04-30f" defer></script>
+<script src="/js/prepItems.js?v=2026-04-30f" defer></script>
+<script src="/js/square.js?v=2026-04-30f" defer></script>
+<script src="/js/slack.js?v=2026-04-30f" defer></script>
+<script src="/js/auto-sync.js?v=2026-04-30f" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
@@ -2705,7 +2659,7 @@ async function ensureAllLists() {
   for (const loc of locs) {
     const slug = loc.replace(/[\s\/\\]/g, '_');
     await ensureList(`BSC_${slug}_InventoryCounts`, COUNTS_LIST_COLS).catch(()=>{});
-    await ensureList(`BSC_${slug}_MerchCounts`,     [...COUNTS_LIST_COLS, ...MERCH_COUNTS_EXTRA_COLS]).catch(()=>{});
+    await ensureList(`BSC_${slug}_MerchCounts`,     COUNTS_LIST_COLS).catch(()=>{});
     await ensureList(`BSC_${slug}_EquipCounts`,     COUNTS_LIST_COLS).catch(()=>{});
     await ensureList(`BSC_${slug}_MenuCounts`,      MENU_COUNTS_LIST_COLS).catch(()=>{});
     await ensureList(`BSC_${slug}_FoodPars`,        FP_PAR_LIST_COLS).catch(()=>{});
@@ -2984,8 +2938,6 @@ function calcCostPerServing() {
 
 // Merch count sheet (_merchCountMonth, renderMerchCountSheet, shiftMerchMonth,
 // updateMerchCountTotal, clearMerchCountSheet, submitMerchCount) moved to js/counts.js
-
-// pullMerchSalesFromSquare (merch count sheet → Square Orders) → js/square.js
 
 // ── Analytics ─────────────────────────────────────────────────────────────────
 function renderInventoryAnalytics() {
@@ -4394,7 +4346,7 @@ function renderMenu(query='', catFilter='') {
     const stockDisplay = stock != null ? stock : '—';
     const vars = (i.Variations||'').split('\n').filter(Boolean);
     return `<tr data-gs-id="${escHtml(i.id)}" style="${isHidden?'opacity:0.45;':''}">
-      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-04-30d" alt="" title="Synced with Square">':''}</td>
+      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-04-30f" alt="" title="Synced with Square">':''}</td>
       <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${escHtml(i.Category||'—')}</span></td>
       <td style="font-size:12px;color:var(--muted);max-width:220px">${escHtml(i.Description||'')}</td>
       <td>${i.Price != null ? '$'+Number(i.Price).toFixed(2) : '—'}</td>
@@ -4470,13 +4422,13 @@ function isCoffeeBagItem(name='', category='') {
 //   importSelectedFoodPars
 
 
-// Square integration (squareAPI, token/locmap helpers, diagnostics, testSquareConnection, loadSquareLocations, saveSquareLocationMap, syncSquareTeam, syncSquareCatalog, syncSquareInventory, pullMerchSalesFromSquare) → js/square.js
+// Square integration (squareAPI, token/locmap helpers, diagnostics, testSquareConnection, loadSquareLocations, saveSquareLocationMap, syncSquareTeam, syncSquareCatalog, syncSquareInventory) → js/square.js
 // COGs banner + permission helpers (isManagerOrOwner/isOwner/isOwnerOrAccounting → js/auth.js; COGs code → js/cogs.js)
 // Prep Items module → js/prepItems.js
 // COG code (buildCogMap, calcCog, render*, snapshot, sync, ingredient widget, overview, history) → js/cogs.js
 
 // List column definitions moved to js/constants.js
-// (INV_LIST_COLS, COUNTS_LIST_COLS, MENU_COUNTS_LIST_COLS, MERCH_LIST_COLS, MERCH_COUNTS_EXTRA_COLS)
+// (INV_LIST_COLS, COUNTS_LIST_COLS, MENU_COUNTS_LIST_COLS, MERCH_LIST_COLS)
 
 async function syncStaffAccess() {
   const btn = document.getElementById('sync-access-btn');
@@ -4753,223 +4705,6 @@ async function sendStaffInvitations() {
     btn.disabled = false;
     btn.textContent = '📨 Send Invitations';
   }
-}
-
-
-// ════════════════════════════════════════════════════════════════════════════
-// IMPORT INVENTORY from Excel
-// ════════════════════════════════════════════════════════════════════════════
-let _impParsed = null;
-
-function updateImportListNames() {
-  const loc = (document.getElementById('imp-location')?.value || '').trim();
-  const inv = loc ? invListName(loc) || `BSC_${loc.replace(/[\s\/\\]/g,'_')}_Inventory` : '—';
-  const cnt = loc ? countsListName(loc) || `BSC_${loc.replace(/[\s\/\\]/g,'_')}_InventoryCounts` : '—';
-  const invEl = document.getElementById('imp-list-name-inv');
-  const cntEl = document.getElementById('imp-list-name-cnt');
-  if (invEl) invEl.textContent = inv;
-  if (cntEl) cntEl.textContent = cnt;
-}
-
-function initImportTab() {
-  const locEl = document.getElementById('imp-location');
-  if (locEl && !locEl.value && currentLocation !== 'all') {
-    locEl.value = currentLocation;
-  }
-  updateImportListNames();
-}
-
-function impLog(msg) {
-  const el = document.getElementById('imp-log');
-  el.style.display = 'block';
-  const line = document.createElement('div');
-  line.textContent = msg;
-  el.appendChild(line);
-  el.scrollTop = el.scrollHeight;
-}
-
-function parseImportNumber(val) {
-  if (val===null||val===undefined||val===''||val==='-') return null;
-  const n = parseFloat(val);
-  return isNaN(n)?null:n;
-}
-
-function parseImportSheetDate(name, year) {
-  const parts = name.split('.');
-  if (parts.length!==2) return null;
-  const m=parseInt(parts[0]),d=parseInt(parts[1]);
-  if (isNaN(m)||isNaN(d)) return null;
-  return new Date(parseInt(year),m-1,d).toISOString().split('T')[0];
-}
-
-function parseImportSheet(rows) {
-  const items=[];
-  for (let i=4;i<rows.length;i++) {
-    const row=rows[i];
-    const name=row[0];
-    if (!name||typeof name!=='string'||name.trim()===''||name.trim().toLowerCase()==='total') continue;
-    items.push({
-      ItemName:name.trim(),Category:row[1]||'',
-      OrderSize:parseImportNumber(row[2]),OrderUnit:row[3]?String(row[3]).trim():'',
-      Supplier:row[4]?String(row[4]).trim():'',
-      StoreCount:parseImportNumber(row[5]),StorageCount:parseImportNumber(row[6]),
-      TotalCount:parseImportNumber(row[7]),ParLevel:parseImportNumber(row[8]),
-      OrderFrequency:row[10]?String(row[10]).trim():'',
-      CostPerCase:parseImportNumber(row[11]),ServingsPerUnit:parseImportNumber(row[12]),
-      CostPerServing:parseImportNumber(row[13]),ServingUnit:row[14]?String(row[14]).trim():''
-    });
-  }
-  return items;
-}
-
-function previewImportFile() {
-  const file = document.getElementById('imp-file').files[0];
-  if (!file) return;
-  if (typeof XLSX==='undefined') { toast('err','Excel library not loaded yet, please wait a moment'); return; }
-  const year = document.getElementById('imp-year').value||'2026';
-  const reader = new FileReader();
-  reader.onload = e => {
-    const wb = XLSX.read(e.target.result,{type:'array'});
-    const weeks=[]; let latestItems=[],latestDate=null;
-    for (const sheetName of wb.SheetNames) {
-      const date = parseImportSheetDate(sheetName,year);
-      if (!date) continue;
-      const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName],{header:1,defval:null});
-      const items = parseImportSheet(rows);
-      if (items.length>0) {
-        weeks.push({sheetName,date,items});
-        if (!latestDate||date>latestDate){latestDate=date;latestItems=items;}
-      }
-    }
-    _impParsed = {items:latestItems,weeks};
-    document.getElementById('imp-stat-items').textContent = latestItems.length;
-    document.getElementById('imp-stat-weeks').textContent = weeks.length;
-    document.getElementById('imp-stat-records').textContent = weeks.reduce((s,w)=>s+w.items.length,0);
-    document.getElementById('imp-preview').style.display = 'block';
-  };
-  reader.readAsArrayBuffer(file);
-}
-
-async function runInventoryImport() {
-  if (!_impParsed) { toast('err','Select a file first'); return; }
-  const location = document.getElementById('imp-location').value.trim()||'Sherman';
-  const doMaster  = document.getElementById('imp-opt-master').checked;
-  const doHistory = document.getElementById('imp-opt-history').checked;
-  const btn = document.getElementById('imp-run-btn');
-  btn.disabled=true; btn.textContent='Importing…';
-  document.getElementById('imp-log').innerHTML='';
-  try {
-    const siteId = await getSiteId();
-    const invList  = LISTS.inventory;
-    const cntList  = countsListName(location) || `BSC_${location}_InventoryCounts`;
-    let created=0,updated=0,countsSaved=0;
-
-    if (doMaster) {
-      impLog(`▶ Updating item master → ${invList}…`);
-      const existing = await graphAll(`/sites/${siteId}/lists/${invList}/items?$expand=fields&$select=id,fields`);
-      const existMap={};
-      existing.forEach(it=>{const n=it.fields?.ItemName||it.fields?.Title;if(n)existMap[n.trim().toLowerCase()]=it;});
-      // Pre-fetch existing BSC_InventoryPars rows so per-location upserts don't
-      // create duplicates. Filter to rows for this import's location only.
-      let existingParRows = [];
-      try {
-        const allParRows = await graphAll(`/sites/${siteId}/lists/${LISTS.inventoryPars}/items?$expand=fields&$select=id,fields`);
-        existingParRows = allParRows
-          .map(r => ({ id: r.id, ...r.fields }))
-          .filter(r => String(r.Location) === String(location));
-      } catch(e) { console.warn('[import] par prefetch failed:', e.message); }
-      const parByItemId = {};
-      existingParRows.forEach(r => { if (r.ItemId) parByItemId[String(r.ItemId)] = r; });
-      let parsSaved = 0;
-
-      for (let i=0;i<_impParsed.items.length;i++) {
-        const item=_impParsed.items[i];
-        // ParLevel is now per-location (BSC_InventoryPars) — don't write to master.
-        // CurrentStock / StoreCount / StorageCount don't exist on the inventory
-        // master schema — those live on the per-location count records below.
-        const fields={
-          ItemName:item.ItemName,Title:item.ItemName,Category:item.Category||'',Location:location,
-          Unit:item.OrderUnit||'',Supplier:item.Supplier||'',
-          OrderSize:item.OrderSize,OrderUnit:item.OrderUnit||'',OrderFrequency:item.OrderFrequency||'',
-          CostPerCase:item.CostPerCase,ServingsPerUnit:item.ServingsPerUnit,
-          CostPerServing:item.CostPerServing,ServingUnit:item.ServingUnit||''
-        };
-        Object.keys(fields).forEach(k=>{if(fields[k]===null||fields[k]===undefined)delete fields[k];});
-        const key=item.ItemName.trim().toLowerCase();
-        let itemId = null;
-        if (existMap[key]) {
-          await graph('PATCH',`/sites/${siteId}/lists/${invList}/items/${existMap[key].id}/fields`,fields);
-          itemId = existMap[key].id;
-          updated++;
-        } else {
-          const created_ = await graph('POST',`/sites/${siteId}/lists/${invList}/items`,{fields});
-          itemId = created_?.id || null;
-          created++;
-        }
-        // Upsert per-location par row (only if source had a par value)
-        const par = item.ParLevel;
-        if (itemId && par != null && par !== '') {
-          try {
-            const parFields = {
-              Title:    String(itemId) + ':' + String(location).replace(/[\s\/\\]/g, '_'),
-              ItemId:   String(itemId),
-              Location: location,
-              ParLevel: +par || 0
-            };
-            const existingPar = parByItemId[String(itemId)];
-            if (existingPar) {
-              await graph('PATCH', `/sites/${siteId}/lists/${LISTS.inventoryPars}/items/${existingPar.id}/fields`, { ParLevel: +par || 0 });
-            } else {
-              await graph('POST', `/sites/${siteId}/lists/${LISTS.inventoryPars}/items`, { fields: parFields });
-            }
-            parsSaved++;
-          } catch(e) { console.warn('[import] par row upsert failed for', item.ItemName, e.message); }
-        }
-        if ((i+1)%10===0) impLog(`  ${i+1}/${_impParsed.items.length} items…`);
-      }
-      impLog(`  ✓ ${created} created · ${updated} updated · ${parsSaved} par rows for ${location}`);
-    }
-
-    if (doHistory) {
-      impLog(`▶ Importing count history → ${cntList}…`);
-      for (const week of _impParsed.weeks) {
-        impLog(`  Week ${week.sheetName} (${week.date})`);
-        const tasks = week.items.map(item=>()=>graph('POST',`/sites/${siteId}/lists/${cntList}/items`,{fields:{
-          Title:item.ItemName,WeekOf:week.date+'T00:00:00Z',
-          StoreCount:item.StoreCount??0,StorageCount:item.StorageCount??0,
-          TotalCount:item.TotalCount??0,Location:location,CountedBy:'Import'
-        }}));
-        for (let i=0;i<tasks.length;i+=8) {
-          await Promise.all(tasks.slice(i,i+8).map(t=>t()));
-          countsSaved+=Math.min(8,tasks.length-i);
-        }
-      }
-      impLog(`  ✓ ${countsSaved} count records saved`);
-    }
-
-    impLog('✅ Import complete! Reloading data…');
-    btn.textContent='✓ Done';
-    toast('ok',`✓ Import complete — ${created+updated} items, ${countsSaved} count records`);
-    const sId=await getSiteId();
-    await loadInventoryData(sId);
-    renderInventory();
-  } catch(e) {
-    impLog('❌ Error: '+escHtml(e.message));
-    btn.disabled=false; btn.textContent='Import Data';
-  }
-}
-
-async function graphAll(path) {
-  let url='https://graph.microsoft.com/v1.0'+path;
-  const token=await getToken();
-  let all=[];
-  while(url){
-    const res=await fetch(url,{headers:{Authorization:'Bearer '+token}});
-    const data=await res.json();
-    all=all.concat(data.value||[]);
-    url=data['@odata.nextLink']||null;
-  }
-  return all;
 }
 </script>
 <!-- LOADING overlay — last in DOM to guarantee paint order -->

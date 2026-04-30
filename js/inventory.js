@@ -33,7 +33,7 @@
  *   - tags.js (renderTagPills)
  *   - index.html globals resolved at call time:
  *     isOwnerOrAccounting, isOwner, renderMerchCountSheet,
- *     renderCountSheet, renderInventoryAnalytics, initImportTab,
+ *     renderCountSheet, renderInventoryAnalytics,
  *     renderMerchMonthlyCost, populateTransferItemSelect,
  *     renderTransfers, renderLabelsInTab, renderFoodParsInTab,
  *     filterVendors,
@@ -301,7 +301,7 @@ function switchInvType(type) {
   if (type === 'labels') {
     if (!isOwnerOrAccounting()) { toast('err','Access restricted to owner and accounting roles'); return; }
     if (tabBar) tabBar.style.display = 'none';
-    ['items','count','analytics','import','monthly'].forEach(t => {
+    ['items','count','analytics','monthly'].forEach(t => {
       const el = document.getElementById('inv-tab-'+t);
       if (el) el.style.display = 'none';
     });
@@ -311,7 +311,7 @@ function switchInvType(type) {
     renderLabelsInTab();
   } else if (type === 'transfers') {
     if (tabBar) tabBar.style.display = 'none';
-    ['items','count','analytics','import','monthly'].forEach(t => {
+    ['items','count','analytics','monthly'].forEach(t => {
       const el = document.getElementById('inv-tab-'+t);
       if (el) el.style.display = 'none';
     });
@@ -322,7 +322,7 @@ function switchInvType(type) {
     renderTransfers();
   } else if (type === 'pastries' || type === 'sandwiches') {
     if (tabBar) tabBar.style.display = 'none';
-    ['items','count','analytics','import','monthly'].forEach(t => {
+    ['items','count','analytics','monthly'].forEach(t => {
       const el = document.getElementById('inv-tab-'+t);
       if (el) el.style.display = 'none';
     });
@@ -342,18 +342,18 @@ function switchInvType(type) {
     if (type === 'merch') {
       if (analyticsBtn) analyticsBtn.remove();
     } else if (tabBarEl && !tabBarEl.querySelector('.tab-btn[onclick*="analytics"]')) {
-      const importBtn = tabBarEl.querySelector('.tab-btn[onclick*="import"]');
+      const monthlyBtn = tabBarEl.querySelector('#inv-monthly-tab-btn');
       const btn = document.createElement('button');
       btn.className = 'tab-btn';
       btn.setAttribute('onclick', "switchInvTab('analytics',this)");
       btn.textContent = '📊 Analytics';
-      if (importBtn) tabBarEl.insertBefore(btn, importBtn);
+      if (monthlyBtn) tabBarEl.insertBefore(btn, monthlyBtn);
       else tabBarEl.appendChild(btn);
     }
     // Reset to items tab
     _invActiveTab = 'items';
     document.querySelectorAll('#page-inventory .tab-bar .tab-btn').forEach(b => b.classList.toggle('active', b.textContent.trim() === '📋 Items'));
-    ['items','count','analytics','import','monthly'].forEach(t => {
+    ['items','count','analytics','monthly'].forEach(t => {
       const el = document.getElementById('inv-tab-'+t);
       if (el) el.style.display = t==='items' ? '' : 'none';
     });
@@ -362,7 +362,7 @@ function switchInvType(type) {
   }
 }
 
-// ── Sub-tab switch within the items/count/analytics/import/monthly bar ─
+// ── Sub-tab switch within the items/count/analytics/monthly bar ─
 function switchInvTab(tab, btn) {
   if (tab === 'monthly' && !isOwnerOrAccounting()) {
     toast('err','Access restricted to owner and accounting roles'); return;
@@ -370,13 +370,12 @@ function switchInvTab(tab, btn) {
   _invActiveTab = tab;
   document.querySelectorAll('#page-inventory .tab-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  ['items','count','analytics','import','monthly'].forEach(t => {
+  ['items','count','analytics','monthly'].forEach(t => {
     const el = document.getElementById('inv-tab-'+t);
     if (el) el.style.display = t===tab ? '' : 'none';
   });
   if (tab==='count')     { if (invCfg()?.isMerch) renderMerchCountSheet(); else renderCountSheet(); }
   if (tab==='analytics') renderInventoryAnalytics();
-  if (tab==='import')    initImportTab();
   if (tab==='monthly')   renderMerchMonthlyCost();
 }
 
