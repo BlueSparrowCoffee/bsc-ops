@@ -57,6 +57,11 @@ function applyHiddenSettings() {
     const str = getSetting(cfg.hiddenKey) || localStorage.getItem(cfg.hiddenKey);
     if (str) _invCogState[tabKey].hiddenIds = new Set(parse(str));
   }
+  // Merch inventory table hide state — distinct from COG hide
+  if (typeof _merchInvHidden !== 'undefined') {
+    const merchInvStr = getSetting('bsc_merch_inv_hidden') || localStorage.getItem('bsc_merch_inv_hidden');
+    if (merchInvStr) _merchInvHidden = new Set(parse(merchInvStr));
+  }
 }
 
 // ── Locations ────────────────────────────────────────────────────

@@ -45,6 +45,21 @@ let _invActiveTab = 'items';
 let _invType      = 'consumable'; // 'consumable' | 'merch' | 'equipment'
 let _invSort      = { col: null, dir: 1 };
 
+// Merch inventory hide/show — separate concept from Archive. IDs are stored as
+// strings (matches dataset string values). Persists to localStorage AND
+// BSC_Settings (cross-device); applyHiddenSettings() rehydrates after data load.
+let _merchInvHidden = new Set(JSON.parse(localStorage.getItem('bsc_merch_inv_hidden')||'[]'));
+
+async function toggleMerchInvHidden(itemId) {
+  const id = String(itemId);
+  if (_merchInvHidden.has(id)) _merchInvHidden.delete(id);
+  else _merchInvHidden.add(id);
+  const json = JSON.stringify([..._merchInvHidden]);
+  localStorage.setItem('bsc_merch_inv_hidden', json);
+  if (typeof saveSetting === 'function') saveSetting('bsc_merch_inv_hidden', json).catch(() => {});
+  renderInventory();
+}
+
 // ── Type / config helpers ────────────────────────────────────────
 function invCfg()         { return INV_TYPE_CFG[_invType]; }
 function invHasCategory() { return invCfg()?.hasCategory !== false; }
@@ -497,8 +512,10 @@ function renderMerchInventoryItems(query='') {
   const cfg = invCfg();
   const countsMap = getLatestCountsMap(currentLocation);
   const showArchived = document.getElementById('inv-show-archived')?.checked || false;
+  const showHidden   = document.getElementById('inv-show-hidden')?.checked || false;
   let items = cache[cfg.cacheKey] || [];
   if (!showArchived) items = items.filter(i => !i.Archived);
+  if (!showHidden)   items = items.filter(i => !_merchInvHidden.has(String(i.id)));
   if (query) items = items.filter(i => (i.ItemName||'').toLowerCase().includes(query.toLowerCase()));
 
   if (_invSort.col) {
@@ -529,8 +546,10 @@ function renderMerchInventoryItems(query='') {
     // Received qty/notes moved to Monthly Cost tab (BSC_MerchReceived draft/final) 2026-04-23.
     // Row is clickable to open the edit modal — same pattern as consumable inventory.
     // Archive + delete live in the modal footer (inv-modal-archive-btn / inv-modal-delete-btn).
-    return `<tr data-inv-id="${escHtml(i.id)}" onclick="openEditInvItem('${escHtml(i.id)}')" style="cursor:pointer;${i.Archived?'opacity:.45;':''}">
-      <td class="fw">${escHtml(i.ItemName||'—')}${(i.SquareId||i.SquareCatalogItemId)?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-04-28h" alt="" title="Synced with Square">':''}${i.Archived?'<span style="font-size:10px;background:var(--muted);color:#fff;padding:1px 5px;border-radius:8px;margin-left:4px;">archived</span>':''}</td>
+    const isHidden = _merchInvHidden.has(String(i.id));
+    const eyeBtn = `<button onclick="event.stopPropagation();toggleMerchInvHidden(this.dataset.id)" data-id="${escHtml(i.id)}" title="${isHidden?'Show in list':'Hide from list'}" style="background:none;border:none;cursor:pointer;font-size:14px;padding:0 4px;color:var(--muted);vertical-align:middle;line-height:1;">${isHidden?'👁️':'🙈'}</button>`;
+    return `<tr data-inv-id="${escHtml(i.id)}" onclick="openEditInvItem('${escHtml(i.id)}')" style="cursor:pointer;${(i.Archived||isHidden)?'opacity:.45;':''}">
+      <td class="fw">${eyeBtn}${escHtml(i.ItemName||'—')}${(i.SquareId||i.SquareCatalogItemId)?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-04-28h" alt="" title="Synced with Square">':''}${i.Archived?'<span style="font-size:10px;background:var(--muted);color:#fff;padding:1px 5px;border-radius:8px;margin-left:4px;">archived</span>':''}${isHidden?'<span style="font-size:10px;background:var(--muted);color:#fff;padding:1px 5px;border-radius:8px;margin-left:4px;">hidden</span>':''}</td>
       <td style="font-size:12px">${i.Supplier ? `<a href="#" data-supplier="${escHtml(i.Supplier||'')}" onclick="event.stopPropagation();nav('vendors');setTimeout(()=>{const s=document.querySelector('#page-vendors .search-input');if(s){s.value=this.dataset.supplier;filterVendors(s.value);}},300);return false;" style="color:var(--gold);text-decoration:none;">${escHtml(i.Supplier)}</a>` : '<span style="color:var(--muted)">—</span>'}</td>
       <td>${cost != null ? '$'+Number(cost).toFixed(2) : '—'}</td>
       <td>${store}</td>
