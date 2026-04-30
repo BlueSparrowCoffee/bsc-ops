@@ -39,7 +39,7 @@ function openAddInvForm() {
   document.querySelector('#modal-add-item .modal-title').textContent = 'Add ' + cfg.label + ' Item';
   document.querySelector('#modal-add-item .btn-primary').textContent = 'Save Item';
   // clear form
-  ['new-item-name','new-item-cost-unit','new-item-square-id',
+  ['new-item-name','new-item-cost-unit',
    'new-item-order-size','new-item-unit',
    'new-item-cost','new-item-serving-unit','new-item-servings',
    'inv-par-apply-all','inv-trigger-apply-all'
@@ -72,8 +72,8 @@ function openAddInvForm() {
     }
   }
   calcCostPerServing();
-  // Hide archive/delete — add mode only
-  ['inv-modal-archive-btn','inv-modal-delete-btn','inv-modal-hide-btn'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+  // Hide archive/delete/hide/transfer — add mode only
+  ['inv-modal-archive-btn','inv-modal-delete-btn','inv-modal-hide-btn','inv-modal-transfer-btn'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
   openModal('modal-add-item');
 }
 
@@ -106,7 +106,6 @@ function openEditInvItem(id) {
   populateInvVendorSelect(item.Supplier || '');
   if (cfg.isMerch) {
     document.getElementById('new-item-cost-unit').value   = item.CostPerUnit != null ? item.CostPerUnit : '';
-    document.getElementById('new-item-square-id').value   = item.SquareCatalogItemId || '';
   } else {
     document.getElementById('new-item-order-size').value   = item.OrderSize != null ? item.OrderSize : '';
     document.getElementById('new-item-unit').value         = item.OrderUnit || item.Unit || '';
@@ -135,12 +134,15 @@ function openEditInvItem(id) {
       initTagEditor('inv-item', item.Tags||'');
     }
   }
-  // Show archive/delete buttons for edit mode (owner only)
-  const archBtn = document.getElementById('inv-modal-archive-btn');
-  const delBtn  = document.getElementById('inv-modal-delete-btn');
-  const hideBtn = document.getElementById('inv-modal-hide-btn');
+  // Show archive/delete/transfer buttons for edit mode (owner only on archive/delete)
+  const archBtn  = document.getElementById('inv-modal-archive-btn');
+  const delBtn   = document.getElementById('inv-modal-delete-btn');
+  const hideBtn  = document.getElementById('inv-modal-hide-btn');
+  const xferBtn  = document.getElementById('inv-modal-transfer-btn');
   if (archBtn) { archBtn.style.display = isOwner() ? '' : 'none'; archBtn.textContent = item.Archived ? '📤 Unarchive' : '📦 Archive'; }
   if (delBtn)  { delBtn.style.display  = isOwner() ? '' : 'none'; }
+  // Transfer is available in edit mode for any inventory type
+  if (xferBtn) { xferBtn.style.display = ''; }
   // Hide/show toggle — merch only. Anyone can toggle (it's a per-tenant view
   // preference, not a destructive action).
   if (hideBtn) {
@@ -178,6 +180,30 @@ function modalToggleMerchInvHidden() {
   if (!id) return;
   closeModal('modal-add-item');
   if (typeof toggleMerchInvHidden === 'function') toggleMerchInvHidden(id);
+}
+
+// Jump from the inventory edit modal to the Transfers tab with the transfer
+// modal pre-filled. invType is mapped from the current inventory tab config
+// to match the picker's `{type}|{id}` value format.
+function modalTransferInvItem() {
+  const id  = _editInvId;
+  const cfg = invCfg();
+  if (!id || !cfg) return;
+  // Map cacheKey → transfer picker invType key
+  const typeMap = { inventory:'consumable', merchInventory:'merch', equipInventory:'equipment' };
+  const invType = typeMap[cfg.cacheKey] || 'consumable';
+  closeModal('modal-add-item');
+  if (typeof switchInvType === 'function') switchInvType('transfers');
+  setTimeout(() => {
+    if (typeof populateTransferItemSelect === 'function') populateTransferItemSelect();
+    if (typeof openModal === 'function') openModal('modal-transfer');
+    setTimeout(() => {
+      const sel = document.getElementById('xfer-item');
+      if (sel) sel.value = invType + '|' + id;
+      const qty = document.getElementById('xfer-qty');
+      if (qty) { qty.value = ''; qty.focus(); }
+    }, MODAL_FOCUS_DELAY_MS);
+  }, NAV_SETTLE_MS);
 }
 async function toggleArchiveInvItem(id, isArchived) {
   if (!isOwner()) { toast('err', 'Owner access required'); return; }
@@ -308,12 +334,14 @@ async function saveInventoryItem() {
   if (cfg.isMerch) {
     // Tags / Category / ItemNo dropped from BSC_MerchInventory: Square is the
     // identity source for merch; no per-row tagging or categorization here.
+    // SquareCatalogItemId is intentionally NOT in this payload — it's set by
+    // Square sync only and the field was removed from the edit form. The
+    // null-drop below preserves the existing stored value untouched.
     fields = {
       ItemName:            name,
       Title:               name,
       Supplier:            (() => { const s = document.getElementById('new-item-supplier'); return s.value === '__new__' ? (document.getElementById('new-item-supplier-name')?.value?.trim()||'') : s.value; })(),
       CostPerUnit:         parseFloat(document.getElementById('new-item-cost-unit').value)||null,
-      SquareCatalogItemId: document.getElementById('new-item-square-id').value.trim()||null,
     };
   } else {
     fields = {
