@@ -623,5 +623,5 @@ async function pullMerchSalesFromSquare() {
     });
     toast('ok', filled ? `✓ Pulled Square sales — ${filled} items updated` : 'No matching sales found for this period');
   } catch(e) { toast('err','Square pull failed: '+e.message); }
-  finally { if (btn) { btn.disabled=false; btn.textContent='Pull from Square'; } }
+  finally { if (btn) { btn.disabled=false; btn.textContent='Populate Sales from Square'; } }
 }

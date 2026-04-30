@@ -73,7 +73,7 @@ function openAddInvForm() {
   }
   calcCostPerServing();
   // Hide archive/delete — add mode only
-  ['inv-modal-archive-btn','inv-modal-delete-btn'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+  ['inv-modal-archive-btn','inv-modal-delete-btn','inv-modal-hide-btn'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
   openModal('modal-add-item');
 }
 
@@ -138,8 +138,20 @@ function openEditInvItem(id) {
   // Show archive/delete buttons for edit mode (owner only)
   const archBtn = document.getElementById('inv-modal-archive-btn');
   const delBtn  = document.getElementById('inv-modal-delete-btn');
+  const hideBtn = document.getElementById('inv-modal-hide-btn');
   if (archBtn) { archBtn.style.display = isOwner() ? '' : 'none'; archBtn.textContent = item.Archived ? '📤 Unarchive' : '📦 Archive'; }
   if (delBtn)  { delBtn.style.display  = isOwner() ? '' : 'none'; }
+  // Hide/show toggle — merch only. Anyone can toggle (it's a per-tenant view
+  // preference, not a destructive action).
+  if (hideBtn) {
+    if (cfg.isMerch) {
+      hideBtn.style.display = '';
+      const isHidden = (typeof _merchInvHidden !== 'undefined') && _merchInvHidden.has(String(id));
+      hideBtn.textContent = isHidden ? '👁️ Show in list' : '🙈 Hide from list';
+    } else {
+      hideBtn.style.display = 'none';
+    }
+  }
   openModal('modal-add-item');
 }
 
@@ -158,6 +170,14 @@ function modalDeleteInvItem() {
   if (!id) return;
   closeModal('modal-add-item');
   deleteInvItem(id);
+}
+// Toggle hide state for the currently-edited merch item. Capture the id
+// BEFORE closeModal — closeModal('modal-add-item') sets _editInvId = null.
+function modalToggleMerchInvHidden() {
+  const id = _editInvId;
+  if (!id) return;
+  closeModal('modal-add-item');
+  if (typeof toggleMerchInvHidden === 'function') toggleMerchInvHidden(id);
 }
 async function toggleArchiveInvItem(id, isArchived) {
   if (!isOwner()) { toast('err', 'Owner access required'); return; }

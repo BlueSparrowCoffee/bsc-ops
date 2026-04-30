@@ -411,7 +411,7 @@ function renderMerchCountSheet() {
         <div style="font-size:13px;color:var(--muted)">${currentUser?.name || currentUser?.username || ''}</div>
       </div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        <button class="btn btn-outline" id="merch-sq-btn" onclick="pullMerchSalesFromSquare()">Pull from Square</button>
+        <button class="btn btn-outline" id="merch-sq-btn" onclick="pullMerchSalesFromSquare()">Populate Sales from Square</button>
         <span id="count-draft-indicator" style="font-size:12px;color:var(--gold);opacity:0;transition:opacity .2s;"></span>
         <span id="merch-count-submit-progress" style="font-size:13px;color:var(--muted)"></span>
         <button class="btn btn-outline" onclick="clearMerchCountSheet()">Clear</button>
