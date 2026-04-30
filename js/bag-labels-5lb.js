@@ -24,6 +24,15 @@ function fiveLbLabelsListName(loc) {
   return 'BSC_' + l.replace(/[\s\/\\]/g, '_') + '_FiveLbBagLabels';
 }
 
+// Sort: Month desc, then Created desc, then id desc as tiebreakers
+function _fiveLbRowSort(a, b) {
+  const am = a.Month||'', bm = b.Month||'';
+  if (am !== bm) return am > bm ? -1 : 1;
+  const ac = a.Created||'', bc = b.Created||'';
+  if (ac !== bc) return ac > bc ? -1 : 1;
+  return Number(b.id||0) - Number(a.id||0);
+}
+
 async function loadFiveLbLabelsForLocation() {
   const siteId = await getSiteId();
   const tag = (rows, loc) => rows.map(r => ({ ...r, _loc: loc }));
@@ -62,7 +71,7 @@ function renderFiveLbLabelsPage() {
     }
     let totalBal = 0, totalVal = 0, anyVal = false, latestOverall = null;
     for (const l of Object.keys(byLoc)) {
-      const sorted = byLoc[l].sort((a,b) => (a.Month||'') > (b.Month||'') ? -1 : 1);
+      const sorted = byLoc[l].sort(_fiveLbRowSort);
       const latest = sorted[0];
       if (!latest) continue;
       totalBal += parseFloat(latest.EndBalance) || 0;
@@ -73,7 +82,7 @@ function renderFiveLbLabelsPage() {
     valueNum       = anyVal ? '$' + totalVal.toFixed(2) : '—';
     lastMonthLabel = latestOverall ? (latestOverall.Month || '—') : 'None yet';
   } else {
-    const rows = [...cache.fiveLbLabels].sort((a,b) => (a.Month||'') > (b.Month||'') ? -1 : 1);
+    const rows = [...cache.fiveLbLabels].sort(_fiveLbRowSort);
     const latest = rows[0];
     balanceNum     = latest ? (+latest.EndBalance).toLocaleString() : '—';
     valueNum       = latest && latest.TotalValue != null ? '$' + (+latest.TotalValue).toFixed(2) : '—';
@@ -106,7 +115,11 @@ function renderFiveLbLabelsPage() {
   const rows = [...cache.fiveLbLabels].sort((a,b) => {
     const am = a.Month || '', bm = b.Month || '';
     if (am !== bm) return am > bm ? -1 : 1;
-    return (a._loc || '').localeCompare(b._loc || '');
+    const locCmp = (a._loc || '').localeCompare(b._loc || '');
+    if (locCmp !== 0) return locCmp;
+    const ac = a.Created || '', bc = b.Created || '';
+    if (ac !== bc) return ac > bc ? -1 : 1;
+    return Number(b.id||0) - Number(a.id||0);
   });
 
   if (!rows.length) {
@@ -143,7 +156,7 @@ function renderFiveLbLabelsPage() {
 
 function openFiveLbLabelsEntryModal() {
   if (currentLocation === 'all') { toast('err','Select a location first'); return; }
-  const latest = [...cache.fiveLbLabels].sort((a,b)=>(a.Month||'')>(b.Month||'')?-1:1)[0];
+  const latest = [...cache.fiveLbLabels].sort(_fiveLbRowSort)[0];
   document.getElementById('five-lb-labels-balance-input').value = '';
   document.getElementById('five-lb-labels-adjustment-input').value = '';
   document.getElementById('five-lb-labels-cost-input').value =

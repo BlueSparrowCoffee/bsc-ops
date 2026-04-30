@@ -40,6 +40,16 @@ function getLabelWastePct() {
   return (isNaN(v) || v < 0) ? DEFAULT_LABEL_WASTE_PCT : v;
 }
 
+// Sort: Month desc, then Created desc, then id desc as tiebreakers
+// (so a transfer record made today wins over an earlier-in-the-month entry).
+function _labelRowSort(a, b) {
+  const am = a.Month||'', bm = b.Month||'';
+  if (am !== bm) return am > bm ? -1 : 1;
+  const ac = a.Created||'', bc = b.Created||'';
+  if (ac !== bc) return ac > bc ? -1 : 1;
+  return Number(b.id||0) - Number(a.id||0);
+}
+
 // Per-location rate-limit timestamps for syncLabelsBagsSold
 let _labelsSyncedAt = {};
 
@@ -231,7 +241,7 @@ function renderLabelsPage() {
     }
     let totalBal = 0, totalVal = 0, anyVal = false, latestOverall = null;
     for (const l of Object.keys(byLoc)) {
-      const sorted = byLoc[l].sort((a,b) => (a.Month||'') > (b.Month||'') ? -1 : 1);
+      const sorted = byLoc[l].sort(_labelRowSort);
       const latest = sorted[0];
       if (!latest) continue;
       totalBal += parseFloat(latest.EndBalance) || 0;
@@ -242,7 +252,7 @@ function renderLabelsPage() {
     valueNum       = anyVal ? '$' + totalVal.toFixed(2) : '—';
     lastMonthLabel = latestOverall ? (latestOverall.Month || '—') : 'None yet';
   } else {
-    const rows = [...cache.labels].sort((a,b) => (a.Month||'') > (b.Month||'') ? -1 : 1);
+    const rows = [...cache.labels].sort(_labelRowSort);
     const latest = rows[0];
     balanceNum     = latest ? (+latest.EndBalance).toLocaleString() : '—';
     valueNum       = latest && latest.TotalValue != null ? '$' + (+latest.TotalValue).toFixed(2) : '—';
@@ -287,7 +297,11 @@ function renderLabelsPage() {
   const rows = [...cache.labels].sort((a,b) => {
     const am = a.Month || '', bm = b.Month || '';
     if (am !== bm) return am > bm ? -1 : 1;
-    return (a._loc || '').localeCompare(b._loc || '');
+    const locCmp = (a._loc || '').localeCompare(b._loc || '');
+    if (locCmp !== 0) return locCmp;
+    const ac = a.Created || '', bc = b.Created || '';
+    if (ac !== bc) return ac > bc ? -1 : 1;
+    return Number(b.id||0) - Number(a.id||0);
   });
 
   if (!rows.length) {
@@ -326,7 +340,7 @@ function renderLabelsPage() {
 function openLabelsEntryModal() {
   if (currentLocation === 'all') { toast('err','Select a location first'); return; }
   // Pre-fill cost from this location's most recent record
-  const latest = [...cache.labels].sort((a,b)=>(a.Month||'')>(b.Month||'')?-1:1)[0];
+  const latest = [...cache.labels].sort(_labelRowSort)[0];
   document.getElementById('labels-balance-input').value = '';
   document.getElementById('labels-cost-input').value = latest?.CostPerLabel ? parseFloat(latest.CostPerLabel).toFixed(4) : '';
   const now = new Date();
@@ -430,7 +444,7 @@ async function openLabelsReconcileModal() {
 
     const wastePct = getLabelWastePct();
     const adjustment = Math.ceil(bagsSold * (1 + wastePct / 100)); // bags sold + waste %, rounded up
-    const latest = [...cache.labels].sort((a,b)=>(a.Month||'')>(b.Month||'')?-1:1)[0];
+    const latest = [...cache.labels].sort(_labelRowSort)[0];
     const startBal = latest ? parseFloat(latest.EndBalance || 0) : 0;
     const endBal   = Math.max(0, startBal - adjustment);
     const costPerLabel = latest?.CostPerLabel ? parseFloat(latest.CostPerLabel) : 0;

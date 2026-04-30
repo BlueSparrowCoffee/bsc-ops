@@ -36,6 +36,15 @@ function getRetailBagWastePct() {
   return (isNaN(v) || v < 0) ? DEFAULT_RETAIL_BAG_WASTE_PCT : v;
 }
 
+// Sort: Month desc, then Created desc, then id desc as tiebreakers
+function _retailBagRowSort(a, b) {
+  const am = a.Month||'', bm = b.Month||'';
+  if (am !== bm) return am > bm ? -1 : 1;
+  const ac = a.Created||'', bc = b.Created||'';
+  if (ac !== bc) return ac > bc ? -1 : 1;
+  return Number(b.id||0) - Number(a.id||0);
+}
+
 // Per-location rate-limit timestamps for syncRetailBagsSold
 let _retailBagsSyncedAt = {};
 
@@ -184,7 +193,7 @@ function renderRetailBagsPage() {
     }
     let totalBal = 0, totalVal = 0, anyVal = false, latestOverall = null;
     for (const l of Object.keys(byLoc)) {
-      const sorted = byLoc[l].sort((a,b) => (a.Month||'') > (b.Month||'') ? -1 : 1);
+      const sorted = byLoc[l].sort(_retailBagRowSort);
       const latest = sorted[0];
       if (!latest) continue;
       totalBal += parseFloat(latest.EndBalance) || 0;
@@ -195,7 +204,7 @@ function renderRetailBagsPage() {
     valueNum       = anyVal ? '$' + totalVal.toFixed(2) : '—';
     lastMonthLabel = latestOverall ? (latestOverall.Month || '—') : 'None yet';
   } else {
-    const rows = [...cache.retailBags].sort((a,b) => (a.Month||'') > (b.Month||'') ? -1 : 1);
+    const rows = [...cache.retailBags].sort(_retailBagRowSort);
     const latest = rows[0];
     balanceNum     = latest ? (+latest.EndBalance).toLocaleString() : '—';
     valueNum       = latest && latest.TotalValue != null ? '$' + (+latest.TotalValue).toFixed(2) : '—';
@@ -238,7 +247,11 @@ function renderRetailBagsPage() {
   const rows = [...cache.retailBags].sort((a,b) => {
     const am = a.Month || '', bm = b.Month || '';
     if (am !== bm) return am > bm ? -1 : 1;
-    return (a._loc || '').localeCompare(b._loc || '');
+    const locCmp = (a._loc || '').localeCompare(b._loc || '');
+    if (locCmp !== 0) return locCmp;
+    const ac = a.Created || '', bc = b.Created || '';
+    if (ac !== bc) return ac > bc ? -1 : 1;
+    return Number(b.id||0) - Number(a.id||0);
   });
 
   if (!rows.length) {
@@ -276,7 +289,7 @@ function renderRetailBagsPage() {
 
 function openRetailBagsEntryModal() {
   if (currentLocation === 'all') { toast('err','Select a location first'); return; }
-  const latest = [...cache.retailBags].sort((a,b)=>(a.Month||'')>(b.Month||'')?-1:1)[0];
+  const latest = [...cache.retailBags].sort(_retailBagRowSort)[0];
   document.getElementById('retail-bags-balance-input').value = '';
   document.getElementById('retail-bags-cost-input').value = latest?.CostPerBag ? parseFloat(latest.CostPerBag).toFixed(2) : '';
   const now = new Date();
@@ -376,7 +389,7 @@ async function openRetailBagsReconcileModal() {
 
     const wastePct = getRetailBagWastePct();
     const adjustment = Math.ceil(bagsSold * (1 + wastePct / 100));
-    const latest = [...cache.retailBags].sort((a,b)=>(a.Month||'')>(b.Month||'')?-1:1)[0];
+    const latest = [...cache.retailBags].sort(_retailBagRowSort)[0];
     const startBal = latest ? parseFloat(latest.EndBalance || 0) : 0;
     const endBal   = Math.max(0, startBal - adjustment);
     const costPerBag = latest?.CostPerBag ? parseFloat(latest.CostPerBag) : 0;
