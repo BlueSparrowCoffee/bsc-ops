@@ -1,7 +1,8 @@
 /* ================================================================
  * BSC Ops — pastry-sync.js
  * Pushes pastry par values from SharePoint into the vendor order
- * spreadsheet on OneDrive. Produces a flat BSC_Data table
+ * spreadsheet on Google Sheets via a bound Apps Script Web App
+ * (PASTRY_ORDER_SYNC_URL). Sends a flat BSC_Data table
  * (Item | Loc1 Mon … Loc1 Sun | Loc2 Mon … ) that each location
  * tab can VLOOKUP against.
  *
@@ -9,33 +10,17 @@
  * the vendor-facing label) combined with each per-location
  * BSC_<Loc>_FoodPars list (for the per-day par numbers).
  *
+ * Apps Script source + deployment instructions live with the sheet
+ * itself (Extensions -> Apps Script).
+ *
  * Depends on:
  *   - state.js (cache)
- *   - constants.js (PASTRY_ORDER_SHEET_URL)
- *   - graph.js (graph, getSiteId, getListItems)
+ *   - constants.js (PASTRY_ORDER_SYNC_URL)
+ *   - graph.js (getSiteId, getListItems)
  *   - utils.js (toast, openModal)
  *   - settings.js (getLocations)
  *   - foodpars.js (foodParsListName)
  * ================================================================ */
-
-let _pastryWorkbookCache = null;
-
-function _encodeShareUrl(url) {
-  // Graph API shares endpoint requires u! + base64url(url)
-  return 'u!' + btoa(url).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
-}
-
-async function getPastryOrderWorkbook() {
-  if (_pastryWorkbookCache) return _pastryWorkbookCache;
-  const encoded = _encodeShareUrl(PASTRY_ORDER_SHEET_URL);
-  const item = await graph('GET', `/shares/${encoded}/driveItem`);
-  _pastryWorkbookCache = {
-    driveId: item.parentReference.driveId,
-    itemId:  item.id,
-    base:    `/drives/${item.parentReference.driveId}/items/${item.id}/workbook/worksheets`
-  };
-  return _pastryWorkbookCache;
-}
 
 function openPastryOrderSync() {
   document.getElementById('pastry-sync-log').textContent = 'Starting sync…\n';
@@ -44,7 +29,7 @@ function openPastryOrderSync() {
   runPastryOrderSync();
 }
 
-// Convert 1-based column number to Excel letter(s): 1→A, 26→Z, 27→AA, 29→AC
+// Convert 1-based column number to spreadsheet letter(s): 1→A, 26→Z, 27→AA, 29→AC
 function excelCol(n) {
   let s = '';
   while (n > 0) { n--; s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26); }
@@ -52,17 +37,16 @@ function excelCol(n) {
 }
 
 async function runPastryOrderSync() {
-  const logEl   = document.getElementById('pastry-sync-log');
+  const logEl    = document.getElementById('pastry-sync-log');
   const againBtn = document.getElementById('pastry-sync-again-btn');
-  logEl.textContent = 'Connecting to order spreadsheet…\n';
+  logEl.textContent = 'Building pastry par snapshot…\n';
   againBtn.style.display = 'none';
   const log = msg => { logEl.textContent += msg + '\n'; logEl.scrollTop = logEl.scrollHeight; };
 
   const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
   try {
-    const wb      = await getPastryOrderWorkbook();
-    const siteId  = await getSiteId();
+    const siteId    = await getSiteId();
     const locations = getLocations(); // e.g. ['Blake','Platte','Sherman','17th']
 
     const masterPastries = cache.foodPars
@@ -104,45 +88,25 @@ async function runPastryOrderSync() {
       return row;
     });
 
-    const allRows  = [headers, ...dataRows];
-    const numCols  = headers.length;           // 1 + locations.length * 7
-    const lastCol  = excelCol(numCols);        // e.g. 'AC' for 4 locations
+    // ── POST to Apps Script Web App ───────────────────────────────────────
+    log(`Sending ${masterPastries.length} items × ${locations.length} locations to Google Sheet…`);
+    const res = await fetch(PASTRY_ORDER_SYNC_URL, {
+      method: 'POST',
+      // Apps Script doPost reads e.postData.contents as a string regardless of
+      // Content-Type. Using text/plain avoids a CORS preflight that otherwise
+      // fails against script.google.com (no Access-Control-Allow-Headers).
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ headers, rows: dataRows })
+    });
+    if (!res.ok) throw new Error(`Server returned HTTP ${res.status}`);
+    const result = await res.json();
+    if (!result.ok) throw new Error(result.error || 'Apps Script returned error');
 
-    // ── Ensure BSC_Data sheet exists ─────────────────────────────────────
-    const DATA_SHEET = 'BSC_Data';
-    const sheetEnc   = encodeURIComponent(DATA_SHEET);
-    let sheetExists  = false;
-    try {
-      await graph('GET', `${wb.base}/${sheetEnc}`);
-      sheetExists = true;
-    } catch(_) {
-      log('Creating BSC_Data tab…');
-      await graph('POST', `${wb.base}/add`, { name: DATA_SHEET });
-    }
-
-    // Clear old content if sheet already existed
-    if (sheetExists) {
-      try {
-        const used = await graph('GET', `${wb.base}/${sheetEnc}/usedRange`);
-        const oldRows = (used.values||[]).length;
-        const oldCols = ((used.values||[[]])[0]||[]).length;
-        if (oldRows > 0) {
-          await graph('POST',
-            `${wb.base}/${sheetEnc}/range(address='A1:${excelCol(oldCols)}${oldRows}')/clear`, {});
-        }
-      } catch(_) { /* sheet was empty */ }
-    }
-
-    // Write the flat table in one call
-    log(`Writing ${masterPastries.length} items × ${locations.length} locations to BSC_Data…`);
-    await graph('PATCH',
-      `${wb.base}/${sheetEnc}/range(address='A1:${lastCol}${allRows.length}')`,
-      { values: allRows }
-    );
-
-    log(`\n✓ BSC_Data updated — ${masterPastries.length} items, ${locations.length} locations.\n`);
+    log(`\n✓ BSC_Data updated — ${result.rowsWritten} items, ${result.columns} columns.`);
+    if (result.timestamp) log(`  Synced at ${new Date(result.timestamp).toLocaleString()}\n`);
 
     // ── Print VLOOKUP formulas for the user ───────────────────────────────
+    const lastCol = excelCol(headers.length);
     log('─── VLOOKUP formulas (paste into each location tab) ───');
     log(`Range reference: BSC_Data!$A:$${lastCol}\n`);
     locations.forEach((loc, li) => {

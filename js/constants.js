@@ -250,7 +250,7 @@ const INV_COG_CFG = {
 // Bump APP_VERSION any time a deploy has breaking localStorage changes.
 // On version mismatch the entire localStorage is wiped so stale prefs never
 // cause weirdness after an update.
-const APP_VERSION = '2026-04-30i';
+const APP_VERSION = '2026-04-30j';
 (function() {
   try {
     if (localStorage.getItem('bsc_app_version') !== APP_VERSION) {
@@ -268,7 +268,11 @@ const PROVISION_VERSION = '33';
 const CACHE_MAX_AGE = 4 * 60 * 60 * 1000; // 4 hours
 
 // ── External URLs ────────────────────────────────────────────────
-const PASTRY_ORDER_SHEET_URL = 'https://mainspringdevelopers-my.sharepoint.com/:x:/g/personal/plattestreet_bluesparrowcoffee_com/IQD4lfreJEqATZTjPUub-JmoAUDTaircsNPrwcyCR44bhYU';
+// Google Apps Script Web App endpoint bound to the new pastry order sheet.
+// Receives {headers, rows, secret?} via POST, writes them to the BSC_Data tab.
+// To rotate: redeploy the Apps Script (Deploy -> Manage deployments -> edit
+// existing deployment -> New version -> Deploy) so the URL stays the same.
+const PASTRY_ORDER_SYNC_URL = 'https://script.google.com/macros/s/AKfycby0QwYRM9UXXZDVyVYc32uYzb-kvvt0na0HENzhzVztqMpibsJ8qdlGAWmCrUh3-byUUw/exec';
 
 // ── SharePoint dynamic-form / column infra ───────────────────────
 const SP_SYSTEM_FIELDS = new Set([
