@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-04-30a">
-<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-04-30a">
-<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-04-30a">
-<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-04-30a">
-<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-04-30a">
+<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-04-30b">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-04-30b">
+<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-04-30b">
+<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-04-30b">
+<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-04-30b">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="BSC Ops">
@@ -1325,6 +1325,53 @@ html,body{overscroll-behavior:none;}
     </div>
   </div>
 
+  <!-- RETAIL BAG INVENTORY — Update Stock Modal -->
+  <div class="modal-overlay" id="modal-retail-bags-entry">
+    <div class="modal" style="max-width:440px;">
+      <div class="modal-header">
+        <div class="modal-title">Update Retail Bag Stock</div>
+        <button class="modal-close" onclick="closeModal('modal-retail-bags-entry')">×</button>
+      </div>
+      <div class="form-grid">
+        <div class="form-group" style="grid-column:span 2;">
+          <label>Current Balance (bags on hand)</label>
+          <input type="number" id="retail-bags-balance-input" class="field-input" placeholder="e.g. 100" min="0">
+        </div>
+        <div class="form-group">
+          <label>Cost Per Bag ($)</label>
+          <input type="number" id="retail-bags-cost-input" class="field-input" placeholder="e.g. 8.50" step="0.01" min="0">
+        </div>
+        <div class="form-group">
+          <label>Effective Date</label>
+          <input type="text" id="retail-bags-date-input" class="field-input" placeholder="e.g. May 2026">
+        </div>
+        <div class="form-group" style="grid-column:span 2;">
+          <label>Notes</label>
+          <textarea id="retail-bags-notes-input" class="field-input" rows="2" placeholder="e.g. Received new shipment of 100 bags"></textarea>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="saveRetailBagsEntry()">Save</button>
+        <button class="btn btn-outline" onclick="closeModal('modal-retail-bags-entry')">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RETAIL BAG INVENTORY — Monthly Reconcile Modal -->
+  <div class="modal-overlay" id="modal-retail-bags-reconcile">
+    <div class="modal" style="max-width:520px;">
+      <div class="modal-header">
+        <div class="modal-title">📊 Monthly Reconciliation</div>
+        <button class="modal-close" onclick="closeModal('modal-retail-bags-reconcile')">×</button>
+      </div>
+      <div id="retail-bags-reconcile-body" style="padding:4px 0;font-size:13px;line-height:1.8;"></div>
+      <div class="form-actions">
+        <button class="btn btn-primary" id="retail-bags-reconcile-confirm-btn" onclick="confirmRetailBagsReconcile()">Save Reconciliation</button>
+        <button class="btn btn-outline" onclick="closeModal('modal-retail-bags-reconcile')">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <!-- RECIPE HISTORY MODAL -->
   <div class="modal-overlay" id="modal-recipe-history">
     <div class="modal" style="max-width:600px;">
@@ -1928,6 +1975,30 @@ html,body{overscroll-behavior:none;}
         <div id="auto-sync-card-body"></div>
       </div>
       <div class="card" style="grid-column:1/-1">
+        <div class="card-title" style="margin-bottom:16px">☕ Coffee Bags</div>
+        <p style="font-size:13px;color:var(--muted);margin:0 0 16px;">Waste assumptions applied to monthly reconciliation. Each bag sold deducts an additional % from on-hand inventory to account for misprints (labels) or damage/expiry (retail bags).</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;">
+          <div>
+            <label class="field-label">Label waste % per bag sold</label>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <input id="label-waste-pct-input" type="number" min="0" max="100" step="0.5" class="field-input" style="flex:1;min-width:100px;max-width:140px;">
+              <span style="font-size:13px;color:var(--muted);">%</span>
+              <button class="btn btn-primary" onclick="saveLabelWastePct()" style="padding:8px 16px">Save</button>
+            </div>
+            <p style="font-size:12px;color:var(--muted);margin:6px 0 0;">Default: 10%. Higher % = more labels deducted per bag sold.</p>
+          </div>
+          <div>
+            <label class="field-label">Retail bag waste % per bag sold</label>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <input id="retail-bag-waste-pct-input" type="number" min="0" max="100" step="0.5" class="field-input" style="flex:1;min-width:100px;max-width:140px;">
+              <span style="font-size:13px;color:var(--muted);">%</span>
+              <button class="btn btn-primary" onclick="saveRetailBagWastePct()" style="padding:8px 16px">Save</button>
+            </div>
+            <p style="font-size:12px;color:var(--muted);margin:6px 0 0;">Default: 2%. Higher % = more bags deducted per bag sold.</p>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="grid-column:1/-1">
         <div class="card-title" style="margin-bottom:4px">🔑 Microsoft Staff Access</div>
         <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">
           <b>Sync Access</b> — silently grants SharePoint site access to all active staff. No emails sent.<br>
@@ -2264,34 +2335,35 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-04-30a" defer></script>
-<script src="/js/utils.js?v=2026-04-30a" defer></script>
-<script src="/js/state.js?v=2026-04-30a" defer></script>
-<script src="/js/auth.js?v=2026-04-30a" defer></script>
-<script src="/js/graph.js?v=2026-04-30a" defer></script>
-<script src="/js/signalr.js?v=2026-04-30a" defer></script>
-<script src="/js/tags.js?v=2026-04-30a" defer></script>
-<script src="/js/nav.js?v=2026-04-30a" defer></script>
-<script src="/js/settings.js?v=2026-04-30a" defer></script>
-<script src="/js/dashboard.js?v=2026-04-30a" defer></script>
-<script src="/js/inventory.js?v=2026-04-30a" defer></script>
-<script src="/js/inventory-form.js?v=2026-04-30a" defer></script>
-<script src="/js/counts.js?v=2026-04-30a" defer></script>
-<script src="/js/foodpars.js?v=2026-04-30a" defer></script>
-<script src="/js/labels.js?v=2026-04-30a" defer></script>
-<script src="/js/pastry-sync.js?v=2026-04-30a" defer></script>
-<script src="/js/recipes.js?v=2026-04-30a" defer></script>
-<script src="/js/cogs.js?v=2026-04-30a" defer></script>
-<script src="/js/vendors.js?v=2026-04-30a" defer></script>
-<script src="/js/contacts.js?v=2026-04-30a" defer></script>
-<script src="/js/maintenance.js?v=2026-04-30a" defer></script>
-<script src="/js/checklists.js?v=2026-04-30a" defer></script>
-<script src="/js/ordering.js?v=2026-04-30a" defer></script>
-<script src="/js/parking.js?v=2026-04-30a" defer></script>
-<script src="/js/prepItems.js?v=2026-04-30a" defer></script>
-<script src="/js/square.js?v=2026-04-30a" defer></script>
-<script src="/js/slack.js?v=2026-04-30a" defer></script>
-<script src="/js/auto-sync.js?v=2026-04-30a" defer></script>
+<script src="/js/constants.js?v=2026-04-30b" defer></script>
+<script src="/js/utils.js?v=2026-04-30b" defer></script>
+<script src="/js/state.js?v=2026-04-30b" defer></script>
+<script src="/js/auth.js?v=2026-04-30b" defer></script>
+<script src="/js/graph.js?v=2026-04-30b" defer></script>
+<script src="/js/signalr.js?v=2026-04-30b" defer></script>
+<script src="/js/tags.js?v=2026-04-30b" defer></script>
+<script src="/js/nav.js?v=2026-04-30b" defer></script>
+<script src="/js/settings.js?v=2026-04-30b" defer></script>
+<script src="/js/dashboard.js?v=2026-04-30b" defer></script>
+<script src="/js/inventory.js?v=2026-04-30b" defer></script>
+<script src="/js/inventory-form.js?v=2026-04-30b" defer></script>
+<script src="/js/counts.js?v=2026-04-30b" defer></script>
+<script src="/js/foodpars.js?v=2026-04-30b" defer></script>
+<script src="/js/labels.js?v=2026-04-30b" defer></script>
+<script src="/js/bags.js?v=2026-04-30b" defer></script>
+<script src="/js/pastry-sync.js?v=2026-04-30b" defer></script>
+<script src="/js/recipes.js?v=2026-04-30b" defer></script>
+<script src="/js/cogs.js?v=2026-04-30b" defer></script>
+<script src="/js/vendors.js?v=2026-04-30b" defer></script>
+<script src="/js/contacts.js?v=2026-04-30b" defer></script>
+<script src="/js/maintenance.js?v=2026-04-30b" defer></script>
+<script src="/js/checklists.js?v=2026-04-30b" defer></script>
+<script src="/js/ordering.js?v=2026-04-30b" defer></script>
+<script src="/js/parking.js?v=2026-04-30b" defer></script>
+<script src="/js/prepItems.js?v=2026-04-30b" defer></script>
+<script src="/js/square.js?v=2026-04-30b" defer></script>
+<script src="/js/slack.js?v=2026-04-30b" defer></script>
+<script src="/js/auto-sync.js?v=2026-04-30b" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
@@ -2732,6 +2804,8 @@ async function loadAllData() {
   }
   // Load per-location coffee bag labels (lazy-provisioned lists; missing → [])
   await loadLabelsForLocation().catch(e => { console.warn('Labels load failed:', e); cache.labels = []; });
+  // Load per-location retail bag inventory (lazy-provisioned lists; missing → [])
+  await loadRetailBagsForLocation().catch(e => { console.warn('Retail bags load failed:', e); cache.retailBags = []; });
   // Load location-specific inventory and menu data, plus COGs
   const [cogsRecipes, cogSnapshots] = await Promise.all([
     getListItems(siteId, LISTS.cogs).catch(()=>[]),
@@ -4278,7 +4352,7 @@ function renderMenu(query='', catFilter='') {
     const stockDisplay = stock != null ? stock : '—';
     const vars = (i.Variations||'').split('\n').filter(Boolean);
     return `<tr data-gs-id="${escHtml(i.id)}" style="${isHidden?'opacity:0.45;':''}">
-      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-04-30a" alt="" title="Synced with Square">':''}</td>
+      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-04-30b" alt="" title="Synced with Square">':''}</td>
       <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${escHtml(i.Category||'—')}</span></td>
       <td style="font-size:12px;color:var(--muted);max-width:220px">${escHtml(i.Description||'')}</td>
       <td>${i.Price != null ? '$'+Number(i.Price).toFixed(2) : '—'}</td>

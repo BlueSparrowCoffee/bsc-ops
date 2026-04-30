@@ -307,7 +307,7 @@ function switchInvType(type) {
     });
     hideAllSpecial();
     if (labelsEl) labelsEl.style.display = '';
-    if (titleEl) titleEl.textContent = '🏷️ Bag Labels';
+    if (titleEl) titleEl.textContent = '☕ Coffee Bags';
     renderLabelsInTab();
   } else if (type === 'transfers') {
     if (tabBar) tabBar.style.display = 'none';

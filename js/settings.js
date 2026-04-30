@@ -186,6 +186,10 @@ async function setLocation(loc, btn) {
     if (typeof loadLabelsForLocation === 'function') {
       await loadLabelsForLocation().catch(e => console.warn('Labels reload failed:', e));
     }
+    // Reload retail bag inventory (per-location lists, tagged with _loc)
+    if (typeof loadRetailBagsForLocation === 'function') {
+      await loadRetailBagsForLocation().catch(e => console.warn('Retail bags reload failed:', e));
+    }
   } catch(e) { console.warn('Counts reload failed:', e); }
   renderInventory();
   renderDashboard();
@@ -194,10 +198,38 @@ async function setLocation(loc, btn) {
   if (document.getElementById('inv-tab-foodpars')?.style.display !== 'none' && _invType) {
     renderFoodParsInTab(_invType);
   }
-  // Re-render labels page if that panel is currently visible
-  if (document.getElementById('inv-tab-labels')?.style.display !== 'none' &&
-      typeof renderLabelsPage === 'function') {
-    renderLabelsPage();
+  // Re-render Coffee Bags page (both retail bags + labels sections live here)
+  if (document.getElementById('inv-tab-labels')?.style.display !== 'none') {
+    if (typeof renderRetailBagsPage === 'function') renderRetailBagsPage();
+    if (typeof renderLabelsPage === 'function') renderLabelsPage();
+    if (typeof syncRetailBagsSold === 'function') syncRetailBagsSold();
     if (typeof syncLabelsBagsSold === 'function') syncLabelsBagsSold();
   }
+}
+
+// ── Coffee Bags Settings card ────────────────────────────────────
+// Two number inputs (label waste %, retail bag waste %) saved to BSC_Settings.
+// Both rates are read at sync/reconcile time, so changes apply immediately.
+function renderCoffeeBagSettings() {
+  const labelInput  = document.getElementById('label-waste-pct-input');
+  const bagInput    = document.getElementById('retail-bag-waste-pct-input');
+  if (!labelInput || !bagInput) return;
+  const labelPct = getSetting('bsc_label_waste_pct');
+  const bagPct   = getSetting('bsc_retail_bag_waste_pct');
+  labelInput.value = labelPct !== '' ? labelPct : DEFAULT_LABEL_WASTE_PCT;
+  bagInput.value   = bagPct   !== '' ? bagPct   : DEFAULT_RETAIL_BAG_WASTE_PCT;
+}
+
+async function saveLabelWastePct() {
+  const v = parseFloat(document.getElementById('label-waste-pct-input').value);
+  if (isNaN(v) || v < 0 || v > 100) { toast('err','Enter a number between 0 and 100'); return; }
+  await saveSetting('bsc_label_waste_pct', String(v));
+  toast('ok',`✓ Label waste saved (${v}%)`);
+}
+
+async function saveRetailBagWastePct() {
+  const v = parseFloat(document.getElementById('retail-bag-waste-pct-input').value);
+  if (isNaN(v) || v < 0 || v > 100) { toast('err','Enter a number between 0 and 100'); return; }
+  await saveSetting('bsc_retail_bag_waste_pct', String(v));
+  toast('ok',`✓ Retail bag waste saved (${v}%)`);
 }

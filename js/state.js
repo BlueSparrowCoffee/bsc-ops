@@ -28,6 +28,7 @@ const cache = {
   merchInventory: [], merchCountHistory: [],
   equipInventory: [], equipCountHistory: [],
   labels: [],
+  retailBags: [],
   foodPars: [],
   foodParValues: [],
   parking: [],

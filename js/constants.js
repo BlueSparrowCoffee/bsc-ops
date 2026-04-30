@@ -142,6 +142,27 @@ const BAG_LABELS_LIST_COLS = [
   {name:'SquareData',   text:{allowMultipleLines:true}}
 ];
 
+// Retail coffee bags — per-location list (BSC_<Loc>_RetailBagInventory).
+// Same shape as labels, but CostPerLabel renamed to CostPerBag for clarity.
+const RETAIL_BAGS_LIST_COLS = [
+  {name:'Month',        text:{}},
+  {name:'StartBalance', number:{decimalPlaces:'automatic'}},
+  {name:'BagsSold',     number:{decimalPlaces:'automatic'}},
+  {name:'Adjustment',   number:{decimalPlaces:'automatic'}},
+  {name:'EndBalance',   number:{decimalPlaces:'automatic'}},
+  {name:'CostPerBag',   number:{decimalPlaces:'automatic'}},
+  {name:'TotalValue',   number:{decimalPlaces:'automatic'}},
+  {name:'Notes',        text:{allowMultipleLines:true}},
+  {name:'ReconcileBy',  text:{}},
+  {name:'SquareData',   text:{allowMultipleLines:true}}
+];
+
+// Waste-rate fallbacks (used when BSC_Settings is empty/unreachable). Live
+// values are configurable via Settings → ☕ Coffee Bags and stored as integer
+// percentages under bsc_label_waste_pct / bsc_retail_bag_waste_pct.
+const DEFAULT_LABEL_WASTE_PCT      = 10; // each bag sold deducts +10% extra labels (misprints)
+const DEFAULT_RETAIL_BAG_WASTE_PCT = 2;  // each bag sold deducts +2% extra retail bags (damage/expiry)
+
 // ── Master SharePoint list registry ──────────────────────────────
 const LISTS = {
   inventory:      'BSC_Inventory',          // shared consumable item master
@@ -219,7 +240,7 @@ const INV_COG_CFG = {
 // Bump APP_VERSION any time a deploy has breaking localStorage changes.
 // On version mismatch the entire localStorage is wiped so stale prefs never
 // cause weirdness after an update.
-const APP_VERSION = '2026-04-30a';
+const APP_VERSION = '2026-04-30b';
 (function() {
   try {
     if (localStorage.getItem('bsc_app_version') !== APP_VERSION) {
