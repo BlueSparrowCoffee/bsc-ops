@@ -1148,7 +1148,9 @@ let _cogChartTarget      = 65;
 // $3–$8 coffee-bar drinks that get jammed into the left edge under linear
 // scaling when a $250 merch item stretches the axis ceiling. Persisted in
 // localStorage so the user's preference survives reloads.
-let _cogChartLogScale    = (() => { try { return localStorage.getItem('bsc_cog_chart_log') === '1'; } catch { return false; } })();
+// Default to log scale (better for $3 drinks vs $250 merch on the same axis).
+// Respects an explicit '0' the user toggled in via the chart's linear/log button.
+let _cogChartLogScale    = (() => { try { return localStorage.getItem('bsc_cog_chart_log') !== '0'; } catch { return true; } })();
 
 function toggleCogChartLogScale() {
   _cogChartLogScale = !_cogChartLogScale;
