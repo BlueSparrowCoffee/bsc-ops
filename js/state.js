@@ -1,7 +1,7 @@
 /* ================================================================
  * BSC Ops — state.js
  * Cross-cutting app state that every module needs to read or write.
- * Feature-specific state (_editInvId, _cogsHiddenIds, _navHistory, etc.)
+ * Feature-specific state (_editInvId, _cogsHiddenIds, etc.)
  * stays with its owning module.
  *
  * Classic script — top-level `let`/`const` become script-global

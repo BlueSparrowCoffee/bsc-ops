@@ -1,13 +1,10 @@
 /* ================================================================
  * BSC Ops — nav.js
- * Page switching, back-stack, mobile drawer.
+ * Page switching + mobile drawer.
  *
  * nav(page) is the single entry point — it hides all .page elements,
  * shows #page-{page}, activates the matching sidebar item, then calls
  * the per-page render function for the pages that need one.
- *
- * The back-stack caps at 20 entries; _navSkipHistory lets navBack()
- * avoid pushing the from-page while it's walking backward.
  *
  * Depends on:
  *   - constants.js (PAGE_MODULE)
@@ -23,21 +20,6 @@
  *     global scope by the time nav() fires
  * ================================================================ */
 
-// ── Back-stack state ─────────────────────────────────────────────
-const _navHistory = [];
-let _navCurrent = null;
-let _navSkipHistory = false;
-
-function navBack() {
-  if (!_navHistory.length) return;
-  const prev = _navHistory.pop();
-  _navCurrent = prev;
-  _navSkipHistory = true;
-  nav(prev);
-  _navSkipHistory = false;
-  document.getElementById('back-btn').style.display = _navHistory.length ? '' : 'none';
-}
-
 // ── Mobile drawer toggle ─────────────────────────────────────────
 function toggleNav(){
   const sb = document.getElementById('sidebar');
@@ -51,9 +33,8 @@ function closeNav(){
 }
 
 // ── Page switch ──────────────────────────────────────────────────
-// Closes the drawer first, runs a page-level access check, pushes
-// the old page onto the back-stack (unless _navSkipHistory is set),
-// then shows the target page and invokes its render function.
+// Closes the drawer first, runs a page-level access check, then shows
+// the target page and invokes its render function.
 function nav(page) {
   closeNav();
   // Legacy redirect — Contacts used to be a top-level page; it now lives as a
@@ -71,14 +52,6 @@ function nav(page) {
     nav('dashboard');
     return;
   }
-
-  if (!_navSkipHistory && _navCurrent && _navCurrent !== page) {
-    _navHistory.push(_navCurrent);
-    if (_navHistory.length > 20) _navHistory.shift();
-  }
-  _navCurrent = page;
-  const backBtn = document.getElementById('back-btn');
-  if (backBtn) backBtn.style.display = _navHistory.length ? '' : 'none';
 
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
