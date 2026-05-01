@@ -92,11 +92,12 @@ async function runPastryOrderSync() {
     // Apps Script doPost reads e.postData.contents as a string regardless of
     // Content-Type. text/plain avoids a CORS preflight (script.google.com
     // doesn't return Access-Control-Allow-Headers).
+    const syncedBy = currentUser?.name || currentUser?.username || 'Unknown';
     log(`Sending ${masterPastries.length} items × ${locations.length} locations to Google Sheet…`);
     const res = await fetch(PASTRY_ORDER_SYNC_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ headers, rows: dataRows })
+      body: JSON.stringify({ headers, rows: dataRows, syncedBy })
     });
     if (!res.ok) throw new Error(`Server returned HTTP ${res.status}`);
     const result = await res.json();
