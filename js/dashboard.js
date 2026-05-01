@@ -130,40 +130,80 @@ function renderInventoryValueByLocation() {
     }, 0);
   };
 
+  const equipmentValue = (loc) => {
+    const counts = latestCountsByItem(cache.equipCountHistory || [], loc);
+    return (cache.equipInventory || []).reduce((sum, i) => {
+      if (i.Archived) return sum;
+      const qty  = counts[i.ItemName || ''] || 0;
+      const cost = i.CostPerUnit || 0;
+      return sum + qty * cost;
+    }, 0);
+  };
+
+  // Bags & Labels: latest monthly EndBalance × cost across the three sub-lists.
+  // TotalValue is persisted at save time as (EndBalance × CostPer*), so just
+  // sum the most recent record per location per sub-type.
+  const bagLabelsValue = (loc) => {
+    const latestValueForLoc = (cacheKey) => {
+      const rows = (cache[cacheKey] || []).filter(r => (r._loc || '') === loc);
+      if (!rows.length) return 0;
+      // Sort: Month desc → Created desc → id desc (matches the bag modules)
+      rows.sort((a,b) => {
+        const am = a.Month||'', bm = b.Month||'';
+        if (am !== bm) return am > bm ? -1 : 1;
+        const ac = a.Created||'', bc = b.Created||'';
+        if (ac !== bc) return ac > bc ? -1 : 1;
+        return Number(b.id||0) - Number(a.id||0);
+      });
+      return parseFloat(rows[0].TotalValue) || 0;
+    };
+    return latestValueForLoc('labels')
+         + latestValueForLoc('retailBags')
+         + latestValueForLoc('fiveLbLabels');
+  };
+
   const fmt = n => '$' + (Number(n) || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
-  let totalC = 0, totalM = 0;
+  let totalC = 0, totalM = 0, totalE = 0, totalB = 0;
   const locRows = locations.map(loc => {
     const c = consumableValue(loc);
     const m = merchValue(loc);
-    totalC += c; totalM += m;
+    const e = equipmentValue(loc);
+    const b = bagLabelsValue(loc);
+    totalC += c; totalM += m; totalE += e; totalB += b;
     return `
       <tr style="border-bottom:1px solid var(--border);">
         <td style="padding:8px 10px;font-weight:500">${escHtml(loc)}</td>
         <td style="padding:8px 10px;text-align:right">${fmt(c)}</td>
         <td style="padding:8px 10px;text-align:right">${fmt(m)}</td>
-        <td style="padding:8px 10px;text-align:right;font-weight:600">${fmt(c + m)}</td>
+        <td style="padding:8px 10px;text-align:right">${fmt(e)}</td>
+        <td style="padding:8px 10px;text-align:right">${fmt(b)}</td>
+        <td style="padding:8px 10px;text-align:right;font-weight:600">${fmt(c + m + e + b)}</td>
       </tr>`;
   }).join('');
 
   body.innerHTML = `
     <div style="overflow-x:auto;">
-      <table style="width:100%;font-size:13px;border-collapse:collapse;min-width:420px;">
+      <table style="width:100%;font-size:13px;border-collapse:collapse;min-width:560px;">
         <thead>
           <tr style="border-bottom:2px solid var(--border);color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em;">
             <th style="text-align:left;padding:8px 10px;">Location</th>
             <th style="text-align:right;padding:8px 10px;">Consumables</th>
             <th style="text-align:right;padding:8px 10px;">Merch</th>
+            <th style="text-align:right;padding:8px 10px;">Equipment</th>
+            <th style="text-align:right;padding:8px 10px;">Bags &amp; Labels</th>
             <th style="text-align:right;padding:8px 10px;">Total</th>
           </tr>
         </thead>
         <tbody>
-          ${locRows || `<tr><td colspan="4" style="padding:12px;color:var(--muted);text-align:center;">No locations configured.</td></tr>`}
+          ${locRows || `<tr><td colspan="6" style="padding:12px;color:var(--muted);text-align:center;">No locations configured.</td></tr>`}
           <tr style="border-top:2px solid var(--border);background:var(--cream);font-weight:700;">
             <td style="padding:10px;">All Locations</td>
             <td style="padding:10px;text-align:right;">${fmt(totalC)}</td>
             <td style="padding:10px;text-align:right;">${fmt(totalM)}</td>
-            <td style="padding:10px;text-align:right;">${fmt(totalC + totalM)}</td>
+            <td style="padding:10px;text-align:right;">${fmt(totalE)}</td>
+            <td style="padding:10px;text-align:right;">${fmt(totalB)}</td>
+            <td style="padding:10px;text-align:right;">${fmt(totalC + totalM + totalE + totalB)}</td>
           </tr>
         </tbody>
       </table>
