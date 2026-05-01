@@ -119,7 +119,7 @@ async function loadBscSettings(graphToken) {
   const lists = await graphGet(graphToken, `/sites/${siteId}/lists?$select=id,name,displayName&$top=200`);
   const target = (lists.value || []).find(l => l.name === 'BSC_Settings' || l.displayName === 'BSC_Settings');
   if (!target) throw new Error('BSC_Settings list not found in target site');
-  let url = `/sites/${siteId}/lists/${target.id}/items?$expand=fields(select=Title,Value)&$top=500`;
+  let url = `/sites/${siteId}/lists/${target.id}/items?$expand=fields($select=Title,Value)&$top=500`;
   const out = {};
   while (url) {
     const page = await graphGet(graphToken, url);
