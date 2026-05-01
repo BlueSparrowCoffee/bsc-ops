@@ -21,10 +21,14 @@ function renderDashboard() {
   // Low-stock alerts only make sense for a specific location; on 'all' we show
   // the "all OK" placeholder rather than falsely flagging everything.
   const isAllLoc = (currentLocation === 'all');
+  // Low alert: only items that have BOTH a count and a threshold. Items with
+  // no count or no par are "Untracked" and excluded.
   const low = isAllLoc ? [] : locInv.filter(i => {
     const thresh = invLowThreshold(i, currentLocation);
-    if (thresh == null) return false;
-    return (cm[i.ItemName||'']?.total??0) <= thresh;
+    if (thresh == null || thresh <= 0) return false;
+    const t = cm[i.ItemName||'']?.total;
+    if (t == null) return false;
+    return t <= thresh;
   });
   const pendingOrders = cache.orders.filter(o=>o.Status==='Pending'||o.Status==='Ordered');
   const todayTasks = cache.checklists.filter(c=>c.Frequency==='Daily');

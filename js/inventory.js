@@ -423,8 +423,21 @@ function renderInventoryItems(catFilter='', statusFilter='', supplierFilter='') 
   if (supplierFilter) items = items.filter(i=>(i.Supplier||'')===supplierFilter);
   // Low/ok filter only applies when a specific location is selected — "all" has
   // no single par value so those filters are meaningless in aggregate view.
-  if (statusFilter==='low' && currentLocation !== 'all') items = items.filter(i=>(countsMap[i.ItemName||'']?.total??0)<=invLowThreshold(i, currentLocation));
-  if (statusFilter==='ok'  && currentLocation !== 'all') items = items.filter(i=>(countsMap[i.ItemName||'']?.total??0)> invLowThreshold(i, currentLocation));
+  // Items with no count or no threshold are "Untracked" and excluded from both.
+  if (statusFilter==='low' && currentLocation !== 'all') items = items.filter(i=>{
+    const t = countsMap[i.ItemName||'']?.total;
+    if (t == null) return false;
+    const thresh = invLowThreshold(i, currentLocation);
+    if (thresh == null || thresh <= 0) return false;
+    return t <= thresh;
+  });
+  if (statusFilter==='ok'  && currentLocation !== 'all') items = items.filter(i=>{
+    const t = countsMap[i.ItemName||'']?.total;
+    if (t == null) return false;
+    const thresh = invLowThreshold(i, currentLocation);
+    if (thresh == null || thresh <= 0) return false;
+    return t > thresh;
+  });
 
   if (_invSort.col) {
     // Rank for the Status column — first click sorts: Out (0) → Low (1) → OK (2) → No status (3).
@@ -475,7 +488,7 @@ function renderInventoryItems(catFilter='', statusFilter='', supplierFilter='') 
     const lowAt   = invLowThreshold(i, currentLocation);
     const hasThresh = lowAt != null && lowAt > 0;
     const badge   = isAll ? 'badge-gray' : (totalNum===null?'badge-gray':!hasThresh?'badge-gray':totalNum===0?'badge-red':totalNum<=lowAt?'badge-orange':'badge-green');
-    const status  = isAll ? '—' : (totalNum===null?'—':!hasThresh?'—':totalNum===0?'Out':totalNum<=lowAt?'Low':'OK');
+    const status  = isAll ? '—' : (totalNum===null?'Untracked':!hasThresh?'Untracked':totalNum===0?'Out':totalNum<=lowAt?'Low':'OK');
     const sugg    = suggestedOrderQty(i, currentLocation, totalNum);
     const suggCell = (sugg == null) ? '—' : sugg;
     const unit    = escHtml(i.OrderUnit||i.Unit||'');
@@ -615,8 +628,13 @@ function getLatestCountsMap(loc) {
 // ── Nav-into-inventory helpers ──────────────────────────────────
 function navLowStock() {
   nav('inventory');
-  const sel = document.getElementById('inv-status-filter');
-  if (sel) { sel.value = 'low'; filterInventory(); }
+  // Force the consumable type — the Status filter is consumable-only and the
+  // Low/Out concept doesn't apply to merch/equipment headers
+  if (typeof switchInvType === 'function') switchInvType('consumable');
+  setTimeout(() => {
+    const sel = document.getElementById('inv-status-filter');
+    if (sel) { sel.value = 'low'; filterInventory(); }
+  }, NAV_SETTLE_MS);
 }
 
 // Smoothly scroll an element into view and briefly flash a gold highlight.
