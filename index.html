@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-01n">
-<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-01n">
-<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-01n">
-<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-01n">
-<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-01n">
+<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-01o">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-01o">
+<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-01o">
+<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-01o">
+<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-01o">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="BSC Ops">
@@ -881,7 +881,10 @@ html,body{overscroll-behavior:none;}
   <div class="page section-load-target" id="page-prep-items">
     <div class="page-header">
       <div class="page-title">⏱️ Prep Items</div>
-      <button class="btn btn-primary" onclick="openPrepItemModal(null)">+ Add Prep Item</button>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-outline" onclick="printPrepItems()" title="Open print-friendly view">🖨️ Print</button>
+        <button class="btn btn-primary" onclick="openPrepItemModal(null)">+ Add Prep Item</button>
+      </div>
     </div>
     <div style="font-size:13px;color:var(--muted);margin-bottom:16px;">House-made ingredients used to calculate cost of goods. Each prep item's cost per unit is calculated from its ingredients and batch yield.</div>
     <div id="pi-cards" style="display:grid;gap:14px;"></div>
@@ -903,7 +906,8 @@ html,body{overscroll-behavior:none;}
         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         <input class="search-input" id="recipe-search" placeholder="Search recipes…" oninput="debounceFilter('recipes',filterRecipes,this.value)">
       </div>
-      <button class="btn btn-primary ml-auto" onclick="openRecipeForm(null)">+ Add Recipe</button>
+      <button class="btn btn-outline ml-auto" onclick="printRecipes()" title="Open print-friendly view">🖨️ Print</button>
+      <button class="btn btn-primary" onclick="openRecipeForm(null)">+ Add Recipe</button>
       <span id="recipe-count" style="font-size:13px;color:var(--muted);align-self:center;"></span>
     </div>
     <div class="cards-grid" id="recipe-grid" style="grid-template-columns:repeat(auto-fill,minmax(min(100%,380px),1fr));"></div>
@@ -2397,37 +2401,37 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-05-01n" defer></script>
-<script src="/js/utils.js?v=2026-05-01n" defer></script>
-<script src="/js/state.js?v=2026-05-01n" defer></script>
-<script src="/js/auth.js?v=2026-05-01n" defer></script>
-<script src="/js/graph.js?v=2026-05-01n" defer></script>
-<script src="/js/signalr.js?v=2026-05-01n" defer></script>
-<script src="/js/tags.js?v=2026-05-01n" defer></script>
-<script src="/js/nav.js?v=2026-05-01n" defer></script>
-<script src="/js/settings.js?v=2026-05-01n" defer></script>
-<script src="/js/dashboard.js?v=2026-05-01n" defer></script>
-<script src="/js/inventory.js?v=2026-05-01n" defer></script>
-<script src="/js/inventory-form.js?v=2026-05-01n" defer></script>
-<script src="/js/counts.js?v=2026-05-01n" defer></script>
-<script src="/js/foodpars.js?v=2026-05-01n" defer></script>
-<script src="/js/labels.js?v=2026-05-01n" defer></script>
-<script src="/js/bags.js?v=2026-05-01n" defer></script>
-<script src="/js/bag-labels-5lb.js?v=2026-05-01n" defer></script>
-<script src="/js/pastry-sync.js?v=2026-05-01n" defer></script>
-<script src="/js/recipes.js?v=2026-05-01n" defer></script>
-<script src="/js/cogs.js?v=2026-05-01n" defer></script>
-<script src="/js/vendors.js?v=2026-05-01n" defer></script>
-<script src="/js/contacts.js?v=2026-05-01n" defer></script>
-<script src="/js/maintenance.js?v=2026-05-01n" defer></script>
-<script src="/js/checklists.js?v=2026-05-01n" defer></script>
-<script src="/js/ordering.js?v=2026-05-01n" defer></script>
-<script src="/js/ordering-build.js?v=2026-05-01n" defer></script>
-<script src="/js/parking.js?v=2026-05-01n" defer></script>
-<script src="/js/prepItems.js?v=2026-05-01n" defer></script>
-<script src="/js/square.js?v=2026-05-01n" defer></script>
-<script src="/js/slack.js?v=2026-05-01n" defer></script>
-<script src="/js/auto-sync.js?v=2026-05-01n" defer></script>
+<script src="/js/constants.js?v=2026-05-01o" defer></script>
+<script src="/js/utils.js?v=2026-05-01o" defer></script>
+<script src="/js/state.js?v=2026-05-01o" defer></script>
+<script src="/js/auth.js?v=2026-05-01o" defer></script>
+<script src="/js/graph.js?v=2026-05-01o" defer></script>
+<script src="/js/signalr.js?v=2026-05-01o" defer></script>
+<script src="/js/tags.js?v=2026-05-01o" defer></script>
+<script src="/js/nav.js?v=2026-05-01o" defer></script>
+<script src="/js/settings.js?v=2026-05-01o" defer></script>
+<script src="/js/dashboard.js?v=2026-05-01o" defer></script>
+<script src="/js/inventory.js?v=2026-05-01o" defer></script>
+<script src="/js/inventory-form.js?v=2026-05-01o" defer></script>
+<script src="/js/counts.js?v=2026-05-01o" defer></script>
+<script src="/js/foodpars.js?v=2026-05-01o" defer></script>
+<script src="/js/labels.js?v=2026-05-01o" defer></script>
+<script src="/js/bags.js?v=2026-05-01o" defer></script>
+<script src="/js/bag-labels-5lb.js?v=2026-05-01o" defer></script>
+<script src="/js/pastry-sync.js?v=2026-05-01o" defer></script>
+<script src="/js/recipes.js?v=2026-05-01o" defer></script>
+<script src="/js/cogs.js?v=2026-05-01o" defer></script>
+<script src="/js/vendors.js?v=2026-05-01o" defer></script>
+<script src="/js/contacts.js?v=2026-05-01o" defer></script>
+<script src="/js/maintenance.js?v=2026-05-01o" defer></script>
+<script src="/js/checklists.js?v=2026-05-01o" defer></script>
+<script src="/js/ordering.js?v=2026-05-01o" defer></script>
+<script src="/js/ordering-build.js?v=2026-05-01o" defer></script>
+<script src="/js/parking.js?v=2026-05-01o" defer></script>
+<script src="/js/prepItems.js?v=2026-05-01o" defer></script>
+<script src="/js/square.js?v=2026-05-01o" defer></script>
+<script src="/js/slack.js?v=2026-05-01o" defer></script>
+<script src="/js/auto-sync.js?v=2026-05-01o" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
@@ -4638,7 +4642,7 @@ function renderMenu(query='', catFilter='') {
     const stockDisplay = stock != null ? stock : '—';
     const vars = (i.Variations||'').split('\n').filter(Boolean);
     return `<tr data-gs-id="${escHtml(i.id)}" style="${isHidden?'opacity:0.45;':''}">
-      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-01n" alt="" title="Synced with Square">':''}</td>
+      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-01o" alt="" title="Synced with Square">':''}</td>
       <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${escHtml(i.Category||'—')}</span></td>
       <td style="font-size:12px;color:var(--muted);max-width:220px">${escHtml(i.Description||'')}</td>
       <td>${i.Price != null ? '$'+Number(i.Price).toFixed(2) : '—'}</td>

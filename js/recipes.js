@@ -327,3 +327,80 @@ async function restoreRecipeVersion(itemId, versionId) {
   } catch(e) { toast('err','Restore failed: '+e.message); }
   finally { setLoading(false); }
 }
+
+// ── Print all recipes ─────────────────────────────────────────────
+// Opens a new window with a clean, kitchen-friendly print layout.
+// Each recipe starts on its own page; respects the current search filter.
+function printRecipes() {
+  const q = (document.getElementById('recipe-search')?.value || '').toLowerCase();
+  let rows = cache.recipes || [];
+  if (q) rows = rows.filter(r => [r.Title, r.Content, r.Steps, r.Notes].filter(Boolean).join(' ').toLowerCase().includes(q));
+  rows = [...rows].sort((a,b) => (a.Title||'').localeCompare(b.Title||''));
+  if (!rows.length) { toast?.('err','No recipes to print'); return; }
+
+  const recipeBlocks = rows.map((r, idx) => {
+    let ingredients = [];
+    if (r.Ingredients) { try { ingredients = JSON.parse(r.Ingredients); } catch {} }
+    const ingHtml = ingredients.length
+      ? `<ul class="ing-list">${ingredients.map(i => {
+          const qtyUnit = [i.qty, i.unit].filter(Boolean).join(' ');
+          return `<li><span class="ing-qty">${escHtml(qtyUnit)}</span> <span class="ing-name">${escHtml(i.name||'')}</span></li>`;
+        }).join('')}</ul>`
+      : '';
+    const stepsHtml = r.Steps ? recipeContentToHtml(r.Steps) : '';
+    const legacyHtml = (!ingredients.length && !r.Steps && r.Content) ? recipeContentToHtml(r.Content) : '';
+    const notesHtml = r.Notes
+      ? `<div class="notes"><div class="section-label">Notes</div><div>${escHtml(r.Notes)}</div></div>`
+      : '';
+    return `
+      <article class="recipe-page${idx===0?' first':''}">
+        <header>
+          <h1>${escHtml(r.Title || 'Untitled Recipe')}</h1>
+          ${r.Yield ? `<div class="yield">Yields ${escHtml(r.Yield)}</div>` : ''}
+        </header>
+        ${ingHtml ? `<section><div class="section-label">Ingredients</div>${ingHtml}</section>` : ''}
+        ${stepsHtml ? `<section><div class="section-label">Steps</div><div class="steps">${stepsHtml}</div></section>` : ''}
+        ${legacyHtml ? `<section><div class="steps">${legacyHtml}</div></section>` : ''}
+        ${notesHtml}
+      </article>`;
+  }).join('');
+
+  _openPrintWindow('Recipes — Blue Sparrow Coffee', recipeBlocks, _printRecipeStyles());
+}
+
+function _printRecipeStyles() {
+  return `
+    *{box-sizing:border-box;}
+    body{font-family:Georgia,'Times New Roman',serif;color:#111;margin:0;padding:0;background:#fff;}
+    .recipe-page{padding:36px 48px;page-break-after:always;}
+    .recipe-page:last-child{page-break-after:auto;}
+    header{border-bottom:2px solid #111;padding-bottom:12px;margin-bottom:20px;}
+    h1{font-size:32px;margin:0 0 4px;font-weight:700;letter-spacing:-.01em;}
+    .yield{font-size:14px;color:#555;font-style:italic;}
+    section{margin-bottom:18px;}
+    .section-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#666;margin-bottom:8px;border-bottom:1px solid #ccc;padding-bottom:3px;}
+    .ing-list{list-style:none;margin:0;padding:0;column-count:2;column-gap:32px;}
+    .ing-list li{padding:4px 0;font-size:14px;break-inside:avoid;}
+    .ing-qty{display:inline-block;min-width:60px;font-weight:700;}
+    .ing-name{}
+    .steps p{margin:0 0 8px;font-size:14px;line-height:1.5;}
+    .steps ul,.steps ol{padding-left:24px;margin:0 0 10px;}
+    .steps li{font-size:14px;line-height:1.5;margin-bottom:6px;}
+    .notes{margin-top:18px;padding:10px 14px;background:#f6f3ec;border-left:3px solid #b78b40;font-size:13px;color:#444;}
+    .notes .section-label{margin-bottom:4px;border:none;padding:0;}
+    @media print{.recipe-page{padding:24px 32px;}}
+    @page{margin:14mm;}
+  `;
+}
+
+// Shared print-window opener. Body is the inner HTML; styles a CSS string.
+function _openPrintWindow(title, bodyHtml, styles) {
+  const w = window.open('', '_blank', 'width=900,height=1000');
+  if (!w) { toast?.('err','Pop-up blocked — allow pop-ups to print'); return; }
+  w.document.open();
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escHtml(title)}</title><style>${styles}</style></head><body>${bodyHtml}</body></html>`);
+  w.document.close();
+  // Auto-print once images/fonts settle. The user can cancel and re-print
+  // from the new window at any time.
+  w.onload = () => { try { w.focus(); w.print(); } catch {} };
+}

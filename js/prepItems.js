@@ -542,3 +542,90 @@ async function deletePrepItem(id) {
     setLoading(false);
   }
 }
+
+// ── Print all prep items ──────────────────────────────────────────
+// Opens a new window with kitchen-friendly cards (one per page).
+function printPrepItems() {
+  const items = [...(cache.prepItems || [])].sort((a,b) => (a.Title||'').localeCompare(b.Title||''));
+  if (!items.length) { toast?.('err','No prep items to print'); return; }
+
+  const blocks = items.map((item, idx) => {
+    const ings = (cache.prepItemIngredients || [])
+      .filter(i => i.PrepItemId === item.id)
+      .sort((a,b) => (a.IngredientName||'').localeCompare(b.IngredientName||''));
+    const { totalCost, costPerUnit, yieldQty, yieldUnit } = calcPrepItemCost(item.id);
+
+    const ingRows = ings.map(ing => {
+      const qty = parseFloat(ing.Qty) || 0;
+      let typeLabel = '';
+      let perUnit = null;
+      if (ing.IngredientType === 'inventory') {
+        const invItem = (cache.inventory || []).find(i => i.id === ing.IngredientId);
+        perUnit = invItem ? parseFloat(invItem.CostPerServing) : null;
+        typeLabel = 'inv';
+      } else if (ing.IngredientType === 'prepItem') {
+        perUnit = calcPrepItemCost(ing.IngredientId).costPerUnit;
+        typeLabel = 'prep';
+      } else {
+        const cp = parseFloat(ing.CostPerUnit);
+        perUnit = !isNaN(cp) ? cp : null;
+        typeLabel = '';
+      }
+      const lineCost = (perUnit != null) ? qty * perUnit : null;
+      return `<tr>
+        <td>${escHtml(ing.IngredientName||'')}${typeLabel?` <span class="type">${typeLabel}</span>`:''}</td>
+        <td class="r">${escHtml(String(ing.Qty||''))} ${escHtml(ing.Unit||'')}</td>
+        <td class="r muted">${perUnit!=null?'$'+perUnit.toFixed(4):'—'}</td>
+        <td class="r b">${lineCost!=null?'$'+lineCost.toFixed(3):'—'}</td>
+      </tr>`;
+    }).join('');
+
+    return `
+      <article class="prep-page${idx===0?' first':''}">
+        <header>
+          <h1>${escHtml(item.Title||'Untitled')}</h1>
+          <div class="meta">
+            ${item.Category ? `<span>${escHtml(item.Category)}</span>` : ''}
+            <span>Batch: ${yieldQty} ${escHtml(yieldUnit||'unit')}</span>
+            <span class="cost">$${costPerUnit.toFixed(4)} / ${escHtml(yieldUnit||'unit')}</span>
+            <span>$${totalCost.toFixed(2)} total</span>
+          </div>
+        </header>
+        ${ings.length ? `
+        <table class="ing-table">
+          <thead>
+            <tr><th>Ingredient</th><th class="r">Qty</th><th class="r">$/unit</th><th class="r">Line</th></tr>
+          </thead>
+          <tbody>${ingRows}</tbody>
+        </table>` : '<div class="empty">No ingredients added.</div>'}
+        ${item.Notes ? `<div class="notes"><div class="section-label">Notes</div><div>${escHtml(item.Notes)}</div></div>` : ''}
+      </article>`;
+  }).join('');
+
+  _openPrintWindow('Prep Items — Blue Sparrow Coffee', blocks, _printPrepStyles());
+}
+
+function _printPrepStyles() {
+  return `
+    *{box-sizing:border-box;}
+    body{font-family:Georgia,'Times New Roman',serif;color:#111;margin:0;padding:0;background:#fff;}
+    .prep-page{padding:36px 48px;page-break-after:always;}
+    .prep-page:last-child{page-break-after:auto;}
+    header{border-bottom:2px solid #111;padding-bottom:12px;margin-bottom:18px;}
+    h1{font-size:30px;margin:0 0 6px;font-weight:700;letter-spacing:-.01em;}
+    .meta{display:flex;flex-wrap:wrap;gap:16px;font-size:13px;color:#555;}
+    .meta .cost{color:#b78b40;font-weight:700;}
+    .ing-table{width:100%;border-collapse:collapse;margin-top:8px;}
+    .ing-table th{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#666;border-bottom:1.5px solid #111;padding:6px 8px;text-align:left;}
+    .ing-table th.r,.ing-table td.r{text-align:right;}
+    .ing-table td{padding:6px 8px;font-size:13px;border-bottom:1px solid #e5e5e5;}
+    .ing-table td.muted{color:#666;}
+    .ing-table td.b{font-weight:700;}
+    .ing-table .type{font-size:10px;color:#7c3aed;background:#f1ecff;padding:1px 5px;border-radius:8px;margin-left:4px;}
+    .empty{font-size:13px;color:#666;padding:14px 0;}
+    .section-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#666;margin-bottom:4px;}
+    .notes{margin-top:18px;padding:10px 14px;background:#f6f3ec;border-left:3px solid #b78b40;font-size:13px;color:#444;}
+    @media print{.prep-page{padding:24px 32px;}}
+    @page{margin:14mm;}
+  `;
+}
