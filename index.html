@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-01j">
-<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-01j">
-<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-01j">
-<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-01j">
-<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-01j">
+<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-01n">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-01n">
+<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-01n">
+<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-01n">
+<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-01n">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="BSC Ops">
@@ -515,12 +515,14 @@ html,body{overscroll-behavior:none;}
     <button class="loc-btn" onclick="setLocation('17th',this)">17th</button>
   </div>
   <div class="topbar-right">
-    <div id="user-info" style="display:flex;align-items:center;gap:8px;">
+    <div id="user-info" style="display:flex;align-items:center;gap:8px;position:relative;">
       <div style="text-align:right;line-height:1.4;">
         <div id="user-role-label" style="font-size:11px;color:rgba(185,223,227,.7);"></div>
         <div id="sync-label" style="font-size:10px;color:rgba(255,255,255,.4);"></div>
       </div>
       <div id="user-avatar" style="display:none;"></div>
+      <!-- Owner-only role-test switcher popover (opened by clicking role label) -->
+      <div id="role-switcher-pop" style="display:none;position:absolute;top:calc(100% + 6px);right:0;min-width:200px;background:#fff;color:var(--text);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);z-index:1000;overflow:hidden;"></div>
     </div>
     <div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
       <div id="user-label" style="font-size:11px;font-weight:600;color:rgba(255,255,255,.85);"></div>
@@ -582,7 +584,6 @@ html,body{overscroll-behavior:none;}
       <div class="page-sub" id="dash-date"></div>
     </div>
     <div class="stats-row">
-      <div class="stat-card" style="cursor:pointer;" onclick="nav('inventory')"><div class="stat-value" id="d-inventory">—</div><div class="stat-label">Inventory Items</div></div>
       <div class="stat-card alert" style="cursor:pointer;" onclick="navLowStock()"><div class="stat-value" id="d-low">—</div><div class="stat-label">Low Stock Alerts</div></div>
       <div class="stat-card" style="cursor:pointer;" onclick="nav('ordering')"><div class="stat-value" id="d-orders">—</div><div class="stat-label">Pending Orders</div></div>
       <div class="stat-card" style="cursor:pointer;" onclick="nav('checklists')"><div class="stat-value" id="d-checklist">—</div><div class="stat-label">Today's Checklist</div></div>
@@ -612,6 +613,19 @@ html,body{overscroll-behavior:none;}
         <div class="card-title">💰 Inventory Value by Location</div>
         <div id="dash-inv-value-body"><div class="no-data" style="padding:16px">Loading…</div></div>
         <div style="font-size:11px;color:var(--muted);margin-top:8px;">Based on latest submitted counts × per-unit cost. Visible to owner and accounting only.</div>
+      </div>
+      <!-- Accounting-only summary cards (shown via JS role gate) -->
+      <div class="card section-load-target" id="dash-acct-merch-card" style="display:none;cursor:pointer;" onclick="nav('inventory');switchInvType?.('merch')">
+        <div class="card-title">🛍️ Merch Inventory</div>
+        <div id="dash-acct-merch-body"><div class="no-data" style="padding:16px">Loading…</div></div>
+      </div>
+      <div class="card section-load-target" id="dash-acct-bags-card" style="display:none;cursor:pointer;" onclick="nav('inventory');switchInvType?.('labels')">
+        <div class="card-title">🏷️ Bags &amp; Labels</div>
+        <div id="dash-acct-bags-body"><div class="no-data" style="padding:16px">Loading…</div></div>
+      </div>
+      <div class="card section-load-target" id="dash-acct-cogs-card" style="display:none;grid-column:1 / -1;cursor:pointer;" onclick="nav('cogs')">
+        <div class="card-title">📊 COGs Overview</div>
+        <div id="dash-acct-cogs-body"><div class="no-data" style="padding:16px">Loading…</div></div>
       </div>
     </div>
   </div>
@@ -2383,37 +2397,37 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-05-01j" defer></script>
-<script src="/js/utils.js?v=2026-05-01j" defer></script>
-<script src="/js/state.js?v=2026-05-01j" defer></script>
-<script src="/js/auth.js?v=2026-05-01j" defer></script>
-<script src="/js/graph.js?v=2026-05-01j" defer></script>
-<script src="/js/signalr.js?v=2026-05-01j" defer></script>
-<script src="/js/tags.js?v=2026-05-01j" defer></script>
-<script src="/js/nav.js?v=2026-05-01j" defer></script>
-<script src="/js/settings.js?v=2026-05-01j" defer></script>
-<script src="/js/dashboard.js?v=2026-05-01j" defer></script>
-<script src="/js/inventory.js?v=2026-05-01j" defer></script>
-<script src="/js/inventory-form.js?v=2026-05-01j" defer></script>
-<script src="/js/counts.js?v=2026-05-01j" defer></script>
-<script src="/js/foodpars.js?v=2026-05-01j" defer></script>
-<script src="/js/labels.js?v=2026-05-01j" defer></script>
-<script src="/js/bags.js?v=2026-05-01j" defer></script>
-<script src="/js/bag-labels-5lb.js?v=2026-05-01j" defer></script>
-<script src="/js/pastry-sync.js?v=2026-05-01j" defer></script>
-<script src="/js/recipes.js?v=2026-05-01j" defer></script>
-<script src="/js/cogs.js?v=2026-05-01j" defer></script>
-<script src="/js/vendors.js?v=2026-05-01j" defer></script>
-<script src="/js/contacts.js?v=2026-05-01j" defer></script>
-<script src="/js/maintenance.js?v=2026-05-01j" defer></script>
-<script src="/js/checklists.js?v=2026-05-01j" defer></script>
-<script src="/js/ordering.js?v=2026-05-01j" defer></script>
-<script src="/js/ordering-build.js?v=2026-05-01j" defer></script>
-<script src="/js/parking.js?v=2026-05-01j" defer></script>
-<script src="/js/prepItems.js?v=2026-05-01j" defer></script>
-<script src="/js/square.js?v=2026-05-01j" defer></script>
-<script src="/js/slack.js?v=2026-05-01j" defer></script>
-<script src="/js/auto-sync.js?v=2026-05-01j" defer></script>
+<script src="/js/constants.js?v=2026-05-01n" defer></script>
+<script src="/js/utils.js?v=2026-05-01n" defer></script>
+<script src="/js/state.js?v=2026-05-01n" defer></script>
+<script src="/js/auth.js?v=2026-05-01n" defer></script>
+<script src="/js/graph.js?v=2026-05-01n" defer></script>
+<script src="/js/signalr.js?v=2026-05-01n" defer></script>
+<script src="/js/tags.js?v=2026-05-01n" defer></script>
+<script src="/js/nav.js?v=2026-05-01n" defer></script>
+<script src="/js/settings.js?v=2026-05-01n" defer></script>
+<script src="/js/dashboard.js?v=2026-05-01n" defer></script>
+<script src="/js/inventory.js?v=2026-05-01n" defer></script>
+<script src="/js/inventory-form.js?v=2026-05-01n" defer></script>
+<script src="/js/counts.js?v=2026-05-01n" defer></script>
+<script src="/js/foodpars.js?v=2026-05-01n" defer></script>
+<script src="/js/labels.js?v=2026-05-01n" defer></script>
+<script src="/js/bags.js?v=2026-05-01n" defer></script>
+<script src="/js/bag-labels-5lb.js?v=2026-05-01n" defer></script>
+<script src="/js/pastry-sync.js?v=2026-05-01n" defer></script>
+<script src="/js/recipes.js?v=2026-05-01n" defer></script>
+<script src="/js/cogs.js?v=2026-05-01n" defer></script>
+<script src="/js/vendors.js?v=2026-05-01n" defer></script>
+<script src="/js/contacts.js?v=2026-05-01n" defer></script>
+<script src="/js/maintenance.js?v=2026-05-01n" defer></script>
+<script src="/js/checklists.js?v=2026-05-01n" defer></script>
+<script src="/js/ordering.js?v=2026-05-01n" defer></script>
+<script src="/js/ordering-build.js?v=2026-05-01n" defer></script>
+<script src="/js/parking.js?v=2026-05-01n" defer></script>
+<script src="/js/prepItems.js?v=2026-05-01n" defer></script>
+<script src="/js/square.js?v=2026-05-01n" defer></script>
+<script src="/js/slack.js?v=2026-05-01n" defer></script>
+<script src="/js/auto-sync.js?v=2026-05-01n" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
@@ -3836,9 +3850,11 @@ async function deleteRole() {
 
 // Returns the set of allowed module names for the current user.
 // Unlinked logins and users whose role isn't found in BSC_Roles get full access (safe fallback).
+// When an owner is testing-as another role (via the topbar role switcher),
+// _effectiveRole() returns the simulated role so module gating reflects the test.
 function getAllowedModules() {
-  if (!currentStaffMember) return null; // null = unrestricted
-  const roleName = (currentStaffMember.Role || '').trim().toLowerCase();
+  if (!currentStaffMember && !_roleOverride) return null; // null = unrestricted
+  const roleName = (typeof _effectiveRole === 'function' ? _effectiveRole() : (currentStaffMember?.Role || '').toLowerCase()).trim();
   if (!roleName) return null; // no role assigned = unrestricted
   const roleObj = cache.roles.find(r => (r.RoleName||'').trim().toLowerCase() === roleName);
   if (!roleObj) return null; // role not in BSC_Roles = unrestricted
@@ -4622,7 +4638,7 @@ function renderMenu(query='', catFilter='') {
     const stockDisplay = stock != null ? stock : '—';
     const vars = (i.Variations||'').split('\n').filter(Boolean);
     return `<tr data-gs-id="${escHtml(i.id)}" style="${isHidden?'opacity:0.45;':''}">
-      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-01j" alt="" title="Synced with Square">':''}</td>
+      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-01n" alt="" title="Synced with Square">':''}</td>
       <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${escHtml(i.Category||'—')}</span></td>
       <td style="font-size:12px;color:var(--muted);max-width:220px">${escHtml(i.Description||'')}</td>
       <td>${i.Price != null ? '$'+Number(i.Price).toFixed(2) : '—'}</td>

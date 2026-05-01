@@ -84,19 +84,37 @@ function updateTopbarStaffInfo() {
   if (currentStaffMember) {
     const name  = currentStaffMember.Title || currentUser?.name || currentUser?.username || '';
     const first = name.split(' ')[0];
-    const role  = currentStaffMember.Role || '';
+    const realRole = currentStaffMember.Role || '';
+    const displayRole = _roleOverride || realRole;
     const loc   = currentStaffMember.LocationAccess === 'All' || !currentStaffMember.LocationAccess
       ? 'All locations'
       : currentStaffMember.LocationAccess;
 
     if (nameEl) nameEl.textContent = first;
-    if (roleEl) roleEl.textContent = role ? `${role} · ${loc}` : loc;
+    if (roleEl) {
+      const ownerCanSwitch = _realIsOwner();
+      const testingSuffix = _roleOverride ? ` <span style="color:#f59e0b;font-weight:600;">🧪</span>` : '';
+      const baseLabel = displayRole ? `${escHtml(displayRole)} · ${escHtml(loc)}` : escHtml(loc);
+      roleEl.innerHTML = baseLabel + testingSuffix;
+      if (ownerCanSwitch) {
+        roleEl.style.cursor = 'pointer';
+        roleEl.style.textDecoration = 'underline dotted rgba(185,223,227,.3)';
+        roleEl.title = 'Click to test as another role';
+        roleEl.onclick = openRoleSwitcher;
+      } else {
+        roleEl.style.cursor = '';
+        roleEl.style.textDecoration = '';
+        roleEl.title = '';
+        roleEl.onclick = null;
+      }
+    }
     if (avatarEl) {
       avatarEl.textContent  = first.charAt(0).toUpperCase();
-      // Colour avatar by role
-      const r = role.toLowerCase();
+      // Colour avatar by effective role (so test-mode shows the simulated colour)
+      const r = (_roleOverride || realRole).toLowerCase();
       avatarEl.style.background = r.includes('owner') ? '#b78b40'
         : r.includes('manager') ? '#3b82f6'
+        : r.includes('accounting') ? '#8b5cf6'
         : 'var(--teal)';
     }
   } else if (currentUser) {
@@ -119,25 +137,130 @@ function updateTopbarStaffInfo() {
 // Defined here so every downstream module can rely on them at call
 // time. Unlinked logins are treated as permissive during setup —
 // once a staff record exists the real role string governs access.
+//
+// Owners can temporarily simulate other roles via the topbar role
+// switcher (for testing). _roleOverride holds the simulated role name;
+// _effectiveRole() returns the simulated role when active, otherwise
+// the real one. _realIsOwner() bypasses the override so the switcher
+// itself stays accessible.
+let _roleOverride = null;
+try { _roleOverride = sessionStorage.getItem('bsc_role_override') || null; } catch {}
+
+function _realRole() {
+  if (!currentStaffMember) return '';
+  return (currentStaffMember.Role || '').toLowerCase();
+}
+function _realIsOwner() {
+  if (!currentUser) return false;
+  if (!currentStaffMember) return true; // unlinked → permissive
+  const r = _realRole();
+  return r.includes('owner') || r.includes('admin');
+}
+function _effectiveRole() {
+  if (_roleOverride) return _roleOverride.toLowerCase();
+  return _realRole();
+}
+
 function isManagerOrOwner() {
   if (!currentUser) return false;
-  if (!currentStaffMember) return true; // unlinked login → allow during setup
-  const role = (currentStaffMember.Role || '').toLowerCase();
+  if (!currentStaffMember && !_roleOverride) return true;
+  const role = _effectiveRole();
   return role.includes('manager') || role.includes('owner') || role.includes('admin') || role === '';
 }
 
 function isOwner() {
   if (!currentUser) return false;
-  if (!currentStaffMember) return true; // unlinked login → allow during setup
-  const role = (currentStaffMember.Role || '').toLowerCase();
+  if (!currentStaffMember && !_roleOverride) return true;
+  const role = _effectiveRole();
   return role.includes('owner') || role.includes('admin');
 }
 
 function isOwnerOrAccounting() {
   if (!currentUser) return false;
-  if (!currentStaffMember) return true; // unlinked login → allow during setup
-  const role = (currentStaffMember.Role || '').toLowerCase();
+  if (!currentStaffMember && !_roleOverride) return true;
+  const role = _effectiveRole();
   return role.includes('owner') || role.includes('admin') || role.includes('accounting');
+}
+
+// True only for accounting-role users (NOT owner/admin). Drives the
+// accounting-specific dashboard view: financial cards only, operational
+// cards hidden. Owners always see the full owner dashboard.
+function isAccountingOnly() {
+  if (!currentUser) return false;
+  if (!currentStaffMember && !_roleOverride) return false;
+  const role = _effectiveRole();
+  if (role.includes('owner') || role.includes('admin')) return false;
+  return role.includes('accounting');
+}
+
+// ── Role override (owner-only testing tool) ──────────────────────
+function setRoleOverride(role) {
+  if (!_realIsOwner()) return;
+  if (role) {
+    _roleOverride = role;
+    try { sessionStorage.setItem('bsc_role_override', role); } catch {}
+  } else {
+    _roleOverride = null;
+    try { sessionStorage.removeItem('bsc_role_override'); } catch {}
+  }
+  closeRoleSwitcher();
+  updateTopbarStaffInfo();
+  if (typeof applyModulePermissions === 'function') applyModulePermissions();
+  if (typeof renderLocations === 'function') renderLocations();
+  if (typeof renderDashboard === 'function') renderDashboard();
+  if (typeof toast === 'function') {
+    toast('ok', role ? `🧪 Testing as ${role}` : '✓ Restored to Owner view');
+  }
+}
+function clearRoleOverride() { setRoleOverride(null); }
+
+function openRoleSwitcher() {
+  if (!_realIsOwner()) return;
+  const pop = document.getElementById('role-switcher-pop');
+  if (!pop) return;
+  // Build option list — pull dynamic role names from BSC_Roles, fall back to defaults
+  const dynamicRoles = (cache.roles || [])
+    .map(r => (r.RoleName || '').trim())
+    .filter(Boolean);
+  const defaults = ['Owner', 'Manager', 'Accounting', 'Staff'];
+  const seen = new Set();
+  const roles = [...defaults, ...dynamicRoles].filter(r => {
+    const k = r.toLowerCase();
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  const active = (_roleOverride || _realRole() || 'owner').toLowerCase();
+  const items = roles.map(r => {
+    const isActive = r.toLowerCase() === active;
+    return `<button type="button" data-role="${escHtml(r)}" onclick="setRoleOverride(this.dataset.role)"
+      style="display:block;width:100%;text-align:left;padding:8px 12px;background:${isActive?'var(--cream)':'transparent'};border:none;cursor:pointer;font-size:13px;${isActive?'font-weight:700;':''}">${escHtml(r)}${isActive?' ✓':''}</button>`;
+  }).join('');
+  const stopBtn = _roleOverride
+    ? `<button type="button" onclick="clearRoleOverride()" style="display:block;width:100%;text-align:left;padding:8px 12px;background:transparent;border:none;border-top:1px solid var(--border);cursor:pointer;font-size:12px;color:var(--gold);font-weight:600;">↩ Stop testing (back to Owner)</button>`
+    : '';
+  pop.innerHTML = `
+    <div style="padding:6px 12px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);">Test as Role</div>
+    ${items}${stopBtn}`;
+  pop.style.display = 'block';
+  // Close on outside click
+  setTimeout(() => {
+    document.addEventListener('click', _roleSwitcherOutsideClick, { once: true });
+  }, 0);
+}
+function closeRoleSwitcher() {
+  const pop = document.getElementById('role-switcher-pop');
+  if (pop) pop.style.display = 'none';
+}
+function _roleSwitcherOutsideClick(e) {
+  const pop = document.getElementById('role-switcher-pop');
+  const trigger = document.getElementById('user-role-label');
+  if (pop && !pop.contains(e.target) && trigger && !trigger.contains(e.target)) {
+    closeRoleSwitcher();
+  } else if (pop && pop.style.display !== 'none') {
+    // Re-arm the listener if click landed inside
+    document.addEventListener('click', _roleSwitcherOutsideClick, { once: true });
+  }
 }
 
 // ── Token acquisition ───────────────────────────────────────────
