@@ -264,7 +264,7 @@ function renderInvTableHeader() {
       <th onclick="sortInvBy('CurrentStock')">Total</th>
       <th onclick="sortInvBy('ParLevel')">Par</th>
       <th onclick="sortInvBy('SuggestedOrder')" title="Par minus Total, rounded up. Blank when stocked.">Suggested</th>
-      <th>Status</th>
+      <th onclick="sortInvBy('Status')" title="Sort: Out → Low → OK → No status">Status</th>
       <th onclick="sortInvBy('CostPerCase')">Cost/Case</th>
       <th onclick="sortInvBy('CostPerServing')">Cost/Serving</th>
       <th onclick="sortInvBy('ServingsPerUnit')">Servings/Unit</th>
@@ -382,7 +382,6 @@ function switchInvTab(tab, btn) {
 // ── Main render + sort + filter ─────────────────────────────────
 function renderInventory() {
   renderInventoryItems(
-    document.getElementById('inv-search-input')?.value||'',
     document.getElementById('inv-cat-filter')?.value||'',
     document.getElementById('inv-status-filter')?.value||'',
     document.getElementById('inv-supplier-filter')?.value||''
@@ -402,18 +401,17 @@ function sortInvBy(col) {
     }
   });
   renderInventoryItems(
-    document.getElementById('inv-search-input')?.value||'',
     document.getElementById('inv-cat-filter')?.value||'',
     document.getElementById('inv-status-filter')?.value||''
   );
 }
 
-function renderInventoryItems(query='', catFilter='', statusFilter='', supplierFilter='') {
+function renderInventoryItems(catFilter='', statusFilter='', supplierFilter='') {
   const cfg = invCfg();
   if (!cfg) return; // non-inventory type (food pars, labels, transfers)
 
   if (cfg.isMerch) {
-    renderMerchInventoryItems(query);
+    renderMerchInventoryItems();
     return;
   }
 
@@ -421,9 +419,6 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
   const showArchived = document.getElementById('inv-show-archived')?.checked || false;
   let items = cache[cfg.cacheKey] || [];
   if (!showArchived) items = items.filter(i => !i.Archived);
-  if (query) items = items.filter(i=>(i.ItemName||'').toLowerCase().includes(query.toLowerCase())||
-    (i.Category||'').toLowerCase().includes(query.toLowerCase())||
-    (i.Supplier||'').toLowerCase().includes(query.toLowerCase()));
   if (catFilter)      items = items.filter(i=>i.Category===catFilter);
   if (supplierFilter) items = items.filter(i=>(i.Supplier||'')===supplierFilter);
   // Low/ok filter only applies when a specific location is selected — "all" has
@@ -432,6 +427,18 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
   if (statusFilter==='ok'  && currentLocation !== 'all') items = items.filter(i=>(countsMap[i.ItemName||'']?.total??0)> invLowThreshold(i, currentLocation));
 
   if (_invSort.col) {
+    // Rank for the Status column — first click sorts: Out (0) → Low (1) → OK (2) → No status (3).
+    // Matches the badge/status logic below in the row render.
+    const statusRank = (item) => {
+      if (currentLocation === 'all') return 3;
+      const t = countsMap[item.ItemName||'']?.total ?? null;
+      if (t === null) return 3;
+      const lowAt = invLowThreshold(item, currentLocation);
+      if (lowAt == null || lowAt <= 0) return 3;
+      if (t === 0) return 0;
+      if (t <= lowAt) return 1;
+      return 2;
+    };
     items = [...items].sort((a,b) => {
       let av, bv;
       if (_invSort.col === 'ParLevel') {
@@ -442,6 +449,9 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
         const bt = countsMap[b.ItemName||'']?.total ?? null;
         av = suggestedOrderQty(a, currentLocation, at);
         bv = suggestedOrderQty(b, currentLocation, bt);
+      } else if (_invSort.col === 'Status') {
+        av = statusRank(a);
+        bv = statusRank(b);
       } else {
         av = a[_invSort.col]; bv = b[_invSort.col];
       }
@@ -489,7 +499,6 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
   }).join('');
 
   document.getElementById('inv-empty').style.display = items.length?'none':'block';
-  document.getElementById('inv-count').textContent = `${items.length} items`;
 
   const allItems = cache[cfg.cacheKey] || [];
   const catSel = document.getElementById('inv-cat-filter');
@@ -507,7 +516,7 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
     suppliers.map(s=>`<option value="${escHtml(s)}" ${s===curSup?'selected':''}>${escHtml(s)}</option>`).join('');
 }
 
-function renderMerchInventoryItems(query='') {
+function renderMerchInventoryItems() {
   const cfg = invCfg();
   const countsMap = getLatestCountsMap(currentLocation);
   const showArchived = document.getElementById('inv-show-archived')?.checked || false;
@@ -515,7 +524,6 @@ function renderMerchInventoryItems(query='') {
   let items = cache[cfg.cacheKey] || [];
   if (!showArchived) items = items.filter(i => !i.Archived);
   if (!showHidden)   items = items.filter(i => !_merchInvHidden.has(String(i.id)));
-  if (query) items = items.filter(i => (i.ItemName||'').toLowerCase().includes(query.toLowerCase()));
 
   if (_invSort.col) {
     items = [...items].sort((a,b) => {
@@ -558,7 +566,6 @@ function renderMerchInventoryItems(query='') {
   }).join('');
 
   document.getElementById('inv-empty').style.display = items.length?'none':'block';
-  document.getElementById('inv-count').textContent = `${items.length} items`;
 
   const allItems = cache[cfg.cacheKey] || [];
   const catSel = document.getElementById('inv-cat-filter');
@@ -568,8 +575,8 @@ function renderMerchInventoryItems(query='') {
     cats.map(c=>`<option value="${escHtml(c)}" ${c===curCat?'selected':''}>${escHtml(c)}</option>`).join('');
 }
 
-function filterInventory(query) {
-  renderInventoryItems(query,
+function filterInventory() {
+  renderInventoryItems(
     document.getElementById('inv-cat-filter')?.value || '',
     document.getElementById('inv-status-filter')?.value || '',
     document.getElementById('inv-supplier-filter')?.value || ''
@@ -609,7 +616,7 @@ function getLatestCountsMap(loc) {
 function navLowStock() {
   nav('inventory');
   const sel = document.getElementById('inv-status-filter');
-  if (sel) { sel.value = 'low'; filterInventory(''); }
+  if (sel) { sel.value = 'low'; filterInventory(); }
 }
 
 // Smoothly scroll an element into view and briefly flash a gold highlight.
@@ -648,8 +655,6 @@ function navToInventoryItem(name) {
   switchInvType(foundType);
   nav('inventory');
   setTimeout(() => {
-    const input = document.getElementById('inv-search-input');
-    if (input) { input.value = name; filterInventory(name); }
     if (foundId) {
       setTimeout(() => {
         highlightAndScroll(document.querySelector(`#inv-body tr[data-inv-id="${foundId}"]`));

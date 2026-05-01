@@ -116,23 +116,8 @@ function renderCountSheet() {
     return;
   }
 
-  // Auto date — always use current date/time, no manual input needed.
-  // submitWeeklyCount reads the clock directly at submit time (see below),
-  // so this function only drives the visible display.
-  function updateCountDateDisplay() {
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const display = document.getElementById('count-date-display');
-    if (display) display.textContent = now.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric' }) + ' · ' + timeStr;
-  }
-  updateCountDateDisplay();
-  // Update every minute so timestamp stays current
-  if (window._countDateInterval) clearInterval(window._countDateInterval);
-  window._countDateInterval = setInterval(updateCountDateDisplay, 60000);
-
-  // auto-fill counted by from logged-in user — read-only display
-  const byDisplay = document.getElementById('count-by-display');
-  if (byDisplay) byDisplay.textContent = currentUser?.name || currentUser?.username || '—';
+  // submitWeeklyCount reads the clock directly at submit time, so we don't
+  // need any visible "now" display here.
 
   // show last submitted count for this location
   const cfg = invCfg();

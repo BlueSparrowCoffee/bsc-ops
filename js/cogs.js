@@ -826,7 +826,6 @@ function renderCogCards() {
   if (!container) return;
 
   const showHidden    = document.getElementById('cogs-show-hidden')?.checked;
-  const groupByCat    = document.getElementById('cogs-group-by-cat')?.checked;
 
   const cogMap  = buildCogMap();
   const invMap  = buildInvMap();
@@ -854,28 +853,7 @@ function renderCogCards() {
   }
   empty.style.display = 'none';
 
-  if (groupByCat) {
-    const byCategory = {};
-    for (const item of items) {
-      const cat = item.Category || 'Uncategorized';
-      if (!byCategory[cat]) byCategory[cat] = [];
-      byCategory[cat].push(item);
-    }
-    container.innerHTML = Object.entries(byCategory)
-      .sort(([a],[b]) => a.localeCompare(b))
-      .map(([cat, catItems]) => `
-        <div style="grid-column:1/-1;">
-          <div style="font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.08em;
-            color:var(--muted);padding:6px 0 10px;border-bottom:1.5px solid var(--border);margin-bottom:4px;">
-            ${escHtml(cat)} <span style="font-weight:400;">(${catItems.length})</span>
-          </div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,380px),1fr));gap:20px;margin-top:12px;">
-            ${catItems.map(item => renderCogCard(item, cogMap, invMap, prepMap, invIdMap)).join('')}
-          </div>
-        </div>`).join('');
-  } else {
-    container.innerHTML = items.map(item => renderCogCard(item, cogMap, invMap, prepMap, invIdMap)).join('');
-  }
+  container.innerHTML = items.map(item => renderCogCard(item, cogMap, invMap, prepMap, invIdMap)).join('');
 }
 
 function renderCogCard(item, cogMap, invMap, prepMap, invIdMap) {

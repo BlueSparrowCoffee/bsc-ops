@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-04-30n">
-<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-04-30n">
-<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-04-30n">
-<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-04-30n">
-<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-04-30n">
+<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-04-30r">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-04-30r">
+<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-04-30r">
+<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-04-30r">
+<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-04-30r">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="BSC Ops">
@@ -641,28 +641,23 @@ html,body{overscroll-behavior:none;}
     <!-- Items tab -->
     <div id="inv-tab-items">
       <div class="toolbar">
-        <div class="search-wrap">
-          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          <input class="search-input" id="inv-search-input" placeholder="Search items…" oninput="debounceFilter('inv',filterInventory,this.value)">
-        </div>
-        <select class="filter" id="inv-cat-filter" onchange="filterInventory(document.getElementById('inv-search-input')?.value||'')">
+        <select class="filter" id="inv-cat-filter" onchange="filterInventory()">
           <option value="">All Categories</option>
         </select>
-        <select class="filter" id="inv-status-filter" onchange="filterInventory(document.getElementById('inv-search-input')?.value||'')">
+        <select class="filter" id="inv-status-filter" onchange="filterInventory()">
           <option value="">All Status</option>
           <option value="low">Low / Out</option>
           <option value="ok">In Stock</option>
         </select>
-        <select class="filter" id="inv-supplier-filter" onchange="filterInventory(document.getElementById('inv-search-input')?.value||'')">
+        <select class="filter" id="inv-supplier-filter" onchange="filterInventory()">
           <option value="">All Vendors</option>
         </select>
         <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);cursor:pointer;white-space:nowrap;">
-          <input type="checkbox" id="inv-show-archived" onchange="filterInventory(document.getElementById('inv-search-input')?.value||'')"> Archived
+          <input type="checkbox" id="inv-show-archived" onchange="filterInventory()"> Archived
         </label>
         <label id="inv-show-hidden-label" class="inv-merch-only" style="display:none;">
-          <input type="checkbox" id="inv-show-hidden" onchange="filterInventory(document.getElementById('inv-search-input')?.value||'')"> Show hidden
+          <input type="checkbox" id="inv-show-hidden" onchange="filterInventory()"> Show hidden
         </label>
-        <span id="inv-count" style="font-size:13px;color:var(--muted);"></span>
         <button class="btn btn-primary inv-cons-only ml-auto" onclick="openAddInvForm()">+ Add Item</button>
       </div>
       <div class="table-wrap">
@@ -691,14 +686,6 @@ html,body{overscroll-behavior:none;}
     <div id="inv-tab-count" style="display:none">
       <div class="count-header-bar">
         <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end">
-          <div>
-            <label class="field-label">Date &amp; Time</label>
-            <div id="count-date-display" style="font-size:13px;font-weight:600;color:var(--dark-blue);padding:6px 0;min-width:180px;">—</div>
-          </div>
-          <div>
-            <label class="field-label">Counted by</label>
-            <div id="count-by-display" style="font-size:13px;font-weight:600;color:var(--dark-blue);padding:6px 0;min-width:160px;">—</div>
-          </div>
           <div class="count-last-wrap" style="display:none">
             <label class="field-label">Last submitted</label>
             <div id="count-last-submitted" style="font-size:13px;color:var(--muted);padding:6px 0;"></div>
@@ -1605,9 +1592,6 @@ html,body{overscroll-behavior:none;}
             <input class="search-input" placeholder="Search menu items…" oninput="debounceFilter('cogs',filterCogs,this.value)" id="cogs-search">
           </div>
           <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);cursor:pointer;white-space:nowrap;">
-            <input type="checkbox" id="cogs-group-by-cat" onchange="renderCogCards()"> Group by category
-          </label>
-          <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);cursor:pointer;white-space:nowrap;">
             <input type="checkbox" id="cogs-show-hidden" onchange="renderCogCards()"> Show hidden
           </label>
           <button class="btn btn-primary" onclick="snapshotCogs()" style="font-size:12px;padding:6px 14px;" title="Save current COG & margin to history">📸 Snapshot Costs</button>
@@ -2328,36 +2312,36 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-04-30n" defer></script>
-<script src="/js/utils.js?v=2026-04-30n" defer></script>
-<script src="/js/state.js?v=2026-04-30n" defer></script>
-<script src="/js/auth.js?v=2026-04-30n" defer></script>
-<script src="/js/graph.js?v=2026-04-30n" defer></script>
-<script src="/js/signalr.js?v=2026-04-30n" defer></script>
-<script src="/js/tags.js?v=2026-04-30n" defer></script>
-<script src="/js/nav.js?v=2026-04-30n" defer></script>
-<script src="/js/settings.js?v=2026-04-30n" defer></script>
-<script src="/js/dashboard.js?v=2026-04-30n" defer></script>
-<script src="/js/inventory.js?v=2026-04-30n" defer></script>
-<script src="/js/inventory-form.js?v=2026-04-30n" defer></script>
-<script src="/js/counts.js?v=2026-04-30n" defer></script>
-<script src="/js/foodpars.js?v=2026-04-30n" defer></script>
-<script src="/js/labels.js?v=2026-04-30n" defer></script>
-<script src="/js/bags.js?v=2026-04-30n" defer></script>
-<script src="/js/bag-labels-5lb.js?v=2026-04-30n" defer></script>
-<script src="/js/pastry-sync.js?v=2026-04-30n" defer></script>
-<script src="/js/recipes.js?v=2026-04-30n" defer></script>
-<script src="/js/cogs.js?v=2026-04-30n" defer></script>
-<script src="/js/vendors.js?v=2026-04-30n" defer></script>
-<script src="/js/contacts.js?v=2026-04-30n" defer></script>
-<script src="/js/maintenance.js?v=2026-04-30n" defer></script>
-<script src="/js/checklists.js?v=2026-04-30n" defer></script>
-<script src="/js/ordering.js?v=2026-04-30n" defer></script>
-<script src="/js/parking.js?v=2026-04-30n" defer></script>
-<script src="/js/prepItems.js?v=2026-04-30n" defer></script>
-<script src="/js/square.js?v=2026-04-30n" defer></script>
-<script src="/js/slack.js?v=2026-04-30n" defer></script>
-<script src="/js/auto-sync.js?v=2026-04-30n" defer></script>
+<script src="/js/constants.js?v=2026-04-30r" defer></script>
+<script src="/js/utils.js?v=2026-04-30r" defer></script>
+<script src="/js/state.js?v=2026-04-30r" defer></script>
+<script src="/js/auth.js?v=2026-04-30r" defer></script>
+<script src="/js/graph.js?v=2026-04-30r" defer></script>
+<script src="/js/signalr.js?v=2026-04-30r" defer></script>
+<script src="/js/tags.js?v=2026-04-30r" defer></script>
+<script src="/js/nav.js?v=2026-04-30r" defer></script>
+<script src="/js/settings.js?v=2026-04-30r" defer></script>
+<script src="/js/dashboard.js?v=2026-04-30r" defer></script>
+<script src="/js/inventory.js?v=2026-04-30r" defer></script>
+<script src="/js/inventory-form.js?v=2026-04-30r" defer></script>
+<script src="/js/counts.js?v=2026-04-30r" defer></script>
+<script src="/js/foodpars.js?v=2026-04-30r" defer></script>
+<script src="/js/labels.js?v=2026-04-30r" defer></script>
+<script src="/js/bags.js?v=2026-04-30r" defer></script>
+<script src="/js/bag-labels-5lb.js?v=2026-04-30r" defer></script>
+<script src="/js/pastry-sync.js?v=2026-04-30r" defer></script>
+<script src="/js/recipes.js?v=2026-04-30r" defer></script>
+<script src="/js/cogs.js?v=2026-04-30r" defer></script>
+<script src="/js/vendors.js?v=2026-04-30r" defer></script>
+<script src="/js/contacts.js?v=2026-04-30r" defer></script>
+<script src="/js/maintenance.js?v=2026-04-30r" defer></script>
+<script src="/js/checklists.js?v=2026-04-30r" defer></script>
+<script src="/js/ordering.js?v=2026-04-30r" defer></script>
+<script src="/js/parking.js?v=2026-04-30r" defer></script>
+<script src="/js/prepItems.js?v=2026-04-30r" defer></script>
+<script src="/js/square.js?v=2026-04-30r" defer></script>
+<script src="/js/slack.js?v=2026-04-30r" defer></script>
+<script src="/js/auto-sync.js?v=2026-04-30r" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
@@ -4329,8 +4313,6 @@ function globalSearch(q) {
         nav('inventory');
         switchInvType('consumable');
         setTimeout(()=>{
-          const input = document.getElementById('inv-search-input');
-          if (input) { input.value = i.ItemName; filterInventory(i.ItemName); }
           setTimeout(()=>{
             highlightAndScroll(document.querySelector(`#inv-body tr[data-inv-id="${i.id}"]`));
           },150);
@@ -4560,7 +4542,7 @@ function renderMenu(query='', catFilter='') {
     const stockDisplay = stock != null ? stock : '—';
     const vars = (i.Variations||'').split('\n').filter(Boolean);
     return `<tr data-gs-id="${escHtml(i.id)}" style="${isHidden?'opacity:0.45;':''}">
-      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-04-30n" alt="" title="Synced with Square">':''}</td>
+      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-04-30r" alt="" title="Synced with Square">':''}</td>
       <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${escHtml(i.Category||'—')}</span></td>
       <td style="font-size:12px;color:var(--muted);max-width:220px">${escHtml(i.Description||'')}</td>
       <td>${i.Price != null ? '$'+Number(i.Price).toFixed(2) : '—'}</td>
