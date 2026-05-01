@@ -95,9 +95,13 @@ function nav(page) {
     const denied = !isOwner();
     document.getElementById('settings-access-denied').style.display = denied ? '' : 'none';
     document.getElementById('settings-body').style.display = denied ? 'none' : '';
-    if (!denied) { renderRoles(); renderLocations(); renderSlackSettings(); renderSquareSettings(); renderTagsSettings(); initColMgr(); if (typeof renderAutoSyncCard === 'function') renderAutoSyncCard(); if (typeof renderCoffeeBagSettings === 'function') renderCoffeeBagSettings(); }
+    if (!denied) { renderRoles(); renderLocations(); renderSlackSettings(); renderTagsSettings(); initColMgr(); if (typeof renderCoffeeBagSettings === 'function') renderCoffeeBagSettings(); }
   }
-  if (page==='square')      renderSquarePage();
+  if (page==='square') {
+    renderSquarePage();
+    if (typeof renderSquareSettings === 'function') renderSquareSettings();
+    if (typeof renderAutoSyncCard   === 'function') renderAutoSyncCard();
+  }
   if (page==='menu')        renderMenu();
   if (page==='cogs')        renderCogs();
   if (page==='parking')     renderParking();

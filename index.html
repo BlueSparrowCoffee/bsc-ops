@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-04-30s">
-<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-04-30s">
-<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-04-30s">
-<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-04-30s">
-<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-04-30s">
+<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-04-30t">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-04-30t">
+<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-04-30t">
+<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-04-30t">
+<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-04-30t">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="BSC Ops">
@@ -1724,11 +1724,35 @@ html,body{overscroll-behavior:none;}
     <!-- Connection status bar -->
     <div id="sq-status-bar" style="display:flex;align-items:center;gap:12px;padding:12px 18px;border-radius:10px;margin-bottom:24px;background:#fff;border:1.5px solid var(--border);">
       <div id="sq-status-dot" style="width:10px;height:10px;border-radius:50%;background:#ccc;flex-shrink:0;"></div>
-      <div id="sq-status-text" style="font-size:13px;color:var(--muted);">Not connected — add your Square access token in Settings</div>
+      <div id="sq-status-text" style="font-size:13px;color:var(--muted);">Not connected — add your Square access token below</div>
       <button class="btn btn-outline" style="margin-left:auto;font-size:12px;padding:5px 12px" onclick="testSquareConnection()">Test Connection</button>
     </div>
 
     <div class="cards-grid">
+
+      <!-- API Token (moved from Settings) -->
+      <div class="card" style="grid-column:1/-1">
+        <div class="card-title" style="margin-bottom:16px">◼ Square API</div>
+        <label class="field-label">Access Token</label>
+        <div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+          <input id="sq-token-input" type="password" class="field-input" style="flex:1;min-width:200px" placeholder="EAAAl… (from Square Developer Dashboard)">
+          <button class="btn btn-outline" onclick="toggleSqTokenVis()" style="padding:8px 12px">👁</button>
+          <button class="btn btn-primary" onclick="saveSquareToken()" style="padding:8px 16px">Save</button>
+        </div>
+        <div id="sq-token-status" style="font-size:12px;color:var(--muted);margin-bottom:8px"></div>
+        <p style="font-size:12px;color:var(--muted)">Get your token from <a href="https://developer.squareup.com/apps" target="_blank" style="color:var(--gold)">developer.squareup.com/apps</a> → Your App → Production → Access Token.</p>
+        <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+          <button class="btn btn-outline" onclick="testSquareAPIs()" id="sq-test-btn" style="padding:8px 16px">🔍 Test Square APIs</button>
+          <span style="font-size:12px;color:var(--muted);margin-left:8px">Diagnoses which Square endpoints are reachable with the current token</span>
+          <div id="sq-test-log" style="margin-top:12px;font-size:12px;line-height:1.8;background:#f9f9f9;border-radius:8px;padding:12px 14px;display:none;font-family:monospace;white-space:pre-wrap;"></div>
+        </div>
+      </div>
+
+      <!-- Auto-Sync (moved from Settings) -->
+      <div class="card" style="grid-column:1/-1">
+        <div class="card-title" style="margin-bottom:16px">🔄 Auto-Sync from Square</div>
+        <div id="auto-sync-card-body"></div>
+      </div>
 
       <!-- Team Members -->
       <div class="card">
@@ -1931,26 +1955,8 @@ html,body{overscroll-behavior:none;}
           </div>
         </div>
       </div>
-      <div class="card" style="grid-column:1/-1">
-        <div class="card-title" style="margin-bottom:16px">◼ Square API</div>
-        <label class="field-label">Access Token</label>
-        <div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap">
-          <input id="sq-token-input" type="password" class="field-input" style="flex:1;min-width:200px" placeholder="EAAAl… (from Square Developer Dashboard)">
-          <button class="btn btn-outline" onclick="toggleSqTokenVis()" style="padding:8px 12px">👁</button>
-          <button class="btn btn-primary" onclick="saveSquareToken()" style="padding:8px 16px">Save</button>
-        </div>
-        <div id="sq-token-status" style="font-size:12px;color:var(--muted);margin-bottom:8px"></div>
-        <p style="font-size:12px;color:var(--muted)">Get your token from <a href="https://developer.squareup.com/apps" target="_blank" style="color:var(--gold)">developer.squareup.com/apps</a> → Your App → Production → Access Token.</p>
-        <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
-          <button class="btn btn-outline" onclick="testSquareAPIs()" id="sq-test-btn" style="padding:8px 16px">🔍 Test Square APIs</button>
-          <span style="font-size:12px;color:var(--muted);margin-left:8px">Diagnoses which Square endpoints are reachable with the current token</span>
-          <div id="sq-test-log" style="margin-top:12px;font-size:12px;line-height:1.8;background:#f9f9f9;border-radius:8px;padding:12px 14px;display:none;font-family:monospace;white-space:pre-wrap;"></div>
-        </div>
-      </div>
-      <div class="card" style="grid-column:1/-1">
-        <div class="card-title" style="margin-bottom:16px">🔄 Auto-Sync from Square</div>
-        <div id="auto-sync-card-body"></div>
-      </div>
+      <!-- Square API + Auto-Sync cards moved to the Square page -->
+
       <div class="card" id="settings-coffee-bags" style="grid-column:1/-1">
         <div class="card-title" style="margin-bottom:16px">☕ Coffee Bags</div>
         <p style="font-size:13px;color:var(--muted);margin:0 0 16px;">Waste assumptions applied to monthly reconciliation. Each bag sold deducts an additional % from on-hand inventory to account for misprints (labels) or damage/expiry (retail bags).</p>
@@ -2312,36 +2318,36 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-04-30s" defer></script>
-<script src="/js/utils.js?v=2026-04-30s" defer></script>
-<script src="/js/state.js?v=2026-04-30s" defer></script>
-<script src="/js/auth.js?v=2026-04-30s" defer></script>
-<script src="/js/graph.js?v=2026-04-30s" defer></script>
-<script src="/js/signalr.js?v=2026-04-30s" defer></script>
-<script src="/js/tags.js?v=2026-04-30s" defer></script>
-<script src="/js/nav.js?v=2026-04-30s" defer></script>
-<script src="/js/settings.js?v=2026-04-30s" defer></script>
-<script src="/js/dashboard.js?v=2026-04-30s" defer></script>
-<script src="/js/inventory.js?v=2026-04-30s" defer></script>
-<script src="/js/inventory-form.js?v=2026-04-30s" defer></script>
-<script src="/js/counts.js?v=2026-04-30s" defer></script>
-<script src="/js/foodpars.js?v=2026-04-30s" defer></script>
-<script src="/js/labels.js?v=2026-04-30s" defer></script>
-<script src="/js/bags.js?v=2026-04-30s" defer></script>
-<script src="/js/bag-labels-5lb.js?v=2026-04-30s" defer></script>
-<script src="/js/pastry-sync.js?v=2026-04-30s" defer></script>
-<script src="/js/recipes.js?v=2026-04-30s" defer></script>
-<script src="/js/cogs.js?v=2026-04-30s" defer></script>
-<script src="/js/vendors.js?v=2026-04-30s" defer></script>
-<script src="/js/contacts.js?v=2026-04-30s" defer></script>
-<script src="/js/maintenance.js?v=2026-04-30s" defer></script>
-<script src="/js/checklists.js?v=2026-04-30s" defer></script>
-<script src="/js/ordering.js?v=2026-04-30s" defer></script>
-<script src="/js/parking.js?v=2026-04-30s" defer></script>
-<script src="/js/prepItems.js?v=2026-04-30s" defer></script>
-<script src="/js/square.js?v=2026-04-30s" defer></script>
-<script src="/js/slack.js?v=2026-04-30s" defer></script>
-<script src="/js/auto-sync.js?v=2026-04-30s" defer></script>
+<script src="/js/constants.js?v=2026-04-30t" defer></script>
+<script src="/js/utils.js?v=2026-04-30t" defer></script>
+<script src="/js/state.js?v=2026-04-30t" defer></script>
+<script src="/js/auth.js?v=2026-04-30t" defer></script>
+<script src="/js/graph.js?v=2026-04-30t" defer></script>
+<script src="/js/signalr.js?v=2026-04-30t" defer></script>
+<script src="/js/tags.js?v=2026-04-30t" defer></script>
+<script src="/js/nav.js?v=2026-04-30t" defer></script>
+<script src="/js/settings.js?v=2026-04-30t" defer></script>
+<script src="/js/dashboard.js?v=2026-04-30t" defer></script>
+<script src="/js/inventory.js?v=2026-04-30t" defer></script>
+<script src="/js/inventory-form.js?v=2026-04-30t" defer></script>
+<script src="/js/counts.js?v=2026-04-30t" defer></script>
+<script src="/js/foodpars.js?v=2026-04-30t" defer></script>
+<script src="/js/labels.js?v=2026-04-30t" defer></script>
+<script src="/js/bags.js?v=2026-04-30t" defer></script>
+<script src="/js/bag-labels-5lb.js?v=2026-04-30t" defer></script>
+<script src="/js/pastry-sync.js?v=2026-04-30t" defer></script>
+<script src="/js/recipes.js?v=2026-04-30t" defer></script>
+<script src="/js/cogs.js?v=2026-04-30t" defer></script>
+<script src="/js/vendors.js?v=2026-04-30t" defer></script>
+<script src="/js/contacts.js?v=2026-04-30t" defer></script>
+<script src="/js/maintenance.js?v=2026-04-30t" defer></script>
+<script src="/js/checklists.js?v=2026-04-30t" defer></script>
+<script src="/js/ordering.js?v=2026-04-30t" defer></script>
+<script src="/js/parking.js?v=2026-04-30t" defer></script>
+<script src="/js/prepItems.js?v=2026-04-30t" defer></script>
+<script src="/js/square.js?v=2026-04-30t" defer></script>
+<script src="/js/slack.js?v=2026-04-30t" defer></script>
+<script src="/js/auto-sync.js?v=2026-04-30t" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
@@ -4542,7 +4548,7 @@ function renderMenu(query='', catFilter='') {
     const stockDisplay = stock != null ? stock : '—';
     const vars = (i.Variations||'').split('\n').filter(Boolean);
     return `<tr data-gs-id="${escHtml(i.id)}" style="${isHidden?'opacity:0.45;':''}">
-      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-04-30s" alt="" title="Synced with Square">':''}</td>
+      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-04-30t" alt="" title="Synced with Square">':''}</td>
       <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${escHtml(i.Category||'—')}</span></td>
       <td style="font-size:12px;color:var(--muted);max-width:220px">${escHtml(i.Description||'')}</td>
       <td>${i.Price != null ? '$'+Number(i.Price).toFixed(2) : '—'}</td>
