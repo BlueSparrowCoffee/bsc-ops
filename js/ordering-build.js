@@ -276,8 +276,11 @@ function _buildOrderRowQtyChange(vendor, itemId, val) {
   const row = items.find(r => String(r.itemId) === String(itemId));
   if (!row) return;
   row.qty = parseFloat(val) || 0;
-  // Update line cell + vendor subtotal
-  const tr = document.querySelector(`tr[data-vendor="${vendor.replace(/"/g,'\\"')}"][data-item="${String(itemId).replace(/"/g,'\\"')}"]`);
+  // Find the matching row via dataset filter (avoids interpolating vendor/itemId
+  // into a CSS selector — vendor names with quotes/backslashes/special chars
+  // would otherwise need careful escaping).
+  const tr = [...document.querySelectorAll('tr[data-vendor][data-item]')]
+    .find(t => t.dataset.vendor === vendor && t.dataset.item === String(itemId));
   const lineCell = tr?.querySelector('.bo-row-line');
   if (lineCell) lineCell.textContent = _money(_lineSubtotal(row));
   _recalcBuildOrderVendorSubtotal(vendor);
@@ -287,8 +290,10 @@ function _buildOrderToggleVendor(vendor, checked) {
   const items = _buildOrderModel?.byVendor?.[vendor];
   if (!items) return;
   items.forEach(r => r.checked = !!checked);
-  // Update DOM checkboxes
-  document.querySelectorAll(`tr[data-vendor="${vendor.replace(/"/g,'\\"')}"] .bo-row-cb`).forEach(cb => cb.checked = !!checked);
+  // Filter by dataset rather than CSS selector for the same escaping reason.
+  [...document.querySelectorAll('tr[data-vendor] .bo-row-cb')].forEach(cb => {
+    if (cb.closest('tr')?.dataset.vendor === vendor) cb.checked = !!checked;
+  });
   _recalcBuildOrderVendorSubtotal(vendor);
 }
 
