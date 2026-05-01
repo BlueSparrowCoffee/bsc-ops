@@ -72,11 +72,18 @@ function renderDashboard() {
   document.getElementById('d-checklist').textContent = `${done.length}/${todayTasks.length}`;
 
   // ── Per-location section renderer (used by alerts + orders cards) ──
-  const _locHeader = (loc, count) => `
-    <div style="display:flex;align-items:center;gap:8px;padding:8px 0 6px;margin-top:6px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">
-      <span>${escHtml(loc)}</span>
-      <span style="margin-left:auto;font-weight:600;color:var(--muted);">${count}</span>
-    </div>`;
+  // When `clickable` is true, the location name acts as a link to that
+  // location's consumable inventory filtered to Low/Out.
+  const _locHeader = (loc, count, clickable) => {
+    const nameHtml = clickable
+      ? `<span data-loc="${escHtml(loc)}" onclick="event.stopPropagation();navLocationLowStock(this.dataset.loc)" style="cursor:pointer;color:var(--gold);text-decoration:underline dotted;" title="View low stock at ${escHtml(loc)}">${escHtml(loc)}</span>`
+      : `<span>${escHtml(loc)}</span>`;
+    return `
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 0 6px;margin-top:6px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">
+        ${nameHtml}
+        <span style="margin-left:auto;font-weight:600;color:var(--muted);">${count}</span>
+      </div>`;
+  };
 
   // alerts
   const alertsEl = document.getElementById('dash-alerts');
@@ -103,7 +110,7 @@ function renderDashboard() {
         }).join('');
         const more = list.length > 5
           ? `<div style="font-size:11px;color:var(--muted);padding:4px 0 0;">+${list.length - 5} more</div>` : '';
-        return _locHeader(loc, list.length) + items + more;
+        return _locHeader(loc, list.length, true) + items + more;
       }).join('');
     }
   } else if (!low.length) {
@@ -160,6 +167,8 @@ function renderDashboard() {
   }
 
   renderInventoryValueByLocation();
+
+  if (typeof renderClockedInCard === 'function') renderClockedInCard();
 
   updateMaintDashboard();
 }
@@ -308,7 +317,7 @@ function renderInventoryValueByLocation() {
 function _applyAcctDashboardLayout(acctOnly) {
   const opsIds = [
     'dash-alerts', 'dash-checklist-preview', 'dash-orders',
-    'dash-maint-alerts'
+    'dash-maint-alerts', 'dash-clocked-in-body'
   ];
   // Walk up to the .card wrapper for each operational body and toggle it.
   opsIds.forEach(id => {
@@ -326,19 +335,39 @@ function _applyAcctDashboardLayout(acctOnly) {
   });
 }
 
-// ── Accounting card: Merch Inventory total only ──────────────────
+// ── Accounting card: Merch Inventory per location + total ────────
 function renderAcctMerchCard() {
   const body = document.getElementById('dash-acct-merch-body');
   if (!body) return;
   const locations = getLocations();
-  const total = locations.reduce((s, loc) => s + _merchValue(loc), 0);
+  let grandTotal = 0;
+  const rows = locations.map(loc => {
+    const v = _merchValue(loc);
+    grandTotal += v;
+    return `
+      <tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:6px 8px;font-weight:500;">${escHtml(loc)}</td>
+        <td style="padding:6px 8px;text-align:right;font-weight:600;">${_fmtMoney(v)}</td>
+      </tr>`;
+  }).join('');
   const skuCount = (cache.merchInventory || []).filter(i => !i.Archived).length;
   body.innerHTML = `
-    <div style="display:flex;align-items:baseline;gap:10px;">
-      <div style="font-size:28px;font-weight:700;color:var(--dark-blue);">${_fmtMoney(total)}</div>
-      <div style="font-size:12px;color:var(--muted);">total inventory value across ${locations.length} location${locations.length===1?'':'s'}</div>
-    </div>
-    <div style="margin-top:8px;font-size:12px;color:var(--muted);">${skuCount} active SKU${skuCount===1?'':'s'}</div>`;
+    <table style="width:100%;font-size:12px;border-collapse:collapse;">
+      <thead>
+        <tr style="border-bottom:2px solid var(--border);color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.04em;">
+          <th style="text-align:left;padding:6px 8px;">Location</th>
+          <th style="text-align:right;padding:6px 8px;">Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows || `<tr><td colspan="2" style="padding:12px;color:var(--muted);text-align:center;">No locations.</td></tr>`}
+        <tr style="border-top:2px solid var(--border);background:var(--cream);font-weight:700;">
+          <td style="padding:8px;">All Locations</td>
+          <td style="padding:8px;text-align:right;">${_fmtMoney(grandTotal)}</td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="margin-top:8px;font-size:11px;color:var(--muted);">${skuCount} active SKU${skuCount===1?'':'s'}</div>`;
 }
 
 // ── Accounting card: Bags & Labels per location + total ──────────

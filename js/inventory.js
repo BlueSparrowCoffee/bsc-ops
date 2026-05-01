@@ -654,6 +654,15 @@ function navLowStock() {
   }, NAV_SETTLE_MS);
 }
 
+// Same as navLowStock but first switches to the named location. Used by
+// the owner-on-all dashboard's per-location low-stock headers.
+function navLocationLowStock(loc) {
+  if (loc && typeof setLocation === 'function') {
+    setLocation(loc, null); // async — reloads counts in background
+  }
+  navLowStock();
+}
+
 // Smoothly scroll an element into view and briefly flash a gold highlight.
 function highlightAndScroll(el) {
   if (!el) return;

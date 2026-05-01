@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-01o">
-<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-01o">
-<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-01o">
-<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-01o">
-<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-01o">
+<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-01r">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-01r">
+<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-01r">
+<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-01r">
+<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-01r">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="BSC Ops">
@@ -608,6 +608,10 @@ html,body{overscroll-behavior:none;}
         <div id="dash-maint-alerts"><div class="no-data">Loading…</div></div>
         <div style="margin-top:12px;"><button class="btn btn-outline btn-sm" onclick="event.stopPropagation();nav('maint-schedule')">Open Maintenance →</button></div>
       </div>
+      <div class="card section-load-target" id="dash-clocked-in-card">
+        <div class="card-title">⏱️ Currently Clocked In</div>
+        <div id="dash-clocked-in-body"><div class="no-data">Loading…</div></div>
+      </div>
       <!-- Owner/accounting-only: inventory value by location (shown via JS role gate) -->
       <div class="card section-load-target" id="dash-inv-value-card" style="display:none;grid-column:1 / -1;">
         <div class="card-title">💰 Inventory Value by Location</div>
@@ -619,7 +623,7 @@ html,body{overscroll-behavior:none;}
         <div class="card-title">🛍️ Merch Inventory</div>
         <div id="dash-acct-merch-body"><div class="no-data" style="padding:16px">Loading…</div></div>
       </div>
-      <div class="card section-load-target" id="dash-acct-bags-card" style="display:none;cursor:pointer;" onclick="nav('inventory');switchInvType?.('labels')">
+      <div class="card section-load-target" id="dash-acct-bags-card" style="display:none;grid-column:1 / -1;cursor:pointer;" onclick="nav('inventory');switchInvType?.('labels')">
         <div class="card-title">🏷️ Bags &amp; Labels</div>
         <div id="dash-acct-bags-body"><div class="no-data" style="padding:16px">Loading…</div></div>
       </div>
@@ -1991,6 +1995,15 @@ html,body{overscroll-behavior:none;}
       </div>
       <!-- Square API + Auto-Sync cards moved to the Square page -->
 
+      <div class="card" id="settings-clock-in-alerts" style="grid-column:1/-1">
+        <div class="card-title" style="margin-bottom:8px">⏰ Morning Clock-In Alerts</div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">
+          If no one clocks in at a location by 6:20 AM Mountain, the assigned managers receive a Slack DM. Pick which managers to alert per location. Only staff with a "manager" role appear here — change a staff member's role to add them to the list.
+        </p>
+        <div id="clock-in-alert-recipients-list" style="display:flex;flex-direction:column;gap:14px;"></div>
+        <button class="btn btn-primary" style="margin-top:14px;" onclick="saveClockInAlertRecipients()">Save</button>
+        <div id="clock-in-alert-status" style="font-size:12px;color:var(--muted);margin-top:8px;"></div>
+      </div>
       <div class="card" id="settings-coffee-bags" style="grid-column:1/-1">
         <div class="card-title" style="margin-bottom:16px">☕ Coffee Bags</div>
         <p style="font-size:13px;color:var(--muted);margin:0 0 16px;">Waste assumptions applied to monthly reconciliation. Each bag sold deducts an additional % from on-hand inventory to account for misprints (labels) or damage/expiry (retail bags).</p>
@@ -2401,37 +2414,38 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-05-01o" defer></script>
-<script src="/js/utils.js?v=2026-05-01o" defer></script>
-<script src="/js/state.js?v=2026-05-01o" defer></script>
-<script src="/js/auth.js?v=2026-05-01o" defer></script>
-<script src="/js/graph.js?v=2026-05-01o" defer></script>
-<script src="/js/signalr.js?v=2026-05-01o" defer></script>
-<script src="/js/tags.js?v=2026-05-01o" defer></script>
-<script src="/js/nav.js?v=2026-05-01o" defer></script>
-<script src="/js/settings.js?v=2026-05-01o" defer></script>
-<script src="/js/dashboard.js?v=2026-05-01o" defer></script>
-<script src="/js/inventory.js?v=2026-05-01o" defer></script>
-<script src="/js/inventory-form.js?v=2026-05-01o" defer></script>
-<script src="/js/counts.js?v=2026-05-01o" defer></script>
-<script src="/js/foodpars.js?v=2026-05-01o" defer></script>
-<script src="/js/labels.js?v=2026-05-01o" defer></script>
-<script src="/js/bags.js?v=2026-05-01o" defer></script>
-<script src="/js/bag-labels-5lb.js?v=2026-05-01o" defer></script>
-<script src="/js/pastry-sync.js?v=2026-05-01o" defer></script>
-<script src="/js/recipes.js?v=2026-05-01o" defer></script>
-<script src="/js/cogs.js?v=2026-05-01o" defer></script>
-<script src="/js/vendors.js?v=2026-05-01o" defer></script>
-<script src="/js/contacts.js?v=2026-05-01o" defer></script>
-<script src="/js/maintenance.js?v=2026-05-01o" defer></script>
-<script src="/js/checklists.js?v=2026-05-01o" defer></script>
-<script src="/js/ordering.js?v=2026-05-01o" defer></script>
-<script src="/js/ordering-build.js?v=2026-05-01o" defer></script>
-<script src="/js/parking.js?v=2026-05-01o" defer></script>
-<script src="/js/prepItems.js?v=2026-05-01o" defer></script>
-<script src="/js/square.js?v=2026-05-01o" defer></script>
-<script src="/js/slack.js?v=2026-05-01o" defer></script>
-<script src="/js/auto-sync.js?v=2026-05-01o" defer></script>
+<script src="/js/constants.js?v=2026-05-01r" defer></script>
+<script src="/js/utils.js?v=2026-05-01r" defer></script>
+<script src="/js/state.js?v=2026-05-01r" defer></script>
+<script src="/js/auth.js?v=2026-05-01r" defer></script>
+<script src="/js/graph.js?v=2026-05-01r" defer></script>
+<script src="/js/signalr.js?v=2026-05-01r" defer></script>
+<script src="/js/tags.js?v=2026-05-01r" defer></script>
+<script src="/js/nav.js?v=2026-05-01r" defer></script>
+<script src="/js/settings.js?v=2026-05-01r" defer></script>
+<script src="/js/dashboard.js?v=2026-05-01r" defer></script>
+<script src="/js/inventory.js?v=2026-05-01r" defer></script>
+<script src="/js/inventory-form.js?v=2026-05-01r" defer></script>
+<script src="/js/counts.js?v=2026-05-01r" defer></script>
+<script src="/js/foodpars.js?v=2026-05-01r" defer></script>
+<script src="/js/labels.js?v=2026-05-01r" defer></script>
+<script src="/js/bags.js?v=2026-05-01r" defer></script>
+<script src="/js/bag-labels-5lb.js?v=2026-05-01r" defer></script>
+<script src="/js/pastry-sync.js?v=2026-05-01r" defer></script>
+<script src="/js/recipes.js?v=2026-05-01r" defer></script>
+<script src="/js/cogs.js?v=2026-05-01r" defer></script>
+<script src="/js/vendors.js?v=2026-05-01r" defer></script>
+<script src="/js/contacts.js?v=2026-05-01r" defer></script>
+<script src="/js/maintenance.js?v=2026-05-01r" defer></script>
+<script src="/js/checklists.js?v=2026-05-01r" defer></script>
+<script src="/js/ordering.js?v=2026-05-01r" defer></script>
+<script src="/js/ordering-build.js?v=2026-05-01r" defer></script>
+<script src="/js/parking.js?v=2026-05-01r" defer></script>
+<script src="/js/prepItems.js?v=2026-05-01r" defer></script>
+<script src="/js/square.js?v=2026-05-01r" defer></script>
+<script src="/js/timeclock.js?v=2026-05-01r" defer></script>
+<script src="/js/slack.js?v=2026-05-01r" defer></script>
+<script src="/js/auto-sync.js?v=2026-05-01r" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
@@ -4642,7 +4656,7 @@ function renderMenu(query='', catFilter='') {
     const stockDisplay = stock != null ? stock : '—';
     const vars = (i.Variations||'').split('\n').filter(Boolean);
     return `<tr data-gs-id="${escHtml(i.id)}" style="${isHidden?'opacity:0.45;':''}">
-      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-01o" alt="" title="Synced with Square">':''}</td>
+      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-01r" alt="" title="Synced with Square">':''}</td>
       <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${escHtml(i.Category||'—')}</span></td>
       <td style="font-size:12px;color:var(--muted);max-width:220px">${escHtml(i.Description||'')}</td>
       <td>${i.Price != null ? '$'+Number(i.Price).toFixed(2) : '—'}</td>

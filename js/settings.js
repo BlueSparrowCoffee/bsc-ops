@@ -256,3 +256,83 @@ function navToCoffeeBagSettings(focusInputId) {
     }
   }, 150);
 }
+
+// ── Morning Clock-In Alert recipients ────────────────────────────
+// Per-location list of staff emails to DM via Slack when no one
+// clocks in by 6:20 AM Mountain. Stored in BSC_Settings as JSON
+// keyed by BSC location name.
+function getClockInAlertRecipients() {
+  try {
+    const raw = getSetting('clock_in_alert_recipients');
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+
+function _eligibleClockInManagers() {
+  // Staff with role containing "manager" or "owner" (owners are often the
+  // backstop). Filter out inactive. Sort by name.
+  return (cache.staff || [])
+    .filter(s => {
+      if (s.Active === 'No') return false;
+      const r = (s.Role || '').toLowerCase();
+      return r.includes('manager') || r.includes('owner') || r.includes('admin');
+    })
+    .filter(s => s.Email)
+    .sort((a, b) => (a.Title || '').localeCompare(b.Title || ''));
+}
+
+function renderClockInAlertSettings() {
+  const wrap = document.getElementById('clock-in-alert-recipients-list');
+  if (!wrap) return;
+  const locs = getLocations();
+  const recipients = getClockInAlertRecipients();
+  const managers = _eligibleClockInManagers();
+
+  if (!managers.length) {
+    wrap.innerHTML = `<div class="no-data" style="padding:12px;font-size:13px;">
+      No staff with a manager/owner role found. Add or update a staff member's role to "Manager" first.
+    </div>`;
+    return;
+  }
+
+  wrap.innerHTML = locs.map(loc => {
+    const selected = new Set((recipients[loc] || []).map(e => e.toLowerCase()));
+    const checkboxes = managers.map(m => {
+      const checked = selected.has((m.Email || '').toLowerCase()) ? 'checked' : '';
+      return `<label style="display:flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid var(--border);border-radius:14px;font-size:12px;cursor:pointer;background:#fff;">
+        <input type="checkbox" data-loc="${escHtml(loc)}" data-email="${escHtml(m.Email || '')}" ${checked} style="margin:0;">
+        <span>${escHtml(m.Title || m.Email)}</span>
+      </label>`;
+    }).join('');
+    return `
+      <div style="padding:12px 14px;background:var(--cream);border-radius:10px;">
+        <div style="font-size:13px;font-weight:700;margin-bottom:8px;">${escHtml(loc)}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">${checkboxes}</div>
+      </div>`;
+  }).join('');
+  const status = document.getElementById('clock-in-alert-status');
+  if (status) status.textContent = '';
+}
+
+async function saveClockInAlertRecipients() {
+  const wrap = document.getElementById('clock-in-alert-recipients-list');
+  const status = document.getElementById('clock-in-alert-status');
+  if (!wrap) return;
+  const recipients = {};
+  wrap.querySelectorAll('input[type="checkbox"][data-loc]').forEach(cb => {
+    if (!cb.checked) return;
+    const loc = cb.dataset.loc;
+    const email = cb.dataset.email;
+    if (!loc || !email) return;
+    (recipients[loc] = recipients[loc] || []).push(email);
+  });
+  try {
+    if (status) status.textContent = 'Saving…';
+    await saveSetting('clock_in_alert_recipients', JSON.stringify(recipients));
+    if (status) status.textContent = '✓ Saved';
+    toast('ok', '✓ Clock-in alert recipients saved');
+  } catch (e) {
+    if (status) { status.textContent = '✗ Save failed: ' + e.message; status.style.color = 'var(--red)'; }
+    toast('err', 'Save failed: ' + e.message);
+  }
+}

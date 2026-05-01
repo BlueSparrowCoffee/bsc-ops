@@ -68,7 +68,7 @@ function nav(page) {
     const denied = !isOwner();
     document.getElementById('settings-access-denied').style.display = denied ? '' : 'none';
     document.getElementById('settings-body').style.display = denied ? 'none' : '';
-    if (!denied) { renderRoles(); renderLocations(); renderSlackSettings(); renderTagsSettings(); initColMgr(); if (typeof renderCoffeeBagSettings === 'function') renderCoffeeBagSettings(); }
+    if (!denied) { renderRoles(); renderLocations(); renderSlackSettings(); renderTagsSettings(); initColMgr(); if (typeof renderCoffeeBagSettings === 'function') renderCoffeeBagSettings(); if (typeof renderClockInAlertSettings === 'function') renderClockInAlertSettings(); }
   }
   if (page==='square') {
     renderSquarePage();
