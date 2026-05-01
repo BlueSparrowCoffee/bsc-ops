@@ -409,26 +409,33 @@ async function saveVendorForm() {
 
 async function cascadeVendorRename(oldName, newName) {
   const targets = [
-    { cacheKey: 'inventory',      listKey: 'inventory' },
-    { cacheKey: 'merchInventory', listKey: 'merchInventory' },
-    { cacheKey: 'equipInventory', listKey: 'equipInventory' },
-    { cacheKey: 'foodInventory',  listKey: 'foodInventory' },
-    { cacheKey: 'groceryInventory', listKey: 'groceryInventory' }
+    { cacheKey: 'inventory',      listKey: 'inventory',      field: 'Supplier' },
+    { cacheKey: 'merchInventory', listKey: 'merchInventory', field: 'Supplier' },
+    { cacheKey: 'equipInventory', listKey: 'equipInventory', field: 'Supplier' },
+    { cacheKey: 'foodInventory',  listKey: 'foodInventory',  field: 'Supplier' },
+    { cacheKey: 'groceryInventory', listKey: 'groceryInventory', field: 'Supplier' },
+    // Orders reference vendors by name in the Vendor field — keep them in sync
+    // so historical orders don't orphan when a vendor is renamed.
+    { cacheKey: 'orders',         listKey: 'orders',         field: 'Vendor'   }
   ];
   const tasks = [];
-  for (const { cacheKey, listKey } of targets) {
+  for (const { cacheKey, listKey, field } of targets) {
     if (!LISTS[listKey]) continue;
     for (const item of (cache[cacheKey] || [])) {
-      if (item.Supplier === oldName) {
-        item.Supplier = newName;
-        tasks.push(() => updateListItem(LISTS[listKey], item.id, { Supplier: newName }));
+      if (item[field] === oldName) {
+        item[field] = newName;
+        const patch = {}; patch[field] = newName;
+        tasks.push(() => updateListItem(LISTS[listKey], item.id, patch));
       }
     }
   }
   for (let i = 0; i < tasks.length; i += 8) {
     await Promise.all(tasks.slice(i, i+8).map(t => t()));
   }
-  if (tasks.length) renderInventory();
+  if (tasks.length) {
+    renderInventory();
+    if (typeof renderOrders === 'function') renderOrders();
+  }
 }
 
 function modalArchiveVendor() {

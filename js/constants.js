@@ -173,6 +173,29 @@ const FIVE_LB_BAG_LABELS_LIST_COLS = [
 const DEFAULT_LABEL_WASTE_PCT      = 10; // each bag sold deducts +10% extra labels (misprints)
 const DEFAULT_RETAIL_BAG_WASTE_PCT = 2;  // each bag sold deducts +2% extra retail bags (damage/expiry)
 
+// BSC_Orders schema. Existing columns (Vendor, Items, Status, OrderedBy,
+// Location, ExpectedDelivery, Notes) stay for legacy display. New columns
+// drive the build/send/receive workflow:
+//   LineItems     — JSON [{itemId, name, qty, unitCost, unit}]
+//   ReceivedItems — JSON [{itemId, receivedQty}]
+//   ReceivedAt    — ISO datetime when delivery was confirmed
+//   ReceivedBy    — user who confirmed receipt
+//   Total         — order subtotal at creation (decimal $)
+const ORDER_LIST_COLS = [
+  {name:'Vendor',           text:{}},
+  {name:'Items',            text:{allowMultipleLines:true}},
+  {name:'Status',           text:{}},
+  {name:'OrderedBy',        text:{}},
+  {name:'Location',         text:{}},
+  {name:'ExpectedDelivery', dateTime:{displayAs:'default',format:'dateOnly'}},
+  {name:'Notes',            text:{allowMultipleLines:true}},
+  {name:'LineItems',        text:{allowMultipleLines:true}},
+  {name:'ReceivedItems',    text:{allowMultipleLines:true}},
+  {name:'ReceivedAt',       dateTime:{displayAs:'default',format:'dateTime'}},
+  {name:'ReceivedBy',       text:{}},
+  {name:'Total',            number:{decimalPlaces:'automatic'}}
+];
+
 // ── Master SharePoint list registry ──────────────────────────────
 const LISTS = {
   inventory:      'BSC_Inventory',          // shared consumable item master
@@ -250,7 +273,7 @@ const INV_COG_CFG = {
 // Bump APP_VERSION any time a deploy has breaking localStorage changes.
 // On version mismatch the entire localStorage is wiped so stale prefs never
 // cause weirdness after an update.
-const APP_VERSION = '2026-05-01a';
+const APP_VERSION = '2026-05-01b';
 (function() {
   try {
     if (localStorage.getItem('bsc_app_version') !== APP_VERSION) {
@@ -262,7 +285,7 @@ const APP_VERSION = '2026-05-01a';
 
 // Bump when SharePoint schema changes. User must clear bsc_provision_v
 // from localStorage (or Settings → Clear Local Data) to trigger re-provisioning.
-const PROVISION_VERSION = '33';
+const PROVISION_VERSION = '34';
 
 // ── Data / cache TTLs ────────────────────────────────────────────
 const CACHE_MAX_AGE = 4 * 60 * 60 * 1000; // 4 hours
@@ -334,7 +357,7 @@ const PROVISIONED_COL_NAMES = new Set([
   // Transfers
   'FromLocation','ToLocation','TransferredBy','InventoryType',
   // Orders
-  'Vendor','Items','Status','OrderedBy','ExpectedDelivery',
+  'Vendor','Items','Status','OrderedBy','ExpectedDelivery','LineItems','ReceivedItems','ReceivedAt','ReceivedBy','Total',
   // Checklists
   'TaskName','Frequency','Type','AssignedRole','GroupId','SortOrder','SuggestedBy',
   'GroupName','CompletedBy','CompletedDate','TaskId','RecurEveryDays','RecurTime','Description','StartDate',
@@ -405,7 +428,9 @@ const DEFAULT_NOTIF_RULES = [
   { id:'low_inventory',   name:'Low Inventory',        type:'low_inventory',  enabled:true,  description:'Fires when items are at or below par level during a count' },
   { id:'maint_overdue',   name:'Overdue Maintenance',  type:'maint_overdue',  enabled:true,  description:'Daily digest of past-due maintenance tasks' },
   { id:'maint_due_soon',  name:'Maintenance Due Soon', type:'maint_due_soon', enabled:true,  description:'Daily digest of tasks due within the next 7 days' },
-  { id:'count_submitted', name:'Count Submitted',      type:'count_submitted',enabled:false, description:'Confirmation when a weekly inventory count is submitted' }
+  { id:'count_submitted', name:'Count Submitted',      type:'count_submitted',enabled:false, description:'Confirmation when a weekly inventory count is submitted' },
+  { id:'order_sent',      name:'Order Sent',           type:'order_sent',     enabled:false, description:'Fires when a PO is sent to a vendor (Pending → Ordered)' },
+  { id:'order_delivered', name:'Order Delivered',      type:'order_delivered',enabled:false, description:'Fires when an order is marked received (Ordered → Delivered)' }
 ];
 
 // ── Coffee bag SKU pattern matcher (for label sync from Square) ──

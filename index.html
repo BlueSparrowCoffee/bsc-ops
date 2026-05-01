@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-01a">
-<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-01a">
-<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-01a">
-<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-01a">
-<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-01a">
+<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-01b">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-01b">
+<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-01b">
+<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-01b">
+<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-01b">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="BSC Ops">
@@ -658,7 +658,8 @@ html,body{overscroll-behavior:none;}
         <label id="inv-show-hidden-label" class="inv-merch-only" style="display:none;">
           <input type="checkbox" id="inv-show-hidden" onchange="filterInventory()"> Show hidden
         </label>
-        <button class="btn btn-primary inv-cons-only ml-auto" onclick="openAddInvForm()">+ Add Item</button>
+        <button class="btn btn-outline inv-cons-only ml-auto" id="inv-build-order-btn" onclick="openBuildOrderModal()" title="Build a PO from items below par at this location">🛒 Build Order</button>
+        <button class="btn btn-primary inv-cons-only" onclick="openAddInvForm()">+ Add Item</button>
       </div>
       <div class="table-wrap">
         <table>
@@ -768,7 +769,7 @@ html,body{overscroll-behavior:none;}
       <table>
         <thead><tr>
           <th>Date</th><th>Vendor</th><th>Items</th><th>Location</th>
-          <th>Status</th><th>Ordered By</th><th>Expected Delivery</th><th>Notes</th>
+          <th>Status</th><th>Total</th><th>Ordered By</th><th>Expected Delivery</th>
         </tr></thead>
         <tbody id="order-body"></tbody>
       </table>
@@ -2217,6 +2218,62 @@ html,body{overscroll-behavior:none;}
   </div>
 </div>
 
+<!-- BUILD ORDER (from Inventory toolbar) -->
+<div class="modal-overlay" id="modal-build-order">
+  <div class="modal" style="max-width:780px;">
+    <div class="modal-header">
+      <div class="modal-title">🛒 Build Order from Low Stock</div>
+      <button class="modal-close" onclick="closeModal('modal-build-order')">×</button>
+    </div>
+    <div id="build-order-body" style="font-size:13px;"></div>
+    <div class="form-actions">
+      <button class="btn btn-outline" onclick="closeModal('modal-build-order')">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- ORDER DETAIL — opens on row click in Ordering -->
+<div class="modal-overlay" id="modal-order-detail">
+  <div class="modal" style="max-width:720px;">
+    <div class="modal-header">
+      <div class="modal-title">📋 Order Detail</div>
+      <button class="modal-close" onclick="closeModal('modal-order-detail')">×</button>
+    </div>
+    <div id="order-detail-body" style="font-size:13px;"></div>
+    <div class="form-actions" id="order-detail-footer" style="justify-content:flex-end;"></div>
+  </div>
+</div>
+
+<!-- RECEIVE ORDER — confirm received qtys, writes count records -->
+<div class="modal-overlay" id="modal-receive-order">
+  <div class="modal" style="max-width:640px;">
+    <div class="modal-header">
+      <div class="modal-title">📦 Receive Order</div>
+      <button class="modal-close" onclick="closeModal('modal-receive-order')">×</button>
+    </div>
+    <div id="receive-order-body" style="font-size:13px;"></div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="confirmReceiveOrder()">✓ Confirm Receipt</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-receive-order')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- SEND FALLBACK — for vendors with OrderMethod = Portal/App/Fax/In Person -->
+<div class="modal-overlay" id="modal-send-fallback">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-header">
+      <div class="modal-title">📤 Send Order</div>
+      <button class="modal-close" onclick="closeModal('modal-send-fallback')">×</button>
+    </div>
+    <div id="send-fallback-body" style="font-size:13px;"></div>
+    <div class="form-actions">
+      <button class="btn btn-outline" onclick="copySendFallbackBody()">📋 Copy to Clipboard</button>
+      <button class="btn btn-primary" onclick="confirmSendFallback()">✓ Mark as Sent</button>
+    </div>
+  </div>
+</div>
+
 <!-- Add Checklist Task -->
 <!-- Create / Edit Checklist Group -->
 <div class="modal-overlay" id="modal-cl-group">
@@ -2318,36 +2375,37 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-05-01a" defer></script>
-<script src="/js/utils.js?v=2026-05-01a" defer></script>
-<script src="/js/state.js?v=2026-05-01a" defer></script>
-<script src="/js/auth.js?v=2026-05-01a" defer></script>
-<script src="/js/graph.js?v=2026-05-01a" defer></script>
-<script src="/js/signalr.js?v=2026-05-01a" defer></script>
-<script src="/js/tags.js?v=2026-05-01a" defer></script>
-<script src="/js/nav.js?v=2026-05-01a" defer></script>
-<script src="/js/settings.js?v=2026-05-01a" defer></script>
-<script src="/js/dashboard.js?v=2026-05-01a" defer></script>
-<script src="/js/inventory.js?v=2026-05-01a" defer></script>
-<script src="/js/inventory-form.js?v=2026-05-01a" defer></script>
-<script src="/js/counts.js?v=2026-05-01a" defer></script>
-<script src="/js/foodpars.js?v=2026-05-01a" defer></script>
-<script src="/js/labels.js?v=2026-05-01a" defer></script>
-<script src="/js/bags.js?v=2026-05-01a" defer></script>
-<script src="/js/bag-labels-5lb.js?v=2026-05-01a" defer></script>
-<script src="/js/pastry-sync.js?v=2026-05-01a" defer></script>
-<script src="/js/recipes.js?v=2026-05-01a" defer></script>
-<script src="/js/cogs.js?v=2026-05-01a" defer></script>
-<script src="/js/vendors.js?v=2026-05-01a" defer></script>
-<script src="/js/contacts.js?v=2026-05-01a" defer></script>
-<script src="/js/maintenance.js?v=2026-05-01a" defer></script>
-<script src="/js/checklists.js?v=2026-05-01a" defer></script>
-<script src="/js/ordering.js?v=2026-05-01a" defer></script>
-<script src="/js/parking.js?v=2026-05-01a" defer></script>
-<script src="/js/prepItems.js?v=2026-05-01a" defer></script>
-<script src="/js/square.js?v=2026-05-01a" defer></script>
-<script src="/js/slack.js?v=2026-05-01a" defer></script>
-<script src="/js/auto-sync.js?v=2026-05-01a" defer></script>
+<script src="/js/constants.js?v=2026-05-01b" defer></script>
+<script src="/js/utils.js?v=2026-05-01b" defer></script>
+<script src="/js/state.js?v=2026-05-01b" defer></script>
+<script src="/js/auth.js?v=2026-05-01b" defer></script>
+<script src="/js/graph.js?v=2026-05-01b" defer></script>
+<script src="/js/signalr.js?v=2026-05-01b" defer></script>
+<script src="/js/tags.js?v=2026-05-01b" defer></script>
+<script src="/js/nav.js?v=2026-05-01b" defer></script>
+<script src="/js/settings.js?v=2026-05-01b" defer></script>
+<script src="/js/dashboard.js?v=2026-05-01b" defer></script>
+<script src="/js/inventory.js?v=2026-05-01b" defer></script>
+<script src="/js/inventory-form.js?v=2026-05-01b" defer></script>
+<script src="/js/counts.js?v=2026-05-01b" defer></script>
+<script src="/js/foodpars.js?v=2026-05-01b" defer></script>
+<script src="/js/labels.js?v=2026-05-01b" defer></script>
+<script src="/js/bags.js?v=2026-05-01b" defer></script>
+<script src="/js/bag-labels-5lb.js?v=2026-05-01b" defer></script>
+<script src="/js/pastry-sync.js?v=2026-05-01b" defer></script>
+<script src="/js/recipes.js?v=2026-05-01b" defer></script>
+<script src="/js/cogs.js?v=2026-05-01b" defer></script>
+<script src="/js/vendors.js?v=2026-05-01b" defer></script>
+<script src="/js/contacts.js?v=2026-05-01b" defer></script>
+<script src="/js/maintenance.js?v=2026-05-01b" defer></script>
+<script src="/js/checklists.js?v=2026-05-01b" defer></script>
+<script src="/js/ordering.js?v=2026-05-01b" defer></script>
+<script src="/js/ordering-build.js?v=2026-05-01b" defer></script>
+<script src="/js/parking.js?v=2026-05-01b" defer></script>
+<script src="/js/prepItems.js?v=2026-05-01b" defer></script>
+<script src="/js/square.js?v=2026-05-01b" defer></script>
+<script src="/js/slack.js?v=2026-05-01b" defer></script>
+<script src="/js/auto-sync.js?v=2026-05-01b" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
@@ -2554,11 +2612,7 @@ async function ensureAllLists() {
     {name:'FromLocation',text:{}},{name:'ToLocation',text:{}},
     {name:'TransferredBy',text:{}},{name:'Notes',text:{}},{name:'InventoryType',text:{}}
   ]);
-  await ensureList(LISTS.orders,[
-    {name:'Vendor',text:{}},{name:'Items',text:{}},{name:'Location',text:{}},
-    {name:'Status',text:{}},{name:'OrderedBy',text:{}},
-    {name:'ExpectedDelivery',dateTime:{}},{name:'Notes',text:{}}
-  ]);
+  await ensureList(LISTS.orders, ORDER_LIST_COLS);
   await ensureList(LISTS.checklists,[
     {name:'TaskName',text:{}},{name:'Frequency',text:{}},{name:'Type',text:{}},
     {name:'Location',text:{}},{name:'AssignedRole',text:{}},{name:'Notes',text:{}},
@@ -4544,7 +4598,7 @@ function renderMenu(query='', catFilter='') {
     const stockDisplay = stock != null ? stock : '—';
     const vars = (i.Variations||'').split('\n').filter(Boolean);
     return `<tr data-gs-id="${escHtml(i.id)}" style="${isHidden?'opacity:0.45;':''}">
-      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-01a" alt="" title="Synced with Square">':''}</td>
+      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-01b" alt="" title="Synced with Square">':''}</td>
       <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${escHtml(i.Category||'—')}</span></td>
       <td style="font-size:12px;color:var(--muted);max-width:220px">${escHtml(i.Description||'')}</td>
       <td>${i.Price != null ? '$'+Number(i.Price).toFixed(2) : '—'}</td>
