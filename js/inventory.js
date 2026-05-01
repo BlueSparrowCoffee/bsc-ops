@@ -382,6 +382,7 @@ function switchInvTab(tab, btn) {
 // ── Main render + sort + filter ─────────────────────────────────
 function renderInventory() {
   renderInventoryItems(
+    document.getElementById('inv-search-input')?.value||'',
     document.getElementById('inv-cat-filter')?.value||'',
     document.getElementById('inv-status-filter')?.value||'',
     document.getElementById('inv-supplier-filter')?.value||''
@@ -401,17 +402,18 @@ function sortInvBy(col) {
     }
   });
   renderInventoryItems(
+    document.getElementById('inv-search-input')?.value||'',
     document.getElementById('inv-cat-filter')?.value||'',
     document.getElementById('inv-status-filter')?.value||''
   );
 }
 
-function renderInventoryItems(catFilter='', statusFilter='', supplierFilter='') {
+function renderInventoryItems(query='', catFilter='', statusFilter='', supplierFilter='') {
   const cfg = invCfg();
   if (!cfg) return; // non-inventory type (food pars, labels, transfers)
 
   if (cfg.isMerch) {
-    renderMerchInventoryItems();
+    renderMerchInventoryItems(query);
     return;
   }
 
@@ -419,6 +421,14 @@ function renderInventoryItems(catFilter='', statusFilter='', supplierFilter='') 
   const showArchived = document.getElementById('inv-show-archived')?.checked || false;
   let items = cache[cfg.cacheKey] || [];
   if (!showArchived) items = items.filter(i => !i.Archived);
+  if (query) {
+    const q = query.toLowerCase();
+    items = items.filter(i =>
+      (i.ItemName||'').toLowerCase().includes(q) ||
+      (i.Category||'').toLowerCase().includes(q) ||
+      (i.Supplier||'').toLowerCase().includes(q)
+    );
+  }
   if (catFilter)      items = items.filter(i=>i.Category===catFilter);
   if (supplierFilter) items = items.filter(i=>(i.Supplier||'')===supplierFilter);
   // Low/ok filter only applies when a specific location is selected — "all" has
@@ -529,7 +539,7 @@ function renderInventoryItems(catFilter='', statusFilter='', supplierFilter='') 
     suppliers.map(s=>`<option value="${escHtml(s)}" ${s===curSup?'selected':''}>${escHtml(s)}</option>`).join('');
 }
 
-function renderMerchInventoryItems() {
+function renderMerchInventoryItems(query='') {
   const cfg = invCfg();
   const countsMap = getLatestCountsMap(currentLocation);
   const showArchived = document.getElementById('inv-show-archived')?.checked || false;
@@ -537,6 +547,13 @@ function renderMerchInventoryItems() {
   let items = cache[cfg.cacheKey] || [];
   if (!showArchived) items = items.filter(i => !i.Archived);
   if (!showHidden)   items = items.filter(i => !_merchInvHidden.has(String(i.id)));
+  if (query) {
+    const q = query.toLowerCase();
+    items = items.filter(i =>
+      (i.ItemName||'').toLowerCase().includes(q) ||
+      (i.Supplier||'').toLowerCase().includes(q)
+    );
+  }
 
   if (_invSort.col) {
     items = [...items].sort((a,b) => {
@@ -588,8 +605,8 @@ function renderMerchInventoryItems() {
     cats.map(c=>`<option value="${escHtml(c)}" ${c===curCat?'selected':''}>${escHtml(c)}</option>`).join('');
 }
 
-function filterInventory() {
-  renderInventoryItems(
+function filterInventory(query) {
+  renderInventoryItems(query,
     document.getElementById('inv-cat-filter')?.value || '',
     document.getElementById('inv-status-filter')?.value || '',
     document.getElementById('inv-supplier-filter')?.value || ''
@@ -633,7 +650,7 @@ function navLowStock() {
   if (typeof switchInvType === 'function') switchInvType('consumable');
   setTimeout(() => {
     const sel = document.getElementById('inv-status-filter');
-    if (sel) { sel.value = 'low'; filterInventory(); }
+    if (sel) { sel.value = 'low'; filterInventory(''); }
   }, NAV_SETTLE_MS);
 }
 
@@ -673,6 +690,8 @@ function navToInventoryItem(name) {
   switchInvType(foundType);
   nav('inventory');
   setTimeout(() => {
+    const input = document.getElementById('inv-search-input');
+    if (input) { input.value = name; filterInventory(name); }
     if (foundId) {
       setTimeout(() => {
         highlightAndScroll(document.querySelector(`#inv-body tr[data-inv-id="${foundId}"]`));

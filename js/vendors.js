@@ -278,10 +278,12 @@ function vendorFieldInput(key, type, options, val, item) {
   if (type === 'multi') {
     const values = (v||'').split('\n').map(s=>s.trim()).filter(Boolean);
     if (!values.length) values.push('');
-    const inputType = key.toLowerCase().includes('email') ? 'email' : key.toLowerCase().includes('phone') ? 'tel' : 'text';
+    const isPhone = key.toLowerCase().includes('phone');
+    const inputType = key.toLowerCase().includes('email') ? 'email' : isPhone ? 'tel' : 'text';
+    const blurAttr = isPhone ? ' onblur="this.value=formatPhone(this.value)"' : '';
     const rows = values.map(val=>`
       <div style="display:flex;gap:5px;align-items:center;">
-        <input type="${inputType}" value="${escHtml(val)}" class="vf-multi-input field-input" style="flex:1;">
+        <input type="${inputType}" value="${escHtml(val)}" class="vf-multi-input field-input" style="flex:1;"${blurAttr}>
         <button type="button" onclick="this.closest('div').remove()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:0 4px;" title="Remove">×</button>
       </div>`).join('');
     return `<div id="${id}" data-type="multi" style="display:flex;flex-direction:column;gap:5px;">
@@ -311,10 +313,12 @@ function syncDaysField(key) {
 function addVendorMultiRow(btn) {
   const container = btn.closest('[data-type="multi"]');
   const key = (container.id||'').replace('vf_','').toLowerCase();
-  const inputType = key.includes('email') ? 'email' : key.includes('phone') ? 'tel' : 'text';
+  const isPhone = key.includes('phone');
+  const inputType = key.includes('email') ? 'email' : isPhone ? 'tel' : 'text';
+  const blurAttr = isPhone ? ' onblur="this.value=formatPhone(this.value)"' : '';
   const row = document.createElement('div');
   row.style.cssText = 'display:flex;gap:5px;align-items:center;';
-  row.innerHTML = `<input type="${inputType}" class="vf-multi-input field-input" style="flex:1;"><button type="button" onclick="this.closest('div').remove()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:0 4px;" title="Remove">×</button>`;
+  row.innerHTML = `<input type="${inputType}" class="vf-multi-input field-input" style="flex:1;"${blurAttr}><button type="button" onclick="this.closest('div').remove()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:0 4px;" title="Remove">×</button>`;
   btn.before(row);
   row.querySelector('input').focus();
 }
@@ -384,6 +388,13 @@ async function saveVendorForm() {
   // Only send fields defined in VENDOR_FORM_FIELDS — prevents patching deleted/unknown SP columns
   const allowedKeys = new Set(VENDOR_FORM_FIELDS.map(f=>f.key));
   Object.keys(data).forEach(k => { if (!allowedKeys.has(k)) delete data[k]; });
+  // Defense-in-depth: format any phone-type field at save time. Catches the
+  // edge case where the user submits without blurring out of the input.
+  Object.keys(data).forEach(k => {
+    if (k.toLowerCase().includes('phone') && data[k]) {
+      data[k] = data[k].split('\n').map(v => formatPhone(v)).filter(Boolean).join('\n');
+    }
+  });
   data.Tags = getTagEditorValue('vendor');
   setLoading(true,'Saving vendor…');
   try {

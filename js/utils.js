@@ -17,6 +17,73 @@ function escHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
+// ── Section-scoped loading bar ───────────────────────────────────
+// Thin gold animated stripe at the top of a card/section while it pulls
+// data from SharePoint. Replaces the global cube spinner for background
+// refreshes (location switch, SignalR, post-bootstrap re-pull). The cube
+// is still used for user-initiated saves (transfers, reconciliations).
+//
+//   showSectionLoading(elOrId)
+//   hideSectionLoading(elOrId)
+//   await withSectionLoading(elOrId, async () => { /* fetch */ })
+//
+// Idempotent: multiple show calls render exactly one bar; one hide removes
+// it. Marks the host with .section-loading-host so the absolute-positioned
+// bar can anchor to it.
+function showSectionLoading(target) {
+  const el = typeof target === 'string' ? document.getElementById(target) : target;
+  if (!el) return;
+  if (el.querySelector(':scope > .section-loading-bar')) return;
+  el.classList.add('section-loading-host');
+  const bar = document.createElement('div');
+  bar.className = 'section-loading-bar';
+  el.prepend(bar);
+}
+function hideSectionLoading(target) {
+  const el = typeof target === 'string' ? document.getElementById(target) : target;
+  if (!el) return;
+  const bar = el.querySelector(':scope > .section-loading-bar');
+  if (bar) bar.remove();
+}
+async function withSectionLoading(target, fn) {
+  showSectionLoading(target);
+  try { return await fn(); }
+  finally { hideSectionLoading(target); }
+}
+// Show on every visible .section-load-target on the active page. Returns
+// a cleanup function that hides them all. Used by setLocation + SignalR
+// refresh paths to indicate a wide-scope reload without naming each id.
+function showActivePageSectionLoading() {
+  const els = [...document.querySelectorAll('.page.active .section-load-target')];
+  els.forEach(el => showSectionLoading(el));
+  return () => els.forEach(el => hideSectionLoading(el));
+}
+
+// ── Phone number formatting ──────────────────────────────────────
+// Used by vendor + maintenance contact forms (onblur + on-save) to keep
+// phone numbers in a consistent (303) 555-1234 format. Preserves common
+// extension patterns ("x123", "ext 123") and passes through international
+// numbers (anything not 10 digits / 11 starting with 1) untouched.
+function formatPhone(raw) {
+  if (raw == null) return '';
+  const original = String(raw);
+  if (!original.trim()) return '';
+  // Pull off an extension if present so we don't strip its digits below.
+  const extMatch = original.match(/(?:\s*(?:x|ext\.?|extension)\s*)(\d+)\s*$/i);
+  const main = extMatch ? original.slice(0, extMatch.index) : original;
+  const ext  = extMatch ? ' x' + extMatch[1] : '';
+  const digits = main.replace(/\D/g, '');
+  if (digits.length === 10) {
+    return `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}` + ext;
+  }
+  if (digits.length === 11 && digits[0] === '1') {
+    return `(${digits.slice(1,4)}) ${digits.slice(4,7)}-${digits.slice(7)}` + ext;
+  }
+  // International / unrecognized → return cleaned (collapse whitespace) but
+  // don't try to reformat. Better to leave the manager's value than guess wrong.
+  return main.trim().replace(/\s+/g, ' ') + ext;
+}
+
 // ── Toast notifications ──────────────────────────────────────────
 // toast('ok', '✓ Saved') or toast('err', 'Something broke')
 // Reuses two fixed #toast-ok / #toast-err elements in index.html.

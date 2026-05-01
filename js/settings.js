@@ -150,6 +150,9 @@ async function setLocation(loc, btn) {
   renderInventory();
   renderDashboard();
   if (typeof renderChecklists === 'function') renderChecklists();
+  // Show section-scoped loading bars on all .section-load-target elements
+  // visible on the active page. Cleared in finally below.
+  const _hideBars = (typeof showActivePageSectionLoading === 'function') ? showActivePageSectionLoading() : (() => {});
   try {
     const siteId = await getSiteId();
     const locs = getLocations();
@@ -195,6 +198,7 @@ async function setLocation(loc, btn) {
       await loadFiveLbLabelsForLocation().catch(e => console.warn('5LB labels reload failed:', e));
     }
   } catch(e) { console.warn('Counts reload failed:', e); }
+  finally { _hideBars(); }
   renderInventory();
   renderDashboard();
   if (typeof renderChecklists === 'function') renderChecklists();

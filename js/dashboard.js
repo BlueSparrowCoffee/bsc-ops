@@ -134,13 +134,18 @@ function renderInventoryValueByLocation() {
     }, 0);
   };
 
+  // Equipment goes through the non-merch save path, so cost lives in
+  // CostPerCase + OrderSize (same shape as consumable). Falls back to
+  // CostPerUnit for any items that were saved with the merch shape.
   const equipmentValue = (loc) => {
     const counts = latestCountsByItem(cache.equipCountHistory || [], loc);
     return (cache.equipInventory || []).reduce((sum, i) => {
       if (i.Archived) return sum;
       const qty  = counts[i.ItemName || ''] || 0;
-      const cost = i.CostPerUnit || 0;
-      return sum + qty * cost;
+      const cpc  = parseFloat(i.CostPerCase) || 0;
+      const size = parseFloat(i.OrderSize)   || 1;
+      const perUnit = cpc > 0 ? cpc / (size || 1) : (parseFloat(i.CostPerUnit) || 0);
+      return sum + qty * perUnit;
     }, 0);
   };
 

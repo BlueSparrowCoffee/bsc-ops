@@ -41,8 +41,7 @@ function openAddInvForm() {
   // clear form
   ['new-item-name','new-item-cost-unit',
    'new-item-order-size','new-item-unit',
-   'new-item-cost','new-item-serving-unit','new-item-servings',
-   'inv-par-apply-all','inv-trigger-apply-all'
+   'new-item-cost','new-item-serving-unit','new-item-servings'
   ].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   renderInvParTable(null);
   populateInvVendorSelect('');
@@ -111,10 +110,6 @@ function openEditInvItem(id) {
     document.getElementById('new-item-unit').value         = item.OrderUnit || item.Unit || '';
     // Per-location par + reorder trigger table (reads existing BSC_InventoryPars rows)
     renderInvParTable(item);
-    const applyPar = document.getElementById('inv-par-apply-all');
-    const applyTrig = document.getElementById('inv-trigger-apply-all');
-    if (applyPar) applyPar.value = '';
-    if (applyTrig) applyTrig.value = '';
     document.getElementById('new-item-cost').value         = item.CostPerCase != null ? item.CostPerCase : '';
     if (document.getElementById('new-item-serving-unit'))
       document.getElementById('new-item-serving-unit').value = item.ServingUnit || '';
@@ -455,23 +450,6 @@ function renderInvParTable(item) {
       </thead>
       <tbody>${rowsHtml}</tbody>
     </table>${hint}`;
-}
-
-// "Apply to all" helper — writes the values from #inv-par-apply-all /
-// #inv-trigger-apply-all into every per-location input row. Blank fields
-// are left untouched so owners can push just par OR just trigger to all
-// locations without wiping the other column.
-function applyParToAllLocations() {
-  const par  = document.getElementById('inv-par-apply-all')?.value || '';
-  const trig = document.getElementById('inv-trigger-apply-all')?.value || '';
-  if (par === '' && trig === '') { toast('err','Enter a Par or Trigger value to apply'); return; }
-  if (par !== '') {
-    document.querySelectorAll('#inv-par-table-wrap .inv-par-inp').forEach(inp => { inp.value = par; });
-  }
-  if (trig !== '') {
-    document.querySelectorAll('#inv-par-table-wrap .inv-trigger-inp').forEach(inp => { inp.value = trig; });
-  }
-  toast('ok','Applied to all locations');
 }
 
 // Reads every row in the par table and upserts the matching

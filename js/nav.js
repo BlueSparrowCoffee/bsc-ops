@@ -95,6 +95,7 @@ function _resetPageFilters(page) {
   const clearChk = el => { if (el) el.checked = false; };
   switch (page) {
     case 'inventory':
+      clearInp(byId('inv-search-input'));
       clearInp(byId('inv-cat-filter'));
       clearInp(byId('inv-status-filter'));
       clearInp(byId('inv-supplier-filter'));

@@ -66,13 +66,20 @@ function triggerPageRefresh(listKey) {
 // closeModal() — defined in the inline script.
 async function handleListChanged(listKey) {
   if (!listKey || !LISTS[listKey]) return;
+  // Flash a section-scoped loading bar on whichever active-page section
+  // owns this list. Hidden after the fetch completes (success or fail).
+  const _hideBars = (typeof showActivePageSectionLoading === 'function')
+    ? showActivePageSectionLoading()
+    : (() => {});
+  let ok = false;
   try {
     const siteId = await getSiteId();
     cache[listKey] = await getListItems(siteId, LISTS[listKey]);
+    ok = true;
   } catch(e) {
     console.warn('[BSC] Real-time refresh failed for', listKey, e.message);
-    return;
-  }
+  } finally { _hideBars(); }
+  if (!ok) return;
   if (isAnyModalOpen()) {
     _pendingRefreshKeys.add(listKey);
   } else {

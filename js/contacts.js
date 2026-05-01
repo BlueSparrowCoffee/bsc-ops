@@ -185,11 +185,17 @@ function openMaintForm(id) {
     if (f === 'Tags') {
       return `<div class="form-group" style="grid-column:1/-1"><label>Tags</label>${tagEditorHTML('maint-contact')}</div>`;
     }
+    const isPhone = lk.includes('phone') || lk.includes('tel');
+    const inputType = lk.includes('email') ? 'type="email"'
+                    : lk.includes('website') ? 'type="url"'
+                    : isPhone ? 'type="tel"'
+                    : '';
+    const blurAttr = isPhone ? ' onblur="this.value=formatPhone(this.value)"' : '';
     return `<div class="form-group">
       <label>${label}${f==='Title'?' *':''}</label>
       ${isLong
         ? `<textarea id="mf_${f}" rows="3" style="width:100%;font-family:inherit;font-size:13px;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;resize:vertical;">${escHtml(val)}</textarea>`
-        : `<input id="mf_${f}" value="${escHtml(val)}" placeholder="${escHtml(label)}" ${lk.includes('email')?'type="email"':lk.includes('website')?'type="url"':''}>`
+        : `<input id="mf_${f}" value="${escHtml(val)}" placeholder="${escHtml(label)}" ${inputType}${blurAttr}>`
       }
     </div>`;
   }).join('');
@@ -225,6 +231,12 @@ async function saveMaintForm() {
       return;
     }
     const el = document.getElementById('mf_'+f); if (el) data[f] = el.value;
+  });
+  // Defense-in-depth: format any phone-type field at save time
+  Object.keys(data).forEach(k => {
+    if ((k.toLowerCase().includes('phone') || k.toLowerCase().includes('tel')) && data[k]) {
+      data[k] = formatPhone(data[k]);
+    }
   });
   if (!data.Title?.trim()) { toast('err','Company/name is required'); return; }
   setLoading(true,'Saving…');

@@ -31,30 +31,26 @@ function buildPrepItemMap() {
   for (const item of (cache.prepItems || [])) {
     const name = (item.Title || '').toLowerCase().trim();
     if (!name) continue;
-    const yieldQty = parseFloat(item.YieldQty) || 1;
-    const ings = (cache.prepItemIngredients || []).filter(i => i.PrepItemId === item.id);
-    let totalCost = 0;
-    for (const ing of ings) {
-      const qty = parseFloat(ing.Qty) || 0;
-      let costPer = 0;
-      if (ing.IngredientType === 'inventory') {
-        const invItem = cache.inventory.find(i => i.id === ing.IngredientId);
-        costPer = invItem ? (parseFloat(invItem.CostPerServing) || 0) : 0;
-      } else {
-        costPer = parseFloat(ing.CostPerUnit) || 0;
-      }
-      totalCost += qty * costPer;
-    }
-    map[name] = { CostPerServing: yieldQty > 0 ? totalCost / yieldQty : 0, _isPrepItem: true, YieldUnit: item.YieldUnit || '' };
+    const { costPerUnit } = calcPrepItemCost(item.id);
+    map[name] = { CostPerServing: costPerUnit, _isPrepItem: true, YieldUnit: item.YieldUnit || '' };
   }
   return map;
 }
 
-function calcPrepItemCost(itemId) {
+// Recursive: a prep item's cost can include other prep items as ingredients.
+// `visited` is a Set of prep item IDs in the current resolution stack — if we
+// hit one already in the stack, treat the circular ingredient as $0 and bail
+// out of that branch (preserves the rest of the calc, avoids infinite loops).
+function calcPrepItemCost(itemId, visited) {
   const item = (cache.prepItems || []).find(p => p.id === itemId);
   if (!item) return { totalCost: 0, costPerUnit: 0, yieldQty: 0, yieldUnit: '' };
   const yieldQty = parseFloat(item.YieldQty) || 1;
   const ings = (cache.prepItemIngredients || []).filter(i => i.PrepItemId === itemId);
+
+  // Protect against circular nesting (A → B → A …)
+  const seen = visited || new Set();
+  seen.add(String(itemId));
+
   let totalCost = 0;
   for (const ing of ings) {
     const qty = parseFloat(ing.Qty) || 0;
@@ -62,6 +58,12 @@ function calcPrepItemCost(itemId) {
     if (ing.IngredientType === 'inventory') {
       const invItem = cache.inventory.find(i => i.id === ing.IngredientId);
       costPer = invItem ? (parseFloat(invItem.CostPerServing) || 0) : 0;
+    } else if (ing.IngredientType === 'prepItem') {
+      const refId = String(ing.IngredientId || '');
+      if (refId && !seen.has(refId)) {
+        const sub = calcPrepItemCost(refId, new Set(seen));
+        costPer = sub.costPerUnit || 0;
+      } // else: circular or missing ref → treat as $0
     } else {
       costPer = parseFloat(ing.CostPerUnit) || 0;
     }
@@ -101,6 +103,13 @@ function renderPrepItemCard(item) {
       nameHtml = invItemLink(ing.IngredientName || '', badge);
       costLabel = cp != null ? '$'+cp.toFixed(4) : '<span style="color:#f59e0b">no cost</span>';
       lineCost = cp != null ? qty * cp : null;
+    } else if (ing.IngredientType === 'prepItem') {
+      const sub = calcPrepItemCost(ing.IngredientId);
+      const cp = sub.costPerUnit;
+      const badge = ' <span style="font-size:10px;color:#7c3aed;background:rgba(124,58,237,.1);padding:1px 5px;border-radius:8px;">prep</span>';
+      nameHtml = `<span style="font-weight:500;">${escHtml(ing.IngredientName||'')}</span>${badge}`;
+      costLabel = cp > 0 ? '$'+cp.toFixed(4) : '<span style="color:#f59e0b">no cost</span>';
+      lineCost = cp > 0 ? qty * cp : null;
     } else {
       nameHtml = escHtml(ing.IngredientName || '');
       const cp = parseFloat(ing.CostPerUnit);
@@ -116,7 +125,7 @@ function renderPrepItemCard(item) {
   }).join('');
 
   return `
-    <div class="card" data-gs-id="${escHtml(item.id)}" style="padding:0;overflow:hidden;">
+    <div class="card" data-gs-id="${escHtml(item.id)}" style="padding:0;overflow:hidden;cursor:pointer;" onclick="openPrepItemModal('${escHtml(item.id)}')">
       <div style="padding:14px 16px 10px;border-bottom:1.5px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
         <div>
           <div style="font-weight:700;font-size:15px;">${escHtml(item.Title||'Untitled')}</div>
@@ -129,7 +138,7 @@ function renderPrepItemCard(item) {
         </div>
       </div>
       ${ings.length ? `
-      <div style="padding:4px 16px 0;">
+      <div style="padding:4px 16px 14px;">
         <div style="overflow-x:auto;">
         <table style="width:100%;border-collapse:collapse;min-width:280px;">
           <thead>
@@ -143,11 +152,7 @@ function renderPrepItemCard(item) {
           <tbody>${ingRows}</tbody>
         </table>
         </div>
-      </div>` : `<div style="padding:10px 16px;font-size:12px;color:var(--muted);">No ingredients added.</div>`}
-      <div style="padding:10px 16px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--border);margin-top:8px;">
-        <button class="btn" style="font-size:12px;padding:4px 12px;" data-id="${escHtml(item.id)}" onclick="openPrepItemModal(this.dataset.id)">✏️ Edit</button>
-        <button class="btn" style="font-size:12px;padding:4px 12px;color:var(--red);border-color:var(--red);" data-id="${escHtml(item.id)}" onclick="deletePrepItem(this.dataset.id)">🗑 Delete</button>
-      </div>
+      </div>` : `<div style="padding:10px 16px 14px;font-size:12px;color:var(--muted);">No ingredients added.</div>`}
     </div>`;
 }
 
@@ -169,10 +174,20 @@ function openPrepItemModal(id) {
   for (const ing of sortedIngs) addPrepIngRow(ing);
   updatePiNoIngsMsg();
   updatePiCostPreview();
-  // History button only meaningful when editing an existing item
+  // History + Delete only meaningful when editing an existing item
   const histBtn = document.getElementById('pi-history-btn');
   if (histBtn) histBtn.style.display = id ? 'inline-flex' : 'none';
+  const delBtn = document.getElementById('pi-delete-btn');
+  if (delBtn) delBtn.style.display = id ? 'inline-flex' : 'none';
   openModal('modal-prep-item');
+}
+
+// Capture the id BEFORE closeModal — closeModal may reset hidden inputs.
+function modalDeletePrepItem() {
+  const id = document.getElementById('pi-edit-id')?.value;
+  if (!id) return;
+  closeModal('modal-prep-item');
+  deletePrepItem(id);
 }
 
 // Fetch SharePoint's built-in version history for this prep item. Only tracks
@@ -269,8 +284,20 @@ function addPrepIngRow(prefill) {
     .sort((a,b) => (a.ItemName||a.Title||'').localeCompare(b.ItemName||b.Title||''))
     .map(i => {
       const nm = escHtml(i.ItemName || i.Title || '');
-      const selected = prefill?.IngredientId === i.id ? ' selected' : '';
+      const selected = type === 'inventory' && prefill?.IngredientId === i.id ? ' selected' : '';
       return `<option value="${escHtml(i.id)}" data-cost="${escHtml(String(i.CostPerServing||0))}" data-name="${nm}"${selected}>${nm}</option>`;
+    }).join('');
+
+  // Prep-item dropdown: exclude the prep item currently being edited so you
+  // can't self-reference. Also exclude prep items missing a Title.
+  const editingId = document.getElementById('pi-edit-id')?.value || '';
+  const prepOptions = [...(cache.prepItems||[])]
+    .filter(p => String(p.id) !== String(editingId) && (p.Title||'').trim())
+    .sort((a,b) => (a.Title||'').localeCompare(b.Title||''))
+    .map(p => {
+      const nm = escHtml(p.Title || '');
+      const selected = type === 'prepItem' && String(prefill?.IngredientId) === String(p.id) ? ' selected' : '';
+      return `<option value="${escHtml(p.id)}" data-name="${nm}"${selected}>${nm}</option>`;
     }).join('');
 
   const row = document.createElement('div');
@@ -281,11 +308,18 @@ function addPrepIngRow(prefill) {
       style="padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;flex-shrink:0;">
       <option value="custom"${type==='custom'?' selected':''}>Custom</option>
       <option value="inventory"${type==='inventory'?' selected':''}>Inventory</option>
+      <option value="prepItem"${type==='prepItem'?' selected':''}>Prep Item</option>
     </select>
     <div class="pi-inv-wrap" style="display:${type==='inventory'?'flex':'none'};gap:4px;align-items:center;flex:2;min-width:130px;">
       <select class="pi-inv-sel" onchange="onPiInvChange(this)"
         style="padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;width:100%;">
         <option value="">Select item…</option>${invOptions}
+      </select>
+    </div>
+    <div class="pi-prep-wrap" style="display:${type==='prepItem'?'flex':'none'};gap:4px;align-items:center;flex:2;min-width:130px;">
+      <select class="pi-prep-sel" onchange="onPiPrepChange(this)"
+        style="padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;width:100%;">
+        <option value="">Select prep item…</option>${prepOptions}
       </select>
     </div>
     <div class="pi-custom-wrap" style="display:${type==='custom'?'flex':'none'};gap:4px;align-items:center;flex:2;min-width:130px;">
@@ -306,7 +340,7 @@ function addPrepIngRow(prefill) {
       style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:17px;padding:2px 4px;flex-shrink:0;line-height:1;">✕</button>
     <input type="hidden" class="pi-ing-id" value="${escHtml(String(prefill?.id||''))}">
     <input type="hidden" class="pi-ing-inv-id" value="${escHtml(String(prefill?.IngredientId||''))}">
-    <input type="hidden" class="pi-ing-inv-name" value="${escHtml(type==='inventory'?String(prefill?.IngredientName||''):'')}">`;
+    <input type="hidden" class="pi-ing-inv-name" value="${escHtml((type==='inventory'||type==='prepItem')?String(prefill?.IngredientName||''):'')}">`;
   rowsEl.appendChild(row);
   updatePiNoIngsMsg();
   updatePiCostPreview();
@@ -314,8 +348,9 @@ function addPrepIngRow(prefill) {
 
 function onPiTypeChange(sel) {
   const row = sel.closest('.pi-ing-row');
-  row.querySelector('.pi-inv-wrap').style.display = sel.value === 'inventory' ? 'flex' : 'none';
-  row.querySelector('.pi-custom-wrap').style.display = sel.value === 'custom' ? 'flex' : 'none';
+  row.querySelector('.pi-inv-wrap').style.display    = sel.value === 'inventory' ? 'flex' : 'none';
+  row.querySelector('.pi-prep-wrap').style.display   = sel.value === 'prepItem'  ? 'flex' : 'none';
+  row.querySelector('.pi-custom-wrap').style.display = sel.value === 'custom'    ? 'flex' : 'none';
   updatePiCostPreview();
 }
 
@@ -324,6 +359,20 @@ function onPiInvChange(sel) {
   const row = sel.closest('.pi-ing-row');
   row.querySelector('.pi-ing-inv-id').value = opt?.value || '';
   row.querySelector('.pi-ing-inv-name').value = opt?.dataset.name || '';
+  updatePiCostPreview();
+}
+
+function onPiPrepChange(sel) {
+  const opt = sel.selectedOptions[0];
+  const row = sel.closest('.pi-ing-row');
+  row.querySelector('.pi-ing-inv-id').value   = opt?.value || '';
+  row.querySelector('.pi-ing-inv-name').value = opt?.dataset.name || '';
+  // Default the unit to the prep item's YieldUnit if the user hasn't typed one
+  const unitInp = row.querySelector('.pi-unit');
+  if (unitInp && !unitInp.value.trim()) {
+    const ref = (cache.prepItems||[]).find(p => String(p.id) === String(opt?.value||''));
+    if (ref?.YieldUnit) unitInp.value = ref.YieldUnit;
+  }
   updatePiCostPreview();
 }
 
@@ -348,6 +397,15 @@ function updatePiCostPreview() {
         const invItem = cache.inventory.find(i => i.id === opt.value);
         costPer = invItem ? (parseFloat(invItem.CostPerServing) || 0) : 0;
         if (!invItem || !invItem.CostPerServing) hasGap = true;
+      } else {
+        hasGap = true;
+      }
+    } else if (type === 'prepItem') {
+      const opt = row.querySelector('.pi-prep-sel')?.selectedOptions[0];
+      if (opt?.value) {
+        const sub = calcPrepItemCost(opt.value);
+        costPer = sub.costPerUnit || 0;
+        if (!costPer) hasGap = true;
       } else {
         hasGap = true;
       }
@@ -386,6 +444,12 @@ function getPiIngRows() {
       const invName = opt?.dataset.name || row.querySelector('.pi-ing-inv-name')?.value || '';
       if (!invId) return;
       rows.push({ id: existingId, type: 'inventory', invId, name: invName, qty: isNaN(qty)?null:qty, unit, costPerUnit: null });
+    } else if (type === 'prepItem') {
+      const opt = row.querySelector('.pi-prep-sel')?.selectedOptions[0];
+      const prepId = opt?.value || '';
+      const prepName = opt?.dataset.name || row.querySelector('.pi-ing-inv-name')?.value || '';
+      if (!prepId) return;
+      rows.push({ id: existingId, type: 'prepItem', invId: prepId, name: prepName, qty: isNaN(qty)?null:qty, unit, costPerUnit: null });
     } else {
       const name = (row.querySelector('.pi-cust-name')?.value || '').trim();
       const cost = parseFloat(row.querySelector('.pi-cust-cost')?.value);
