@@ -80,6 +80,55 @@ function _maLatestPriceMap(rows) {
   return m;
 }
 
+// Full sorted history (oldest → newest) for one (itemKey, competitor)
+function _maHistoryFor(itemKey, competitor) {
+  return (cache.marketPrices || [])
+    .filter(r => r.ItemKey === itemKey && r.Competitor === competitor)
+    .map(r => ({ ...r, _date: _maParseDate(r.SurveyDate) }))
+    .filter(r => r._date)
+    .sort((a,b) => a._date - b._date);
+}
+
+// Compare latest to prior survey for change indicators.
+// Returns { delta, prevPrice, prevDate } or null when there's no prior.
+function _maPriceChange(itemKey, competitor) {
+  const h = _maHistoryFor(itemKey, competitor);
+  if (h.length < 2) return null;
+  const latest = h[h.length - 1];
+  const prior  = h[h.length - 2];
+  const delta = Number(latest.Price) - Number(prior.Price);
+  if (!Number.isFinite(delta) || Math.abs(delta) < 0.01) return null;
+  return { delta, prevPrice: Number(prior.Price), prevDate: prior._date };
+}
+
+// Freshness coloring per survey date — applied to heatmap cells.
+// fresh <60d (green), stale 60-180d (amber), very-stale >180d (red).
+function _maFreshness(date) {
+  if (!date) return null;
+  const d = (typeof date === 'string') ? new Date(date) : date;
+  if (isNaN(d.getTime())) return null;
+  const days = (Date.now() - d.getTime()) / (24*60*60*1000);
+  if (days < 60)  return { tier:'fresh',      color:'#16a34a', days };
+  if (days < 180) return { tier:'stale',      color:'#d97706', days };
+  return { tier:'very-stale', color:'#dc2626', days };
+}
+
+// Latest COG snapshot for a Square menu item id. Returns the row or null.
+// Snapshots come from cache.cogSnapshots (BSC_CogHistory list). Variation
+// name is matched best-effort by Size — falls back to "Regular" snapshot.
+function _maLatestCogFor(item) {
+  if (!item || item.SquareKind !== 'item' || !item.SquareRefId) return null;
+  const all = (cache.cogSnapshots || []).filter(s => s.MenuItemId === item.SquareRefId);
+  if (!all.length) return null;
+  const sized = item.Size
+    ? all.filter(s => (s.VariationName||'').toLowerCase().includes(String(item.Size).toLowerCase()))
+    : [];
+  const pool = sized.length ? sized : all;
+  return pool
+    .map(s => ({ ...s, _d: _maParseDate(s.SnapshotDate) || new Date(0) }))
+    .sort((a,b) => b._d - a._d)[0];
+}
+
 // ── Data load (called from loadAllData via index.html) ───────────
 async function loadMarketAnalysisData(siteId) {
   const [comps, items, prices] = await Promise.all([
@@ -105,10 +154,12 @@ function renderMarketAnalysis() {
   page.querySelector('#ma-body').style.display = '';
 
   _renderMarketHeadline();
+  _renderMarketOutliers();
   _renderMarketCompetitorChips();
   _renderMarketItemPicker();
   _renderMarketBarChart();
   _renderMarketHeatmap();
+  _renderMarketTimeSeries();
 }
 
 // ── Headline ─────────────────────────────────────────────────────
@@ -284,11 +335,16 @@ function _renderMarketBarChart() {
     const w = xScale(r.price) - PAD_L;
     const fill = r.isBSC ? 'var(--gold)' : '#cfd9db';
     const labelColor = r.isBSC ? 'var(--dark-blue)' : '#444';
+    // Change indicator: ▲/▼ vs prior survey for this (item,competitor)
+    const chg = _maPriceChange(key, r.name);
+    const chgTxt = chg
+      ? `<tspan dx="6" font-size="11" fill="${chg.delta >= 0 ? '#dc2626' : '#16a34a'}" font-weight="600">${chg.delta >= 0 ? '▲' : '▼'} ${chg.delta >= 0 ? '+' : '−'}${_maMoney(Math.abs(chg.delta)).replace('$','$')}</tspan>`
+      : '';
     return `
       <g>
         <text x="${PAD_L - 8}" y="${y + ROW_H/2 + 4}" text-anchor="end" font-size="12" fill="${labelColor}" font-weight="${r.isBSC?'700':'500'}">${escHtml(r.name)}</text>
         <rect x="${PAD_L}" y="${y + 4}" width="${Math.max(2, w)}" height="${ROW_H - 8}" fill="${fill}" rx="3"></rect>
-        <text x="${PAD_L + w + 6}" y="${y + ROW_H/2 + 4}" font-size="12" fill="#222" font-weight="${r.isBSC?'700':'500'}">${_maMoney(r.price)}</text>
+        <text x="${PAD_L + w + 6}" y="${y + ROW_H/2 + 4}" font-size="12" fill="#222" font-weight="${r.isBSC?'700':'500'}">${_maMoney(r.price)}${chgTxt}</text>
       </g>`;
   }).join('');
 
@@ -297,6 +353,30 @@ function _renderMarketBarChart() {
     <line x1="${xScale(avg)}" y1="${PAD_T - 2}" x2="${xScale(avg)}" y2="${PAD_T + rows.length*ROW_H + 2}" stroke="var(--dark-blue)" stroke-width="1.5" stroke-dasharray="4,4" opacity=".55"></line>
     <text x="${xScale(avg)}" y="${PAD_T + rows.length*ROW_H + 18}" text-anchor="middle" font-size="11" fill="var(--dark-blue)" opacity=".75">market avg ${_maMoney(avg)}</text>
   ` : '';
+
+  // Margin overlay (uses cache.cogSnapshots when item is linked to a Square menu item)
+  const cog = _maLatestCogFor(item);
+  let marginRow = '';
+  if (cog && bsc != null) {
+    const cogVal = Number(cog.COG);
+    if (Number.isFinite(cogVal) && cogVal > 0) {
+      const bscMargin = bsc - cogVal;
+      const bscMarginPct = bscMargin / bsc * 100;
+      const marketMargin = (avg != null) ? (avg - cogVal) : null;
+      const opportunity = (avg != null) ? (avg - bsc) : null;
+      const oppTxt = (opportunity != null && Math.abs(opportunity) >= 0.05)
+        ? (opportunity > 0
+            ? ` · <span style="color:var(--gold);font-weight:600;">+${_maMoney(opportunity)} potential if you matched market</span>`
+            : ` · <span style="color:#16a34a;font-weight:600;">${_maMoney(Math.abs(opportunity))} above market — premium captured</span>`)
+        : '';
+      marginRow = `
+        <div style="margin-top:14px;padding:12px 14px;background:rgba(2,61,74,.05);border-radius:8px;font-size:12px;line-height:1.5;color:var(--dark-blue);">
+          <span style="font-weight:700;">Margin:</span>
+          BSC ${_maMoney(bsc)} · COG ${_maMoney(cogVal)} · margin ${_maMoney(bscMargin)} (${bscMarginPct.toFixed(0)}%)
+          ${marketMargin != null ? `<br><span style="color:var(--muted);">Market avg ${_maMoney(avg)} → margin if matched: ${_maMoney(marketMargin)}${oppTxt}</span>` : ''}
+        </div>`;
+    }
+  }
 
   el.innerHTML = `
     <div class="card" style="padding:16px 18px;">
@@ -308,6 +388,50 @@ function _renderMarketBarChart() {
         ${avgLine}
         ${bars}
       </svg>
+      ${marginRow}
+    </div>
+  `;
+}
+
+// ── Outlier review panel ─────────────────────────────────────────
+// Items where BSC > 10% above market avg (potentially overpriced) or
+// BSC < -15% below avg (potentially leaving money on table). Click a
+// chip to focus that item in the bar chart.
+function _renderMarketOutliers() {
+  const el = document.getElementById('ma-outliers');
+  if (!el) return;
+  const items = (cache.marketItems || []).filter(i => i.Active !== 'No');
+  const comps = (cache.marketCompetitors || []).filter(c => c.Active !== 'No').map(c => c.Title);
+  const latest = _maLatestPriceMap(cache.marketPrices || []);
+
+  const flags = [];
+  for (const it of items) {
+    const key = _maItemKey(it);
+    const bsc = latest.get(`${key}||BSC`)?.Price;
+    if (bsc == null) continue;
+    const compPrices = comps.map(c => latest.get(`${key}||${c}`)?.Price).filter(p => p != null && p > 0);
+    if (compPrices.length < 2) continue; // need at least 2 to mean anything
+    const avg = compPrices.reduce((a,b)=>a+b,0) / compPrices.length;
+    if (avg <= 0) return;
+    const pct = (bsc - avg) / avg * 100;
+    if (pct > 10) flags.push({ id:it.id, key, pct, kind:'over' });
+    else if (pct < -15) flags.push({ id:it.id, key, pct, kind:'under' });
+  }
+
+  if (!flags.length) { el.style.display = 'none'; return; }
+  flags.sort((a,b) => Math.abs(b.pct) - Math.abs(a.pct));
+
+  el.style.display = '';
+  el.innerHTML = `
+    <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin-bottom:6px;">⚠ Review (${flags.length})</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;">
+      ${flags.map(f => {
+        const arrow = f.kind === 'over' ? '▲' : '▼';
+        const bg    = f.kind === 'over' ? 'rgba(220,38,38,.10)' : 'rgba(183,139,64,.14)';
+        const fg    = f.kind === 'over' ? '#991b1b' : '#7c5a1f';
+        const tip   = f.kind === 'over' ? 'BSC priced above market — possible push-down opportunity' : 'BSC priced below market — possible upside';
+        return `<span data-id="${escHtml(String(f.id))}" onclick="onMarketItemRowClick(this.dataset.id)" title="${escHtml(tip)}" style="display:inline-block;padding:4px 10px;background:${bg};color:${fg};border-radius:14px;font-size:12px;font-weight:600;cursor:pointer;">${arrow} ${escHtml(f.key)} ${f.pct >= 0 ? '+' : ''}${f.pct.toFixed(0)}%</span>`;
+      }).join('')}
     </div>
   `;
 }
@@ -350,18 +474,25 @@ function _renderMarketHeatmap() {
           const key = _maItemKey(it);
           const bsc = latest.get(`${key}||BSC`)?.Price;
           const cells = comps.map(c => {
-            const p = latest.get(`${key}||${c.Title}`)?.Price;
+            const row = latest.get(`${key}||${c.Title}`);
+            const p = row?.Price;
             if (p == null) {
               return `<td data-id="${it.id}" data-comp="${escHtml(c.Title)}" onclick="openMarketPriceEdit(this.dataset.id, this.dataset.comp)" style="text-align:right;padding:6px 10px;font-size:12px;color:var(--muted);cursor:pointer;">—</td>`;
             }
             // color vs BSC: green if cheaper than them, red if more expensive
             let bg = 'transparent', fg = '#222';
             if (bsc != null && p > 0) {
-              const diff = (bsc - p) / p; // BSC - them, normalized
+              const diff = (bsc - p) / p;
               if (diff <= -0.05) { bg = 'rgba(22,163,74,.12)'; fg = '#166534'; }
               else if (diff >= 0.05) { bg = 'rgba(220,38,38,.12)'; fg = '#991b1b'; }
             }
-            return `<td data-id="${it.id}" data-comp="${escHtml(c.Title)}" onclick="openMarketPriceEdit(this.dataset.id, this.dataset.comp)" style="text-align:right;padding:6px 10px;font-size:12px;background:${bg};color:${fg};cursor:pointer;font-variant-numeric:tabular-nums;">${_maMoney(p)}</td>`;
+            const fresh = _maFreshness(row._date);
+            const dot = fresh ? `<span title="surveyed ${Math.round(fresh.days)} days ago" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${fresh.color};margin-right:5px;vertical-align:middle;opacity:.85;"></span>` : '';
+            const chg = _maPriceChange(key, c.Title);
+            const chgInline = chg
+              ? `<span style="font-size:10px;color:${chg.delta >= 0 ? '#dc2626' : '#16a34a'};font-weight:600;margin-left:4px;" title="vs prior survey ${_maFmtDate(chg.prevDate)}">${chg.delta >= 0 ? '▲' : '▼'}</span>`
+              : '';
+            return `<td data-id="${it.id}" data-comp="${escHtml(c.Title)}" onclick="openMarketPriceEdit(this.dataset.id, this.dataset.comp)" style="text-align:right;padding:6px 10px;font-size:12px;background:${bg};color:${fg};cursor:pointer;font-variant-numeric:tabular-nums;">${dot}${_maMoney(p)}${chgInline}</td>`;
           }).join('');
           const bscCell = (bsc != null)
             ? `<td data-id="${it.id}" data-comp="BSC" onclick="openMarketPriceEdit(this.dataset.id, this.dataset.comp)" style="text-align:right;padding:6px 10px;font-size:12px;background:rgba(183,139,64,.10);color:var(--dark-blue);font-weight:700;cursor:pointer;font-variant-numeric:tabular-nums;">${_maMoney(bsc)}</td>`
@@ -992,5 +1123,236 @@ async function confirmMarketImport() {
     toast('err','Import failed: '+e.message);
   } finally {
     btn.disabled = false; btn.textContent = 'Import';
+  }
+}
+
+// ── Time-series chart (collapsible) ──────────────────────────────
+let _maTsExpanded = false;
+function toggleMarketTimeSeries() {
+  _maTsExpanded = !_maTsExpanded;
+  _renderMarketTimeSeries();
+}
+function _renderMarketTimeSeries() {
+  const wrap = document.getElementById('ma-timeseries-wrap');
+  const body = document.getElementById('ma-timeseries-body');
+  const arrow = document.getElementById('ma-timeseries-arrow');
+  if (!wrap || !body) return;
+  if (arrow) arrow.textContent = _maTsExpanded ? '▾' : '▸';
+  if (!_maTsExpanded) { body.style.display = 'none'; return; }
+  body.style.display = '';
+
+  const item = (cache.marketItems || []).find(i => i.id === _maSelectedItemId);
+  if (!item) {
+    body.innerHTML = `<div class="card" style="padding:24px 16px;text-align:center;color:var(--muted);font-size:13px;">Pick an item above to see its price history.</div>`;
+    return;
+  }
+  const key = _maItemKey(item);
+  // Series = BSC + active competitors that have ≥1 price for this item
+  const comps = ['BSC', ...(cache.marketCompetitors || []).filter(c => c.Active !== 'No').map(c => c.Title)];
+  const series = comps
+    .map(name => ({ name, history: _maHistoryFor(key, name) }))
+    .filter(s => s.history.length);
+  if (!series.length) {
+    body.innerHTML = `<div class="card" style="padding:24px 16px;text-align:center;color:var(--muted);font-size:13px;">No price history yet for "${escHtml(key)}".</div>`;
+    return;
+  }
+
+  // Find x range (dates) and y range (prices)
+  const allDates  = series.flatMap(s => s.history.map(h => h._date.getTime()));
+  const allPrices = series.flatMap(s => s.history.map(h => Number(h.Price))).filter(p => Number.isFinite(p));
+  if (!allDates.length || !allPrices.length) {
+    body.innerHTML = `<div class="card" style="padding:24px 16px;text-align:center;color:var(--muted);font-size:13px;">No usable history.</div>`;
+    return;
+  }
+  let xMin = Math.min(...allDates), xMax = Math.max(...allDates);
+  if (xMax === xMin) xMax = xMin + 24*60*60*1000;
+  const yMinRaw = Math.min(...allPrices);
+  const yMaxRaw = Math.max(...allPrices);
+  const yPad = Math.max(0.5, (yMaxRaw - yMinRaw) * 0.12);
+  const yMin = Math.max(0, yMinRaw - yPad), yMax = yMaxRaw + yPad;
+
+  // SVG layout
+  const VB_W = 720, VB_H = 280, PAD_L = 50, PAD_R = 18, PAD_T = 14, PAD_B = 36;
+  const plotW = VB_W - PAD_L - PAD_R, plotH = VB_H - PAD_T - PAD_B;
+  const xScale = t => PAD_L + ((t - xMin) / (xMax - xMin)) * plotW;
+  const yScale = p => PAD_T + plotH - ((p - yMin) / (yMax - yMin)) * plotH;
+
+  // Color palette — keep BSC gold, others pulled from a stable palette
+  const COMP_PALETTE = ['#0c5772','#7c3aed','#0891b2','#65a30d','#dc2626','#a16207','#0d9488','#7e22ce','#b91c1c','#1d4ed8','#15803d','#9d174d'];
+  const colorFor = (name, idx) => name === 'BSC' ? '#b78b40' : COMP_PALETTE[idx % COMP_PALETTE.length];
+
+  // Y axis ticks
+  const yStep = (yMax - yMin) > 8 ? 2 : (yMax - yMin) > 4 ? 1 : 0.5;
+  const yTicks = [];
+  for (let v = Math.ceil(yMin/yStep)*yStep; v <= yMax; v += yStep) yTicks.push(v);
+  const yGrid = yTicks.map(v => `
+    <line x1="${PAD_L}" y1="${yScale(v)}" x2="${PAD_L+plotW}" y2="${yScale(v)}" stroke="#e5e7eb" stroke-width="1"></line>
+    <text x="${PAD_L-6}" y="${yScale(v)+4}" text-anchor="end" font-size="10" fill="var(--muted)">${_maMoney(v)}</text>
+  `).join('');
+
+  // X axis labels — first/last only to avoid clutter
+  const fmt = t => new Date(t).toLocaleDateString('en-US',{month:'short',year:'2-digit'});
+  const xLabels = `
+    <text x="${PAD_L}" y="${PAD_T+plotH+18}" font-size="10" fill="var(--muted)" text-anchor="start">${escHtml(fmt(xMin))}</text>
+    <text x="${PAD_L+plotW}" y="${PAD_T+plotH+18}" font-size="10" fill="var(--muted)" text-anchor="end">${escHtml(fmt(xMax))}</text>
+  `;
+
+  // Lines + dots
+  let i = 0;
+  const lines = series.map(s => {
+    const color = colorFor(s.name, i++);
+    const pts = s.history.map(h => `${xScale(h._date.getTime())},${yScale(Number(h.Price))}`).join(' ');
+    const dots = s.history.map(h => `<circle cx="${xScale(h._date.getTime())}" cy="${yScale(Number(h.Price))}" r="3" fill="${color}"></circle>`).join('');
+    const path = s.history.length > 1 ? `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="${s.name==='BSC'?2.5:1.6}" stroke-linejoin="round" stroke-linecap="round"></polyline>` : '';
+    return path + dots;
+  }).join('');
+
+  // Legend
+  i = 0;
+  const legend = series.map(s => {
+    const color = colorFor(s.name, i++);
+    return `<span style="display:inline-flex;align-items:center;gap:5px;margin-right:14px;font-size:12px;color:#222;"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${color};"></span>${escHtml(s.name)}${s.name==='BSC'?' <span style="color:var(--muted);font-size:11px;">(you)</span>':''}</span>`;
+  }).join('');
+
+  body.innerHTML = `
+    <div class="card" style="padding:14px 16px;">
+      <div style="font-size:14px;font-weight:700;color:var(--dark-blue);margin-bottom:8px;">${escHtml(key)} — price over time</div>
+      <svg viewBox="0 0 ${VB_W} ${VB_H}" style="width:100%;height:auto;display:block;">
+        ${yGrid}
+        ${xLabels}
+        ${lines}
+      </svg>
+      <div style="margin-top:8px;line-height:1.8;">${legend}</div>
+    </div>
+  `;
+}
+
+// ── Survey Day batch entry ───────────────────────────────────────
+// Pick a date + competitor → fill prices for every active tracked item
+// in one form. Replaces 13+ separate edit clicks when running a survey.
+function openSurveyDay() {
+  if (!isOwner()) return;
+  // Default date = today
+  document.getElementById('msd-date').value = new Date().toISOString().slice(0,10);
+  // Competitor select = BSC + every active competitor
+  const comps = (cache.marketCompetitors || []).filter(c => c.Active !== 'No').map(c => c.Title).sort();
+  const sel = document.getElementById('msd-competitor');
+  sel.innerHTML = `<option value="BSC">BSC (your prices)</option>` + comps.map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('');
+  _renderSurveyDayBody();
+  openModal('modal-market-survey-day');
+}
+
+function _renderSurveyDayBody() {
+  const body = document.getElementById('msd-body');
+  if (!body) return;
+  const competitor = document.getElementById('msd-competitor')?.value || '';
+  const date = document.getElementById('msd-date')?.value || '';
+  const items = (cache.marketItems || []).filter(i => i.Active !== 'No');
+  if (!items.length) {
+    body.innerHTML = `<div style="padding:14px;color:var(--muted);font-size:13px;">No tracked items yet — add some first via Manage.</div>`;
+    return;
+  }
+  // Show last known price as placeholder so user knows where they were
+  const latest = _maLatestPriceMap(cache.marketPrices || []);
+  // Group by category
+  const groups = {};
+  for (const it of items) (groups[it.Category||'other'] = groups[it.Category||'other'] || []).push(it);
+  const html = MARKET_CATEGORIES.filter(c => groups[c.key]?.length).map(cat => {
+    const rows = groups[cat.key]
+      .sort((a,b)=>{
+        const oa = parseFloat(a.DisplayOrder)||999, ob = parseFloat(b.DisplayOrder)||999;
+        if (oa !== ob) return oa - ob;
+        return _maItemKey(a).localeCompare(_maItemKey(b));
+      })
+      .map(it => {
+        const key = _maItemKey(it);
+        const last = competitor ? latest.get(`${key}||${competitor}`) : null;
+        const ph = (last?.Price != null) ? `prev ${_maMoney(last.Price)}` : '';
+        return `
+          <tr>
+            <td style="padding:5px 8px;font-size:12px;font-weight:600;">${escHtml(key)}</td>
+            <td style="padding:5px 8px;text-align:right;">
+              <input type="number" step="0.01" min="0" class="field-input msd-price" data-id="${escHtml(String(it.id))}" data-key="${escHtml(key)}" placeholder="${escHtml(ph)}" style="width:100px;font-size:12px;padding:3px 6px;text-align:right;">
+            </td>
+            <td style="padding:5px 8px;">
+              <input type="text" class="field-input msd-notes" data-id="${escHtml(String(it.id))}" placeholder="notes (optional)" style="width:100%;font-size:12px;padding:3px 6px;">
+            </td>
+          </tr>`;
+      }).join('');
+    return `
+      <tr><td colspan="3" style="padding:10px 8px 4px;font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;">${cat.emoji} ${cat.label}</td></tr>
+      ${rows}`;
+  }).join('');
+  body.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr style="background:var(--cream);">
+          <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--muted);">Item</th>
+          <th style="text-align:right;padding:6px 8px;font-size:11px;color:var(--muted);">Price ($)</th>
+          <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--muted);">Notes</th>
+        </tr>
+      </thead>
+      <tbody>${html}</tbody>
+    </table>
+    <div style="margin-top:10px;font-size:11px;color:var(--muted);">Leave a row blank to skip it. Existing prices for this date+competitor will be overwritten.</div>
+  `;
+}
+
+async function saveSurveyDay() {
+  if (!isOwner()) return;
+  const competitor = document.getElementById('msd-competitor').value;
+  const date = document.getElementById('msd-date').value;
+  if (!competitor) { toast('err','Pick a competitor'); return; }
+  if (!date) { toast('err','Pick a survey date'); return; }
+  const inputs = [...document.querySelectorAll('.msd-price')];
+  // Build (itemKey → {price, notes})
+  const entries = [];
+  for (const inp of inputs) {
+    const v = inp.value.trim();
+    if (!v) continue;
+    const price = parseFloat(v);
+    if (!Number.isFinite(price) || price < 0) continue;
+    const key = inp.dataset.key;
+    const notes = document.querySelector(`.msd-notes[data-id="${inp.dataset.id}"]`)?.value.trim() || '';
+    entries.push({ key, price, notes });
+  }
+  if (!entries.length) { toast('err','Nothing to save — fill at least one price'); return; }
+  const btn = document.getElementById('msd-save-btn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    let written = 0, replaced = 0;
+    for (const e of entries) {
+      const fields = {
+        Title: `${e.key} | ${competitor} | ${date}`,
+        ItemKey: e.key,
+        Competitor: competitor,
+        Price: e.price,
+        SurveyDate: date + 'T00:00:00Z',
+        Notes: e.notes,
+        Source: 'manual'
+      };
+      // Replace existing row with the same (item, competitor, date) so re-running a
+      // Survey Day for the same date doesn't create duplicates.
+      const dup = (cache.marketPrices || []).find(p =>
+        p.ItemKey === e.key && p.Competitor === competitor &&
+        (p.SurveyDate||'').slice(0,10) === date
+      );
+      try {
+        if (dup) {
+          await updateListItem(LISTS.marketPrices, dup.id, fields);
+          Object.assign(dup, fields);
+          replaced++;
+        } else {
+          const created = await addListItem(LISTS.marketPrices, fields);
+          cache.marketPrices.push(created);
+          written++;
+        }
+      } catch (err) { console.warn('survey-day save failed for', e.key, err); }
+    }
+    closeModal('modal-market-survey-day');
+    toast('ok', `✓ ${written} new · ${replaced} updated`);
+    renderMarketAnalysis();
+  } finally {
+    btn.disabled = false; btn.textContent = 'Save Survey';
   }
 }
