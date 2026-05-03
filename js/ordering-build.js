@@ -104,6 +104,17 @@ function _activeVendors() {
 }
 
 // Find a vendor record by name (case-insensitive).
+function _vendorOrderRules(vendorName) {
+  const v = (cache.vendors || []).find(x => x.Title === vendorName);
+  if (!v) return { minTotal: 0, minQty: 0, notes: '', leadTimeDays: 0 };
+  return {
+    minTotal:     parseFloat(v.MinOrderTotal) || 0,
+    minQty:       parseFloat(v.MinOrderQty)   || 0,
+    notes:        v.OrderNotes || '',
+    leadTimeDays: parseFloat(v.LeadTimeDays)  || 0
+  };
+}
+
 function _vendorByName(name) {
   if (!name) return null;
   const n = name.toLowerCase().trim();
@@ -214,6 +225,14 @@ function _renderBuildOrderVendorSection(vendor, items, hasVendorRecord) {
   const warning = !hasVendorRecord
     ? `<div style="font-size:11px;color:var(--orange);margin-bottom:6px;">⚠ "${escHtml(vendor)}" isn't an active vendor. Add them in Vendors first to enable Send actions on the order.</div>`
     : '';
+  const rules = _vendorOrderRules(vendor);
+  const hasMin = rules.minTotal > 0 || rules.minQty > 0;
+  const minChip = hasMin
+    ? `<span id="bo-minchip-${safeVendor}" style="font-size:12px;font-weight:600;padding:3px 8px;border-radius:6px;background:#fff;border:1px solid var(--border);"></span>`
+    : '';
+  const notesIcon = rules.notes
+    ? `<span title="${escHtml(rules.notes)}" style="cursor:help;font-size:14px;" aria-label="Vendor order notes">📋</span>`
+    : '';
   return `
     <div class="build-order-vendor-section" data-vendor="${escHtml(vendor)}" style="border:1.5px solid var(--border);border-radius:10px;margin-bottom:14px;overflow:hidden;">
       <div style="background:var(--cream);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
@@ -221,7 +240,9 @@ function _renderBuildOrderVendorSection(vendor, items, hasVendorRecord) {
           <input type="checkbox" checked onchange="_buildOrderToggleVendor('${escHtml(vendor)}', this.checked)">
           ${escHtml(vendor)} <span style="color:var(--muted);font-weight:400;">(${items.length} item${items.length===1?'':'s'})</span>
         </label>
-        <div style="display:flex;align-items:center;gap:14px;">
+        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+          ${minChip}
+          ${notesIcon}
           <span style="font-size:13px;color:var(--muted);">Subtotal: <b id="bo-subtotal-${safeVendor}" style="color:var(--dark-blue);">$0.00</b></span>
           <button class="btn btn-primary" style="font-size:12px;padding:6px 14px;" onclick="createOrderFromBuilder('${escHtml(vendor)}')">Create Order</button>
         </div>
@@ -299,10 +320,30 @@ function _buildOrderToggleVendor(vendor, checked) {
 
 function _recalcBuildOrderVendorSubtotal(vendor) {
   const items = _buildOrderModel?.byVendor?.[vendor] || [];
-  const subtotal = items.filter(r => r.checked).reduce((s,r) => s + _lineSubtotal(r), 0);
+  const checked = items.filter(r => r.checked);
+  const subtotal = checked.reduce((s,r) => s + _lineSubtotal(r), 0);
+  const totalQty = checked.reduce((s,r) => s + (parseFloat(r.qty)||0), 0);
   const safeVendor = vendor.replace(/[^a-z0-9]+/gi, '_');
   const el = document.getElementById('bo-subtotal-' + safeVendor);
   if (el) el.textContent = _money(subtotal);
+
+  // Min indicator chip — shown only when vendor has MinOrderTotal or MinOrderQty
+  const chip = document.getElementById('bo-minchip-' + safeVendor);
+  if (!chip) return;
+  const rules = _vendorOrderRules(vendor);
+  const parts = [];
+  let met = true;
+  if (rules.minTotal > 0) {
+    if (subtotal < rules.minTotal) met = false;
+    parts.push(`${_money(subtotal)} / ${_money(rules.minTotal)} min`);
+  }
+  if (rules.minQty > 0) {
+    if (totalQty < rules.minQty) met = false;
+    parts.push(`${totalQty} / ${rules.minQty} units`);
+  }
+  chip.textContent = (met ? '✓ ' : '') + parts.join(' · ');
+  chip.style.color = met ? 'var(--green)' : 'var(--orange)';
+  chip.style.borderColor = met ? 'var(--green)' : 'var(--orange)';
 }
 
 async function createOrderFromBuilder(vendor) {

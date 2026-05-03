@@ -255,12 +255,17 @@ function toggleCol(listKey, field, visible) {
 }
 
 // ── Form field renderer ───────────────────────────────────────────
-function vendorFieldInput(key, type, options, val, item) {
+function vendorFieldInput(key, type, options, val, item, field) {
   const id = 'vf_' + key;
   const v = item ? (item[key]||'') : '';
   if (type === 'select') {
     const opts = options.map(o=>`<option ${(v||val)===o?'selected':''}>${escHtml(o)}</option>`).join('');
     return `<select id="${id}" class="filter" style="width:100%"><option value="">—</option>${opts}</select>`;
+  }
+  if (type === 'number') {
+    const step = (field && field.step) || '1';
+    const min  = (field && field.min !== undefined) ? field.min : '';
+    return `<input type="number" id="${id}" value="${escHtml(v)}" step="${escHtml(step)}" min="${escHtml(min)}" placeholder="${escHtml(spFieldLabel(key,LISTS.vendors))}">`;
   }
   if (type === 'days') {
     // comma-separated day names stored as text; rendered as checkboxes
@@ -344,7 +349,7 @@ function openVendorForm(id) {
   document.getElementById('vendor-form-fields').innerHTML = formFields.map(f=>`
     <div class="form-group" ${f.span?'style="grid-column:1/-1"':''}>
       <label>${spFieldLabel(f.key,LISTS.vendors)}</label>
-      ${vendorFieldInput(f.key, f.type, f.options, '', item)}
+      ${vendorFieldInput(f.key, f.type, f.options, '', item, f)}
     </div>`).join('')
     + `<div class="form-group" style="grid-column:1/-1">
       <label>Tags</label>
@@ -394,6 +399,13 @@ async function saveVendorForm() {
     if (k.toLowerCase().includes('phone') && data[k]) {
       data[k] = data[k].split('\n').map(v => formatPhone(v)).filter(Boolean).join('\n');
     }
+  });
+  // Coerce number-typed fields: empty → null (unset), otherwise parsed float
+  const numericKeys = new Set(VENDOR_FORM_FIELDS.filter(f=>f.type==='number').map(f=>f.key));
+  Object.keys(data).forEach(k => {
+    if (!numericKeys.has(k)) return;
+    const raw = String(data[k] ?? '').trim();
+    data[k] = raw === '' ? null : (parseFloat(raw) || 0);
   });
   data.Tags = getTagEditorValue('vendor');
   setLoading(true,'Saving vendor…');

@@ -273,7 +273,7 @@ const INV_COG_CFG = {
 // Bump APP_VERSION any time a deploy has breaking localStorage changes.
 // On version mismatch the entire localStorage is wiped so stale prefs never
 // cause weirdness after an update.
-const APP_VERSION = '2026-05-01r';
+const APP_VERSION = '2026-05-03a';
 (function() {
   try {
     if (localStorage.getItem('bsc_app_version') !== APP_VERSION) {
@@ -285,7 +285,7 @@ const APP_VERSION = '2026-05-01r';
 
 // Bump when SharePoint schema changes. User must clear bsc_provision_v
 // from localStorage (or Settings → Clear Local Data) to trigger re-provisioning.
-const PROVISION_VERSION = '34';
+const PROVISION_VERSION = '35';
 
 // ── Data / cache TTLs ────────────────────────────────────────────
 const CACHE_MAX_AGE = 4 * 60 * 60 * 1000; // 4 hours
@@ -324,6 +324,10 @@ const LIST_FIELD_LABELS = {
     PaymentMethod: 'Payment Method',
     Active:        'Active',
     Tags:          'Tags',
+    LeadTimeDays:  'Lead Time (days)',
+    MinOrderTotal: 'Min Order Total ($)',
+    MinOrderQty:   'Min Order Qty',
+    OrderNotes:    'Order Notes',
   }
 };
 
@@ -366,6 +370,7 @@ const PROVISIONED_COL_NAMES = new Set([
   // Vendors
   'OrderDays','DeliveryDays','ContactPerson','Email','Website','Phone',
   'OrderMethod','Terms','PaymentMethod','Active',
+  'LeadTimeDays','MinOrderTotal','MinOrderQty','OrderNotes',
   // Recipes
   'Content','Steps','Ingredients','Yield',
   // Maint
@@ -403,8 +408,12 @@ const VENDOR_FORM_FIELDS = [
   { key:'OrderMethod',   type:'select', options:['Email','Phone','Portal','App','Fax','In Person','Text'], span:false },
   { key:'OrderDays',     type:'days',   span:false },
   { key:'DeliveryDays',  type:'days',   span:false },
+  { key:'LeadTimeDays',  type:'number', step:'1',    min:'0', span:false },
+  { key:'MinOrderTotal', type:'number', step:'0.01', min:'0', span:false },
+  { key:'MinOrderQty',   type:'number', step:'1',    min:'0', span:false },
   { key:'Terms',         span:false },
   { key:'PaymentMethod', span:false },
+  { key:'OrderNotes',    type:'textarea', span:true },
 ];
 const DAYS_OF_WEEK = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const MAINT_FORM_FIELDS = ['Title','Service','Contact','Phone','Email','Website','Location','Tags','Notes'];
