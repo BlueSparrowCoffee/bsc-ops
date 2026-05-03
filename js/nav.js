@@ -79,6 +79,7 @@ function nav(page) {
   if (page==='cogs')        renderCogs();
   if (page==='parking')     renderParking();
   if (page==='prep-items')  renderPrepItems();
+  if (page==='market-analysis' && typeof renderMarketAnalysis === 'function') renderMarketAnalysis();
 }
 
 // ── Per-page filter reset ───────────────────────────────────────

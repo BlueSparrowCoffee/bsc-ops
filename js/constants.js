@@ -15,7 +15,7 @@ const AUTO_SYNC_INTERVAL_HOURS = 24;       // daily Square→SP auto-sync cooldo
 const AUTO_SYNC_LOCK_TTL_MS    = 5 * 60 * 1000; // hot lock duration (5 min)
 
 // ── App modules / navigation ─────────────────────────────────────
-const MODULES = ['Dashboard','Inventory','Transfers','Ordering','Checklists','Vendors','Recipes','Staff','Maintenance','Contacts','Menu','Prep','Square','COGs','Settings'];
+const MODULES = ['Dashboard','Inventory','Transfers','Ordering','Checklists','Vendors','Recipes','Staff','Maintenance','Contacts','Menu','Prep','Square','COGs','MarketAnalysis','Settings'];
 
 const PAGE_MODULE = {
   'dashboard':      'Dashboard',
@@ -30,6 +30,7 @@ const PAGE_MODULE = {
   'prep-items':     'Prep',
   'square':         'Square',
   'cogs':           'COGs',
+  'market-analysis':'MarketAnalysis',
   'settings':       'Settings',
 };
 
@@ -55,6 +56,9 @@ const LIST_PAGE_MAP = {
   roles:               ['settings'],
   parking:             ['parking'],
   inventoryPars:       ['inventory','dashboard'],
+  marketCompetitors:   ['market-analysis'],
+  marketItems:         ['market-analysis'],
+  marketPrices:        ['market-analysis'],
 };
 
 // ── Maintenance / equipment ──────────────────────────────────────
@@ -229,7 +233,10 @@ const LISTS = {
   merchReceived:       'BSC_MerchReceived',
   merchMonths:         'BSC_MerchMonths',
   lastCount:           'BSC_LastCount',
-  inventoryPars:       'BSC_InventoryPars'     // per-location par + reorder trigger for consumable items
+  inventoryPars:       'BSC_InventoryPars',    // per-location par + reorder trigger for consumable items
+  marketCompetitors:   'BSC_MarketCompetitors',// owner-curated list of comp shops we track pricing for
+  marketItems:         'BSC_MarketItems',      // curated set of items being compared (links to Square item or modifier)
+  marketPrices:        'BSC_MarketPrices'      // one row per (item, competitor, survey date)
 };
 
 // ── Inventory type config — drives which list/cache key each inv type uses ──
@@ -273,7 +280,7 @@ const INV_COG_CFG = {
 // Bump APP_VERSION any time a deploy has breaking localStorage changes.
 // On version mismatch the entire localStorage is wiped so stale prefs never
 // cause weirdness after an update.
-const APP_VERSION = '2026-05-03e';
+const APP_VERSION = '2026-05-03f';
 (function() {
   try {
     if (localStorage.getItem('bsc_app_version') !== APP_VERSION) {
@@ -285,7 +292,31 @@ const APP_VERSION = '2026-05-03e';
 
 // Bump when SharePoint schema changes. User must clear bsc_provision_v
 // from localStorage (or Settings → Clear Local Data) to trigger re-provisioning.
-const PROVISION_VERSION = '35';
+const PROVISION_VERSION = '36';
+
+// ── Market Analysis list schemas ─────────────────────────────────
+// Provisioned in ensureAllLists (index.html). Denormalized text columns
+// for cross-list refs so renames stay safe (cascade helper handles those).
+const MARKET_COMPETITORS_COLS = [
+  {name:'Active', text:{}},                                           // 'Yes' / 'No' (default 'Yes')
+  {name:'Notes',  text:{allowMultipleLines:true,linesForEditing:3}}
+];
+const MARKET_ITEMS_COLS = [
+  {name:'Size',         text:{}},                                     // '12oz', '16oz', '' for modifiers
+  {name:'Category',     text:{}},                                     // espresso / brewed / cold / modifier / other
+  {name:'SquareKind',   text:{}},                                     // 'item' | 'modifier' | ''
+  {name:'SquareRefId',  text:{}},                                     // Square catalog item id OR modifier id
+  {name:'DisplayOrder', number:{decimalPlaces:'none'}},
+  {name:'Active',       text:{}}                                      // 'Yes' / 'No'
+];
+const MARKET_PRICES_COLS = [
+  {name:'ItemKey',     text:{}},                                      // denormalized "<Title> <Size>" for stability
+  {name:'Competitor',  text:{}},                                      // denormalized name (incl. 'BSC' for own history)
+  {name:'Price',       number:{decimalPlaces:'automatic'}},
+  {name:'SurveyDate',  dateTime:{displayAs:'default',format:'dateOnly'}},
+  {name:'Notes',       text:{allowMultipleLines:true,linesForEditing:2}},
+  {name:'Source',      text:{}}                                       // 'manual' | 'import' | 'square-sync'
+];
 
 // ── Data / cache TTLs ────────────────────────────────────────────
 const CACHE_MAX_AGE = 4 * 60 * 60 * 1000; // 4 hours

@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-03e">
-<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-03e">
-<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-03e">
-<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-03e">
-<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-03e">
+<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-03f">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-03f">
+<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-03f">
+<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-03f">
+<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-03f">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="BSC Ops">
@@ -556,6 +556,7 @@ html,body{overscroll-behavior:none;}
   <div class="nav-item" data-module="Recipes" onclick="nav('recipes')"><span class="nav-icon">📖</span> Recipes</div>
   <div class="nav-item" data-module="Staff" onclick="nav('staff')"><span class="nav-icon">👥</span> Staff</div>
   <div class="nav-item" data-module="Vendors" onclick="nav('vendors')"><span class="nav-icon">🤝</span> Vendors</div>
+  <div class="nav-item" data-module="MarketAnalysis" onclick="nav('market-analysis')"><span class="nav-icon">📊</span> Market Analysis</div>
   <div class="nav-section">Admin</div>
   <div class="nav-item" onclick="nav('parking')" style="display:none"><span class="nav-icon">🅿️</span> Parking</div>
   <div class="nav-item" data-module="Square" onclick="nav('square')"><span class="nav-icon">◼</span> Square</div>
@@ -1757,6 +1758,212 @@ html,body{overscroll-behavior:none;}
   </div>
 
   <!-- COFFEE BAG LABELS -->
+
+  <!-- MARKET ANALYSIS -->
+  <div class="page section-load-target" id="page-market-analysis">
+    <div class="page-header">
+      <div class="page-title">📊 Market Analysis</div>
+      <div class="page-sub">How BSC pricing compares to competitors — owner only</div>
+    </div>
+    <div id="ma-access-denied" style="display:none;padding:60px 20px;text-align:center;color:var(--muted);">
+      <div style="font-size:36px;margin-bottom:8px;">🔒</div>
+      <div style="font-weight:600;">Owner access required</div>
+    </div>
+    <div id="ma-body">
+      <div class="toolbar">
+        <button class="btn btn-primary" onclick="openMarketPriceEdit('','')" id="ma-add-survey-btn" style="display:none;">+ Add Survey</button>
+        <button class="btn btn-outline" onclick="openMarketImport()">📥 Import Spreadsheet</button>
+        <button class="btn btn-outline" onclick="openMarketManage()">⚙ Manage</button>
+        <span style="flex:1"></span>
+        <button class="btn btn-outline" id="ma-refresh-bsc-btn" onclick="refreshAllBscPrices()" title="Pull current BSC prices for any item linked to Square">🔄 Refresh BSC prices from Square</button>
+      </div>
+
+      <!-- Headline -->
+      <div class="card" id="ma-headline" style="padding:18px 22px;margin-bottom:18px;"></div>
+
+      <!-- Active competitor chips -->
+      <div style="margin-bottom:18px;">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin-bottom:6px;">Active competitors (click to toggle)</div>
+        <div id="ma-competitor-chips"></div>
+      </div>
+
+      <!-- Item picker + bar chart -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
+        <label style="font-size:12px;color:var(--muted);font-weight:600;">Compare item:</label>
+        <select id="ma-item-picker" class="filter" onchange="onMarketItemPick(this.value)" style="min-width:240px;"></select>
+      </div>
+      <div id="ma-bar-chart" style="margin-bottom:24px;"></div>
+
+      <!-- Heatmap -->
+      <div style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin-bottom:6px;">All items × all competitors (click any cell to edit)</div>
+      <div id="ma-heatmap"></div>
+    </div>
+  </div>
+
+  <!-- MARKET ANALYSIS — Single-row price edit -->
+  <div class="modal-overlay" id="modal-market-price-edit">
+    <div class="modal" style="max-width:480px;">
+      <div class="modal-header">
+        <div class="modal-title" id="mpe-title">Edit Price</div>
+        <button class="modal-close" onclick="closeModal('modal-market-price-edit')">×</button>
+      </div>
+      <input type="hidden" id="mpe-item-id">
+      <input type="hidden" id="mpe-item-key">
+      <input type="hidden" id="mpe-competitor">
+      <input type="hidden" id="mpe-existing-id">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Price ($)</label>
+          <input type="number" id="mpe-price" class="field-input" step="0.01" min="0" placeholder="e.g. 5.75">
+        </div>
+        <div class="form-group">
+          <label>Survey Date</label>
+          <input type="date" id="mpe-date" class="field-input">
+        </div>
+        <div class="form-group" style="grid-column:span 2;">
+          <label>Notes (optional)</label>
+          <textarea id="mpe-notes" class="field-input" rows="2" placeholder="e.g. promo price, off-menu, etc."></textarea>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="saveMarketPriceEdit()">Save</button>
+        <button class="btn btn-outline" id="mpe-delete-btn" onclick="deleteMarketPriceEdit()" style="color:var(--red);">Delete</button>
+        <button class="btn btn-outline" onclick="closeModal('modal-market-price-edit')">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MARKET ANALYSIS — Manage competitors + items -->
+  <div class="modal-overlay" id="modal-market-manage">
+    <div class="modal" style="max-width:760px;">
+      <div class="modal-header">
+        <div class="modal-title">Manage Market Analysis</div>
+        <button class="modal-close" onclick="closeModal('modal-market-manage')">×</button>
+      </div>
+      <div style="padding:8px 0;">
+        <div style="font-weight:700;font-size:13px;color:var(--dark-blue);margin-bottom:6px;">Competitors</div>
+        <div style="display:flex;gap:8px;margin-bottom:10px;">
+          <input id="mm-new-competitor" class="field-input" placeholder="Add a competitor (e.g. Starbucks)" style="flex:1;font-size:13px;">
+          <button class="btn btn-primary" onclick="addMarketCompetitor()" style="padding:6px 14px;font-size:12px;">+ Add</button>
+        </div>
+        <div id="mm-competitors-list" style="margin-bottom:18px;"></div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <div style="font-weight:700;font-size:13px;color:var(--dark-blue);">Tracked Items</div>
+          <button class="btn btn-primary" onclick="openMarketItemEdit('')" style="padding:6px 14px;font-size:12px;">+ Add Item</button>
+        </div>
+        <div id="mm-items-list"></div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-outline" onclick="closeModal('modal-market-manage')">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MARKET ANALYSIS — Item edit -->
+  <div class="modal-overlay" id="modal-market-item-edit">
+    <div class="modal" style="max-width:560px;">
+      <div class="modal-header">
+        <div class="modal-title" id="mie-title-text">Edit Tracked Item</div>
+        <button class="modal-close" onclick="closeModal('modal-market-item-edit')">×</button>
+      </div>
+      <input type="hidden" id="mie-id">
+      <input type="hidden" id="mie-square-ref-id">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Item name</label>
+          <input id="mie-title" class="field-input" placeholder="e.g. Latte">
+        </div>
+        <div class="form-group">
+          <label>Size (optional)</label>
+          <input id="mie-size" class="field-input" placeholder="12oz / 16oz / blank">
+        </div>
+        <div class="form-group">
+          <label>Category</label>
+          <select id="mie-category" class="field-input"></select>
+        </div>
+        <div class="form-group">
+          <label>Display order</label>
+          <input id="mie-display-order" type="number" class="field-input" placeholder="lower = earlier">
+        </div>
+        <div class="form-group">
+          <label>Square link kind</label>
+          <select id="mie-square-kind" class="field-input" onchange="onMarketItemSquareKindChange()">
+            <option value="">— Not linked —</option>
+            <option value="item">Square menu item</option>
+            <option value="modifier">Square modifier</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Square reference</label>
+          <select id="mie-square-ref" class="field-input" onchange="onMarketItemSquareRefChange()" disabled></select>
+        </div>
+        <div class="form-group">
+          <label>Active</label>
+          <select id="mie-active" class="field-input">
+            <option value="Yes">Yes</option>
+            <option value="No">No (hidden)</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="saveMarketItemEdit()">Save</button>
+        <button class="btn btn-outline" onclick="closeModal('modal-market-item-edit')">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MARKET ANALYSIS — Spreadsheet Import -->
+  <div class="modal-overlay" id="modal-market-import">
+    <div class="modal" style="max-width:920px;">
+      <div class="modal-header">
+        <div class="modal-title">Import Pricing Spreadsheet</div>
+        <button class="modal-close" onclick="closeModal('modal-market-import')">×</button>
+      </div>
+      <div id="mi-stage-upload" style="padding:18px 6px;">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:12px;">
+          Upload an .xlsx with a "Summary" sheet. Expected layout: column A = size, column B = item, columns C+ = competitors. "BSC YYYY" columns are auto-detected as historical BSC entries.
+        </div>
+        <input type="file" id="mi-file-input" accept=".xlsx,.xls" onchange="onMarketImportFile(this)" class="field-input" style="font-size:13px;">
+      </div>
+      <div id="mi-stage-confirm" style="display:none;padding:8px 0;max-height:520px;overflow-y:auto;">
+        <div style="font-weight:700;font-size:13px;color:var(--dark-blue);margin-bottom:6px;">Competitor columns</div>
+        <table style="width:100%;border-collapse:collapse;margin-bottom:18px;">
+          <thead><tr style="background:var(--cream);">
+            <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--muted);">Spreadsheet column</th>
+            <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--muted);">Action</th>
+            <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--muted);">Target / Date</th>
+          </tr></thead>
+          <tbody id="mi-comp-table-body"></tbody>
+        </table>
+
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+          <div style="font-weight:700;font-size:13px;color:var(--dark-blue);">Item rows</div>
+          <span style="font-size:12px;color:var(--muted);">Default survey date for non-BSC columns:</span>
+          <input id="mi-default-date" type="date" class="field-input" style="font-size:12px;padding:3px 6px;width:140px;" oninput="_renderImportPreviewCount()">
+        </div>
+        <table style="width:100%;border-collapse:collapse;">
+          <thead><tr style="background:var(--cream);">
+            <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--muted);">Include</th>
+            <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--muted);">Item</th>
+            <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--muted);">Size</th>
+            <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--muted);">Action</th>
+            <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--muted);">Category</th>
+          </tr></thead>
+          <tbody id="mi-item-table-body"></tbody>
+        </table>
+        <div id="mi-preview-summary" style="margin-top:14px;font-size:13px;font-weight:600;color:var(--dark-blue);"></div>
+      </div>
+      <div id="mi-stage-result" style="display:none;padding:18px 6px;">
+        <div id="mi-result-summary"></div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" id="mi-confirm-btn" onclick="confirmMarketImport()">Import</button>
+        <button class="btn btn-outline" onclick="closeModal('modal-market-import')">Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- SQUARE -->
   <div class="page section-load-target" id="page-square">
     <div class="page-header">
@@ -2410,38 +2617,39 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-05-03e" defer></script>
-<script src="/js/utils.js?v=2026-05-03e" defer></script>
-<script src="/js/state.js?v=2026-05-03e" defer></script>
-<script src="/js/auth.js?v=2026-05-03e" defer></script>
-<script src="/js/graph.js?v=2026-05-03e" defer></script>
-<script src="/js/signalr.js?v=2026-05-03e" defer></script>
-<script src="/js/tags.js?v=2026-05-03e" defer></script>
-<script src="/js/nav.js?v=2026-05-03e" defer></script>
-<script src="/js/settings.js?v=2026-05-03e" defer></script>
-<script src="/js/dashboard.js?v=2026-05-03e" defer></script>
-<script src="/js/inventory.js?v=2026-05-03e" defer></script>
-<script src="/js/inventory-form.js?v=2026-05-03e" defer></script>
-<script src="/js/counts.js?v=2026-05-03e" defer></script>
-<script src="/js/foodpars.js?v=2026-05-03e" defer></script>
-<script src="/js/labels.js?v=2026-05-03e" defer></script>
-<script src="/js/bags.js?v=2026-05-03e" defer></script>
-<script src="/js/bag-labels-5lb.js?v=2026-05-03e" defer></script>
-<script src="/js/pastry-sync.js?v=2026-05-03e" defer></script>
-<script src="/js/recipes.js?v=2026-05-03e" defer></script>
-<script src="/js/cogs.js?v=2026-05-03e" defer></script>
-<script src="/js/vendors.js?v=2026-05-03e" defer></script>
-<script src="/js/contacts.js?v=2026-05-03e" defer></script>
-<script src="/js/maintenance.js?v=2026-05-03e" defer></script>
-<script src="/js/checklists.js?v=2026-05-03e" defer></script>
-<script src="/js/ordering.js?v=2026-05-03e" defer></script>
-<script src="/js/ordering-build.js?v=2026-05-03e" defer></script>
-<script src="/js/parking.js?v=2026-05-03e" defer></script>
-<script src="/js/prepItems.js?v=2026-05-03e" defer></script>
-<script src="/js/square.js?v=2026-05-03e" defer></script>
-<script src="/js/timeclock.js?v=2026-05-03e" defer></script>
-<script src="/js/slack.js?v=2026-05-03e" defer></script>
-<script src="/js/auto-sync.js?v=2026-05-03e" defer></script>
+<script src="/js/constants.js?v=2026-05-03f" defer></script>
+<script src="/js/utils.js?v=2026-05-03f" defer></script>
+<script src="/js/state.js?v=2026-05-03f" defer></script>
+<script src="/js/auth.js?v=2026-05-03f" defer></script>
+<script src="/js/graph.js?v=2026-05-03f" defer></script>
+<script src="/js/signalr.js?v=2026-05-03f" defer></script>
+<script src="/js/tags.js?v=2026-05-03f" defer></script>
+<script src="/js/nav.js?v=2026-05-03f" defer></script>
+<script src="/js/settings.js?v=2026-05-03f" defer></script>
+<script src="/js/dashboard.js?v=2026-05-03f" defer></script>
+<script src="/js/inventory.js?v=2026-05-03f" defer></script>
+<script src="/js/inventory-form.js?v=2026-05-03f" defer></script>
+<script src="/js/counts.js?v=2026-05-03f" defer></script>
+<script src="/js/foodpars.js?v=2026-05-03f" defer></script>
+<script src="/js/labels.js?v=2026-05-03f" defer></script>
+<script src="/js/bags.js?v=2026-05-03f" defer></script>
+<script src="/js/bag-labels-5lb.js?v=2026-05-03f" defer></script>
+<script src="/js/pastry-sync.js?v=2026-05-03f" defer></script>
+<script src="/js/recipes.js?v=2026-05-03f" defer></script>
+<script src="/js/cogs.js?v=2026-05-03f" defer></script>
+<script src="/js/vendors.js?v=2026-05-03f" defer></script>
+<script src="/js/contacts.js?v=2026-05-03f" defer></script>
+<script src="/js/maintenance.js?v=2026-05-03f" defer></script>
+<script src="/js/checklists.js?v=2026-05-03f" defer></script>
+<script src="/js/ordering.js?v=2026-05-03f" defer></script>
+<script src="/js/ordering-build.js?v=2026-05-03f" defer></script>
+<script src="/js/market-analysis.js?v=2026-05-03f" defer></script>
+<script src="/js/parking.js?v=2026-05-03f" defer></script>
+<script src="/js/prepItems.js?v=2026-05-03f" defer></script>
+<script src="/js/square.js?v=2026-05-03f" defer></script>
+<script src="/js/timeclock.js?v=2026-05-03f" defer></script>
+<script src="/js/slack.js?v=2026-05-03f" defer></script>
+<script src="/js/auto-sync.js?v=2026-05-03f" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
@@ -2815,6 +3023,11 @@ async function ensureAllLists() {
   // Per-location par + reorder trigger for consumable inventory items.
   // Title is the composite key "{itemId}:{locationSlug}".
   await ensureList(LISTS.inventoryPars, INV_PARS_LIST_COLS);
+
+  // Market Analysis lists (PROVISION_VERSION 36)
+  await ensureList(LISTS.marketCompetitors, MARKET_COMPETITORS_COLS);
+  await ensureList(LISTS.marketItems,       MARKET_ITEMS_COLS);
+  await ensureList(LISTS.marketPrices,      MARKET_PRICES_COLS);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -2901,6 +3114,15 @@ async function loadAllData() {
   ].map(trackLoad));
   cache.cogsRecipes = cogsRecipes;
   cache.cogSnapshots = cogSnapshots;
+  // Market Analysis lists — owner-only feature, but load for everyone so
+  // SignalR refreshes work seamlessly when an owner is on the page.
+  if (typeof loadMarketAnalysisData === 'function') {
+    await loadMarketAnalysisData(siteId).catch(e => console.warn('Market Analysis load failed:', e));
+  }
+  // Square modifier cache — lazy, fire-and-forget; only needed by Market Analysis owner UI.
+  if (typeof syncSquareModifiers === 'function') {
+    syncSquareModifiers().catch(e => console.warn('Modifier sync failed:', e));
+  }
   resolveCurrentStaffMember(); // match login email → BSC_Staff record
   applyHiddenSettings(); // sync hidden IDs from SharePoint before first render
   renderAll();
@@ -4684,7 +4906,7 @@ function renderMenu(query='', catFilter='') {
     const stockDisplay = stock != null ? stock : '—';
     const vars = (i.Variations||'').split('\n').filter(Boolean);
     return `<tr data-gs-id="${escHtml(i.id)}" style="${isHidden?'opacity:0.45;':''}">
-      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-03e" alt="" title="Synced with Square">':''}</td>
+      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-03f" alt="" title="Synced with Square">':''}</td>
       <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${escHtml(i.Category||'—')}</span></td>
       <td style="font-size:12px;color:var(--muted);max-width:220px">${escHtml(i.Description||'')}</td>
       <td>${i.Price != null ? '$'+Number(i.Price).toFixed(2) : '—'}</td>

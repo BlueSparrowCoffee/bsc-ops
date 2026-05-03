@@ -560,3 +560,70 @@ async function syncSquareInventory() {
   btn.disabled = false; btn.textContent = 'Sync Menu Counts';
 }
 
+// ── Modifier list sync (Market Analysis) ─────────────────────────
+// Pulls every active modifier across every modifier list from Square's
+// Catalog API and flattens into cache.squareModifiers as
+// [{id, name, listName, price}].
+// Called on app load (once) and refreshable from the Market Analysis page.
+// Read-only — does not write to SharePoint. Modifier prices go straight
+// into BSC_MarketPrices when the user marks an item as 'modifier'.
+async function syncSquareModifiers() {
+  if (!getSquareToken()) { cache.squareModifiers = []; return []; }
+  try {
+    let objects = [], cursor = null;
+    do {
+      const params = `catalog/list?types=MODIFIER_LIST,MODIFIER${cursor ? '&cursor='+encodeURIComponent(cursor) : ''}`;
+      const data = await squareAPI('GET', params);
+      objects = objects.concat(data.objects || []);
+      cursor = data.cursor || null;
+    } while (cursor);
+
+    const lists = {};
+    objects
+      .filter(o => o.type === 'MODIFIER_LIST' && !o.is_deleted)
+      .forEach(l => { lists[l.id] = l.modifier_list_data?.name || l.id; });
+
+    // MODIFIER_LIST objects also contain inline modifiers via
+    // modifier_list_data.modifiers — prefer those; fall back to top-level
+    // MODIFIER objects (depending on shape returned by Square)
+    const flat = [];
+    objects
+      .filter(o => o.type === 'MODIFIER_LIST' && !o.is_deleted)
+      .forEach(l => {
+        const inline = l.modifier_list_data?.modifiers || [];
+        inline.forEach(m => {
+          if (m.is_deleted) return;
+          const md = m.modifier_data || {};
+          flat.push({
+            id:        m.id,
+            name:      md.name || '',
+            listId:    l.id,
+            listName:  l.modifier_list_data?.name || '',
+            price:     md.price_money ? md.price_money.amount / 100 : null
+          });
+        });
+      });
+    objects
+      .filter(o => o.type === 'MODIFIER' && !o.is_deleted)
+      .forEach(m => {
+        if (flat.find(f => f.id === m.id)) return; // dedupe
+        const md = m.modifier_data || {};
+        const listId = md.modifier_list_id;
+        flat.push({
+          id:       m.id,
+          name:     md.name || '',
+          listId,
+          listName: lists[listId] || '',
+          price:    md.price_money ? md.price_money.amount / 100 : null
+        });
+      });
+
+    cache.squareModifiers = flat;
+    return flat;
+  } catch (e) {
+    console.warn('[syncSquareModifiers] failed:', e);
+    cache.squareModifiers = [];
+    return [];
+  }
+}
+

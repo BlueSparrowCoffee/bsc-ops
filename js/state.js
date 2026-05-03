@@ -42,7 +42,11 @@ const cache = {
   merchReceived: [],
   merchMonths: [],
   lastCount: [],
-  inventoryPars: []   // per-location par + reorder trigger rows
+  inventoryPars: [],   // per-location par + reorder trigger rows
+  marketCompetitors: [],
+  marketItems: [],
+  marketPrices: [],
+  squareModifiers: []  // flattened modifier list pulled from Square Catalog
 };
 
 // ── SignalR refresh coordination ─────────────────────────────────
