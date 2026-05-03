@@ -68,7 +68,7 @@ function nav(page) {
     const denied = !isOwner();
     document.getElementById('settings-access-denied').style.display = denied ? '' : 'none';
     document.getElementById('settings-body').style.display = denied ? 'none' : '';
-    if (!denied) { renderRoles(); renderLocations(); renderSlackSettings(); renderTagsSettings(); initColMgr(); if (typeof renderCoffeeBagSettings === 'function') renderCoffeeBagSettings(); if (typeof renderClockInAlertSettings === 'function') renderClockInAlertSettings(); if (typeof renderAutoSendOrdersCard === 'function') renderAutoSendOrdersCard(); }
+    if (!denied) { renderRoles(); renderLocations(); renderSlackSettings(); renderTagsSettings(); initColMgr(); if (typeof renderCoffeeBagSettings === 'function') renderCoffeeBagSettings(); if (typeof renderClockInAlertSettings === 'function') renderClockInAlertSettings(); if (typeof renderAutoSendOrdersCard === 'function') renderAutoSendOrdersCard(); if (typeof renderOrderEmailTemplateCard === 'function') renderOrderEmailTemplateCard(); }
   }
   if (page==='square') {
     renderSquarePage();

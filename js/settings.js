@@ -372,3 +372,100 @@ async function toggleAutoSendOrders(checked) {
   }
   renderAutoSendOrdersCard();
 }
+
+// ── Order Email Template ─────────────────────────────────────────
+// Lets the owner customize the subject/intro/signature used when
+// sending orders to vendors. Stored in BSC_Settings under
+// order_email_subject / order_email_intro / order_email_signature.
+// Read by _orderEmailTemplates() in ordering-build.js. Blank settings
+// fall back to _ORDER_EMAIL_DEFAULTS.
+function renderOrderEmailTemplateCard() {
+  const wrap = document.getElementById('order-email-template-card-body');
+  if (!wrap) return;
+  const subj = getSetting('order_email_subject')   || (typeof _ORDER_EMAIL_DEFAULTS !== 'undefined' ? _ORDER_EMAIL_DEFAULTS.subject   : '');
+  const intro = getSetting('order_email_intro')    || (typeof _ORDER_EMAIL_DEFAULTS !== 'undefined' ? _ORDER_EMAIL_DEFAULTS.intro     : '');
+  const sig  = getSetting('order_email_signature') || (typeof _ORDER_EMAIL_DEFAULTS !== 'undefined' ? _ORDER_EMAIL_DEFAULTS.signature : '');
+  const ownerOnly = !isOwner();
+  wrap.innerHTML = `
+    <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">
+      Customize what vendors see when you send an order. Placeholders: <code>{vendor}</code> <code>{location}</code> <code>{date}</code> <code>{user}</code> <code>{total}</code>. The items list, total, and notes are filled in automatically.
+    </p>
+    <label class="field-label">Subject</label>
+    <input id="oet-subject" class="field-input" style="width:100%;margin-bottom:14px;" value="${escHtml(subj)}" ${ownerOnly?'disabled':''} oninput="renderOrderEmailPreview()">
+    <label class="field-label">Intro (above items)</label>
+    <textarea id="oet-intro" rows="4" class="field-input" style="width:100%;margin-bottom:14px;font-family:inherit;" ${ownerOnly?'disabled':''} oninput="renderOrderEmailPreview()">${escHtml(intro)}</textarea>
+    <label class="field-label">Signature (below items)</label>
+    <textarea id="oet-signature" rows="3" class="field-input" style="width:100%;margin-bottom:14px;font-family:inherit;" ${ownerOnly?'disabled':''} oninput="renderOrderEmailPreview()">${escHtml(sig)}</textarea>
+    <div style="display:flex;gap:8px;margin-bottom:18px;">
+      <button class="btn btn-primary" onclick="saveOrderEmailTemplate()" ${ownerOnly?'disabled':''}>Save</button>
+      <button class="btn btn-outline" onclick="resetOrderEmailTemplate()" ${ownerOnly?'disabled':''}>Reset to defaults</button>
+    </div>
+    <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px;letter-spacing:.04em">PREVIEW</div>
+    <div style="background:#f9f9f9;border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:12px;line-height:1.5;">
+      <div style="font-weight:600;margin-bottom:8px;color:var(--dark-blue);">Subject: <span id="oet-preview-subject"></span></div>
+      <pre id="oet-preview-body" style="margin:0;white-space:pre-wrap;font-family:inherit;color:#333;"></pre>
+    </div>
+    ${ownerOnly ? '<div style="font-size:11px;color:var(--muted);margin-top:10px;">Owner access required to change this setting.</div>' : ''}
+  `;
+  renderOrderEmailPreview();
+}
+
+function _orderEmailPreviewVars() {
+  return {
+    vendor:   'Costco',
+    location: 'Blake',
+    date:     'Friday, May 8',
+    user:     currentUser?.name || currentUser?.username || 'Manager',
+    total:    '$245.30'
+  };
+}
+
+function renderOrderEmailPreview() {
+  const subj  = document.getElementById('oet-subject')?.value   || '';
+  const intro = document.getElementById('oet-intro')?.value     || '';
+  const sig   = document.getElementById('oet-signature')?.value || '';
+  const vars  = _orderEmailPreviewVars();
+  const sub   = (s) => String(s).replace(/\{(\w+)\}/g, (m, k) => (k in vars ? vars[k] : m));
+  const subjEl = document.getElementById('oet-preview-subject');
+  const bodyEl = document.getElementById('oet-preview-body');
+  if (subjEl) subjEl.textContent = sub(subj);
+  if (bodyEl) {
+    const sampleItems = '  • 5 × Whole Milk (gallon)\n  • 12 × Oat Milk (carton)\n  • 2 × Heavy Cream (quart)';
+    bodyEl.textContent = [
+      sub(intro), '', 'Items:', sampleItems, '', `Total: ${vars.total}`, '', sub(sig)
+    ].filter(Boolean).join('\n');
+  }
+}
+
+async function saveOrderEmailTemplate() {
+  if (!isOwner()) { toast('err','Owner access required'); return; }
+  const subj = document.getElementById('oet-subject')?.value.trim()   || '';
+  const intro = document.getElementById('oet-intro')?.value           || '';
+  const sig  = document.getElementById('oet-signature')?.value        || '';
+  try {
+    await Promise.all([
+      saveSetting('order_email_subject',   subj),
+      saveSetting('order_email_intro',     intro),
+      saveSetting('order_email_signature', sig)
+    ]);
+    toast('ok', '✓ Order email template saved');
+  } catch (e) {
+    toast('err', 'Save failed: ' + e.message);
+  }
+}
+
+async function resetOrderEmailTemplate() {
+  if (!isOwner()) { toast('err','Owner access required'); return; }
+  if (!confirm('Reset subject, intro, and signature to defaults?')) return;
+  try {
+    await Promise.all([
+      saveSetting('order_email_subject',   ''),
+      saveSetting('order_email_intro',     ''),
+      saveSetting('order_email_signature', '')
+    ]);
+    renderOrderEmailTemplateCard();
+    toast('ok', '✓ Reset to defaults');
+  } catch (e) {
+    toast('err', 'Reset failed: ' + e.message);
+  }
+}

@@ -1,24 +1,19 @@
 /* ================================================================
  * BSC Ops — ordering.js
- * Orders list (page-ordering): table render + status filter + the
- * legacy "create manual order" modal (modal-order).
+ * Orders list (page-ordering): table render + status filter.
  *
- * The richer build/send/receive workflow lives in ordering-build.js.
- * Orders created via Build Order have a LineItems JSON column; legacy
- * free-text orders display from the older Items field.
+ * Order creation lives in ordering-build.js (Build/Send/Receive
+ * workflow). Orders created via Build Order have a LineItems JSON
+ * column; pre-existing legacy orders still render their free-text
+ * Items field (read-only).
  *
  * Contents:
  *   - renderOrders(query, statusFilter)
  *   - filterOrders(query)
- *   - saveOrder()  — adds one row from modal-order (manual entry path)
  *
  * Depends on:
- *   state.js     — cache, currentUser
- *   constants.js — LISTS
- *   utils.js     — escHtml, toast, closeModal, setLoading, debounceFilter
- *   graph.js     — addListItem
- *   dashboard.js — renderDashboard
- *   slack.js     — sendSlackAlert
+ *   state.js     — cache
+ *   utils.js     — escHtml, debounceFilter
  *   ordering-build.js — openOrderDetailModal (called on row click)
  * ================================================================ */
 
@@ -64,28 +59,4 @@ function renderOrders(query='', statusFilter='') {
 
 function filterOrders(query) {
   renderOrders(query, document.getElementById('order-status-filter').value);
-}
-
-async function saveOrder() {
-  const vendor = document.getElementById('order-vendor-sel').value;
-  if (!vendor) { toast('err','Select a vendor'); return; }
-  setLoading(true,'Creating order…');
-  try {
-    const fields = {
-      Vendor: vendor,
-      Location: document.getElementById('order-loc-sel').value,
-      Status: document.getElementById('order-status-sel').value,
-      OrderedBy: currentUser.name||currentUser.username,
-      Items: document.getElementById('order-notes').value,
-      Notes: document.getElementById('order-notes').value,
-      ExpectedDelivery: document.getElementById('order-delivery').value||null
-    };
-    const order = await addListItem(LISTS.orders, fields);
-    cache.orders.push(order);
-    renderOrders(); renderDashboard();
-    closeModal('modal-order');
-    toast('ok','✓ Order created');
-    sendSlackAlert(`🛒 New order: *${vendor}* for ${fields.Location} — ${fields.Status} (${currentUser.name||currentUser.username})`);
-  } catch(e) { toast('err','Save failed: '+e.message); }
-  finally { setLoading(false); }
 }

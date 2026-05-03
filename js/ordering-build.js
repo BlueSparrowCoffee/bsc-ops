@@ -128,29 +128,81 @@ function _vendorFirst(vendor, field) {
 }
 
 // Format the order body — used for mailto/sms/copy
-function _orderBody(order, lines) {
-  const total = _orderSubtotal(lines);
-  const itemsBlock = lines.map(l => `  • ${l.qty} × ${l.name}${l.unit ? ' ('+l.unit+')' : ''}`).join('\n');
+// Default order email subject + intro + signature — used when the
+// matching BSC_Settings key is blank. Editable on Settings → 📧 Order Email Template.
+const _ORDER_EMAIL_DEFAULTS = {
+  subject:   'Order from Blue Sparrow Coffee, {location}',
+  intro:     'Hi {vendor},\n\nPlease ship the following to our {location} location.\nRequested delivery: {date}',
+  signature: 'Thanks!\n{user}\nBlue Sparrow Coffee'
+};
+
+function _orderEmailTemplates() {
+  const get = (k) => (typeof getSetting === 'function' ? getSetting(k) : '') || '';
+  return {
+    subject:   get('order_email_subject')   || _ORDER_EMAIL_DEFAULTS.subject,
+    intro:     get('order_email_intro')     || _ORDER_EMAIL_DEFAULTS.intro,
+    signature: get('order_email_signature') || _ORDER_EMAIL_DEFAULTS.signature,
+  };
+}
+
+// Substitute {placeholder} tokens. Unknown placeholders are left untouched
+// so a typo is visible rather than silently dropped.
+function _substituteOrderVars(tpl, vars) {
+  return String(tpl || '').replace(/\{(\w+)\}/g, (m, k) => (k in vars ? vars[k] : m));
+}
+
+function _orderEmailVars(order, lines) {
   const expected = order.ExpectedDelivery
     ? new Date(order.ExpectedDelivery).toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})
     : 'ASAP';
-  const orderedBy = order.OrderedBy || (currentUser?.name || currentUser?.username || '');
+  return {
+    vendor:   order.Vendor || '',
+    location: order.Location || '',
+    date:     expected,
+    user:     order.OrderedBy || (currentUser?.name || currentUser?.username || ''),
+    total:    _money(_orderSubtotal(lines)),
+  };
+}
+
+function _orderBody(order, lines) {
+  const total = _orderSubtotal(lines);
+  const itemsBlock = lines.map(l => `  • ${l.qty} × ${l.name}${l.unit ? ' ('+l.unit+')' : ''}`).join('\n');
+  const tpl = _orderEmailTemplates();
+  const vars = _orderEmailVars(order, lines);
+  const intro = _substituteOrderVars(tpl.intro, vars);
+  const signature = _substituteOrderVars(tpl.signature, vars);
   return [
-    `${order.Vendor} — Order from Blue Sparrow Coffee, ${order.Location}`,
-    `Requested delivery: ${expected}`,
-    `Ordered by: ${orderedBy}`,
+    intro,
     '',
     'Items:',
     itemsBlock,
     '',
     `Total: ${_money(total)}`,
-    order.Notes ? `\nNotes: ${order.Notes}` : ''
+    order.Notes ? `Notes: ${order.Notes}` : '',
+    '',
+    signature
   ].filter(Boolean).join('\n');
+}
+
+function _orderSubject(order, lines) {
+  const tpl = _orderEmailTemplates();
+  return _substituteOrderVars(tpl.subject, _orderEmailVars(order, lines));
 }
 
 // ────────────────────────────────────────────────────────────────
 // 1. Build Order modal — entry point from Inventory toolbar
 // ────────────────────────────────────────────────────────────────
+
+// Entry point from Ordering page "Build New Order" button — navigates to
+// the consumable inventory tab (where Build Order actually lives) and
+// opens the modal. Uses small setTimeouts to let nav + tab-switch settle
+// before the modal opens, mirroring the global search nav pattern.
+function navBuildNewOrder() {
+  if (currentLocation === 'all') { toast('err','Select a location first'); return; }
+  if (typeof nav === 'function') nav('inventory');
+  if (typeof switchInvType === 'function') switchInvType('consumable');
+  setTimeout(() => openBuildOrderModal(), 0);
+}
 
 function openBuildOrderModal() {
   if (currentLocation === 'all') { toast('err','Select a location first'); return; }
@@ -531,7 +583,7 @@ async function sendOrderToVendor(orderId) {
   const body = _orderBody(liveOrder, lines);
   const vendor = _vendorByName(liveOrder.Vendor);
   const method = (vendor?.OrderMethod || '').trim();
-  const subject = `Order from Blue Sparrow Coffee, ${liveOrder.Location}`;
+  const subject = _orderSubject(liveOrder, lines);
 
   if (method === 'Email') {
     const to = _vendorFirst(vendor, 'Email');
