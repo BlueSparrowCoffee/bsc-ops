@@ -23,6 +23,7 @@ function renderDashboard() {
   _applyAcctDashboardLayout(acctOnly);
   if (acctOnly) {
     renderInventoryValueByLocation();
+    renderTransfersDashboardCard();
     renderAcctMerchCard();
     renderAcctBagsCard();
     renderAcctCogsCard();
@@ -167,10 +168,77 @@ function renderDashboard() {
   }
 
   renderInventoryValueByLocation();
+  renderTransfersDashboardCard();
 
   if (typeof renderClockedInCard === 'function') renderClockedInCard();
 
   updateMaintDashboard();
+}
+
+// ── Owner/Accounting card: Transfer Summary ──────────────────────
+// Counts this-month + last-month transfers, plus top routes and top items
+// over the last 60 days. Visible to owner OR accounting.
+function renderTransfersDashboardCard() {
+  const card = document.getElementById('dash-transfers-card');
+  const body = document.getElementById('dash-transfers-body');
+  if (!card || !body) return;
+  if (typeof isOwnerOrAccounting !== 'function' || !isOwnerOrAccounting()) {
+    card.style.display = 'none';
+    return;
+  }
+  card.style.display = '';
+
+  const transfers = cache.transfers || [];
+  if (!transfers.length) {
+    body.innerHTML = '<div class="no-data" style="padding:16px">No transfers yet</div>';
+    return;
+  }
+
+  const now = new Date();
+  const monthKey = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  const thisMonth = monthKey(now);
+  const lastMonthDate = new Date(now.getFullYear(), now.getMonth()-1, 1);
+  const lastMonth = monthKey(lastMonthDate);
+  const sixtyDaysAgo = new Date(now.getTime() - 60*24*60*60*1000);
+
+  let thisCount = 0;
+  let lastCount = 0;
+  const routeCounts = {};
+  const itemCounts  = {};
+  for (const t of transfers) {
+    if (!t.Created) continue;
+    const created = new Date(t.Created);
+    const k = monthKey(created);
+    if (k === thisMonth) thisCount++;
+    else if (k === lastMonth) lastCount++;
+    if (created >= sixtyDaysAgo) {
+      const route = `${t.FromLocation || '?'} → ${t.ToLocation || '?'}`;
+      routeCounts[route] = (routeCounts[route] || 0) + 1;
+      const item = (t.ItemName || '').trim();
+      if (item) itemCounts[item] = (itemCounts[item] || 0) + 1;
+    }
+  }
+  const topRoutes = Object.entries(routeCounts).sort((a,b) => b[1]-a[1]).slice(0,3);
+  const topItems  = Object.entries(itemCounts).sort((a,b) => b[1]-a[1]).slice(0,3);
+
+  const monthName = (d) => d.toLocaleDateString('en-US', {month:'long'});
+  const row = (label, val) =>
+    `<tr><td style="padding:5px 0;color:var(--muted);">${escHtml(label)}</td><td style="padding:5px 0;text-align:right;font-weight:600;">${val}</td></tr>`;
+  const list = (entries, fallback) => entries.length
+    ? entries.map(([name, n]) => `<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px;"><span>${escHtml(name)}</span><span style="color:var(--muted);font-weight:600;">${n}</span></div>`).join('')
+    : `<div style="font-size:12px;color:var(--muted);font-style:italic;">${fallback}</div>`;
+
+  body.innerHTML = `
+    <table style="width:100%;font-size:13px;border-collapse:collapse;margin-bottom:14px;">
+      <tbody>
+        ${row(`This month (${monthName(now)})`, thisCount)}
+        ${row(`Last month (${monthName(lastMonthDate)})`, lastCount)}
+      </tbody>
+    </table>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:6px;">Top routes (last 60 days)</div>
+    <div style="margin-bottom:14px;">${list(topRoutes, 'No recent transfers')}</div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:6px;">Top items (last 60 days)</div>
+    <div>${list(topItems, '—')}</div>`;
 }
 
 // ── Per-location value helpers (module scope so accounting cards reuse) ──

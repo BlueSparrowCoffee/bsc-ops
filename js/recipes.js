@@ -338,19 +338,21 @@ function printRecipes() {
   rows = [...rows].sort((a,b) => (a.Title||'').localeCompare(b.Title||''));
   if (!rows.length) { toast?.('err','No recipes to print'); return; }
 
+  const printedDate = new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+
   const recipeBlocks = rows.map((r, idx) => {
     let ingredients = [];
     if (r.Ingredients) { try { ingredients = JSON.parse(r.Ingredients); } catch {} }
     const ingHtml = ingredients.length
       ? `<ul class="ing-list">${ingredients.map(i => {
           const qtyUnit = [i.qty, i.unit].filter(Boolean).join(' ');
-          return `<li><span class="ing-qty">${escHtml(qtyUnit)}</span> <span class="ing-name">${escHtml(i.name||'')}</span></li>`;
+          return `<li><span class="ing-qty">${escHtml(qtyUnit)}</span><span class="ing-name">${escHtml(i.name||'')}</span></li>`;
         }).join('')}</ul>`
       : '';
-    const stepsHtml = r.Steps ? recipeContentToHtml(r.Steps) : '';
-    const legacyHtml = (!ingredients.length && !r.Steps && r.Content) ? recipeContentToHtml(r.Content) : '';
+    const stepsHtml = r.Steps ? _printRecipeStepsHtml(r.Steps) : '';
+    const legacyHtml = (!ingredients.length && !r.Steps && r.Content) ? _printRecipeStepsHtml(r.Content) : '';
     const notesHtml = r.Notes
-      ? `<div class="notes"><div class="section-label">Notes</div><div>${escHtml(r.Notes)}</div></div>`
+      ? `<aside class="notes"><div class="section-label">Notes</div><div class="notes-body">${escHtml(r.Notes).replace(/\n/g,'<br>')}</div></aside>`
       : '';
     return `
       <article class="recipe-page${idx===0?' first':''}">
@@ -358,38 +360,86 @@ function printRecipes() {
           <h1>${escHtml(r.Title || 'Untitled Recipe')}</h1>
           ${r.Yield ? `<div class="yield">Yields ${escHtml(r.Yield)}</div>` : ''}
         </header>
-        ${ingHtml ? `<section><div class="section-label">Ingredients</div>${ingHtml}</section>` : ''}
-        ${stepsHtml ? `<section><div class="section-label">Steps</div><div class="steps">${stepsHtml}</div></section>` : ''}
-        ${legacyHtml ? `<section><div class="steps">${legacyHtml}</div></section>` : ''}
+        ${ingHtml ? `<section class="ingredients"><div class="section-label">Ingredients</div>${ingHtml}</section>` : ''}
+        ${stepsHtml ? `<section class="steps"><div class="section-label">Steps</div>${stepsHtml}</section>` : ''}
+        ${legacyHtml ? `<section class="steps">${legacyHtml}</section>` : ''}
         ${notesHtml}
+        <footer class="print-footer">Printed ${escHtml(printedDate)} · Blue Sparrow Coffee</footer>
       </article>`;
   }).join('');
 
   _openPrintWindow('Recipes — Blue Sparrow Coffee', recipeBlocks, _printRecipeStyles());
 }
 
+// Print-only: turn freeform Steps text into a clean, auto-numbered list.
+// Each non-empty line becomes one step. Strips any user-supplied "1.", "1)",
+// "-", or "•" prefix so the numbering is always consistent. Blank lines
+// separate steps; if the source has only one paragraph, falls back to
+// rendering as plain text so we don't show "1." for a single paragraph.
+function _printRecipeStepsHtml(text) {
+  if (!text) return '';
+  const steps = String(text)
+    .split('\n')
+    .map(s => s.trim().replace(/^(?:\d+[\.\)]|[-•])\s+/, ''))
+    .filter(Boolean);
+  if (!steps.length) return '';
+  if (steps.length === 1) return `<p class="single-step">${escHtml(steps[0])}</p>`;
+  return `<ol class="steps-ol">${steps.map(s => `<li>${escHtml(s)}</li>`).join('')}</ol>`;
+}
+
 function _printRecipeStyles() {
   return `
     *{box-sizing:border-box;}
-    body{font-family:Georgia,'Times New Roman',serif;color:#111;margin:0;padding:0;background:#fff;}
-    .recipe-page{padding:36px 48px;page-break-after:always;}
+    html,body{margin:0;padding:0;background:#fff;}
+    body{font-family:Georgia,'Times New Roman',serif;color:#111;font-size:16px;line-height:1.55;}
+
+    /* Page layout */
+    .recipe-page{padding:32px 48px 36px;page-break-after:always;}
     .recipe-page:last-child{page-break-after:auto;}
-    header{border-bottom:2px solid #111;padding-bottom:12px;margin-bottom:20px;}
-    h1{font-size:32px;margin:0 0 4px;font-weight:700;letter-spacing:-.01em;}
-    .yield{font-size:14px;color:#555;font-style:italic;}
-    section{margin-bottom:18px;}
-    .section-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#666;margin-bottom:8px;border-bottom:1px solid #ccc;padding-bottom:3px;}
-    .ing-list{list-style:none;margin:0;padding:0;column-count:2;column-gap:32px;}
-    .ing-list li{padding:4px 0;font-size:14px;break-inside:avoid;}
-    .ing-qty{display:inline-block;min-width:60px;font-weight:700;}
-    .ing-name{}
-    .steps p{margin:0 0 8px;font-size:14px;line-height:1.5;}
-    .steps ul,.steps ol{padding-left:24px;margin:0 0 10px;}
-    .steps li{font-size:14px;line-height:1.5;margin-bottom:6px;}
-    .notes{margin-top:18px;padding:10px 14px;background:#f6f3ec;border-left:3px solid #b78b40;font-size:13px;color:#444;}
-    .notes .section-label{margin-bottom:4px;border:none;padding:0;}
-    @media print{.recipe-page{padding:24px 32px;}}
-    @page{margin:14mm;}
+
+    /* Header */
+    header{border-bottom:3px solid #111;padding-bottom:14px;margin-bottom:24px;}
+    h1{font-size:38px;margin:0 0 6px;font-weight:700;letter-spacing:-.01em;line-height:1.1;}
+    .yield{font-size:15px;color:#444;font-style:italic;font-weight:600;}
+
+    /* Sections */
+    section{margin-bottom:24px;page-break-inside:avoid;}
+    .section-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#b78b40;margin:0 0 12px;padding-bottom:5px;border-bottom:2px solid #b78b40;}
+
+    /* Ingredients — two-column with right-aligned qty for fast scanning */
+    .ing-list{list-style:none;margin:0;padding:0;column-count:2;column-gap:40px;column-rule:1px solid #eee;}
+    .ing-list li{padding:6px 0;font-size:16px;line-height:1.45;break-inside:avoid;display:flex;gap:12px;align-items:baseline;}
+    .ing-qty{flex:0 0 90px;font-weight:700;color:#222;text-align:right;font-variant-numeric:tabular-nums;}
+    .ing-name{flex:1;}
+
+    /* Steps — auto-numbered with dark filled circles for at-a-glance progress */
+    .steps-ol{list-style:none;counter-reset:step;padding:0;margin:0;}
+    .steps-ol li{position:relative;padding:2px 0 16px 48px;font-size:16px;line-height:1.6;counter-increment:step;break-inside:avoid;}
+    .steps-ol li::before{content:counter(step);position:absolute;left:0;top:0;width:32px;height:32px;border-radius:50%;background:#111;color:#fff;font-weight:700;font-family:'Helvetica Neue',Arial,sans-serif;font-size:15px;text-align:center;line-height:32px;}
+    .steps-ol li:last-child{padding-bottom:4px;}
+    .single-step{margin:0;font-size:16px;line-height:1.6;}
+    /* Legacy / fallback content rendering */
+    .steps p{margin:0 0 10px;font-size:16px;line-height:1.6;}
+    .steps ul,.steps ol{padding-left:28px;margin:0 0 12px;}
+    .steps li{font-size:16px;line-height:1.55;margin-bottom:6px;}
+
+    /* Notes callout */
+    .notes{margin-top:24px;padding:14px 18px;background:#faf6ec;border-left:4px solid #b78b40;font-size:14px;color:#333;line-height:1.55;page-break-inside:avoid;}
+    .notes .section-label{margin-bottom:6px;border:none;padding:0;}
+    .notes-body{}
+
+    /* Footer */
+    .print-footer{margin-top:28px;padding-top:8px;border-top:1px solid #ddd;font-size:10px;color:#999;text-align:right;font-style:italic;}
+
+    /* Print-specific: tighten margins, allow long recipes to break */
+    @media print{
+      body{font-size:15px;}
+      h1{font-size:32px;}
+      .recipe-page{padding:18mm 22mm 16mm;page-break-inside:auto;}
+      .ing-list{column-gap:32px;}
+      .steps-ol li{font-size:15px;}
+    }
+    @page{margin:12mm;}
   `;
 }
 

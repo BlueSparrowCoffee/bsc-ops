@@ -548,6 +548,7 @@ async function deletePrepItem(id) {
 function printPrepItems() {
   const items = [...(cache.prepItems || [])].sort((a,b) => (a.Title||'').localeCompare(b.Title||''));
   if (!items.length) { toast?.('err','No prep items to print'); return; }
+  const printedDate = new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
 
   const blocks = items.map((item, idx) => {
     const ings = (cache.prepItemIngredients || [])
@@ -585,20 +586,24 @@ function printPrepItems() {
         <header>
           <h1>${escHtml(item.Title||'Untitled')}</h1>
           <div class="meta">
-            ${item.Category ? `<span>${escHtml(item.Category)}</span>` : ''}
-            <span>Batch: ${yieldQty} ${escHtml(yieldUnit||'unit')}</span>
+            ${item.Category ? `<span class="meta-tag">${escHtml(item.Category)}</span>` : ''}
+            <span>Batch: <b>${yieldQty} ${escHtml(yieldUnit||'unit')}</b></span>
             <span class="cost">$${costPerUnit.toFixed(4)} / ${escHtml(yieldUnit||'unit')}</span>
             <span>$${totalCost.toFixed(2)} total</span>
           </div>
         </header>
         ${ings.length ? `
-        <table class="ing-table">
-          <thead>
-            <tr><th>Ingredient</th><th class="r">Qty</th><th class="r">$/unit</th><th class="r">Line</th></tr>
-          </thead>
-          <tbody>${ingRows}</tbody>
-        </table>` : '<div class="empty">No ingredients added.</div>'}
-        ${item.Notes ? `<div class="notes"><div class="section-label">Notes</div><div>${escHtml(item.Notes)}</div></div>` : ''}
+        <section class="ingredients">
+          <div class="section-label">Ingredients</div>
+          <table class="ing-table">
+            <thead>
+              <tr><th>Ingredient</th><th class="r">Qty</th><th class="r">$/unit</th><th class="r">Line</th></tr>
+            </thead>
+            <tbody>${ingRows}</tbody>
+          </table>
+        </section>` : '<div class="empty">No ingredients added.</div>'}
+        ${item.Notes ? `<aside class="notes"><div class="section-label">Notes</div><div class="notes-body">${escHtml(item.Notes).replace(/\n/g,'<br>')}</div></aside>` : ''}
+        <footer class="print-footer">Printed ${escHtml(printedDate)} · Blue Sparrow Coffee</footer>
       </article>`;
   }).join('');
 
@@ -608,24 +613,50 @@ function printPrepItems() {
 function _printPrepStyles() {
   return `
     *{box-sizing:border-box;}
-    body{font-family:Georgia,'Times New Roman',serif;color:#111;margin:0;padding:0;background:#fff;}
-    .prep-page{padding:36px 48px;page-break-after:always;}
+    html,body{margin:0;padding:0;background:#fff;}
+    body{font-family:Georgia,'Times New Roman',serif;color:#111;font-size:16px;line-height:1.55;}
+
+    /* Page layout */
+    .prep-page{padding:32px 48px 36px;page-break-after:always;}
     .prep-page:last-child{page-break-after:auto;}
-    header{border-bottom:2px solid #111;padding-bottom:12px;margin-bottom:18px;}
-    h1{font-size:30px;margin:0 0 6px;font-weight:700;letter-spacing:-.01em;}
-    .meta{display:flex;flex-wrap:wrap;gap:16px;font-size:13px;color:#555;}
+
+    /* Header */
+    header{border-bottom:3px solid #111;padding-bottom:14px;margin-bottom:24px;}
+    h1{font-size:34px;margin:0 0 8px;font-weight:700;letter-spacing:-.01em;line-height:1.1;}
+    .meta{display:flex;flex-wrap:wrap;gap:18px;font-size:14px;color:#444;align-items:center;}
+    .meta b{color:#111;}
     .meta .cost{color:#b78b40;font-weight:700;}
-    .ing-table{width:100%;border-collapse:collapse;margin-top:8px;}
-    .ing-table th{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#666;border-bottom:1.5px solid #111;padding:6px 8px;text-align:left;}
-    .ing-table th.r,.ing-table td.r{text-align:right;}
-    .ing-table td{padding:6px 8px;font-size:13px;border-bottom:1px solid #e5e5e5;}
+    .meta .meta-tag{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#b78b40;background:#faf6ec;padding:3px 9px;border-radius:10px;border:1px solid #f0e3c0;}
+
+    /* Sections */
+    section{margin-bottom:22px;page-break-inside:avoid;}
+    .section-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#b78b40;margin:0 0 10px;padding-bottom:5px;border-bottom:2px solid #b78b40;}
+
+    /* Ingredients table — bigger text + tabular numerals for cost columns */
+    .ing-table{width:100%;border-collapse:collapse;}
+    .ing-table th{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#666;border-bottom:2px solid #111;padding:8px 10px;text-align:left;font-family:'Helvetica Neue',Arial,sans-serif;}
+    .ing-table th.r,.ing-table td.r{text-align:right;font-variant-numeric:tabular-nums;}
+    .ing-table td{padding:9px 10px;font-size:15px;line-height:1.4;border-bottom:1px solid #e5e5e5;}
+    .ing-table tr:last-child td{border-bottom:none;}
     .ing-table td.muted{color:#666;}
-    .ing-table td.b{font-weight:700;}
-    .ing-table .type{font-size:10px;color:#7c3aed;background:#f1ecff;padding:1px 5px;border-radius:8px;margin-left:4px;}
-    .empty{font-size:13px;color:#666;padding:14px 0;}
-    .section-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#666;margin-bottom:4px;}
-    .notes{margin-top:18px;padding:10px 14px;background:#f6f3ec;border-left:3px solid #b78b40;font-size:13px;color:#444;}
-    @media print{.prep-page{padding:24px 32px;}}
-    @page{margin:14mm;}
+    .ing-table td.b{font-weight:700;color:#111;}
+    .ing-table .type{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#7c3aed;background:#f1ecff;padding:2px 6px;border-radius:8px;margin-left:6px;vertical-align:middle;}
+    .empty{font-size:14px;color:#666;padding:14px 0;font-style:italic;}
+
+    /* Notes callout */
+    .notes{margin-top:24px;padding:14px 18px;background:#faf6ec;border-left:4px solid #b78b40;font-size:14px;color:#333;line-height:1.55;page-break-inside:avoid;}
+    .notes .section-label{margin-bottom:6px;border:none;padding:0;}
+
+    /* Footer */
+    .print-footer{margin-top:28px;padding-top:8px;border-top:1px solid #ddd;font-size:10px;color:#999;text-align:right;font-style:italic;}
+
+    /* Print-specific */
+    @media print{
+      body{font-size:15px;}
+      h1{font-size:30px;}
+      .prep-page{padding:18mm 22mm 16mm;page-break-inside:auto;}
+      .ing-table td{padding:7px 8px;font-size:14px;}
+    }
+    @page{margin:12mm;}
   `;
 }
