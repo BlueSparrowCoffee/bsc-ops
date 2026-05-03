@@ -591,7 +591,10 @@ function _renderMarketSquareRefDropdown() {
     sel.disabled = true;
   } else {
     sel.disabled = false;
-    sel.innerHTML = `<option value="">— Pick a Square ${kind} —</option>` + opts.map(o => `<option value="${escHtml(o.id)}"${o.id===currentId?' selected':''}>${escHtml(o.label)}</option>`).join('');
+    // `kind` is constrained to 'item' | 'modifier' by the kind <select>,
+    // but escape anyway — CodeQL flags any DOM-sourced text reinterpreted
+    // as HTML, and the rule is right: don't trust the DOM.
+    sel.innerHTML = `<option value="">— Pick a Square ${escHtml(kind)} —</option>` + opts.map(o => `<option value="${escHtml(String(o.id))}"${String(o.id)===String(currentId)?' selected':''}>${escHtml(String(o.label))}</option>`).join('');
   }
 }
 function onMarketItemSquareKindChange() {
