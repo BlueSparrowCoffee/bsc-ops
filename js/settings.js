@@ -98,11 +98,19 @@ function renderLocations() {
   // Settings card list
   const el = document.getElementById('locations-list');
   if (el) {
-    el.innerHTML = locs.map(l=>`
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--opal);font-size:13px;">
-        <span>${escHtml(l)}</span>
-        <button data-loc="${escHtml(l)}" onclick="removeLocation(this.dataset.loc)" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;padding:0 4px;line-height:1;" title="Remove">×</button>
-      </div>`).join('');
+    el.innerHTML = locs.map(l => {
+      const addr = (typeof getSetting === 'function' ? getSetting('location_address_' + l) : '') || '';
+      return `
+      <div style="padding:10px 0;border-bottom:1px solid var(--opal);">
+        <div style="display:flex;align-items:center;justify-content:space-between;font-size:13px;margin-bottom:6px;">
+          <span style="font-weight:600;">${escHtml(l)}</span>
+          <button data-loc="${escHtml(l)}" onclick="removeLocation(this.dataset.loc)" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;padding:0 4px;line-height:1;" title="Remove">×</button>
+        </div>
+        <textarea data-loc="${escHtml(l)}" placeholder="Address (used in order emails as {location_address})" rows="2"
+          style="width:100%;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-family:inherit;resize:vertical;"
+          onblur="saveLocationAddress(this.dataset.loc, this.value)">${escHtml(addr)}</textarea>
+      </div>`;
+    }).join('');
   }
   // Topbar location buttons — use active state from currentLocation, filter by access
   const allowed = getAllowedLocations(locs);
@@ -135,6 +143,25 @@ function removeLocation(name) {
   saveLocations(locs);
   renderLocations();
   toast('ok',`✓ ${name} removed`);
+}
+
+// Per-location address used by the order email template's {location_address}
+// token. Stored in BSC_Settings under `location_address_<Name>` so it
+// syncs across devices. Saved on blur from the Locations card; only
+// writes when the value actually changed.
+async function saveLocationAddress(name, value) {
+  if (!name) return;
+  const key = 'location_address_' + name;
+  const next = (value || '').trim();
+  const prev = (getSetting(key) || '').trim();
+  if (next === prev) return;
+  try {
+    await saveSetting(key, next);
+    toast('ok', next ? `✓ Address saved for ${name}` : `✓ Address cleared for ${name}`);
+    if (typeof renderOrderEmailPreview === 'function') renderOrderEmailPreview();
+  } catch (e) {
+    toast('err', 'Save failed: ' + e.message);
+  }
 }
 
 // ── Topbar location switcher ────────────────────────────────────
@@ -388,7 +415,7 @@ function renderOrderEmailTemplateCard() {
   const ownerOnly = !isOwner();
   wrap.innerHTML = `
     <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">
-      Customize what vendors see when you send an order. Placeholders: <code>{vendor}</code> <code>{location}</code> <code>{date}</code> <code>{user}</code> <code>{total}</code>. The items list, total, and notes are filled in automatically.
+      Customize what vendors see when you send an order. Placeholders: <code>{vendor}</code> <code>{location}</code> <code>{location_address}</code> <code>{date}</code> <code>{user}</code> <code>{total}</code>. The items list, total, and notes are filled in automatically. Addresses are set per location in the Locations card below.
     </p>
     <label class="field-label">Subject</label>
     <input id="oet-subject" class="field-input" style="width:100%;margin-bottom:14px;" value="${escHtml(subj)}" ${ownerOnly?'disabled':''} oninput="renderOrderEmailPreview()">
@@ -411,12 +438,15 @@ function renderOrderEmailTemplateCard() {
 }
 
 function _orderEmailPreviewVars() {
+  const sampleLoc = 'Blake';
+  const realAddr = getSetting('location_address_' + sampleLoc) || '';
   return {
-    vendor:   'Costco',
-    location: 'Blake',
-    date:     'Friday, May 8',
-    user:     currentUser?.name || currentUser?.username || 'Manager',
-    total:    '$245.30'
+    vendor:           'Costco',
+    location:         sampleLoc,
+    location_address: realAddr || '1234 Sample St\nDenver, CO 80205',
+    date:             'Friday, May 8',
+    user:             currentUser?.name || currentUser?.username || 'Manager',
+    total:            '$245.30'
   };
 }
 

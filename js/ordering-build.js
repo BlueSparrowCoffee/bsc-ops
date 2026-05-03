@@ -155,12 +155,17 @@ function _orderEmailVars(order, lines) {
   const expected = order.ExpectedDelivery
     ? new Date(order.ExpectedDelivery).toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})
     : 'ASAP';
+  const loc = order.Location || '';
+  const addr = (loc && typeof getSetting === 'function')
+    ? (getSetting('location_address_' + loc) || '')
+    : '';
   return {
-    vendor:   order.Vendor || '',
-    location: order.Location || '',
-    date:     expected,
-    user:     order.OrderedBy || (currentUser?.name || currentUser?.username || ''),
-    total:    _money(_orderSubtotal(lines)),
+    vendor:           order.Vendor || '',
+    location:         loc,
+    location_address: addr,
+    date:             expected,
+    user:             order.OrderedBy || (currentUser?.name || currentUser?.username || ''),
+    total:            _money(_orderSubtotal(lines)),
   };
 }
 
