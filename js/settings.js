@@ -336,3 +336,39 @@ async function saveClockInAlertRecipients() {
     toast('err', 'Save failed: ' + e.message);
   }
 }
+
+// ── Auto-Send Orders by Email ────────────────────────────────────
+// Owner toggle: when enabled, the Build Order Send action calls
+// Microsoft Graph /me/sendMail directly (no mailto: client) for vendors
+// whose OrderMethod is "Email". OFF by default — current mailto behavior
+// remains the safe default. Read by sendOrderToVendor in ordering-build.js.
+function renderAutoSendOrdersCard() {
+  const container = document.getElementById('auto-send-orders-card-body');
+  if (!container) return;
+  const enabled   = getSetting('auto_send_orders_enabled') === '1';
+  const ownerOnly = !isOwner();
+  container.innerHTML = `
+    <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">
+      When enabled, Build Order's Send action emails the vendor directly from your mailbox via Microsoft 365 — no mail client opens, no extra click. Sent items are saved to your Outlook Sent folder. Only applies to vendors with OrderMethod = Email; everything else still uses the existing flow.
+    </p>
+    <label style="display:flex;align-items:center;gap:8px;font-size:14px;font-weight:500;margin-bottom:12px;${ownerOnly?'opacity:.5;cursor:not-allowed;':'cursor:pointer;'}">
+      <input type="checkbox" id="auto-send-orders-enabled" ${enabled?'checked':''} ${ownerOnly?'disabled':''} onchange="toggleAutoSendOrders(this.checked)">
+      Auto-send orders by email
+    </label>
+    <div style="font-size:11px;color:var(--muted);">
+      First time you Send an order with this on, your browser may prompt for one-time consent to the <code>Mail.Send</code> permission. Each user has to consent on their own device.
+    </div>
+    ${ownerOnly ? '<div style="font-size:11px;color:var(--muted);margin-top:10px;">Owner access required to change this setting.</div>' : ''}
+  `;
+}
+
+async function toggleAutoSendOrders(checked) {
+  if (!isOwner()) { toast('err','Owner access required'); renderAutoSendOrdersCard(); return; }
+  try {
+    await saveSetting('auto_send_orders_enabled', checked ? '1' : '');
+    toast('ok', checked ? '✓ Auto-send enabled' : '✓ Auto-send disabled');
+  } catch (e) {
+    toast('err', 'Failed: ' + e.message);
+  }
+  renderAutoSendOrdersCard();
+}

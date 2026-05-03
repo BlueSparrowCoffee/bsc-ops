@@ -26,7 +26,9 @@ const CFG = {
 // ── OAuth scopes ────────────────────────────────────────────────
 // SCOPES       — requested on every login/token call
 // ADMIN_SCOPES — requested only when the owner runs Staff Access Sync
-const SCOPES       = ['Sites.ReadWrite.All','Files.ReadWrite','User.Read'];
+// Mail.Send is delegated, user-consentable (no admin consent needed).
+// Used by ordering-build.js when "auto-send orders by email" is enabled.
+const SCOPES       = ['Sites.ReadWrite.All','Files.ReadWrite','User.Read','Mail.Send'];
 const ADMIN_SCOPES = [...SCOPES, 'Sites.FullControl.All','User.Invite.All','User.Read.All','User.ReadWrite.All'];
 
 // ── MSAL client ─────────────────────────────────────────────────

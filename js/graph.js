@@ -308,3 +308,46 @@ function spCellValue(key, val) {
   }
   return safe;
 }
+
+// ── Microsoft Graph: send mail ───────────────────────────────────
+// Sends an email from the signed-in user's mailbox via /me/sendMail.
+// Requires the Mail.Send delegated scope (present in SCOPES).
+// Splits multi-value `to` strings (one per newline OR comma) into
+// individual recipients. Passes content as plain Text. Saves to the
+// user's Sent Items by default.
+//
+// sendMail({ to, subject, body, cc, bcc })
+//   to/cc/bcc — string (newline/comma-separated) or string[]
+//   subject   — string
+//   body      — plain text
+async function sendMail({ to, subject, body, cc, bcc }) {
+  const _toRecips = (v) => {
+    if (!v) return [];
+    const arr = Array.isArray(v) ? v : String(v).split(/[\n,;]/);
+    return arr.map(s => String(s).trim()).filter(Boolean)
+      .map(addr => ({ emailAddress: { address: addr } }));
+  };
+  const recipients = _toRecips(to);
+  if (!recipients.length) throw new Error('sendMail: no recipients');
+  const token = await getToken();
+  const payload = {
+    message: {
+      subject: subject || '(no subject)',
+      body: { contentType: 'Text', content: body || '' },
+      toRecipients: recipients,
+      ccRecipients:  _toRecips(cc),
+      bccRecipients: _toRecips(bcc),
+    },
+    saveToSentItems: true
+  };
+  const res = await fetch('https://graph.microsoft.com/v1.0/me/sendMail', {
+    method: 'POST',
+    headers: { 'Authorization':'Bearer '+token, 'Content-Type':'application/json' },
+    body: JSON.stringify(payload)
+  });
+  // 202 Accepted = queued for delivery; no body returned
+  if (res.status === 202) return true;
+  const e = await res.json().catch(()=>({}));
+  const msg = e?.error?.message || `sendMail failed (${res.status})`;
+  throw new Error(msg);
+}

@@ -270,7 +270,7 @@ function _renderBuildOrderVendorSection(vendor, items, hasVendorRecord) {
               <td style="padding:6px 10px;font-weight:500;">${escHtml(it.name)}</td>
               <td style="padding:6px 10px;text-align:right;color:var(--muted);">${it.suggested}</td>
               <td style="padding:6px 10px;text-align:right;">
-                <input type="number" min="0" step="0.1" value="${it.qty}" class="bo-row-qty"
+                <input type="number" min="0" step="1" value="${it.qty}" class="bo-row-qty"
                   oninput="_buildOrderRowQtyChange('${escHtml(vendor)}','${escHtml(it.itemId)}', this.value)"
                   style="width:72px;text-align:right;padding:4px 6px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;">
               </td>
@@ -536,6 +536,24 @@ async function sendOrderToVendor(orderId) {
   if (method === 'Email') {
     const to = _vendorFirst(vendor, 'Email');
     if (!to) { toast('err',`No email address on vendor "${liveOrder.Vendor}". Add one in Vendors.`); return; }
+    // Auto-send via Microsoft Graph if owner enabled it. Falls back to mailto:
+    // on any failure (consent denied, network, throttling, etc.) so the user
+    // is never stuck without a way to send the order.
+    const autoSend = (typeof getSetting === 'function') && getSetting('auto_send_orders_enabled') === '1';
+    if (autoSend && typeof sendMail === 'function') {
+      setLoading(true,'Sending email…');
+      try {
+        await sendMail({ to, subject, body });
+        await _markOrderSent(orderId);
+        toast('ok', `✓ Email sent to ${to.split(/[\n,;]/)[0].trim()}`);
+        return;
+      } catch (e) {
+        console.warn('[order send] Graph sendMail failed, falling back to mailto:', e);
+        toast('err', 'Auto-send failed — opening mail client instead');
+      } finally {
+        setLoading(false);
+      }
+    }
     window.location.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     await _markOrderSent(orderId);
   } else if (method === 'Text') {
@@ -651,7 +669,7 @@ function _renderReceiveModal(order) {
               <td style="padding:6px 10px;">${escHtml(l.name)}</td>
               <td style="padding:6px 10px;text-align:right;color:var(--muted);">${l.qty}</td>
               <td style="padding:6px 10px;text-align:right;">
-                <input type="number" min="0" step="0.1" value="${l.receivedQty}" class="rcv-row-qty"
+                <input type="number" min="0" step="1" value="${l.receivedQty}" class="rcv-row-qty"
                   oninput="_receiveRowChange('${escHtml(l.itemId)}', this.value)"
                   style="width:80px;text-align:right;padding:4px 6px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;">
               </td>
