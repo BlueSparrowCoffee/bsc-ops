@@ -338,7 +338,7 @@ function _renderMarketBarChart() {
     // Change indicator: ▲/▼ vs prior survey for this (item,competitor)
     const chg = _maPriceChange(key, r.name);
     const chgTxt = chg
-      ? `<tspan dx="6" font-size="11" fill="${chg.delta >= 0 ? '#dc2626' : '#16a34a'}" font-weight="600">${chg.delta >= 0 ? '▲' : '▼'} ${chg.delta >= 0 ? '+' : '−'}${_maMoney(Math.abs(chg.delta)).replace('$','$')}</tspan>`
+      ? `<tspan dx="6" font-size="11" fill="${chg.delta >= 0 ? '#dc2626' : '#16a34a'}" font-weight="600">${chg.delta >= 0 ? '▲' : '▼'} ${chg.delta >= 0 ? '+' : '−'}${_maMoney(Math.abs(chg.delta))}</tspan>`
       : '';
     return `
       <g>
