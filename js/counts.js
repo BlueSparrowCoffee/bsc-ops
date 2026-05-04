@@ -205,6 +205,16 @@ function _wireCountOrderDrag() {
   const tbody = document.getElementById('cco-list');
   if (!tbody || tbody._dragWired) return;
   tbody._dragWired = true;
+
+  function _flagUnsaved() {
+    const f = document.getElementById('cco-saved-flag');
+    if (f) f.textContent = 'Unsaved changes — click Save Order to apply';
+  }
+  function _clearOver() {
+    tbody.querySelectorAll('tr.fp-drag-over').forEach(r => r.classList.remove('fp-drag-over'));
+  }
+
+  // ── Mouse / desktop HTML5 drag-and-drop ─────────────────────────
   let dragSrc = null;
   tbody.addEventListener('mousedown', e => {
     const row = e.target.closest('tr[data-id]');
@@ -220,14 +230,14 @@ function _wireCountOrderDrag() {
   });
   tbody.addEventListener('dragend', () => {
     if (dragSrc) { dragSrc.style.opacity = ''; dragSrc.draggable = false; }
-    tbody.querySelectorAll('tr.fp-drag-over').forEach(r => r.classList.remove('fp-drag-over'));
+    _clearOver();
     dragSrc = null;
   });
   tbody.addEventListener('dragover', e => {
     e.preventDefault();
     const target = e.target.closest('tr[data-id]');
     if (!target || target === dragSrc) return;
-    tbody.querySelectorAll('tr.fp-drag-over').forEach(r => r.classList.remove('fp-drag-over'));
+    _clearOver();
     target.classList.add('fp-drag-over');
     e.dataTransfer.dropEffect = 'move';
   });
@@ -239,8 +249,77 @@ function _wireCountOrderDrag() {
     const rect = target.getBoundingClientRect();
     const after = e.clientY > rect.top + rect.height / 2;
     after ? target.after(dragSrc) : target.before(dragSrc);
-    document.getElementById('cco-saved-flag').textContent = 'Unsaved changes — click Save Order to apply';
+    _flagUnsaved();
   });
+
+  // ── Touch parity (iOS / iPadOS) ─────────────────────────────────
+  // HTML5 dragstart never fires on touch, so we wire a parallel handler
+  // that uses elementFromPoint to track the hovered row and reorders on
+  // touchend. Auto-scrolls the modal body when the finger nears the
+  // top/bottom edge so long lists are reachable.
+  let touchSrc = null;
+  let lastOver = null;
+  let scrollTimer = null;
+  function _autoScroll(touch) {
+    const wrap = tbody.closest('div[style*="overflow-y:auto"]');
+    if (!wrap) return;
+    const r = wrap.getBoundingClientRect();
+    const EDGE = 36;
+    let dy = 0;
+    if (touch.clientY < r.top + EDGE)        dy = -8;
+    else if (touch.clientY > r.bottom - EDGE) dy =  8;
+    if (dy && !scrollTimer) {
+      scrollTimer = setInterval(() => { wrap.scrollTop += dy; }, 16);
+    } else if (!dy && scrollTimer) {
+      clearInterval(scrollTimer); scrollTimer = null;
+    }
+  }
+  function _stopScroll() {
+    if (scrollTimer) { clearInterval(scrollTimer); scrollTimer = null; }
+  }
+
+  tbody.addEventListener('touchstart', e => {
+    const handle = e.target.closest('.fp-drag-handle');
+    if (!handle) return; // touches outside the handle still scroll the list
+    const row = handle.closest('tr[data-id]');
+    if (!row) return;
+    e.preventDefault(); // claim the gesture
+    touchSrc = row;
+    row.style.opacity = '0.45';
+  }, { passive: false });
+
+  tbody.addEventListener('touchmove', e => {
+    if (!touchSrc) return;
+    e.preventDefault();
+    const t = e.touches[0];
+    if (!t) return;
+    _autoScroll(t);
+    // Find row under finger via hit-testing (works through pointer-events)
+    const el = document.elementFromPoint(t.clientX, t.clientY);
+    const target = el ? el.closest('tr[data-id]') : null;
+    if (!target || target === touchSrc) return;
+    if (lastOver && lastOver !== target) lastOver.classList.remove('fp-drag-over');
+    target.classList.add('fp-drag-over');
+    lastOver = target;
+  }, { passive: false });
+
+  function _touchEnd(e) {
+    _stopScroll();
+    if (touchSrc && lastOver && lastOver !== touchSrc) {
+      const t = e.changedTouches && e.changedTouches[0];
+      const rect = lastOver.getBoundingClientRect();
+      const after = t ? (t.clientY > rect.top + rect.height / 2) : true;
+      after ? lastOver.after(touchSrc) : lastOver.before(touchSrc);
+      _flagUnsaved();
+    }
+    if (touchSrc) touchSrc.style.opacity = '';
+    if (lastOver) lastOver.classList.remove('fp-drag-over');
+    _clearOver();
+    touchSrc = null;
+    lastOver  = null;
+  }
+  tbody.addEventListener('touchend',    _touchEnd);
+  tbody.addEventListener('touchcancel', _touchEnd);
 }
 
 // Re-renders whichever count sheet matches the active inv-type after
