@@ -1040,3 +1040,108 @@ async function deleteMerchCountBatch(loc, month, btn) {
     if (typeof renderDashboard === 'function') renderDashboard();
   } finally { setLoading(false); }
 }
+
+// ── Touch-to-adjust gesture (iPhone / iPad) ──────────────────────
+// Press-and-hold on any count number input, then drag vertically to
+// increment (drag up) or decrement (drag down). The hold-then-drag
+// pattern keeps a quick tap focusing the field for typing AND keeps
+// a quick vertical swipe free for scrolling the page; only when the
+// finger holds for HOLD_MS without moving more than SCROLL_TOLERANCE
+// do we engage adjust mode and start eating subsequent touchmoves.
+//
+// Step size respects the input's `step` attribute (consumable=0.1,
+// merch=1). PX_PER_STEP controls drag sensitivity.
+(function() {
+  if (typeof document === 'undefined') return;
+  const HOLD_MS          = 350;
+  const SCROLL_TOLERANCE = 8;
+  const PX_PER_STEP      = 18;
+  let state = null;
+
+  function reset() {
+    if (!state) return;
+    if (state.holdTimer) clearTimeout(state.holdTimer);
+    if (state.input) state.input.classList.remove('count-adjust-active');
+    if (state.badge) state.badge.remove();
+    state = null;
+  }
+
+  function isCountInput(el) {
+    return !!(el && el.classList && el.classList.contains('count-num-input'));
+  }
+
+  function fireRowUpdate(input) {
+    if (input.closest && input.closest('.merch-count-row')) {
+      if (typeof updateMerchCountTotal === 'function') updateMerchCountTotal(input);
+    } else {
+      if (typeof updateCountTotal === 'function') updateCountTotal(input);
+    }
+  }
+
+  function fmtDelta(unitsDelta, step) {
+    const sign = unitsDelta > 0 ? '+' : '';
+    const decimals = step < 1 ? 1 : 0;
+    return `${sign}${unitsDelta.toFixed(decimals)}`;
+  }
+
+  document.addEventListener('touchstart', e => {
+    if (e.touches.length !== 1) return;
+    const t = e.target;
+    if (!isCountInput(t)) return;
+    const touch = e.touches[0];
+    const stepAttr = parseFloat(t.step) || 1;
+    state = {
+      input: t,
+      startY: touch.clientY,
+      startVal: parseFloat(t.value) || 0,
+      step: stepAttr,
+      adjusting: false,
+      badge: null,
+      holdTimer: setTimeout(() => {
+        if (!state) return;
+        state.adjusting = true;
+        state.input.classList.add('count-adjust-active');
+        // Dismiss the iOS keyboard if it had popped up
+        try { state.input.blur(); } catch {}
+        // Floating delta pill
+        const badge = document.createElement('div');
+        badge.className = 'count-adjust-badge';
+        badge.textContent = '0';
+        const r = state.input.getBoundingClientRect();
+        // Place to the right when there's room, otherwise above
+        const right = r.right + 10 + 110 < window.innerWidth;
+        const top   = right ? (r.top + r.height/2 - 14) : (r.top - 36);
+        const left  = right ? (r.right + 8)             : Math.max(8, r.left);
+        badge.style.cssText = `position:fixed;left:${left}px;top:${top}px;background:var(--gold);color:#fff;padding:4px 10px;border-radius:14px;font-size:13px;font-weight:700;z-index:9999;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.20);white-space:nowrap;`;
+        document.body.appendChild(badge);
+        state.badge = badge;
+        if (navigator.vibrate) try { navigator.vibrate(15); } catch {}
+      }, HOLD_MS)
+    };
+  }, { passive: true });
+
+  document.addEventListener('touchmove', e => {
+    if (!state) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+    const deltaY = touch.clientY - state.startY;
+    if (!state.adjusting) {
+      // Pre-hold: any meaningful movement cancels so the OS can scroll.
+      if (Math.abs(deltaY) > SCROLL_TOLERANCE) {
+        reset();
+      }
+      return;
+    }
+    // In adjust mode: eat the gesture so the page doesn't scroll.
+    e.preventDefault();
+    const stepCount  = Math.round(-deltaY / PX_PER_STEP);
+    const unitsDelta = stepCount * state.step;
+    const next = Math.max(0, +(state.startVal + unitsDelta).toFixed(2));
+    state.input.value = next;
+    if (state.badge) state.badge.textContent = `${fmtDelta(unitsDelta, state.step)}  →  ${next}`;
+    fireRowUpdate(state.input);
+  }, { passive: false });
+
+  document.addEventListener('touchend',    () => reset());
+  document.addEventListener('touchcancel', () => reset());
+})();
