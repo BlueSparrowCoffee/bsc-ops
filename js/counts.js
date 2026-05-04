@@ -134,6 +134,132 @@ function saveAndSwitchToStorage() {
   document.getElementById('count-sheet-body')?.scrollIntoView({behavior:'smooth', block:'start'});
 }
 
+// ── Per-location custom item order (consumable) ──────────────────
+// Stored in BSC_Settings as `consumable_order_<Location>` → JSON array
+// of inventory item ids in display order. Items not in the array fall
+// through to alphabetical at the end.
+function _consumableOrderKey(loc) { return 'consumable_order_' + loc; }
+function _getConsumableOrder(loc) {
+  if (!loc || loc === 'all') return null;
+  const raw = (typeof getSetting === 'function') ? getSetting(_consumableOrderKey(loc)) : '';
+  if (!raw) return null;
+  try { const arr = JSON.parse(raw); return Array.isArray(arr) ? arr : null; }
+  catch { return null; }
+}
+
+function openConsumableOrderModal() {
+  if (typeof isManagerOrOwner === 'function' && !isManagerOrOwner()) {
+    toast('err','Manager or owner access required'); return;
+  }
+  if (currentLocation === 'all') { toast('err','Pick a specific location first'); return; }
+  _renderConsumableOrderList();
+  openModal('modal-consumable-order');
+}
+
+function _renderConsumableOrderList() {
+  const tbody = document.getElementById('cco-list');
+  if (!tbody) return;
+  const cfg = invCfg();
+  if (!cfg) return;
+  // Use the same sort that renderCountSheet uses so the modal opens
+  // showing the current order.
+  const items = (cache[cfg.cacheKey]||[]).filter(i => !i.Archived);
+  const orderArr = _getConsumableOrder(currentLocation);
+  if (orderArr && orderArr.length) {
+    const idx = {};
+    orderArr.forEach((id, i) => { idx[String(id)] = i; });
+    items.sort((a, b) => {
+      const ai = idx[String(a.id)];
+      const bi = idx[String(b.id)];
+      if (ai != null && bi != null) return ai - bi;
+      if (ai != null) return -1;
+      if (bi != null) return 1;
+      return (a.ItemName||'').localeCompare(b.ItemName||'');
+    });
+  } else {
+    items.sort((a, b) => (a.ItemName||'').localeCompare(b.ItemName||''));
+  }
+  document.getElementById('cco-location-label').textContent = currentLocation;
+  document.getElementById('cco-saved-flag').textContent = (orderArr && orderArr.length) ? 'Custom order in use' : 'Alphabetical (no custom order saved yet)';
+  tbody.innerHTML = items.map(it => `
+    <tr data-id="${escHtml(String(it.id))}" style="border-bottom:1px solid var(--border);">
+      <td class="fp-drag-handle" title="Drag to reorder">⠿</td>
+      <td style="padding:8px 12px;font-size:13px;font-weight:500;">${escHtml(it.ItemName||'—')}</td>
+      <td style="padding:8px 12px;font-size:11px;color:var(--muted);">${escHtml(it.Supplier||'')}</td>
+    </tr>`).join('');
+  _wireConsumableOrderDrag();
+}
+
+function _wireConsumableOrderDrag() {
+  const tbody = document.getElementById('cco-list');
+  if (!tbody || tbody._dragWired) return;
+  tbody._dragWired = true;
+  let dragSrc = null;
+  tbody.addEventListener('mousedown', e => {
+    const row = e.target.closest('tr[data-id]');
+    if (!row) return;
+    row.draggable = !!e.target.closest('.fp-drag-handle');
+  });
+  tbody.addEventListener('dragstart', e => {
+    dragSrc = e.target.closest('tr[data-id]');
+    if (!dragSrc) return;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', dragSrc.dataset.id);
+    setTimeout(() => { if (dragSrc) dragSrc.style.opacity = '0.45'; }, 0);
+  });
+  tbody.addEventListener('dragend', () => {
+    if (dragSrc) { dragSrc.style.opacity = ''; dragSrc.draggable = false; }
+    tbody.querySelectorAll('tr.fp-drag-over').forEach(r => r.classList.remove('fp-drag-over'));
+    dragSrc = null;
+  });
+  tbody.addEventListener('dragover', e => {
+    e.preventDefault();
+    const target = e.target.closest('tr[data-id]');
+    if (!target || target === dragSrc) return;
+    tbody.querySelectorAll('tr.fp-drag-over').forEach(r => r.classList.remove('fp-drag-over'));
+    target.classList.add('fp-drag-over');
+    e.dataTransfer.dropEffect = 'move';
+  });
+  tbody.addEventListener('drop', e => {
+    e.preventDefault();
+    const target = e.target.closest('tr[data-id]');
+    if (!target || target === dragSrc || !dragSrc) return;
+    target.classList.remove('fp-drag-over');
+    const rect = target.getBoundingClientRect();
+    const after = e.clientY > rect.top + rect.height / 2;
+    after ? target.after(dragSrc) : target.before(dragSrc);
+    document.getElementById('cco-saved-flag').textContent = 'Unsaved changes — click Save Order to apply';
+  });
+}
+
+async function saveConsumableOrder() {
+  if (typeof isManagerOrOwner === 'function' && !isManagerOrOwner()) return;
+  if (currentLocation === 'all') return;
+  const ids = [...document.querySelectorAll('#cco-list tr[data-id]')].map(r => r.dataset.id);
+  if (!ids.length) { toast('err','Nothing to save'); return; }
+  const btn = document.getElementById('cco-save-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    await saveSetting(_consumableOrderKey(currentLocation), JSON.stringify(ids));
+    toast('ok','✓ Order saved for ' + currentLocation);
+    closeModal('modal-consumable-order');
+    if (typeof renderCountSheet === 'function') renderCountSheet();
+  } catch (e) { toast('err','Save failed: ' + e.message); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = 'Save Order'; } }
+}
+
+async function resetConsumableOrder() {
+  if (typeof isManagerOrOwner === 'function' && !isManagerOrOwner()) return;
+  if (currentLocation === 'all') return;
+  if (!confirm(`Reset to alphabetical order for ${currentLocation}?`)) return;
+  try {
+    await saveSetting(_consumableOrderKey(currentLocation), '');
+    toast('ok','✓ Reset to alphabetical');
+    closeModal('modal-consumable-order');
+    if (typeof renderCountSheet === 'function') renderCountSheet();
+  } catch (e) { toast('err','Reset failed: ' + e.message); }
+}
+
 // Renders the Store/Storage toggle pills + flips the toolbar primary
 // button between "Save & Start Storage Count" (in store view) and
 // "Submit Count" (in storage view).
@@ -221,14 +347,24 @@ function renderCountSheet() {
     };
   });
 
-  // group items by vendor — all shared items, same list for every location
+  // Flat alphabetical list, with a per-location custom order (saved to
+  // BSC_Settings as `consumable_order_<Location>`) applied first when set.
   const items = (cache[cfg.cacheKey] || []).filter(i => !i.Archived);
-  const byVendor = {};
-  items.forEach(i => {
-    const vendor = i.Supplier || 'No Vendor';
-    if (!byVendor[vendor]) byVendor[vendor] = [];
-    byVendor[vendor].push(i);
-  });
+  const orderArr = _getConsumableOrder(currentLocation);
+  if (orderArr && orderArr.length) {
+    const idx = {};
+    orderArr.forEach((id, i) => { idx[String(id)] = i; });
+    items.sort((a, b) => {
+      const ai = idx[String(a.id)];
+      const bi = idx[String(b.id)];
+      if (ai != null && bi != null) return ai - bi;
+      if (ai != null) return -1;
+      if (bi != null) return 1;
+      return (a.ItemName||'').localeCompare(b.ItemName||'');
+    });
+  } else {
+    items.sort((a, b) => (a.ItemName||'').localeCompare(b.ItemName||''));
+  }
 
   // Render Store/Storage toggle pills + adjust the primary/secondary
   // action buttons in the toolbar based on the active view.
@@ -237,47 +373,43 @@ function renderCountSheet() {
   const view = _consumableCountView;
   const visibleColLabel = view === 'store' ? 'Store' : 'Storage';
 
-  container.innerHTML = Object.entries(byVendor).sort(([a],[b])=>a>b?1:-1).map(([vendor, vendorItems]) => `
-    <div class="count-cat-section">
-      <div class="count-cat-header">${vendor}</div>
-      ${vendorItems.map(item => {
-        const last = recentMap[item.ItemName];
-        const unit = item.OrderUnit || item.Unit || '';
-        const _par = (typeof getItemPar === 'function') ? (getItemPar(item, currentLocation) ?? 0) : (item.ParLevel||0);
-        // Pre-fill the active column from last submitted value; the
-        // inactive column's last value rides on the row as a data
-        // attribute so updateCountTotal can still sum store + storage.
-        const lastStore   = last ? last.store   : '';
-        const lastStorage = last ? last.storage : '';
-        const visibleVal = view === 'store' ? lastStore : lastStorage;
-        const otherDataAttr = view === 'store'
-          ? `data-storage="${lastStorage === '' ? '' : lastStorage}"`
-          : `data-store="${lastStore === '' ? '' : lastStore}"`;
-        const inputClass = view === 'store' ? 'count-store' : 'count-storage';
-        const target     = view === 'store' ? 'store' : 'storage';
-        return `<div class="count-row" data-id="${item.id}" data-name="${(item.ItemName||'').replace(/"/g,'&quot;')}" ${otherDataAttr}>
-          <div style="flex:1;min-width:160px">
-            <div class="count-item-name">${item.ItemName||'—'}</div>
-            <div class="count-item-meta">par ${_par} ${unit}</div>
-          </div>
-          <div class="count-input-group">
-            <label>${visibleColLabel}</label>
-            <input type="number" class="count-num-input ${inputClass}" min="0" step="0.1"
-              oninput="updateCountTotal(this)" placeholder="0" value="${visibleVal}">
-          </div>
-          <div style="display:flex;flex-direction:column;gap:2px;align-self:flex-end;margin-bottom:1px;flex-shrink:0;">
-            <button onclick="countPlusOne(this, '${target}')" title="+1 to ${target}"
-              style="padding:3px 8px;background:var(--opal);border:1.5px solid var(--border);border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;color:var(--dark-blue);line-height:1;">+1</button>
-            <button onclick="countPlusOne(this, '${target}', -1)" title="-1 to ${target}"
-              style="padding:3px 8px;background:var(--opal);border:1.5px solid var(--border);border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;color:var(--dark-blue);line-height:1;">−1</button>
-          </div>
-          <div class="count-total-box">
-            <label>Total</label>
-            <div class="count-total-val" id="count-total-${item.id}">${last != null ? last.total : '—'}</div>
-          </div>
-        </div>`;
-      }).join('')}
-    </div>`).join('');
+  container.innerHTML = `<div class="count-cat-section">${items.map(item => {
+    const last = recentMap[item.ItemName];
+    const unit = item.OrderUnit || item.Unit || '';
+    const _par = (typeof getItemPar === 'function') ? (getItemPar(item, currentLocation) ?? 0) : (item.ParLevel||0);
+    // Pre-fill the active column from last submitted value; the inactive
+    // column's last value rides on the row as a data attribute so
+    // updateCountTotal can still sum store + storage.
+    const lastStore   = last ? last.store   : '';
+    const lastStorage = last ? last.storage : '';
+    const visibleVal = view === 'store' ? lastStore : lastStorage;
+    const otherDataAttr = view === 'store'
+      ? `data-storage="${lastStorage === '' ? '' : lastStorage}"`
+      : `data-store="${lastStore === '' ? '' : lastStore}"`;
+    const inputClass = view === 'store' ? 'count-store' : 'count-storage';
+    const target     = view === 'store' ? 'store' : 'storage';
+    return `<div class="count-row" data-id="${item.id}" data-name="${(item.ItemName||'').replace(/"/g,'&quot;')}" ${otherDataAttr}>
+      <div style="flex:1;min-width:160px">
+        <div class="count-item-name">${item.ItemName||'—'}</div>
+        <div class="count-item-meta">par ${_par} ${unit}</div>
+      </div>
+      <div class="count-input-group">
+        <label>${visibleColLabel}</label>
+        <input type="number" class="count-num-input ${inputClass}" min="0" step="0.1"
+          oninput="updateCountTotal(this)" placeholder="0" value="${visibleVal}">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:2px;align-self:flex-end;margin-bottom:1px;flex-shrink:0;">
+        <button onclick="countPlusOne(this, '${target}')" title="+1 to ${target}"
+          style="padding:3px 8px;background:var(--opal);border:1.5px solid var(--border);border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;color:var(--dark-blue);line-height:1;">+1</button>
+        <button onclick="countPlusOne(this, '${target}', -1)" title="-1 to ${target}"
+          style="padding:3px 8px;background:var(--opal);border:1.5px solid var(--border);border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;color:var(--dark-blue);line-height:1;">−1</button>
+      </div>
+      <div class="count-total-box">
+        <label>Total</label>
+        <div class="count-total-val" id="count-total-${item.id}">${last != null ? last.total : '—'}</div>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
 
   // Restore any saved-but-unsubmitted draft for this location
   const _cfg = invCfg();
