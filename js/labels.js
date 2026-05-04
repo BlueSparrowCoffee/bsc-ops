@@ -206,13 +206,14 @@ function renderLabelsInTab() {
         <div id="labels-toolbar" class="toolbar" style="margin-bottom:14px;"></div>
         <div id="labels-history-wrap"></div>
       </section>
+      ${(typeof FEATURE_5LB_LABELS !== 'undefined' && FEATURE_5LB_LABELS) ? `
       <hr style="border:none;border-top:1px solid var(--border);margin:28px 0;">
       <section>
         <h2 style="font-size:18px;margin:0 0 4px;">🏷️ 5 LB Bag Labels</h2>
         <div id="five-lb-labels-summary-bar" style="display:flex;gap:16px;flex-wrap:wrap;margin:12px 0 16px;"></div>
         <div id="five-lb-labels-toolbar" class="toolbar" style="margin-bottom:14px;"></div>
         <div id="five-lb-labels-history-wrap"></div>
-      </section>`;
+      </section>` : ''}`;
   }
   if (typeof renderRetailBagsPage === 'function') renderRetailBagsPage();
   renderLabelsPage();

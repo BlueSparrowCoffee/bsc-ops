@@ -18,6 +18,14 @@
  *   - utils.js (escHtml, toast, setLoading, openModal, closeModal)
  * ================================================================ */
 
+// Feature flag — flip to true to bring the 5 LB Bag Labels feature
+// back into the UI. While false:
+//   - the section is hidden in the Bags & Labels tab
+//   - the per-location data fetch is skipped (no SP probing)
+//   - the transfer modal's item picker omits 5 LB Bag Labels
+// All underlying data + functions remain — re-enable is one-line.
+const FEATURE_5LB_LABELS = false;
+
 function fiveLbLabelsListName(loc) {
   const l = loc || currentLocation;
   if (!l || l === 'all') return null;
@@ -34,6 +42,7 @@ function _fiveLbRowSort(a, b) {
 }
 
 async function loadFiveLbLabelsForLocation() {
+  if (!FEATURE_5LB_LABELS) { cache.fiveLbLabels = []; return; }
   const siteId = await getSiteId();
   const tag = (rows, loc) => rows.map(r => ({ ...r, _loc: loc }));
   if (currentLocation === 'all') {
