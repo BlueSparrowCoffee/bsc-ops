@@ -463,7 +463,7 @@ function renderMerchCountSheet() {
   // and managers because it surfaces sales/COGs-adjacent data.
   const showExpected = (typeof isOwnerOrAccounting === 'function') && isOwnerOrAccounting();
   const expectedHeader = showExpected
-    ? `<th style="padding:8px 12px;text-align:center;font-weight:600;color:var(--dark-blue)" title="Prior month total + received this month − Square sales this month">Expected Total</th>`
+    ? `<th style="padding:8px 12px;text-align:center;font-weight:600;color:var(--dark-blue)" title="Prior month total + received this month − Square sales this month">Expected</th>`
     : '';
 
   container.innerHTML = `
