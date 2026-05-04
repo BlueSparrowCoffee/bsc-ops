@@ -9,11 +9,10 @@
  *   - cache.menu               (Square menu items, for matching)
  *   - cache.squareModifiers    (flattened Square modifiers, for matching)
  *
- * v1 (commit 1): page shell, manage competitors/items, single-row edit,
- *   spreadsheet importer, headline + per-item bar chart + heatmap.
- *
- * v2 (commit 2 — deferred): Survey Day batch entry, time-series chart,
- *   margin overlay, outlier review panel, change indicators, freshness.
+ * Features: page shell, manage competitors/items, single-row edit,
+ *   Survey Day batch entry, headline, per-item bar chart, heatmap,
+ *   time-series chart, margin overlay, outlier review panel, change
+ *   indicators, freshness coloring.
  *
  * Depends on:
  *   state.js     — cache, currentUser
@@ -41,8 +40,6 @@ function _marketCatLabel(k) {
 
 // ── State (page-local) ───────────────────────────────────────────
 let _maSelectedItemId = null;   // currently focused item in the bar chart
-let _maImportFile     = null;   // raw {sheet, rows} from upload
-let _maImportPlan     = null;   // user-confirmed mapping before write
 
 // ── Helpers ──────────────────────────────────────────────────────
 function _maMoney(n) {
@@ -170,7 +167,7 @@ function _renderMarketHeadline() {
   const comps   = (cache.marketCompetitors || []).filter(c => c.Active !== 'No').map(c => c.Title);
   const prices  = cache.marketPrices || [];
   if (!items.length || !prices.length) {
-    el.innerHTML = `<span style="color:var(--muted)">Add tracked items + competitor prices (or import a spreadsheet) to see how you compare.</span>`;
+    el.innerHTML = `<span style="color:var(--muted)">Add tracked items + competitor prices to see how you compare.</span>`;
     return;
   }
   const latest = _maLatestPriceMap(prices);
@@ -300,7 +297,7 @@ function _renderMarketBarChart() {
   rows.sort((a,b) => a.price - b.price);
 
   if (!rows.length) {
-    el.innerHTML = `<div class="card" style="padding:32px 16px;text-align:center;color:var(--muted);font-size:13px;">No prices for "${escHtml(key)}" yet. Use <b>+ Add Survey</b> or import a spreadsheet.</div>`;
+    el.innerHTML = `<div class="card" style="padding:32px 16px;text-align:center;color:var(--muted);font-size:13px;">No prices for "${escHtml(key)}" yet. Use <b>📅 Survey Day</b> or click a heatmap cell to add prices.</div>`;
     return;
   }
 
@@ -846,285 +843,6 @@ async function refreshAllBscPrices() {
   }
 }
 
-// ── Spreadsheet importer ─────────────────────────────────────────
-// Parses the Summary sheet of the Menu Comps spreadsheet. Expected
-// shape: row 5 is header (col A=size, col B=item, cols C+ = competitors;
-// "BSC YYYY" columns are treated as historical BSC entries); rows 6+
-// are item rows. We use SheetJS (xlsx) loaded from CDN on demand.
-async function openMarketImport() {
-  if (!isOwner()) return;
-  _maImportFile = null;
-  _maImportPlan = null;
-  document.getElementById('mi-file-input').value = '';
-  document.getElementById('mi-stage-upload').style.display = '';
-  document.getElementById('mi-stage-confirm').style.display = 'none';
-  document.getElementById('mi-stage-result').style.display = 'none';
-  openModal('modal-market-import');
-}
-
-async function _ensureSheetJS() {
-  if (window.XLSX) return window.XLSX;
-  await new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
-    s.onload = resolve;
-    s.onerror = () => reject(new Error('Failed to load xlsx library'));
-    document.head.appendChild(s);
-  });
-  return window.XLSX;
-}
-
-async function onMarketImportFile(input) {
-  const file = input.files?.[0];
-  if (!file) return;
-  try {
-    const XLSX = await _ensureSheetJS();
-    const buf = await file.arrayBuffer();
-    const wb = XLSX.read(buf, { type:'array' });
-    const ws = wb.Sheets['Summary'] || wb.Sheets[wb.SheetNames[0]];
-    if (!ws) { toast('err','No sheets found'); return; }
-    // Convert to AoA, header:1 to keep blank cells
-    const aoa = XLSX.utils.sheet_to_json(ws, { header:1, defval:null });
-    // Find header row — first row whose col A or B is non-null and has another
-    // non-null in cols C+. Falls back to row 5 (index 4) which matches the source.
-    let headerIdx = aoa.findIndex((r, i) => i >= 3 && r && (r[0] || r[1]) === null && r.some((v,vi) => vi >= 2 && v));
-    if (headerIdx < 0) headerIdx = 4;
-    const header = aoa[headerIdx] || [];
-    const dataRows = aoa.slice(headerIdx + 1).filter(r => r && (r[0] || r[1]));
-    _maImportFile = { headerIdx, header, rows: dataRows };
-    _renderImportConfirm();
-    document.getElementById('mi-stage-upload').style.display = 'none';
-    document.getElementById('mi-stage-confirm').style.display = '';
-  } catch (e) {
-    toast('err','Parse failed: '+e.message);
-  }
-}
-
-function _renderImportConfirm() {
-  if (!_maImportFile) return;
-  const { header, rows } = _maImportFile;
-  // Competitor columns = anything in cols 2+ that has a string header
-  const compCols = [];
-  for (let i = 2; i < header.length; i++) {
-    if (header[i] != null && String(header[i]).trim()) {
-      compCols.push({ idx:i, label:String(header[i]).trim() });
-    }
-  }
-  // Existing competitors
-  const existingComps = (cache.marketCompetitors || []).map(c => c.Title);
-  const compRowsHtml = compCols.map(col => {
-    const isBSC = /^BSC\s*\d{4}$/i.test(col.label);
-    const yearMatch = col.label.match(/(\d{4})/);
-    const dateGuess = yearMatch ? `${yearMatch[1]}-01-01` : '';
-    const matchOption = existingComps.find(e => e.toLowerCase() === col.label.toLowerCase());
-    return `
-      <tr>
-        <td style="padding:4px 8px;font-size:12px;font-weight:600;">${escHtml(col.label)}</td>
-        <td style="padding:4px 8px;">
-          <select class="field-input mi-comp-action" data-idx="${col.idx}" style="font-size:12px;padding:3px 6px;" onchange="_renderImportPreviewCount()">
-            <option value="skip">Skip</option>
-            ${isBSC
-              ? `<option value="bsc-history" selected>BSC historical (date ${dateGuess})</option>`
-              : `<option value="map" ${matchOption?'selected':''}>Map to existing</option>
-                 <option value="create" ${!matchOption?'selected':''}>Create as new competitor</option>`
-            }
-          </select>
-        </td>
-        <td style="padding:4px 8px;">
-          ${isBSC
-            ? `<input class="field-input mi-comp-date" data-idx="${col.idx}" value="${dateGuess}" style="font-size:12px;padding:3px 6px;width:140px;" placeholder="YYYY-MM-DD">`
-            : `<select class="field-input mi-comp-target" data-idx="${col.idx}" style="font-size:12px;padding:3px 6px;">${existingComps.map(c => `<option ${c.toLowerCase()===col.label.toLowerCase()?'selected':''}>${escHtml(c)}</option>`).join('')}</select>`
-          }
-        </td>
-      </tr>`;
-  }).join('');
-
-  // Item rows
-  const existingItems = cache.marketItems || [];
-  const itemRowsHtml = rows.map((r, i) => {
-    const size = (r[0] != null) ? String(r[0]).trim() : '';
-    const name = (r[1] != null) ? String(r[1]).trim() : '';
-    if (!name) return '';
-    const guessedKey = (size ? `${name} ${size}` : name).trim().toLowerCase();
-    const match = existingItems.find(it => _maItemKey(it).toLowerCase() === guessedKey);
-    // Guess category: modifiers if size is blank AND name matches modifier-y words
-    const modWords = /(extra shot|flavor|breve|alt milk|oat milk|syrup|whip|substitute)/i;
-    const isModGuess = !size && modWords.test(name);
-    const catGuess = isModGuess ? 'modifier'
-                   : /espresso|latte|cappuccino|macchiato|mocha|americano|cortado/i.test(name) ? 'espresso'
-                   : /drip|brew|coffee/i.test(name) ? 'brewed'
-                   : /iced|cold|frapp/i.test(name) ? 'cold'
-                   : /tea|matcha|chai/i.test(name) ? 'tea'
-                   : 'other';
-    return `
-      <tr>
-        <td style="padding:4px 8px;font-size:12px;">
-          <input type="checkbox" class="mi-item-include" data-idx="${i}" checked onchange="_renderImportPreviewCount()" style="margin-right:6px;">
-        </td>
-        <td style="padding:4px 8px;font-size:12px;font-weight:600;">${escHtml(name)}</td>
-        <td style="padding:4px 8px;font-size:12px;color:var(--muted);">${escHtml(size||'—')}</td>
-        <td style="padding:4px 8px;">
-          <select class="field-input mi-item-action" data-idx="${i}" style="font-size:12px;padding:3px 6px;" onchange="_renderImportPreviewCount()">
-            ${match ? `<option value="map" selected>Map to existing</option>` : ''}
-            <option value="create" ${match?'':'selected'}>Create new tracked item</option>
-            <option value="skip">Skip</option>
-          </select>
-        </td>
-        <td style="padding:4px 8px;">
-          <select class="field-input mi-item-cat" data-idx="${i}" style="font-size:12px;padding:3px 6px;">
-            ${MARKET_CATEGORIES.map(c => `<option value="${c.key}" ${c.key===catGuess?'selected':''}>${c.label}</option>`).join('')}
-          </select>
-        </td>
-      </tr>`;
-  }).join('');
-
-  document.getElementById('mi-comp-table-body').innerHTML = compRowsHtml || `<tr><td colspan="3" style="padding:12px;color:var(--muted);font-size:12px;">No competitor columns detected.</td></tr>`;
-  document.getElementById('mi-item-table-body').innerHTML = itemRowsHtml || `<tr><td colspan="5" style="padding:12px;color:var(--muted);font-size:12px;">No item rows detected.</td></tr>`;
-  document.getElementById('mi-default-date').value = '2025-12-31';
-  _renderImportPreviewCount();
-}
-
-function _renderImportPreviewCount() {
-  if (!_maImportFile) return;
-  const { rows } = _maImportFile;
-  // Read selections
-  const compCols = [...document.querySelectorAll('.mi-comp-action')].map(sel => {
-    const idx = parseInt(sel.dataset.idx,10);
-    const action = sel.value;
-    let target = '';
-    let date = '';
-    if (action === 'map') {
-      target = document.querySelector(`.mi-comp-target[data-idx="${idx}"]`)?.value || '';
-    } else if (action === 'create') {
-      target = document.querySelector(`.mi-comp-target[data-idx="${idx}"]`)?.value || '';
-      // For create, pull label from header row
-      const lbl = _maImportFile.header[idx];
-      target = String(lbl||'').trim();
-    } else if (action === 'bsc-history') {
-      target = 'BSC';
-      date = document.querySelector(`.mi-comp-date[data-idx="${idx}"]`)?.value || '';
-    }
-    return { idx, action, target, date };
-  });
-  const itemActions = [...document.querySelectorAll('.mi-item-action')].map(sel => {
-    const idx = parseInt(sel.dataset.idx,10);
-    const include = document.querySelector(`.mi-item-include[data-idx="${idx}"]`)?.checked;
-    const action = sel.value;
-    const cat = document.querySelector(`.mi-item-cat[data-idx="${idx}"]`)?.value || 'other';
-    return { idx, include, action, cat };
-  });
-  // Count price rows that would be inserted
-  const defaultDate = document.getElementById('mi-default-date')?.value || '2025-12-31';
-  let priceCount = 0, itemCreate = 0;
-  for (const ia of itemActions) {
-    if (!ia.include || ia.action === 'skip') continue;
-    if (ia.action === 'create') itemCreate++;
-    const r = rows[ia.idx];
-    for (const cc of compCols) {
-      if (cc.action === 'skip') continue;
-      const v = r[cc.idx];
-      if (v == null || v === '' || isNaN(parseFloat(v))) continue;
-      priceCount++;
-    }
-  }
-  const compCreate = compCols.filter(c => c.action === 'create').length;
-  document.getElementById('mi-preview-summary').textContent =
-    `Preview: ${itemCreate} new tracked item${itemCreate!==1?'s':''}, ${compCreate} new competitor${compCreate!==1?'s':''}, ${priceCount} price row${priceCount!==1?'s':''} will be created.`;
-  _maImportPlan = { compCols, itemActions, defaultDate, priceCount };
-}
-
-async function confirmMarketImport() {
-  if (!_maImportPlan || !_maImportFile) { toast('err','Nothing to import'); return; }
-  const btn = document.getElementById('mi-confirm-btn');
-  btn.disabled = true; btn.textContent = 'Importing…';
-  try {
-    const { compCols, itemActions, defaultDate } = _maImportPlan;
-    const { rows } = _maImportFile;
-
-    // 1) Create new competitors first so their names exist
-    for (const cc of compCols) {
-      if (cc.action !== 'create') continue;
-      if ((cache.marketCompetitors || []).some(c => (c.Title||'').toLowerCase() === cc.target.toLowerCase())) continue;
-      const created = await addListItem(LISTS.marketCompetitors, { Title: cc.target, Active:'Yes' });
-      cache.marketCompetitors.push(created);
-    }
-
-    // 2) Create / map items, build map idx → {itemKey, recordId}
-    const idxToItem = {};
-    let displayOrder = (cache.marketItems || []).reduce((m,i)=>Math.max(m, parseFloat(i.DisplayOrder)||0), 0);
-    for (const ia of itemActions) {
-      if (!ia.include || ia.action === 'skip') continue;
-      const r = rows[ia.idx];
-      const size = (r[0] != null) ? String(r[0]).trim() : '';
-      const name = (r[1] != null) ? String(r[1]).trim() : '';
-      if (!name) continue;
-      const key = (size ? `${name} ${size}` : name).trim();
-      if (ia.action === 'map') {
-        const existing = (cache.marketItems || []).find(it => _maItemKey(it).toLowerCase() === key.toLowerCase());
-        if (existing) idxToItem[ia.idx] = { key: _maItemKey(existing), id: existing.id };
-        else continue; // shouldn't happen
-      } else {
-        displayOrder += 10;
-        const fields = {
-          Title: name,
-          Size: size,
-          Category: ia.cat,
-          SquareKind: '',
-          SquareRefId: '',
-          DisplayOrder: displayOrder,
-          Active: 'Yes'
-        };
-        const created = await addListItem(LISTS.marketItems, fields);
-        cache.marketItems.push(created);
-        idxToItem[ia.idx] = { key, id: created.id };
-      }
-    }
-
-    // 3) Write price rows
-    let written = 0;
-    for (const ia of itemActions) {
-      if (!ia.include || ia.action === 'skip') continue;
-      const dest = idxToItem[ia.idx];
-      if (!dest) continue;
-      const r = rows[ia.idx];
-      for (const cc of compCols) {
-        if (cc.action === 'skip') continue;
-        const v = r[cc.idx];
-        if (v == null || v === '' || isNaN(parseFloat(v))) continue;
-        const price = parseFloat(v);
-        const date = (cc.action === 'bsc-history') ? cc.date : defaultDate;
-        const competitor = cc.target || '';
-        if (!competitor) continue;
-        const fields = {
-          Title: `${dest.key} | ${competitor} | ${date}`,
-          ItemKey: dest.key,
-          Competitor: competitor,
-          Price: price,
-          SurveyDate: date + 'T00:00:00Z',
-          Notes: '',
-          Source: 'import'
-        };
-        try {
-          const created = await addListItem(LISTS.marketPrices, fields);
-          cache.marketPrices.push(created);
-          written++;
-        } catch (e) {
-          console.warn('Import row failed:', e);
-        }
-      }
-    }
-    document.getElementById('mi-stage-confirm').style.display = 'none';
-    document.getElementById('mi-stage-result').style.display = '';
-    document.getElementById('mi-result-summary').innerHTML =
-      `<div style="font-size:14px;color:var(--dark-blue);"><b>${written}</b> price rows imported.</div>`;
-    renderMarketAnalysis();
-    toast('ok',`✓ Imported ${written} prices`);
-  } catch (e) {
-    toast('err','Import failed: '+e.message);
-  } finally {
-    btn.disabled = false; btn.textContent = 'Import';
-  }
-}
 
 // ── Time-series chart (collapsible) ──────────────────────────────
 let _maTsExpanded = false;

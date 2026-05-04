@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-03i">
-<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-03i">
-<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-03i">
-<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-03i">
-<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-03i">
+<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-03j">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-03j">
+<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-03j">
+<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-03j">
+<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-03j">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="BSC Ops">
@@ -1772,7 +1772,6 @@ html,body{overscroll-behavior:none;}
     <div id="ma-body">
       <div class="toolbar">
         <button class="btn btn-primary" onclick="openSurveyDay()">📅 Survey Day</button>
-        <button class="btn btn-outline" onclick="openMarketImport()">📥 Import Spreadsheet</button>
         <button class="btn btn-outline" onclick="openMarketManage()">⚙ Manage</button>
         <span style="flex:1"></span>
         <button class="btn btn-outline" id="ma-refresh-bsc-btn" onclick="refreshAllBscPrices()" title="Pull current BSC prices for any item linked to Square">🔄 Refresh BSC prices from Square</button>
@@ -1949,58 +1948,6 @@ html,body{overscroll-behavior:none;}
       </div>
     </div>
   </div>
-
-  <!-- MARKET ANALYSIS — Spreadsheet Import -->
-  <div class="modal-overlay" id="modal-market-import">
-    <div class="modal" style="max-width:920px;">
-      <div class="modal-header">
-        <div class="modal-title">Import Pricing Spreadsheet</div>
-        <button class="modal-close" onclick="closeModal('modal-market-import')">×</button>
-      </div>
-      <div id="mi-stage-upload" style="padding:18px 6px;">
-        <div style="font-size:13px;color:var(--muted);margin-bottom:12px;">
-          Upload an .xlsx with a "Summary" sheet. Expected layout: column A = size, column B = item, columns C+ = competitors. "BSC YYYY" columns are auto-detected as historical BSC entries.
-        </div>
-        <input type="file" id="mi-file-input" accept=".xlsx,.xls" onchange="onMarketImportFile(this)" class="field-input" style="font-size:13px;">
-      </div>
-      <div id="mi-stage-confirm" style="display:none;padding:8px 0;max-height:520px;overflow-y:auto;">
-        <div style="font-weight:700;font-size:13px;color:var(--dark-blue);margin-bottom:6px;">Competitor columns</div>
-        <table style="width:100%;border-collapse:collapse;margin-bottom:18px;">
-          <thead><tr style="background:var(--cream);">
-            <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--muted);">Spreadsheet column</th>
-            <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--muted);">Action</th>
-            <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--muted);">Target / Date</th>
-          </tr></thead>
-          <tbody id="mi-comp-table-body"></tbody>
-        </table>
-
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
-          <div style="font-weight:700;font-size:13px;color:var(--dark-blue);">Item rows</div>
-          <span style="font-size:12px;color:var(--muted);">Default survey date for non-BSC columns:</span>
-          <input id="mi-default-date" type="date" class="field-input" style="font-size:12px;padding:3px 6px;width:140px;" oninput="_renderImportPreviewCount()">
-        </div>
-        <table style="width:100%;border-collapse:collapse;">
-          <thead><tr style="background:var(--cream);">
-            <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--muted);">Include</th>
-            <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--muted);">Item</th>
-            <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--muted);">Size</th>
-            <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--muted);">Action</th>
-            <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--muted);">Category</th>
-          </tr></thead>
-          <tbody id="mi-item-table-body"></tbody>
-        </table>
-        <div id="mi-preview-summary" style="margin-top:14px;font-size:13px;font-weight:600;color:var(--dark-blue);"></div>
-      </div>
-      <div id="mi-stage-result" style="display:none;padding:18px 6px;">
-        <div id="mi-result-summary"></div>
-      </div>
-      <div class="form-actions">
-        <button class="btn btn-primary" id="mi-confirm-btn" onclick="confirmMarketImport()">Import</button>
-        <button class="btn btn-outline" onclick="closeModal('modal-market-import')">Close</button>
-      </div>
-    </div>
-  </div>
-
   <!-- SQUARE -->
   <div class="page section-load-target" id="page-square">
     <div class="page-header">
@@ -2654,39 +2601,39 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-05-03i" defer></script>
-<script src="/js/utils.js?v=2026-05-03i" defer></script>
-<script src="/js/state.js?v=2026-05-03i" defer></script>
-<script src="/js/auth.js?v=2026-05-03i" defer></script>
-<script src="/js/graph.js?v=2026-05-03i" defer></script>
-<script src="/js/signalr.js?v=2026-05-03i" defer></script>
-<script src="/js/tags.js?v=2026-05-03i" defer></script>
-<script src="/js/nav.js?v=2026-05-03i" defer></script>
-<script src="/js/settings.js?v=2026-05-03i" defer></script>
-<script src="/js/dashboard.js?v=2026-05-03i" defer></script>
-<script src="/js/inventory.js?v=2026-05-03i" defer></script>
-<script src="/js/inventory-form.js?v=2026-05-03i" defer></script>
-<script src="/js/counts.js?v=2026-05-03i" defer></script>
-<script src="/js/foodpars.js?v=2026-05-03i" defer></script>
-<script src="/js/labels.js?v=2026-05-03i" defer></script>
-<script src="/js/bags.js?v=2026-05-03i" defer></script>
-<script src="/js/bag-labels-5lb.js?v=2026-05-03i" defer></script>
-<script src="/js/pastry-sync.js?v=2026-05-03i" defer></script>
-<script src="/js/recipes.js?v=2026-05-03i" defer></script>
-<script src="/js/cogs.js?v=2026-05-03i" defer></script>
-<script src="/js/vendors.js?v=2026-05-03i" defer></script>
-<script src="/js/contacts.js?v=2026-05-03i" defer></script>
-<script src="/js/maintenance.js?v=2026-05-03i" defer></script>
-<script src="/js/checklists.js?v=2026-05-03i" defer></script>
-<script src="/js/ordering.js?v=2026-05-03i" defer></script>
-<script src="/js/ordering-build.js?v=2026-05-03i" defer></script>
-<script src="/js/market-analysis.js?v=2026-05-03i" defer></script>
-<script src="/js/parking.js?v=2026-05-03i" defer></script>
-<script src="/js/prepItems.js?v=2026-05-03i" defer></script>
-<script src="/js/square.js?v=2026-05-03i" defer></script>
-<script src="/js/timeclock.js?v=2026-05-03i" defer></script>
-<script src="/js/slack.js?v=2026-05-03i" defer></script>
-<script src="/js/auto-sync.js?v=2026-05-03i" defer></script>
+<script src="/js/constants.js?v=2026-05-03j" defer></script>
+<script src="/js/utils.js?v=2026-05-03j" defer></script>
+<script src="/js/state.js?v=2026-05-03j" defer></script>
+<script src="/js/auth.js?v=2026-05-03j" defer></script>
+<script src="/js/graph.js?v=2026-05-03j" defer></script>
+<script src="/js/signalr.js?v=2026-05-03j" defer></script>
+<script src="/js/tags.js?v=2026-05-03j" defer></script>
+<script src="/js/nav.js?v=2026-05-03j" defer></script>
+<script src="/js/settings.js?v=2026-05-03j" defer></script>
+<script src="/js/dashboard.js?v=2026-05-03j" defer></script>
+<script src="/js/inventory.js?v=2026-05-03j" defer></script>
+<script src="/js/inventory-form.js?v=2026-05-03j" defer></script>
+<script src="/js/counts.js?v=2026-05-03j" defer></script>
+<script src="/js/foodpars.js?v=2026-05-03j" defer></script>
+<script src="/js/labels.js?v=2026-05-03j" defer></script>
+<script src="/js/bags.js?v=2026-05-03j" defer></script>
+<script src="/js/bag-labels-5lb.js?v=2026-05-03j" defer></script>
+<script src="/js/pastry-sync.js?v=2026-05-03j" defer></script>
+<script src="/js/recipes.js?v=2026-05-03j" defer></script>
+<script src="/js/cogs.js?v=2026-05-03j" defer></script>
+<script src="/js/vendors.js?v=2026-05-03j" defer></script>
+<script src="/js/contacts.js?v=2026-05-03j" defer></script>
+<script src="/js/maintenance.js?v=2026-05-03j" defer></script>
+<script src="/js/checklists.js?v=2026-05-03j" defer></script>
+<script src="/js/ordering.js?v=2026-05-03j" defer></script>
+<script src="/js/ordering-build.js?v=2026-05-03j" defer></script>
+<script src="/js/market-analysis.js?v=2026-05-03j" defer></script>
+<script src="/js/parking.js?v=2026-05-03j" defer></script>
+<script src="/js/prepItems.js?v=2026-05-03j" defer></script>
+<script src="/js/square.js?v=2026-05-03j" defer></script>
+<script src="/js/timeclock.js?v=2026-05-03j" defer></script>
+<script src="/js/slack.js?v=2026-05-03j" defer></script>
+<script src="/js/auto-sync.js?v=2026-05-03j" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
@@ -4943,7 +4890,7 @@ function renderMenu(query='', catFilter='') {
     const stockDisplay = stock != null ? stock : '—';
     const vars = (i.Variations||'').split('\n').filter(Boolean);
     return `<tr data-gs-id="${escHtml(i.id)}" style="${isHidden?'opacity:0.45;':''}">
-      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-03i" alt="" title="Synced with Square">':''}</td>
+      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-03j" alt="" title="Synced with Square">':''}</td>
       <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${escHtml(i.Category||'—')}</span></td>
       <td style="font-size:12px;color:var(--muted);max-width:220px">${escHtml(i.Description||'')}</td>
       <td>${i.Price != null ? '$'+Number(i.Price).toFixed(2) : '—'}</td>
