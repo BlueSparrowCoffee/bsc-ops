@@ -134,37 +134,23 @@ function saveAndSwitchToStorage() {
   document.getElementById('count-sheet-body')?.scrollIntoView({behavior:'smooth', block:'start'});
 }
 
-// ── Per-location custom item order (consumable) ──────────────────
-// Stored in BSC_Settings as `consumable_order_<Location>` → JSON array
+// ── Per-location custom item order (any inv-type) ────────────────
+// Stored in BSC_Settings as `<cacheKey>_order_<Location>` → JSON array
 // of inventory item ids in display order. Items not in the array fall
-// through to alphabetical at the end.
-function _consumableOrderKey(loc) { return 'consumable_order_' + loc; }
-function _getConsumableOrder(loc) {
-  if (!loc || loc === 'all') return null;
-  const raw = (typeof getSetting === 'function') ? getSetting(_consumableOrderKey(loc)) : '';
+// through to alphabetical at the end. Used by consumable, merch, and
+// equipment count sheets.
+function _countOrderKey(cacheKey, loc) { return cacheKey + '_order_' + loc; }
+function _getCountOrder(cacheKey, loc) {
+  if (!cacheKey || !loc || loc === 'all') return null;
+  const raw = (typeof getSetting === 'function') ? getSetting(_countOrderKey(cacheKey, loc)) : '';
   if (!raw) return null;
   try { const arr = JSON.parse(raw); return Array.isArray(arr) ? arr : null; }
   catch { return null; }
 }
 
-function openConsumableOrderModal() {
-  if (typeof isManagerOrOwner === 'function' && !isManagerOrOwner()) {
-    toast('err','Manager or owner access required'); return;
-  }
-  if (currentLocation === 'all') { toast('err','Pick a specific location first'); return; }
-  _renderConsumableOrderList();
-  openModal('modal-consumable-order');
-}
-
-function _renderConsumableOrderList() {
-  const tbody = document.getElementById('cco-list');
-  if (!tbody) return;
-  const cfg = invCfg();
-  if (!cfg) return;
-  // Use the same sort that renderCountSheet uses so the modal opens
-  // showing the current order.
-  const items = (cache[cfg.cacheKey]||[]).filter(i => !i.Archived);
-  const orderArr = _getConsumableOrder(currentLocation);
+// Apply a saved order in-place to an items array (sorts custom-ordered
+// ids first, then everything else alphabetically by ItemName).
+function _applyCountOrder(items, orderArr) {
   if (orderArr && orderArr.length) {
     const idx = {};
     orderArr.forEach((id, i) => { idx[String(id)] = i; });
@@ -179,18 +165,43 @@ function _renderConsumableOrderList() {
   } else {
     items.sort((a, b) => (a.ItemName||'').localeCompare(b.ItemName||''));
   }
-  document.getElementById('cco-location-label').textContent = currentLocation;
+  return items;
+}
+
+function openCountOrderModal() {
+  if (typeof isManagerOrOwner === 'function' && !isManagerOrOwner()) {
+    toast('err','Manager or owner access required'); return;
+  }
+  if (currentLocation === 'all') { toast('err','Pick a specific location first'); return; }
+  const cfg = invCfg();
+  if (!cfg) return;
+  _renderCountOrderList();
+  openModal('modal-count-order');
+}
+
+function _renderCountOrderList() {
+  const tbody = document.getElementById('cco-list');
+  if (!tbody) return;
+  const cfg = invCfg();
+  if (!cfg) return;
+  const items = (cache[cfg.cacheKey]||[]).filter(i => !i.Archived);
+  const orderArr = _getCountOrder(cfg.cacheKey, currentLocation);
+  _applyCountOrder(items, orderArr);
+  document.getElementById('cco-location-label').textContent = currentLocation + ' · ' + (cfg.label || cfg.cacheKey);
   document.getElementById('cco-saved-flag').textContent = (orderArr && orderArr.length) ? 'Custom order in use' : 'Alphabetical (no custom order saved yet)';
+  // Vendor column is meaningful for consumable; for merch/equipment
+  // most rows have no Supplier, so suppress the column entirely.
+  const showVendor = !cfg.isMerch && cfg.cacheKey !== 'equipInventory';
   tbody.innerHTML = items.map(it => `
     <tr data-id="${escHtml(String(it.id))}" style="border-bottom:1px solid var(--border);">
       <td class="fp-drag-handle" title="Drag to reorder">⠿</td>
       <td style="padding:8px 12px;font-size:13px;font-weight:500;">${escHtml(it.ItemName||'—')}</td>
-      <td style="padding:8px 12px;font-size:11px;color:var(--muted);">${escHtml(it.Supplier||'')}</td>
+      ${showVendor ? `<td style="padding:8px 12px;font-size:11px;color:var(--muted);">${escHtml(it.Supplier||'')}</td>` : ''}
     </tr>`).join('');
-  _wireConsumableOrderDrag();
+  _wireCountOrderDrag();
 }
 
-function _wireConsumableOrderDrag() {
+function _wireCountOrderDrag() {
   const tbody = document.getElementById('cco-list');
   if (!tbody || tbody._dragWired) return;
   tbody._dragWired = true;
@@ -232,31 +243,44 @@ function _wireConsumableOrderDrag() {
   });
 }
 
-async function saveConsumableOrder() {
+// Re-renders whichever count sheet matches the active inv-type after
+// an order save/reset.
+function _rerenderActiveCountSheet() {
+  const cfg = invCfg();
+  if (!cfg) return;
+  if (cfg.isMerch) { if (typeof renderMerchCountSheet === 'function') renderMerchCountSheet(); }
+  else             { if (typeof renderCountSheet      === 'function') renderCountSheet(); }
+}
+
+async function saveCountOrder() {
   if (typeof isManagerOrOwner === 'function' && !isManagerOrOwner()) return;
   if (currentLocation === 'all') return;
+  const cfg = invCfg();
+  if (!cfg) return;
   const ids = [...document.querySelectorAll('#cco-list tr[data-id]')].map(r => r.dataset.id);
   if (!ids.length) { toast('err','Nothing to save'); return; }
   const btn = document.getElementById('cco-save-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
   try {
-    await saveSetting(_consumableOrderKey(currentLocation), JSON.stringify(ids));
+    await saveSetting(_countOrderKey(cfg.cacheKey, currentLocation), JSON.stringify(ids));
     toast('ok','✓ Order saved for ' + currentLocation);
-    closeModal('modal-consumable-order');
-    if (typeof renderCountSheet === 'function') renderCountSheet();
+    closeModal('modal-count-order');
+    _rerenderActiveCountSheet();
   } catch (e) { toast('err','Save failed: ' + e.message); }
   finally { if (btn) { btn.disabled = false; btn.textContent = 'Save Order'; } }
 }
 
-async function resetConsumableOrder() {
+async function resetCountOrder() {
   if (typeof isManagerOrOwner === 'function' && !isManagerOrOwner()) return;
   if (currentLocation === 'all') return;
-  if (!confirm(`Reset to alphabetical order for ${currentLocation}?`)) return;
+  const cfg = invCfg();
+  if (!cfg) return;
+  if (!confirm(`Reset to alphabetical order for ${currentLocation} (${cfg.label || cfg.cacheKey})?`)) return;
   try {
-    await saveSetting(_consumableOrderKey(currentLocation), '');
+    await saveSetting(_countOrderKey(cfg.cacheKey, currentLocation), '');
     toast('ok','✓ Reset to alphabetical');
-    closeModal('modal-consumable-order');
-    if (typeof renderCountSheet === 'function') renderCountSheet();
+    closeModal('modal-count-order');
+    _rerenderActiveCountSheet();
   } catch (e) { toast('err','Reset failed: ' + e.message); }
 }
 
@@ -347,24 +371,11 @@ function renderCountSheet() {
     };
   });
 
-  // Flat alphabetical list, with a per-location custom order (saved to
-  // BSC_Settings as `consumable_order_<Location>`) applied first when set.
+  // Flat list with an optional per-location custom order (saved to
+  // BSC_Settings as `<cacheKey>_order_<Location>`). Items not in the
+  // saved array fall through to alphabetical at the end.
   const items = (cache[cfg.cacheKey] || []).filter(i => !i.Archived);
-  const orderArr = _getConsumableOrder(currentLocation);
-  if (orderArr && orderArr.length) {
-    const idx = {};
-    orderArr.forEach((id, i) => { idx[String(id)] = i; });
-    items.sort((a, b) => {
-      const ai = idx[String(a.id)];
-      const bi = idx[String(b.id)];
-      if (ai != null && bi != null) return ai - bi;
-      if (ai != null) return -1;
-      if (bi != null) return 1;
-      return (a.ItemName||'').localeCompare(b.ItemName||'');
-    });
-  } else {
-    items.sort((a, b) => (a.ItemName||'').localeCompare(b.ItemName||''));
-  }
+  _applyCountOrder(items, _getCountOrder(cfg.cacheKey, currentLocation));
 
   // Render Store/Storage toggle pills + adjust the primary/secondary
   // action buttons in the toolbar based on the active view.
@@ -622,6 +633,7 @@ function renderMerchCountSheet() {
         <span id="count-draft-indicator" style="font-size:12px;color:var(--gold);opacity:0;transition:opacity .2s;"></span>
         <span id="merch-count-submit-progress" style="font-size:13px;color:var(--muted)"></span>
         <button class="btn btn-outline" onclick="toggleMerchHideZero()" title="Hide items whose pre-filled total is 0 — typically merch you don't stock">${_merchHideZero ? '👁 Show All' : '🙈 Hide Zero'}</button>
+        <button class="btn btn-outline" onclick="openCountOrderModal()" title="Customize the per-location item order">⇅ Reorder</button>
         ${(typeof isOwner === 'function' && isOwner()) ? `<button class="btn btn-outline" onclick="openMerchCountRecords()" title="Owner-only: view and delete past count batches">🗑 Records</button>` : ''}
         <button class="btn btn-outline" onclick="clearMerchCountSheet()">Clear</button>
         <button class="btn btn-primary" onclick="submitMerchCount()">Submit ${escHtml(monthLabel.split(' ')[0])} Count</button>
@@ -670,10 +682,11 @@ function renderMerchCountSheet() {
     if (!recentMap[name]) recentMap[name] = snap;
   }
 
-  // Merch no longer tracks Category or ItemNo — sort alphabetically by name.
-  const items = [...(cache[cfg.cacheKey]||[])].sort((a,b) =>
-    (a.ItemName||'').localeCompare(b.ItemName||'')
-  );
+  // Merch no longer tracks Category or ItemNo. Apply per-location custom
+  // order if one's saved (BSC_Settings `merchInventory_order_<Location>`),
+  // otherwise alphabetical.
+  const items = [...(cache[cfg.cacheKey]||[])];
+  _applyCountOrder(items, _getCountOrder(cfg.cacheKey, currentLocation));
 
   // Owner+accounting see an "Expected Total" column = prior-month count
   // + received this month − Square sales this month. Useful for spotting

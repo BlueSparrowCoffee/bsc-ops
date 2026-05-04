@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-04i">
-<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-04i">
-<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-04i">
-<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-04i">
-<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-04i">
+<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-04j">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-04j">
+<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-04j">
+<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-04j">
+<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-04j">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="BSC Ops">
@@ -735,7 +735,7 @@ html,body{overscroll-behavior:none;}
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
           <span id="count-draft-indicator" style="font-size:12px;color:var(--gold);opacity:0;transition:opacity .2s;"></span>
           <span id="count-submit-progress" style="font-size:13px;color:var(--muted)"></span>
-          <button class="btn btn-outline" onclick="openConsumableOrderModal()" title="Customize the per-location item order">⇅ Reorder</button>
+          <button class="btn btn-outline" onclick="openCountOrderModal()" title="Customize the per-location item order">⇅ Reorder</button>
           <button class="btn btn-outline" onclick="clearCountSheet()">Clear</button>
           <button class="btn btn-primary" id="count-save-switch-btn" onclick="saveAndSwitchToStorage()">Save &amp; Start Storage Count</button>
           <button class="btn btn-primary" id="count-submit-btn" onclick="submitWeeklyCount()">Submit Count</button>
@@ -1270,11 +1270,11 @@ html,body{overscroll-behavior:none;}
   </div>
 
   <!-- CONSUMABLE COUNT — Per-location custom order (manager+owner) -->
-  <div class="modal-overlay" id="modal-consumable-order">
+  <div class="modal-overlay" id="modal-count-order">
     <div class="modal" style="max-width:560px;">
       <div class="modal-header">
         <div class="modal-title">⇅ Reorder Items — <span id="cco-location-label"></span></div>
-        <button class="modal-close" onclick="closeModal('modal-consumable-order')">×</button>
+        <button class="modal-close" onclick="closeModal('modal-count-order')">×</button>
       </div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:8px;line-height:1.5;">
         Drag the ⠿ handle to reorder. Order is saved per location and applied to the count sheet for that location only. <span id="cco-saved-flag" style="font-style:italic;"></span>
@@ -1285,9 +1285,9 @@ html,body{overscroll-behavior:none;}
         </table>
       </div>
       <div class="form-actions">
-        <button class="btn btn-primary" id="cco-save-btn" onclick="saveConsumableOrder()">Save Order</button>
-        <button class="btn btn-outline" onclick="resetConsumableOrder()">Reset to alphabetical</button>
-        <button class="btn btn-outline" onclick="closeModal('modal-consumable-order')">Cancel</button>
+        <button class="btn btn-primary" id="cco-save-btn" onclick="saveCountOrder()">Save Order</button>
+        <button class="btn btn-outline" onclick="resetCountOrder()">Reset to alphabetical</button>
+        <button class="btn btn-outline" onclick="closeModal('modal-count-order')">Cancel</button>
       </div>
     </div>
   </div>
@@ -2662,39 +2662,39 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-05-04i" defer></script>
-<script src="/js/utils.js?v=2026-05-04i" defer></script>
-<script src="/js/state.js?v=2026-05-04i" defer></script>
-<script src="/js/auth.js?v=2026-05-04i" defer></script>
-<script src="/js/graph.js?v=2026-05-04i" defer></script>
-<script src="/js/signalr.js?v=2026-05-04i" defer></script>
-<script src="/js/tags.js?v=2026-05-04i" defer></script>
-<script src="/js/nav.js?v=2026-05-04i" defer></script>
-<script src="/js/settings.js?v=2026-05-04i" defer></script>
-<script src="/js/dashboard.js?v=2026-05-04i" defer></script>
-<script src="/js/inventory.js?v=2026-05-04i" defer></script>
-<script src="/js/inventory-form.js?v=2026-05-04i" defer></script>
-<script src="/js/counts.js?v=2026-05-04i" defer></script>
-<script src="/js/foodpars.js?v=2026-05-04i" defer></script>
-<script src="/js/labels.js?v=2026-05-04i" defer></script>
-<script src="/js/bags.js?v=2026-05-04i" defer></script>
-<script src="/js/bag-labels-5lb.js?v=2026-05-04i" defer></script>
-<script src="/js/pastry-sync.js?v=2026-05-04i" defer></script>
-<script src="/js/recipes.js?v=2026-05-04i" defer></script>
-<script src="/js/cogs.js?v=2026-05-04i" defer></script>
-<script src="/js/vendors.js?v=2026-05-04i" defer></script>
-<script src="/js/contacts.js?v=2026-05-04i" defer></script>
-<script src="/js/maintenance.js?v=2026-05-04i" defer></script>
-<script src="/js/checklists.js?v=2026-05-04i" defer></script>
-<script src="/js/ordering.js?v=2026-05-04i" defer></script>
-<script src="/js/ordering-build.js?v=2026-05-04i" defer></script>
-<script src="/js/market-analysis.js?v=2026-05-04i" defer></script>
-<script src="/js/parking.js?v=2026-05-04i" defer></script>
-<script src="/js/prepItems.js?v=2026-05-04i" defer></script>
-<script src="/js/square.js?v=2026-05-04i" defer></script>
-<script src="/js/timeclock.js?v=2026-05-04i" defer></script>
-<script src="/js/slack.js?v=2026-05-04i" defer></script>
-<script src="/js/auto-sync.js?v=2026-05-04i" defer></script>
+<script src="/js/constants.js?v=2026-05-04j" defer></script>
+<script src="/js/utils.js?v=2026-05-04j" defer></script>
+<script src="/js/state.js?v=2026-05-04j" defer></script>
+<script src="/js/auth.js?v=2026-05-04j" defer></script>
+<script src="/js/graph.js?v=2026-05-04j" defer></script>
+<script src="/js/signalr.js?v=2026-05-04j" defer></script>
+<script src="/js/tags.js?v=2026-05-04j" defer></script>
+<script src="/js/nav.js?v=2026-05-04j" defer></script>
+<script src="/js/settings.js?v=2026-05-04j" defer></script>
+<script src="/js/dashboard.js?v=2026-05-04j" defer></script>
+<script src="/js/inventory.js?v=2026-05-04j" defer></script>
+<script src="/js/inventory-form.js?v=2026-05-04j" defer></script>
+<script src="/js/counts.js?v=2026-05-04j" defer></script>
+<script src="/js/foodpars.js?v=2026-05-04j" defer></script>
+<script src="/js/labels.js?v=2026-05-04j" defer></script>
+<script src="/js/bags.js?v=2026-05-04j" defer></script>
+<script src="/js/bag-labels-5lb.js?v=2026-05-04j" defer></script>
+<script src="/js/pastry-sync.js?v=2026-05-04j" defer></script>
+<script src="/js/recipes.js?v=2026-05-04j" defer></script>
+<script src="/js/cogs.js?v=2026-05-04j" defer></script>
+<script src="/js/vendors.js?v=2026-05-04j" defer></script>
+<script src="/js/contacts.js?v=2026-05-04j" defer></script>
+<script src="/js/maintenance.js?v=2026-05-04j" defer></script>
+<script src="/js/checklists.js?v=2026-05-04j" defer></script>
+<script src="/js/ordering.js?v=2026-05-04j" defer></script>
+<script src="/js/ordering-build.js?v=2026-05-04j" defer></script>
+<script src="/js/market-analysis.js?v=2026-05-04j" defer></script>
+<script src="/js/parking.js?v=2026-05-04j" defer></script>
+<script src="/js/prepItems.js?v=2026-05-04j" defer></script>
+<script src="/js/square.js?v=2026-05-04j" defer></script>
+<script src="/js/timeclock.js?v=2026-05-04j" defer></script>
+<script src="/js/slack.js?v=2026-05-04j" defer></script>
+<script src="/js/auto-sync.js?v=2026-05-04j" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
@@ -4994,7 +4994,7 @@ function renderMenu(query='', catFilter='') {
     const stockDisplay = stock != null ? stock : '—';
     const vars = (i.Variations||'').split('\n').filter(Boolean);
     return `<tr data-gs-id="${escHtml(i.id)}" style="${isHidden?'opacity:0.45;':''}">
-      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-04i" alt="" title="Synced with Square">':''}</td>
+      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-04j" alt="" title="Synced with Square">':''}</td>
       <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${escHtml(i.Category||'—')}</span></td>
       <td style="font-size:12px;color:var(--muted);max-width:220px">${escHtml(i.Description||'')}</td>
       <td>${i.Price != null ? '$'+Number(i.Price).toFixed(2) : '—'}</td>
