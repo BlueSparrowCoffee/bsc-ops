@@ -143,17 +143,35 @@ function setConsumableCountView(view) {
 }
 
 // ── Per-location custom item order (any inv-type) ────────────────
-// Stored in BSC_Settings as `<cacheKey>_order_<Location>` → JSON array
-// of inventory item ids in display order. Items not in the array fall
-// through to alphabetical at the end. Used by consumable, merch, and
-// equipment count sheets.
-function _countOrderKey(cacheKey, loc) { return cacheKey + '_order_' + loc; }
-function _getCountOrder(cacheKey, loc) {
+// Stored in BSC_Settings. Consumable + equipment counts split into
+// Store and Storage views, so each has its own saved order:
+//   <cacheKey>_order_<Location>_store
+//   <cacheKey>_order_<Location>_storage
+// Merch has no view split:
+//   <cacheKey>_order_<Location>
+// Items not in the saved array fall through to alphabetical at the end.
+// _getCountOrder also falls back to the legacy view-less key so any
+// orders saved before the split-view change still apply.
+function _countOrderKey(cacheKey, loc, view) {
+  const base = cacheKey + '_order_' + loc;
+  return view ? base + '_' + view : base;
+}
+function _getCountOrder(cacheKey, loc, view) {
   if (!cacheKey || !loc || loc === 'all') return null;
-  const raw = (typeof getSetting === 'function') ? getSetting(_countOrderKey(cacheKey, loc)) : '';
+  const get = (k) => (typeof getSetting === 'function') ? getSetting(k) : '';
+  let raw = get(_countOrderKey(cacheKey, loc, view));
+  // Legacy fallback: pre-split orders were stored without a view suffix.
+  if (!raw && view) raw = get(_countOrderKey(cacheKey, loc, null));
   if (!raw) return null;
   try { const arr = JSON.parse(raw); return Array.isArray(arr) ? arr : null; }
   catch { return null; }
+}
+
+// View applies to consumable + equipment count sheets (which split
+// into Store / Storage passes). Merch returns null — single view.
+function _activeCountView(cfg) {
+  if (!cfg || cfg.isMerch) return null;
+  return (typeof _consumableCountView !== 'undefined') ? _consumableCountView : null;
 }
 
 // Apply a saved order in-place to an items array (sorts custom-ordered
@@ -192,10 +210,12 @@ function _renderCountOrderList() {
   if (!tbody) return;
   const cfg = invCfg();
   if (!cfg) return;
+  const view = _activeCountView(cfg);
   const items = (cache[cfg.cacheKey]||[]).filter(i => !i.Archived);
-  const orderArr = _getCountOrder(cfg.cacheKey, currentLocation);
+  const orderArr = _getCountOrder(cfg.cacheKey, currentLocation, view);
   _applyCountOrder(items, orderArr);
-  document.getElementById('cco-location-label').textContent = currentLocation + ' · ' + (cfg.label || cfg.cacheKey);
+  const viewLabel = view ? ' · ' + (view === 'store' ? '📦 Store' : '🗄️ Storage') : '';
+  document.getElementById('cco-location-label').textContent = currentLocation + viewLabel + ' · ' + (cfg.label || cfg.cacheKey);
   document.getElementById('cco-saved-flag').textContent = (orderArr && orderArr.length) ? 'Custom order in use' : 'Alphabetical (no custom order saved yet)';
   // Vendor column is meaningful for consumable; for merch/equipment
   // most rows have no Supplier, so suppress the column entirely.
@@ -344,13 +364,15 @@ async function saveCountOrder() {
   if (currentLocation === 'all') return;
   const cfg = invCfg();
   if (!cfg) return;
+  const view = _activeCountView(cfg);
   const ids = [...document.querySelectorAll('#cco-list tr[data-id]')].map(r => r.dataset.id);
   if (!ids.length) { toast('err','Nothing to save'); return; }
   const btn = document.getElementById('cco-save-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
   try {
-    await saveSetting(_countOrderKey(cfg.cacheKey, currentLocation), JSON.stringify(ids));
-    toast('ok','✓ Order saved for ' + currentLocation);
+    await saveSetting(_countOrderKey(cfg.cacheKey, currentLocation, view), JSON.stringify(ids));
+    const viewLabel = view ? ' (' + view + ')' : '';
+    toast('ok','✓ Order saved for ' + currentLocation + viewLabel);
     closeModal('modal-count-order');
     _rerenderActiveCountSheet();
   } catch (e) { toast('err','Save failed: ' + e.message); }
@@ -362,9 +384,11 @@ async function resetCountOrder() {
   if (currentLocation === 'all') return;
   const cfg = invCfg();
   if (!cfg) return;
-  if (!confirm(`Reset to alphabetical order for ${currentLocation} (${cfg.label || cfg.cacheKey})?`)) return;
+  const view = _activeCountView(cfg);
+  const viewLabel = view ? ` ${view}` : '';
+  if (!confirm(`Reset to alphabetical order for ${currentLocation}${viewLabel} (${cfg.label || cfg.cacheKey})?`)) return;
   try {
-    await saveSetting(_countOrderKey(cfg.cacheKey, currentLocation), '');
+    await saveSetting(_countOrderKey(cfg.cacheKey, currentLocation, view), '');
     toast('ok','✓ Reset to alphabetical');
     closeModal('modal-count-order');
     _rerenderActiveCountSheet();
@@ -441,11 +465,11 @@ function renderCountSheet() {
     };
   });
 
-  // Flat list with an optional per-location custom order (saved to
-  // BSC_Settings as `<cacheKey>_order_<Location>`). Items not in the
-  // saved array fall through to alphabetical at the end.
+  // Flat list with an optional per-(location, view) custom order
+  // (saved as `<cacheKey>_order_<Location>_<view>`). Items not in
+  // the saved array fall through to alphabetical at the end.
   const items = (cache[cfg.cacheKey] || []).filter(i => !i.Archived);
-  _applyCountOrder(items, _getCountOrder(cfg.cacheKey, currentLocation));
+  _applyCountOrder(items, _getCountOrder(cfg.cacheKey, currentLocation, _activeCountView(cfg)));
 
   // Render Store/Storage toggle pills + adjust the primary/secondary
   // action buttons in the toolbar based on the active view.
@@ -755,9 +779,9 @@ function renderMerchCountSheet() {
 
   // Merch no longer tracks Category or ItemNo. Apply per-location custom
   // order if one's saved (BSC_Settings `merchInventory_order_<Location>`),
-  // otherwise alphabetical.
+  // otherwise alphabetical. Merch has no Store/Storage view split.
   const items = [...(cache[cfg.cacheKey]||[])];
-  _applyCountOrder(items, _getCountOrder(cfg.cacheKey, currentLocation));
+  _applyCountOrder(items, _getCountOrder(cfg.cacheKey, currentLocation, _activeCountView(cfg)));
 
   // Owner+accounting see an "Expected Total" column = prior-month count
   // + received this month − Square sales this month. Useful for spotting
