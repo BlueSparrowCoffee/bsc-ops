@@ -950,8 +950,9 @@ function _renderMarketTimeSeries() {
 // in one form. Replaces 13+ separate edit clicks when running a survey.
 function openSurveyDay() {
   if (!isOwner()) return;
-  // Default date = today
-  document.getElementById('msd-date').value = new Date().toISOString().slice(0,10);
+  // Date stays blank on open — owner picks it explicitly so they don't
+  // accidentally stamp today onto a survey done on a different day.
+  document.getElementById('msd-date').value = '';
   // Competitor select = BSC + every active competitor
   const comps = (cache.marketCompetitors || []).filter(c => c.Active !== 'No').map(c => c.Title).sort();
   const sel = document.getElementById('msd-competitor');
