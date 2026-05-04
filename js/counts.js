@@ -404,8 +404,9 @@ function renderMerchCountSheet() {
         <span id="count-draft-indicator" style="font-size:12px;color:var(--gold);opacity:0;transition:opacity .2s;"></span>
         <span id="merch-count-submit-progress" style="font-size:13px;color:var(--muted)"></span>
         <button class="btn btn-outline" onclick="toggleMerchHideZero()" title="Hide items whose pre-filled total is 0 — typically merch you don't stock">${_merchHideZero ? '👁 Show All' : '🙈 Hide Zero'}</button>
+        ${(typeof isOwner === 'function' && isOwner()) ? `<button class="btn btn-outline" onclick="openMerchCountRecords()" title="Owner-only: view and delete past count batches">🗑 Records</button>` : ''}
         <button class="btn btn-outline" onclick="clearMerchCountSheet()">Clear</button>
-        <button class="btn btn-primary" onclick="submitMerchCount()">Submit Count</button>
+        <button class="btn btn-primary" onclick="submitMerchCount()">Submit ${escHtml(monthLabel.split(' ')[0])} Count</button>
       </div>`;
     // Inject last-submitted info into merch header
     const _cfg = invCfg();
@@ -622,6 +623,14 @@ async function submitMerchCount() {
   const now = new Date();
   const d = new Date(now.getFullYear(), now.getMonth() + _merchCountMonth, 1);
   const monthDate = d.toISOString().split('T')[0]; // first of the month
+  const monthLabel = d.toLocaleDateString('en-US', { month:'long', year:'numeric' });
+
+  // Past-month confirm — small but easy to miss the header switching back
+  // to "May" via a SignalR-triggered re-render, so make the target explicit
+  // before we write.
+  if (_merchCountMonth < 0) {
+    if (!confirm(`You're about to submit a count for ${monthLabel} (a past month). Continue?`)) return;
+  }
 
   const rows = document.querySelectorAll('.merch-count-row');
   const entries = [];
@@ -676,9 +685,127 @@ async function submitMerchCount() {
     upsertLastCount(cfg, loc, countedBy); // fire-and-forget
     clearCountDraft(cfg, loc, _currentMerchMonthStr()); // draft committed — wipe backup
     clearMerchCountSheet();
-    toast('ok', `✓ Merch count submitted — ${entries.length} items`);
+    toast('ok', `✓ ${monthLabel} count submitted — ${entries.length} items`);
     renderDashboard();
     prog.textContent = '';
   } catch(e) { toast('err','Submit failed: '+e.message); }
   finally { setLoading(false); btn.disabled=false; }
+}
+
+// ── Owner-only count batch manager ───────────────────────────────
+// Lists every (location, month) bucket of count records for the
+// current location, lets the owner delete an entire batch (e.g. a
+// count that landed on the wrong month). Refetches from SharePoint
+// on open so we never act on synthetic in-cache ids.
+async function openMerchCountRecords() {
+  if (typeof isOwner !== 'function' || !isOwner()) { toast('err','Owner access required'); return; }
+  const cfg = invCfg();
+  if (!cfg) return;
+  const loc = currentLocation === 'all' ? null : currentLocation;
+  if (!loc) { toast('err','Select a specific location first'); return; }
+  openModal('modal-merch-count-records');
+  const body = document.getElementById('mcr-body');
+  if (body) body.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);">Loading from SharePoint…</div>';
+  try {
+    const siteId = await getSiteId();
+    const listName = cfg.countsPrefix.replace('{loc}', loc.replace(/[\s\/\\]/g,'_'));
+    const fresh = await getCountHistoryForList(siteId, listName);
+    // Replace this location's records in cache with the fresh fetch — drops
+    // any synthetic ids written by submitMerchCount in this session.
+    cache[cfg.countKey] = (cache[cfg.countKey]||[])
+      .filter(r => r.Location !== loc)
+      .concat((fresh||[]).map(r => ({ ...r, Location: r.Location || loc })));
+    _renderMerchCountRecords();
+  } catch (e) {
+    if (body) body.innerHTML = `<div style="padding:24px;text-align:center;color:var(--red);">Failed to load: ${escHtml(e.message)}</div>`;
+  }
+}
+
+function _renderMerchCountRecords() {
+  const body = document.getElementById('mcr-body');
+  if (!body) return;
+  const cfg = invCfg();
+  if (!cfg) return;
+  const loc = currentLocation === 'all' ? null : currentLocation;
+  if (!loc) {
+    body.innerHTML = '<div style="padding:14px;color:var(--muted);font-size:13px;">Select a location first.</div>';
+    return;
+  }
+  const groups = {};
+  (cache[cfg.countKey] || [])
+    .filter(r => r.Location === loc)
+    .forEach(r => {
+      const month = (r.WeekOf||'').slice(0,7);
+      if (!month) return;
+      if (!groups[month]) groups[month] = { month, count: 0, by: new Set(), latestWeekOf: '' };
+      groups[month].count++;
+      if (r.CountedBy) groups[month].by.add(r.CountedBy);
+      if ((r.WeekOf||'') > groups[month].latestWeekOf) groups[month].latestWeekOf = r.WeekOf||'';
+    });
+  const sorted = Object.values(groups).sort((a,b) => b.month.localeCompare(a.month));
+  if (!sorted.length) {
+    body.innerHTML = `<div style="padding:14px;color:var(--muted);font-size:13px;">No count records yet for ${escHtml(loc)}.</div>`;
+    return;
+  }
+  body.innerHTML = `
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.5;">
+      Each row = one month's count batch for <b>${escHtml(loc)}</b>. Deleting a batch removes every row in that month from the underlying SharePoint counts list. Cannot be undone.
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead>
+        <tr style="background:var(--cream);">
+          <th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--muted);">Month</th>
+          <th style="text-align:right;padding:6px 10px;font-size:11px;color:var(--muted);">Items</th>
+          <th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--muted);">Counted by</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+      ${sorted.map(g => {
+        const niceMonth = new Date(g.month + '-01T00:00:00').toLocaleDateString('en-US', {month:'long', year:'numeric'});
+        const by = [...g.by].join(', ') || '—';
+        return `
+          <tr style="border-bottom:1px solid var(--opal);">
+            <td style="padding:8px 10px;font-weight:600;">${escHtml(niceMonth)}</td>
+            <td style="padding:8px 10px;text-align:right;">${g.count}</td>
+            <td style="padding:8px 10px;font-size:12px;color:var(--muted);">${escHtml(by)}</td>
+            <td style="padding:8px 10px;text-align:right;">
+              <button class="btn btn-outline" data-month="${escHtml(g.month)}" data-loc="${escHtml(loc)}" onclick="deleteMerchCountBatch(this.dataset.loc, this.dataset.month, this)" style="padding:4px 12px;font-size:12px;color:var(--red);">Delete batch</button>
+            </td>
+          </tr>`;
+      }).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+async function deleteMerchCountBatch(loc, month, btn) {
+  if (typeof isOwner !== 'function' || !isOwner()) return;
+  const cfg = invCfg();
+  if (!cfg) return;
+  const targets = (cache[cfg.countKey]||[]).filter(r =>
+    r.Location === loc && (r.WeekOf||'').slice(0,7) === month
+  );
+  if (!targets.length) { toast('err','Nothing to delete'); return; }
+  const niceMonth = new Date(month + '-01T00:00:00').toLocaleDateString('en-US', {month:'long', year:'numeric'});
+  if (!confirm(`Delete all ${targets.length} count record${targets.length!==1?'s':''} for ${loc} — ${niceMonth}?\n\nThis cannot be undone.`)) return;
+  const listName = cfg.countsPrefix.replace('{loc}', loc.replace(/[\s\/\\]/g,'_'));
+  if (btn) { btn.disabled = true; btn.textContent = 'Deleting…'; }
+  setLoading(true, `Deleting ${targets.length} records…`);
+  let ok = 0, fail = 0;
+  try {
+    for (const r of targets) {
+      try { await deleteListItem(listName, r.id); ok++; }
+      catch (e) { fail++; console.warn('count delete failed:', e); }
+    }
+    // Wipe from cache regardless so the UI reflects intent
+    cache[cfg.countKey] = (cache[cfg.countKey]||[]).filter(r =>
+      !(r.Location === loc && (r.WeekOf||'').slice(0,7) === month)
+    );
+    if (fail) toast('err', `Deleted ${ok} of ${targets.length}; ${fail} failed (already removed?). Cache cleared.`);
+    else      toast('ok',  `✓ Deleted ${ok} record${ok!==1?'s':''} for ${niceMonth}`);
+    _renderMerchCountRecords();
+    renderMerchCountSheet();
+    if (typeof renderDashboard === 'function') renderDashboard();
+  } finally { setLoading(false); }
 }
