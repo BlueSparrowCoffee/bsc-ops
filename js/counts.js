@@ -553,11 +553,14 @@ function countPlusOne(btn, target='store', delta=1) {
   updateCountTotal(input);
 }
 
+// "Clear Draft" — wipes the in-progress draft + reverts every input
+// back to the most recent submitted count (renderCountSheet pre-fills
+// inputs from recentMap, so re-rendering after clearing the draft is
+// the simplest way to revert).
 function clearCountSheet() {
-  document.querySelectorAll('.count-num-input').forEach(i=>i.value='');
-  document.querySelectorAll('.count-total-val').forEach(el=>el.textContent='0');
   const cfg = invCfg();
   if (cfg && currentLocation !== 'all') clearCountDraft(cfg, currentLocation, null);
+  if (typeof renderCountSheet === 'function') renderCountSheet();
 }
 
 // Upsert BSC_LastCount — one record per invType:location
@@ -727,7 +730,7 @@ function renderMerchCountSheet() {
         <button class="btn btn-outline" onclick="toggleMerchHideZero()" title="Hide items whose pre-filled total is 0 — typically merch you don't stock">${_merchHideZero ? '👁 Show All' : '🙈 Hide Zero'}</button>
         <button class="btn btn-outline" onclick="openCountOrderModal()" title="Customize the per-location item order">⇅ Reorder</button>
         ${(typeof isOwner === 'function' && isOwner()) ? `<button class="btn btn-outline" onclick="openMerchCountRecords()" title="Owner-only: view and delete past count batches">🗑 Records</button>` : ''}
-        <button class="btn btn-outline" onclick="clearMerchCountSheet()">Clear</button>
+        <button class="btn btn-outline" onclick="clearMerchCountSheet()" title="Wipe the in-progress draft and revert each input to the last submitted count">Clear Draft</button>
         <button class="btn btn-primary" onclick="submitMerchCount()">Submit ${escHtml(monthLabel.split(' ')[0])} Count</button>
       </div>`;
     // Inject last-submitted info into merch header
@@ -931,11 +934,12 @@ function updateMerchCountTotal(input) {
   });
 }
 
+// "Clear Draft" for merch — wipes the in-progress draft + reverts
+// every input to the last submitted count for the active month.
 function clearMerchCountSheet() {
-  document.querySelectorAll('.merch-count-row .count-num-input').forEach(i=>i.value='');
-  document.querySelectorAll('[id^="merch-total-"]').forEach(el=>el.textContent='0');
   const cfg = invCfg();
   if (cfg && currentLocation !== 'all') clearCountDraft(cfg, currentLocation, _currentMerchMonthStr());
+  if (typeof renderMerchCountSheet === 'function') renderMerchCountSheet();
 }
 
 async function submitMerchCount() {
