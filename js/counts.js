@@ -37,8 +37,12 @@ function saveCountDraft(rowSelector, cfg, loc, monthStr) {
       if (!id) return;
       const storeEl   = row.querySelector('.count-store, .merch-store');
       const storageEl = row.querySelector('.count-storage, .merch-storage');
-      const store   = storeEl   ? storeEl.value   : '';
-      const storage = storageEl ? storageEl.value : '';
+      // When the count sheet is split into a single-view mode (consumable
+      // Store/Storage toggle), the inactive column isn't in the DOM but
+      // its last-known value is stashed on the row's data-store /
+      // data-storage attribute. Persist whichever is present.
+      const store   = storeEl   ? storeEl.value   : (row.dataset.store   ?? '');
+      const storage = storageEl ? storageEl.value : (row.dataset.storage ?? '');
       if (store !== '' || storage !== '') {
         const rec = {};
         if (store   !== '') rec.store   = store;
@@ -66,7 +70,9 @@ function restoreCountDraft(rowSelector, cfg, loc, monthStr, updateTotalFn) {
       const storeEl   = row.querySelector('.count-store, .merch-store');
       const storageEl = row.querySelector('.count-storage, .merch-storage');
       if (storeEl   && rec.store   != null) { storeEl.value   = rec.store;   restored++; }
+      else if (rec.store   != null) { row.dataset.store   = rec.store; }   // hidden view → stash on row
       if (storageEl && rec.storage != null) { storageEl.value = rec.storage; restored++; }
+      else if (rec.storage != null) { row.dataset.storage = rec.storage; }
       if (typeof updateTotalFn === 'function' && (storeEl || storageEl)) {
         updateTotalFn(storeEl || storageEl);
       }
@@ -103,6 +109,67 @@ function _currentMerchMonthStr() {
 }
 
 // ── Count Sheet (consumable, weekly) ──────────────────────────────
+// Split-view state: the count entry form shows EITHER the Store column
+// OR the Storage column at a time, never both. This matches the
+// physical workflow (count one room, then the other). The hidden
+// column's value still rides through via data-attr + the persisted
+// draft, so totals stay correct and Submit writes both to one record.
+let _consumableCountView = (typeof localStorage !== 'undefined' && localStorage.getItem('bsc_count_view') === 'storage') ? 'storage' : 'store';
+
+function setConsumableCountView(view) {
+  if (view !== 'store' && view !== 'storage') return;
+  if (view === _consumableCountView) return;
+  // Persist whatever's typed in the active view before flipping
+  const cfg = invCfg();
+  if (cfg && currentLocation !== 'all') saveCountDraft('.count-row', cfg, currentLocation, null);
+  _consumableCountView = view;
+  try { localStorage.setItem('bsc_count_view', view); } catch {}
+  renderCountSheet();
+}
+
+function saveAndSwitchToStorage() {
+  setConsumableCountView('storage');
+  toast('ok', '✓ Store counts saved — now counting Storage');
+  // Scroll to the top of the count list so they start fresh
+  document.getElementById('count-sheet-body')?.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+// Renders the Store/Storage toggle pills + flips the toolbar primary
+// button between "Save & Start Storage Count" (in store view) and
+// "Submit Count" (in storage view).
+function _renderConsumableViewToggle() {
+  const view = _consumableCountView;
+  // Toggle pills
+  const tog = document.getElementById('count-view-toggle');
+  if (tog) {
+    const pill = (val, label, emoji) => {
+      const active = view === val;
+      const bg = active ? 'var(--dark-blue)' : 'transparent';
+      const fg = active ? '#fff' : 'var(--muted)';
+      const border = active ? 'var(--dark-blue)' : 'var(--border)';
+      return `<button onclick="setConsumableCountView('${val}')" style="padding:5px 14px;font-size:12px;font-weight:600;background:${bg};color:${fg};border:1.5px solid ${border};border-radius:14px;cursor:pointer;">${emoji} ${label}</button>`;
+    };
+    tog.innerHTML = pill('store','Store','📦') + pill('storage','Storage','🗄️');
+  }
+  // Toolbar primary action — Save+Switch when in store view, Submit otherwise.
+  const saveBtn   = document.getElementById('count-save-switch-btn');
+  const submitBtn = document.getElementById('count-submit-btn');
+  if (saveBtn) saveBtn.style.display = (view === 'store') ? '' : 'none';
+  if (submitBtn) {
+    if (view === 'store') {
+      submitBtn.classList.remove('btn-primary');
+      submitBtn.classList.add('btn-outline');
+      submitBtn.textContent = 'Submit Now';
+      submitBtn.title = 'Submit just the Store counts you\'ve entered without doing a Storage pass';
+    } else {
+      submitBtn.classList.remove('btn-outline');
+      submitBtn.classList.add('btn-primary');
+      submitBtn.textContent = 'Submit Count';
+      submitBtn.title = '';
+    }
+  }
+}
+
 function renderCountSheet() {
   // Show warning if no specific location is selected
   const container = document.getElementById('count-sheet-body');
@@ -163,6 +230,13 @@ function renderCountSheet() {
     byVendor[vendor].push(i);
   });
 
+  // Render Store/Storage toggle pills + adjust the primary/secondary
+  // action buttons in the toolbar based on the active view.
+  _renderConsumableViewToggle();
+
+  const view = _consumableCountView;
+  const visibleColLabel = view === 'store' ? 'Store' : 'Storage';
+
   container.innerHTML = Object.entries(byVendor).sort(([a],[b])=>a>b?1:-1).map(([vendor, vendorItems]) => `
     <div class="count-cat-section">
       <div class="count-cat-header">${vendor}</div>
@@ -170,31 +244,31 @@ function renderCountSheet() {
         const last = recentMap[item.ItemName];
         const unit = item.OrderUnit || item.Unit || '';
         const _par = (typeof getItemPar === 'function') ? (getItemPar(item, currentLocation) ?? 0) : (item.ParLevel||0);
-        return `<div class="count-row" data-id="${item.id}" data-name="${(item.ItemName||'').replace(/"/g,'&quot;')}">
+        // Pre-fill the active column from last submitted value; the
+        // inactive column's last value rides on the row as a data
+        // attribute so updateCountTotal can still sum store + storage.
+        const lastStore   = last ? last.store   : '';
+        const lastStorage = last ? last.storage : '';
+        const visibleVal = view === 'store' ? lastStore : lastStorage;
+        const otherDataAttr = view === 'store'
+          ? `data-storage="${lastStorage === '' ? '' : lastStorage}"`
+          : `data-store="${lastStore === '' ? '' : lastStore}"`;
+        const inputClass = view === 'store' ? 'count-store' : 'count-storage';
+        const target     = view === 'store' ? 'store' : 'storage';
+        return `<div class="count-row" data-id="${item.id}" data-name="${(item.ItemName||'').replace(/"/g,'&quot;')}" ${otherDataAttr}>
           <div style="flex:1;min-width:160px">
             <div class="count-item-name">${item.ItemName||'—'}</div>
             <div class="count-item-meta">par ${_par} ${unit}</div>
           </div>
           <div class="count-input-group">
-            <label>Store</label>
-            <input type="number" class="count-num-input count-store" min="0" step="0.1"
-              oninput="updateCountTotal(this)" placeholder="0" value="${last != null ? last.store : ''}">
+            <label>${visibleColLabel}</label>
+            <input type="number" class="count-num-input ${inputClass}" min="0" step="0.1"
+              oninput="updateCountTotal(this)" placeholder="0" value="${visibleVal}">
           </div>
           <div style="display:flex;flex-direction:column;gap:2px;align-self:flex-end;margin-bottom:1px;flex-shrink:0;">
-            <button onclick="countPlusOne(this, 'store')" title="+1 to store"
+            <button onclick="countPlusOne(this, '${target}')" title="+1 to ${target}"
               style="padding:3px 8px;background:var(--opal);border:1.5px solid var(--border);border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;color:var(--dark-blue);line-height:1;">+1</button>
-            <button onclick="countPlusOne(this, 'store', -1)" title="-1 to store"
-              style="padding:3px 8px;background:var(--opal);border:1.5px solid var(--border);border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;color:var(--dark-blue);line-height:1;">−1</button>
-          </div>
-          <div class="count-input-group">
-            <label>Storage</label>
-            <input type="number" class="count-num-input count-storage" min="0" step="0.1"
-              oninput="updateCountTotal(this)" placeholder="0" value="${last != null ? last.storage : ''}">
-          </div>
-          <div style="display:flex;flex-direction:column;gap:2px;align-self:flex-end;margin-bottom:1px;flex-shrink:0;">
-            <button onclick="countPlusOne(this, 'storage')" title="+1 to storage"
-              style="padding:3px 8px;background:var(--opal);border:1.5px solid var(--border);border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;color:var(--dark-blue);line-height:1;">+1</button>
-            <button onclick="countPlusOne(this, 'storage', -1)" title="-1 to storage"
+            <button onclick="countPlusOne(this, '${target}', -1)" title="-1 to ${target}"
               style="padding:3px 8px;background:var(--opal);border:1.5px solid var(--border);border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;color:var(--dark-blue);line-height:1;">−1</button>
           </div>
           <div class="count-total-box">
@@ -220,8 +294,13 @@ function updateCountTotal(input) {
   const row = input.closest('.count-row');
   if (!row) return;
   const id = row.dataset.id;
-  const store = parseFloat(row.querySelector('.count-store').value)||0;
-  const storage = parseFloat(row.querySelector('.count-storage').value)||0;
+  // In split-view mode the inactive column input isn't rendered — fall
+  // back to the row's data-store / data-storage stash (set at render
+  // time from the most recent count or the saved draft).
+  const storeEl   = row.querySelector('.count-store');
+  const storageEl = row.querySelector('.count-storage');
+  const store   = storeEl   ? (parseFloat(storeEl.value)  ||0) : (parseFloat(row.dataset.store)  ||0);
+  const storage = storageEl ? (parseFloat(storageEl.value)||0) : (parseFloat(row.dataset.storage)||0);
   const totalEl = document.getElementById('count-total-'+id);
   if (totalEl) totalEl.textContent = +(store+storage).toFixed(2);
   // Autosave the whole sheet as a draft
@@ -277,15 +356,18 @@ async function submitWeeklyCount() {
     cache.inventory[0]?.Location || 'All'
   ) : currentLocation;
 
+  // In split-view mode the inactive column input isn't in the DOM —
+  // its value is stashed on the row's data-store / data-storage attr
+  // (set at render from the most recent count + restored draft).
   const rows = document.querySelectorAll('#count-sheet-body .count-row');
   const entries = [];
   rows.forEach(row => {
-    const storeEl = row.querySelector('.count-store');
+    const storeEl   = row.querySelector('.count-store');
     const storageEl = row.querySelector('.count-storage');
-    const storeVal = storeEl.value.trim();
-    const storageVal = storageEl.value.trim();
+    const storeVal   = storeEl   ? storeEl.value.trim()   : (row.dataset.store   ?? '');
+    const storageVal = storageEl ? storageEl.value.trim() : (row.dataset.storage ?? '');
     if (storeVal==='' && storageVal==='') return; // skip blank rows
-    const store = parseFloat(storeVal)||0;
+    const store   = parseFloat(storeVal)||0;
     const storage = parseFloat(storageVal)||0;
     entries.push({
       id: row.dataset.id,
@@ -353,8 +435,12 @@ async function submitWeeklyCount() {
 
     upsertLastCount(cfg, loc, countedBy); // fire-and-forget
     clearCountDraft(cfg, loc, null); // draft committed — wipe backup
+    // Always start the next session in Store view (matches the workflow)
+    _consumableCountView = 'store';
+    try { localStorage.setItem('bsc_count_view', 'store'); } catch {}
     toast('ok',`✓ Count submitted — ${entries.length} items`);
     clearCountSheet();
+    renderCountSheet();
     renderDashboard();
     prog.textContent = '';
   } catch(e) { toast('err','Submit failed: '+e.message); }
