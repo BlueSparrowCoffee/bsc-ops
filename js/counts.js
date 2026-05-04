@@ -134,12 +134,18 @@ let _consumableCountView = (typeof localStorage !== 'undefined' && localStorage.
 function setConsumableCountView(view) {
   if (view !== 'store' && view !== 'storage') return;
   if (view === _consumableCountView) return;
-  // Persist whatever's typed in the active view before flipping
+  // Persist whatever's typed in the active view before flipping. Merch
+  // and consumable use different row-class selectors and different
+  // monthStr keys, so save against the active one.
   const cfg = invCfg();
-  if (cfg && currentLocation !== 'all') saveCountDraft('.count-row', cfg, currentLocation, null);
+  if (cfg && currentLocation !== 'all') {
+    if (cfg.isMerch) saveCountDraft('.merch-count-row', cfg, currentLocation, _currentMerchMonthStr());
+    else             saveCountDraft('.count-row',       cfg, currentLocation, null);
+  }
   _consumableCountView = view;
   try { localStorage.setItem('bsc_count_view', view); } catch {}
-  renderCountSheet();
+  if (cfg && cfg.isMerch) { if (typeof renderMerchCountSheet === 'function') renderMerchCountSheet(); }
+  else                    { if (typeof renderCountSheet      === 'function') renderCountSheet(); }
 }
 
 // ── Per-location custom item order (any inv-type) ────────────────
@@ -167,10 +173,11 @@ function _getCountOrder(cacheKey, loc, view) {
   catch { return null; }
 }
 
-// View applies to consumable + equipment count sheets (which split
-// into Store / Storage passes). Merch returns null — single view.
+// All count sheets (consumable, equipment, merch) split into Store /
+// Storage passes — share a single view state so the user's choice
+// follows them across inv-types in one session.
 function _activeCountView(cfg) {
-  if (!cfg || cfg.isMerch) return null;
+  if (!cfg) return null;
   return (typeof _consumableCountView !== 'undefined') ? _consumableCountView : null;
 }
 
@@ -400,18 +407,20 @@ async function resetCountOrder() {
 // "Submit Count" (in storage view).
 function _renderConsumableViewToggle() {
   const view = _consumableCountView;
-  // Toggle pills
-  const tog = document.getElementById('count-view-toggle');
-  if (tog) {
-    const pill = (val, label, emoji) => {
-      const active = view === val;
-      const bg = active ? 'var(--dark-blue)' : 'transparent';
-      const fg = active ? '#fff' : 'var(--muted)';
-      const border = active ? 'var(--dark-blue)' : 'var(--border)';
-      return `<button onclick="setConsumableCountView('${val}')" style="padding:5px 14px;font-size:12px;font-weight:600;background:${bg};color:${fg};border:1.5px solid ${border};border-radius:14px;cursor:pointer;">${emoji} ${label}</button>`;
-    };
-    tog.innerHTML = pill('store','Store','📦') + pill('storage','Storage','🗄️');
-  }
+  const pill = (val, label, emoji) => {
+    const active = view === val;
+    const bg = active ? 'var(--dark-blue)' : 'transparent';
+    const fg = active ? '#fff' : 'var(--muted)';
+    const border = active ? 'var(--dark-blue)' : 'var(--border)';
+    return `<button onclick="setConsumableCountView('${val}')" style="padding:5px 14px;font-size:12px;font-weight:600;background:${bg};color:${fg};border:1.5px solid ${border};border-radius:14px;cursor:pointer;">${emoji} ${label}</button>`;
+  };
+  const html = pill('store','Store','📦') + pill('storage','Storage','🗄️');
+  // Same pills are mounted in two places — the consumable toolbar and
+  // the merch toolbar. Populate both whichever exists.
+  const tog1 = document.getElementById('count-view-toggle');
+  if (tog1) tog1.innerHTML = html;
+  const tog2 = document.getElementById('merch-view-toggle');
+  if (tog2) tog2.innerHTML = html;
 }
 
 function renderCountSheet() {
@@ -723,6 +732,10 @@ function renderMerchCountSheet() {
         <div style="font-weight:700;font-size:15px;min-width:160px;text-align:center">${monthLabel}</div>
         <button class="btn btn-outline" onclick="shiftMerchMonth(1)" style="padding:5px 12px;" ${_merchCountMonth>=0?'disabled':''}>▶</button>
         <div style="font-size:13px;color:var(--muted)">${currentUser?.name || currentUser?.username || ''}</div>
+        <div style="display:flex;gap:6px;align-items:center;margin-left:8px;">
+          <span style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Counting</span>
+          <div id="merch-view-toggle" style="display:flex;gap:6px;"></div>
+        </div>
       </div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <span id="count-draft-indicator" style="font-size:12px;color:var(--gold);opacity:0;transition:opacity .2s;"></span>
@@ -783,7 +796,7 @@ function renderMerchCountSheet() {
   const items = [...(cache[cfg.cacheKey]||[])];
   _applyCountOrder(items, _getCountOrder(cfg.cacheKey, currentLocation, _activeCountView(cfg)));
 
-  // Owner+accounting see an "Expected Total" column = prior-month count
+  // Owner+accounting see an "Expected" column = prior-month count
   // + received this month − Square sales this month. Useful for spotting
   // shrink/discrepancies before submitting the count. Hidden from baristas
   // and managers because it surfaces sales/COGs-adjacent data.
@@ -792,13 +805,17 @@ function renderMerchCountSheet() {
     ? `<th style="padding:8px 12px;text-align:center;font-weight:600;color:var(--dark-blue)" title="Prior month total + received this month − Square sales this month">Expected</th>`
     : '';
 
+  // Split-view (matches consumable count): only render the active
+  // column header + input. Hidden column rides on row data-attr.
+  const mview = (typeof _consumableCountView !== 'undefined') ? _consumableCountView : 'store';
+  const visibleColLabel = mview === 'store' ? 'Store' : 'Storage';
+
   container.innerHTML = `
     <div style="overflow-x:auto">
     <table style="width:100%;border-collapse:collapse;font-size:13px">
       <thead><tr style="background:var(--opal);border-bottom:2px solid var(--border)">
         <th style="padding:8px 12px;text-align:left;font-weight:600">Item</th>
-        <th style="padding:8px 12px;text-align:center;font-weight:600">Store</th>
-        <th style="padding:8px 12px;text-align:center;font-weight:600">Storage</th>
+        <th style="padding:8px 12px;text-align:center;font-weight:600">${visibleColLabel}</th>
         <th style="padding:8px 12px;text-align:center;font-weight:600">Total</th>
         ${expectedHeader}
       </tr></thead>
@@ -811,17 +828,20 @@ function renderMerchCountSheet() {
           const expectedCell = showExpected
             ? `<td class="merch-expected" data-name="${(item.ItemName||'').replace(/"/g,'&quot;')}" style="padding:8px 12px;text-align:center;font-weight:600;color:var(--muted)" id="merch-expected-${item.id}">…</td>`
             : '';
-          return `<tr class="merch-count-row" data-id="${item.id}" data-name="${(item.ItemName||'').replace(/"/g,'&quot;')}" style="border-bottom:1px solid var(--border)">
+          const lastStore   = last ? last.store   : '';
+          const lastStorage = last ? last.storage : '';
+          // Split-view: only render the active column's input. The other
+          // column rides on a row data-attr so totals + submit stay correct.
+          const otherDataAttr = mview === 'store'
+            ? `data-storage="${lastStorage === '' ? '' : lastStorage}"`
+            : `data-store="${lastStore === '' ? '' : lastStore}"`;
+          const inputClass = mview === 'store' ? 'merch-store' : 'merch-storage';
+          const visibleVal = mview === 'store' ? lastStore     : lastStorage;
+          return `<tr class="merch-count-row" data-id="${item.id}" data-name="${(item.ItemName||'').replace(/"/g,'&quot;')}" ${otherDataAttr} style="border-bottom:1px solid var(--border)">
             <td style="padding:8px 12px;font-weight:500">${escHtml(item.ItemName||'—')}</td>
             <td style="padding:6px 8px;text-align:center">
-              <input type="number" class="count-num-input merch-store" min="0" step="1" placeholder="0"
-                value="${last ? last.store : ''}"
-                oninput="updateMerchCountTotal(this)"
-                style="width:64px;text-align:center;padding:4px 6px;border:1.5px solid var(--border);border-radius:6px;font-size:13px">
-            </td>
-            <td style="padding:6px 8px;text-align:center">
-              <input type="number" class="count-num-input merch-storage" min="0" step="1" placeholder="0"
-                value="${last ? last.storage : ''}"
+              <input type="number" class="count-num-input ${inputClass}" min="0" step="1" placeholder="0"
+                value="${visibleVal}"
                 oninput="updateMerchCountTotal(this)"
                 style="width:64px;text-align:center;padding:4px 6px;border:1.5px solid var(--border);border-radius:6px;font-size:13px">
             </td>
@@ -832,6 +852,9 @@ function renderMerchCountSheet() {
       </tbody>
     </table>
     </div>`;
+
+  // Mount the Store/Storage toggle pills in the merch toolbar
+  _renderConsumableViewToggle();
 
   // Async-populate Expected Total cells (Square fetch can take a few seconds)
   if (showExpected) _renderMerchExpectedTotals(loc, monthStr);
@@ -923,8 +946,12 @@ function updateMerchCountTotal(input) {
   const row = input.closest('.merch-count-row');
   if (!row) return;
   const id = row.dataset.id;
-  const store = parseFloat(row.querySelector('.merch-store').value)||0;
-  const storage = parseFloat(row.querySelector('.merch-storage').value)||0;
+  // Split-view: read from input when present, fall back to row data-attr
+  // (the inactive column's last value).
+  const storeEl   = row.querySelector('.merch-store');
+  const storageEl = row.querySelector('.merch-storage');
+  const store   = storeEl   ? (parseFloat(storeEl.value)  ||0) : (parseFloat(row.dataset.store)  ||0);
+  const storage = storageEl ? (parseFloat(storageEl.value)||0) : (parseFloat(row.dataset.storage)||0);
   const el = document.getElementById('merch-total-'+id);
   if (el) el.textContent = store + storage;
   // Autosave draft
@@ -959,13 +986,17 @@ async function submitMerchCount() {
     if (!confirm(`You're about to submit a count for ${monthLabel} (a past month). Continue?`)) return;
   }
 
+  // Split-view: the inactive column's input isn't in the DOM. Pull
+  // from row data-attr when missing so we always submit a complete record.
   const rows = document.querySelectorAll('.merch-count-row');
   const entries = [];
   rows.forEach(row => {
-    const storeVal = row.querySelector('.merch-store').value.trim();
-    const storageVal = row.querySelector('.merch-storage').value.trim();
+    const storeEl   = row.querySelector('.merch-store');
+    const storageEl = row.querySelector('.merch-storage');
+    const storeVal   = storeEl   ? storeEl.value.trim()   : (row.dataset.store   ?? '');
+    const storageVal = storageEl ? storageEl.value.trim() : (row.dataset.storage ?? '');
     if (storeVal==='' && storageVal==='') return;
-    const store = parseFloat(storeVal)||0;
+    const store   = parseFloat(storeVal)||0;
     const storage = parseFloat(storageVal)||0;
     entries.push({
       id: row.dataset.id,
