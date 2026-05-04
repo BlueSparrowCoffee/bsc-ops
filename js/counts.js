@@ -365,6 +365,16 @@ async function submitWeeklyCount() {
 // Track which month is displayed (0 = current month, -1 = prev, etc.)
 let _merchCountMonth = 0; // offset from current month
 
+// View filter — hide rows whose pre-filled Total is 0 (typically items
+// nobody stocks). Persisted across sessions per device.
+let _merchHideZero = (typeof localStorage !== 'undefined' && localStorage.getItem('bsc_merch_hide_zero') === '1');
+
+function toggleMerchHideZero() {
+  _merchHideZero = !_merchHideZero;
+  try { localStorage.setItem('bsc_merch_hide_zero', _merchHideZero ? '1' : '0'); } catch {}
+  renderMerchCountSheet();
+}
+
 function renderMerchCountSheet() {
   const container = document.getElementById('count-sheet-body');
   if (currentLocation === 'all') {
@@ -393,6 +403,7 @@ function renderMerchCountSheet() {
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <span id="count-draft-indicator" style="font-size:12px;color:var(--gold);opacity:0;transition:opacity .2s;"></span>
         <span id="merch-count-submit-progress" style="font-size:13px;color:var(--muted)"></span>
+        <button class="btn btn-outline" onclick="toggleMerchHideZero()" title="Hide items whose pre-filled total is 0 — typically merch you don't stock">${_merchHideZero ? '👁 Show All' : '🙈 Hide Zero'}</button>
         <button class="btn btn-outline" onclick="clearMerchCountSheet()">Clear</button>
         <button class="btn btn-primary" onclick="submitMerchCount()">Submit Count</button>
       </div>`;
@@ -467,6 +478,9 @@ function renderMerchCountSheet() {
       <tbody>
       ${items.map(item => {
           const last = recentMap[item.ItemName||''];
+          const lastTotal = last ? (Number(last.total)||0) : 0;
+          // Hide-zero filter: skip items whose pre-filled total is 0
+          if (_merchHideZero && lastTotal === 0) return '';
           const expectedCell = showExpected
             ? `<td class="merch-expected" data-name="${(item.ItemName||'').replace(/"/g,'&quot;')}" style="padding:8px 12px;text-align:center;font-weight:600;color:var(--muted)" id="merch-expected-${item.id}">…</td>`
             : '';
