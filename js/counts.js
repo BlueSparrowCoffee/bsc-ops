@@ -445,6 +445,15 @@ function renderMerchCountSheet() {
     (a.ItemName||'').localeCompare(b.ItemName||'')
   );
 
+  // Owner+accounting see an "Expected Total" column = prior-month count
+  // + received this month − Square sales this month. Useful for spotting
+  // shrink/discrepancies before submitting the count. Hidden from baristas
+  // and managers because it surfaces sales/COGs-adjacent data.
+  const showExpected = (typeof isOwnerOrAccounting === 'function') && isOwnerOrAccounting();
+  const expectedHeader = showExpected
+    ? `<th style="padding:8px 12px;text-align:center;font-weight:600;color:var(--dark-blue)" title="Prior month total + received this month − Square sales this month">Expected Total</th>`
+    : '';
+
   container.innerHTML = `
     <div style="overflow-x:auto">
     <table style="width:100%;border-collapse:collapse;font-size:13px">
@@ -453,10 +462,14 @@ function renderMerchCountSheet() {
         <th style="padding:8px 12px;text-align:center;font-weight:600">Store</th>
         <th style="padding:8px 12px;text-align:center;font-weight:600">Storage</th>
         <th style="padding:8px 12px;text-align:center;font-weight:600">Total</th>
+        ${expectedHeader}
       </tr></thead>
       <tbody>
       ${items.map(item => {
           const last = recentMap[item.ItemName||''];
+          const expectedCell = showExpected
+            ? `<td class="merch-expected" data-name="${(item.ItemName||'').replace(/"/g,'&quot;')}" style="padding:8px 12px;text-align:center;font-weight:600;color:var(--muted)" id="merch-expected-${item.id}">…</td>`
+            : '';
           return `<tr class="merch-count-row" data-id="${item.id}" data-name="${(item.ItemName||'').replace(/"/g,'&quot;')}" style="border-bottom:1px solid var(--border)">
             <td style="padding:8px 12px;font-weight:500">${escHtml(item.ItemName||'—')}</td>
             <td style="padding:6px 8px;text-align:center">
@@ -472,11 +485,15 @@ function renderMerchCountSheet() {
                 style="width:64px;text-align:center;padding:4px 6px;border:1.5px solid var(--border);border-radius:6px;font-size:13px">
             </td>
             <td style="padding:8px 12px;text-align:center;font-weight:700" id="merch-total-${item.id}">${last ? last.total : 0}</td>
+            ${expectedCell}
           </tr>`;
         }).join('')}
       </tbody>
     </table>
     </div>`;
+
+  // Async-populate Expected Total cells (Square fetch can take a few seconds)
+  if (showExpected) _renderMerchExpectedTotals(loc, monthStr);
 
   // Restore any saved-but-unsubmitted merch draft for this loc + month
   const _cfgM = invCfg();
@@ -487,6 +504,73 @@ function renderMerchCountSheet() {
       _showDraftSaved();
     }
   }
+}
+
+// Owner+accounting only — populates the Expected Total column in the
+// merch count sheet. Called after renderMerchCountSheet writes the
+// table; mutates the .merch-expected <td> cells once the Square sales
+// fetch resolves. Formula: prior-month count + received this month
+// − Square sales this month. Square sales come from
+// fetchSquareSalesForMerchMonth (defined in index.html).
+function _renderMerchExpectedTotals(loc, monthStr) {
+  const cfg = invCfg();
+  if (!cfg) return;
+  // Prior-month total per item — most recent submitted count from any
+  // month strictly before monthStr.
+  const priorByName = {};
+  (cache[cfg.countKey]||[])
+    .filter(r => r.Location === loc)
+    .sort((a,b) => (a.WeekOf||'') > (b.WeekOf||'') ? 1 : -1)
+    .forEach(r => {
+      const name = (r.Title||r.ItemName||'').trim();
+      if (!name) return;
+      const wk = (r.WeekOf||'').slice(0,7);
+      if (wk && wk < monthStr) priorByName[name] = r.TotalCount || 0; // sorted asc → last write wins
+    });
+  // Received this month per item
+  const receivedByName = {};
+  (cache.merchReceived||[])
+    .filter(r => r.Month === monthStr && r.Location === loc)
+    .forEach(r => {
+      const name = r.ItemName || '';
+      if (!name) return;
+      receivedByName[name] = (receivedByName[name]||0) + (Number(r.Quantity)||0);
+    });
+
+  const cells = [...document.querySelectorAll('.merch-expected')];
+  if (!cells.length) return;
+
+  // Square sales fetcher lives in index.html; if it's missing or the
+  // call fails, show "—" so the column still renders cleanly.
+  if (typeof fetchSquareSalesForMerchMonth !== 'function') {
+    cells.forEach(c => { c.textContent = '—'; c.title = 'Square not configured'; });
+    return;
+  }
+  fetchSquareSalesForMerchMonth(monthStr, loc).then(salesMap => {
+    const sales = salesMap || {};
+    cells.forEach(cell => {
+      const name = cell.dataset.name || '';
+      const prior = priorByName[name] || 0;
+      const recv  = receivedByName[name] || 0;
+      const sold  = (sales[name]?.qty) || 0;
+      const expected = prior + recv - sold;
+      cell.textContent = expected;
+      cell.style.color = expected < 0 ? 'var(--red)' : 'var(--dark-blue)';
+      cell.title = `prior ${prior} + received ${recv} − sold ${sold}`;
+    });
+  }).catch(e => {
+    console.warn('[merchExpected] sales fetch failed:', e);
+    cells.forEach(c => {
+      const name = c.dataset.name || '';
+      const prior = priorByName[name] || 0;
+      const recv  = receivedByName[name] || 0;
+      // Fall back to prior + received (no sales) so the column isn't useless.
+      const partial = prior + recv;
+      c.textContent = partial;
+      c.style.color = 'var(--muted)';
+      c.title = `prior ${prior} + received ${recv} (Square sales unavailable)`;
+    });
+  });
 }
 
 function shiftMerchMonth(delta) {
