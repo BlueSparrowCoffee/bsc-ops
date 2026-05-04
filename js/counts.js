@@ -142,13 +142,6 @@ function setConsumableCountView(view) {
   renderCountSheet();
 }
 
-function saveAndSwitchToStorage() {
-  setConsumableCountView('storage');
-  toast('ok', '✓ Store counts saved — now counting Storage');
-  // Scroll to the top of the count list so they start fresh
-  document.getElementById('count-sheet-body')?.scrollIntoView({behavior:'smooth', block:'start'});
-}
-
 // ── Per-location custom item order (any inv-type) ────────────────
 // Stored in BSC_Settings as `<cacheKey>_order_<Location>` → JSON array
 // of inventory item ids in display order. Items not in the array fall
@@ -394,23 +387,6 @@ function _renderConsumableViewToggle() {
       return `<button onclick="setConsumableCountView('${val}')" style="padding:5px 14px;font-size:12px;font-weight:600;background:${bg};color:${fg};border:1.5px solid ${border};border-radius:14px;cursor:pointer;">${emoji} ${label}</button>`;
     };
     tog.innerHTML = pill('store','Store','📦') + pill('storage','Storage','🗄️');
-  }
-  // Toolbar primary action — Save+Switch when in store view, Submit otherwise.
-  const saveBtn   = document.getElementById('count-save-switch-btn');
-  const submitBtn = document.getElementById('count-submit-btn');
-  if (saveBtn) saveBtn.style.display = (view === 'store') ? '' : 'none';
-  if (submitBtn) {
-    if (view === 'store') {
-      submitBtn.classList.remove('btn-primary');
-      submitBtn.classList.add('btn-outline');
-      submitBtn.textContent = 'Submit Now';
-      submitBtn.title = 'Submit just the Store counts you\'ve entered without doing a Storage pass';
-    } else {
-      submitBtn.classList.remove('btn-outline');
-      submitBtn.classList.add('btn-primary');
-      submitBtn.textContent = 'Submit Count';
-      submitBtn.title = '';
-    }
   }
 }
 
