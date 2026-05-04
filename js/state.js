@@ -46,7 +46,8 @@ const cache = {
   marketCompetitors: [],
   marketItems: [],
   marketPrices: [],
-  squareModifiers: []  // flattened modifier list pulled from Square Catalog
+  squareModifiers: [],     // flattened modifier list pulled from Square Catalog
+  squareItemVariations: [] // flattened ITEM_VARIATION list pulled from Square Catalog
 };
 
 // ── SignalR refresh coordination ─────────────────────────────────

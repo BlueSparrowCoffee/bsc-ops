@@ -627,3 +627,48 @@ async function syncSquareModifiers() {
   }
 }
 
+// ── Item-variation sync (Market Analysis) ────────────────────────
+// Pulls every active ITEM and flattens its inline variations into
+// cache.squareItemVariations as
+// [{id, name, parentId, parentName, price}].
+// Called on app load (once) so the Market Analysis "BSC item" picker
+// can show all variations (sizes) for each menu item with their prices.
+// Read-only — does not write to SharePoint.
+async function syncSquareItemVariations() {
+  if (!getSquareToken()) { cache.squareItemVariations = []; return []; }
+  try {
+    let objects = [], cursor = null;
+    do {
+      const params = `catalog/list?types=ITEM${cursor ? '&cursor='+encodeURIComponent(cursor) : ''}`;
+      const data = await squareAPI('GET', params);
+      objects = objects.concat(data.objects || []);
+      cursor = data.cursor || null;
+    } while (cursor);
+
+    const flat = [];
+    for (const item of objects) {
+      if (item.type !== 'ITEM' || item.is_deleted) continue;
+      if (item.item_data?.is_archived) continue;
+      const d = item.item_data || {};
+      const parentName = d.name || item.id;
+      for (const v of (d.variations || [])) {
+        if (v.is_deleted) continue;
+        const vd = v.item_variation_data || {};
+        flat.push({
+          id:         v.id,
+          name:       vd.name || 'Regular',
+          parentId:   item.id,
+          parentName,
+          price:      vd.price_money ? vd.price_money.amount / 100 : null
+        });
+      }
+    }
+    cache.squareItemVariations = flat;
+    return flat;
+  } catch (e) {
+    console.warn('[syncSquareItemVariations] failed:', e);
+    cache.squareItemVariations = [];
+    return [];
+  }
+}
+

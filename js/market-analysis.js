@@ -110,17 +110,26 @@ function _maFreshness(date) {
   return { tier:'very-stale', color:'#dc2626', days };
 }
 
-// Latest COG snapshot for a Square menu item id. Returns the row or null.
-// Snapshots come from cache.cogSnapshots (BSC_CogHistory list). Variation
-// name is matched best-effort by Size — falls back to "Regular" snapshot.
+// Latest COG snapshot for a tracked item that's linked to a Square
+// item variation. Snapshots come from cache.cogSnapshots (BSC_CogHistory)
+// keyed by parent MenuItemId + VariationName, so we resolve the variation
+// from cache.squareItemVariations first to get the parent id and the
+// canonical variation name.
 function _maLatestCogFor(item) {
   if (!item || item.SquareKind !== 'item' || !item.SquareRefId) return null;
-  const all = (cache.cogSnapshots || []).filter(s => s.MenuItemId === item.SquareRefId);
+  const variation = (cache.squareItemVariations || []).find(v => v.id === item.SquareRefId);
+  if (!variation) return null;
+  const all = (cache.cogSnapshots || []).filter(s => s.MenuItemId === variation.parentId);
   if (!all.length) return null;
-  const sized = item.Size
-    ? all.filter(s => (s.VariationName||'').toLowerCase().includes(String(item.Size).toLowerCase()))
-    : [];
-  const pool = sized.length ? sized : all;
+  // Match the variation by name first; fall back to the tracked item's
+  // Size field if the snapshot's VariationName doesn't match exactly.
+  const wantName = (variation.name || '').toLowerCase();
+  const wantSize = String(item.Size||'').toLowerCase();
+  const matched = all.filter(s => {
+    const vn = (s.VariationName||'').toLowerCase();
+    return (wantName && vn === wantName) || (wantSize && vn.includes(wantSize));
+  });
+  const pool = matched.length ? matched : all;
   return pool
     .map(s => ({ ...s, _d: _maParseDate(s.SnapshotDate) || new Date(0) }))
     .sort((a,b) => b._d - a._d)[0];
@@ -706,14 +715,22 @@ function _renderMarketSquareRefDropdown() {
   const currentId = document.getElementById('mie-square-ref-id').value;
   let opts = [];
   if (kind === 'item') {
-    opts = (cache.menu || []).filter(m => m.SquareId).map(m => ({ id:m.SquareId, label:m.ItemName||m.Title||m.SquareId }));
+    // Each option = a single ITEM_VARIATION (so a Latte with 12oz/16oz
+    // shows two options with their own prices). SquareRefId stored on
+    // BSC_MarketItems holds the variation id.
+    opts = (cache.squareItemVariations || []).map(v => ({
+      id:    v.id,
+      label: `${v.parentName} — ${v.name}${v.price != null ? ' ('+_maMoney(v.price)+')' : ''}`,
+      _sort: `${(v.parentName||'').toLowerCase()}|${(v.name||'').toLowerCase()}`
+    }));
   } else if (kind === 'modifier') {
     opts = (cache.squareModifiers || []).map(m => ({
-      id: m.id,
-      label: `${m.name}${m.price != null ? ' ('+_maMoney(m.price)+')' : ''}${m.listName?' — '+m.listName:''}`
+      id:    m.id,
+      label: `${m.name}${m.price != null ? ' ('+_maMoney(m.price)+')' : ''}${m.listName?' — '+m.listName:''}`,
+      _sort: (m.name||'').toLowerCase()
     }));
   }
-  opts.sort((a,b)=>a.label.localeCompare(b.label));
+  opts.sort((a,b)=>(a._sort||a.label).localeCompare(b._sort||b.label));
   if (!kind) {
     sel.innerHTML = `<option value="">— Not linked —</option>`;
     sel.disabled = true;
@@ -731,7 +748,20 @@ function onMarketItemSquareKindChange() {
 }
 function onMarketItemSquareRefChange() {
   const sel = document.getElementById('mie-square-ref');
-  document.getElementById('mie-square-ref-id').value = sel.value;
+  const id = sel.value;
+  document.getElementById('mie-square-ref-id').value = id;
+  if (!id) return;
+  // Auto-fill Title + Size when a variation is picked AND the title/size
+  // fields are still blank (don't clobber what the user typed).
+  const kind = document.getElementById('mie-square-kind').value;
+  if (kind === 'item') {
+    const v = (cache.squareItemVariations || []).find(x => x.id === id);
+    if (!v) return;
+    const titleInp = document.getElementById('mie-title');
+    const sizeInp  = document.getElementById('mie-size');
+    if (titleInp && !titleInp.value.trim()) titleInp.value = v.parentName || '';
+    if (sizeInp  && !sizeInp.value.trim() && v.name && v.name !== 'Regular') sizeInp.value = v.name;
+  }
 }
 
 async function saveMarketItemEdit() {
@@ -792,8 +822,9 @@ async function maybeSyncBscPriceFromSquare(fields, itemRecordId) {
   if (!fields.SquareKind || !fields.SquareRefId) return;
   let price = null;
   if (fields.SquareKind === 'item') {
-    const m = (cache.menu || []).find(x => x.SquareId === fields.SquareRefId);
-    if (m && m.Price != null) price = parseFloat(m.Price);
+    // SquareRefId is a Square ITEM_VARIATION id — pull the variation's price
+    const v = (cache.squareItemVariations || []).find(x => x.id === fields.SquareRefId);
+    if (v && v.price != null) price = v.price;
   } else if (fields.SquareKind === 'modifier') {
     const m = (cache.squareModifiers || []).find(x => x.id === fields.SquareRefId);
     if (m && m.price != null) price = m.price;
