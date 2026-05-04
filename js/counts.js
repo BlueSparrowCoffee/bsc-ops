@@ -102,6 +102,23 @@ function _autosaveCountDebounced(fn) {
   _draftSaveDebounceTimer = setTimeout(fn, 400);
 }
 
+// "par 1 case (1,000 cups)" — converts par level to single-serving units
+// using the inventory item's OrderSize × ServingsPerUnit. Returns
+// "" if there's nothing meaningful to show (no OrderSize / no par /
+// no serving label).
+function _parTotalServings(item, par) {
+  const p = Number(par) || 0;
+  if (!p) return '';
+  const orderSize = (item.OrderSize != null && String(item.OrderSize) !== '') ? Number(item.OrderSize) : 0;
+  if (!orderSize) return '';
+  const spu = (item.ServingsPerUnit != null && String(item.ServingsPerUnit) !== '') ? Number(item.ServingsPerUnit) : 1;
+  const total = Math.round(p * orderSize * spu);
+  if (!total) return '';
+  const unitRaw = (item.ServingUnit || item.Unit || '').trim();
+  const word = unitRaw + ((total !== 1 && unitRaw && !unitRaw.endsWith('s')) ? 's' : '');
+  return ` (${total.toLocaleString()}${word ? ' ' + escHtml(word) : ''})`;
+}
+
 function _currentMerchMonthStr() {
   const now = new Date();
   const d = new Date(now.getFullYear(), now.getMonth() + (_merchCountMonth||0), 1);
@@ -481,7 +498,7 @@ function renderCountSheet() {
     return `<div class="count-row" data-id="${item.id}" data-name="${(item.ItemName||'').replace(/"/g,'&quot;')}" ${otherDataAttr}>
       <div style="flex:1;min-width:160px">
         <div class="count-item-name">${item.ItemName||'—'}</div>
-        <div class="count-item-meta">par ${_par} ${unit}${(item.OrderSize != null && String(item.OrderSize) !== '') ? ` (${Number(item.OrderSize)}${item.Unit ? ' ' + escHtml(item.Unit) : ''}/${escHtml(unit || 'case')})` : ''}</div>
+        <div class="count-item-meta">par ${_par} ${unit}${_parTotalServings(item, _par)}</div>
       </div>
       <div class="count-input-group">
         <label>${visibleColLabel}</label>
