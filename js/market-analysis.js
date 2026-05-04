@@ -979,15 +979,43 @@ function _renderMarketTimeSeries() {
 // ── Survey Day batch entry ───────────────────────────────────────
 // Pick a date + competitor → fill prices for every active tracked item
 // in one form. Replaces 13+ separate edit clicks when running a survey.
-function openSurveyDay() {
+//
+// New mode: when called with (competitor, date), opens in EDIT mode
+// pre-filled with that survey's existing prices, with both selects
+// locked (so the user can't accidentally save to a different survey)
+// and a Delete Survey button wired up.
+function openSurveyDay(competitor, date) {
   if (!isOwner()) return;
-  // Date stays blank on open — owner picks it explicitly so they don't
-  // accidentally stamp today onto a survey done on a different day.
-  document.getElementById('msd-date').value = '';
+  const isEdit = !!(competitor && date);
   // Competitor select = BSC + every active competitor
-  const comps = (cache.marketCompetitors || []).filter(c => c.Active !== 'No').map(c => c.Title).sort();
+  // (include the locked one even if inactive so edit mode still resolves)
+  const activeComps = (cache.marketCompetitors || []).filter(c => c.Active !== 'No').map(c => c.Title);
+  const compsSet = new Set(activeComps);
+  if (competitor) compsSet.add(competitor);
+  const comps = [...compsSet].sort();
   const sel = document.getElementById('msd-competitor');
-  sel.innerHTML = `<option value="BSC">BSC (your prices)</option>` + comps.map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('');
+  sel.innerHTML = `<option value="BSC">BSC (your prices)</option>` + comps.filter(c => c !== 'BSC').map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('');
+  if (isEdit) {
+    sel.value = competitor;
+    document.getElementById('msd-date').value = date;
+  } else {
+    sel.value = 'BSC';
+    document.getElementById('msd-date').value = '';
+  }
+  // Lock the survey-key inputs in edit mode
+  document.getElementById('msd-competitor').disabled = isEdit;
+  document.getElementById('msd-date').disabled       = isEdit;
+  // Title + buttons
+  document.getElementById('msd-title').textContent = isEdit
+    ? `📅 Edit Survey — ${competitor} · ${_maFmtDate(new Date(date+'T00:00:00'))}`
+    : '📅 Survey Day';
+  document.getElementById('msd-save-btn').textContent = isEdit ? 'Save Changes' : 'Save Survey';
+  const delBtn = document.getElementById('msd-delete-btn');
+  if (delBtn) {
+    delBtn.style.display = isEdit ? '' : 'none';
+    delBtn.dataset.competitor = competitor || '';
+    delBtn.dataset.date       = date || '';
+  }
   _renderSurveyDayBody();
   openModal('modal-market-survey-day');
 }
@@ -1004,6 +1032,16 @@ function _renderSurveyDayBody() {
   }
   // Show last known price as placeholder so user knows where they were
   const latest = _maLatestPriceMap(cache.marketPrices || []);
+  // For edit mode: build a map of EXISTING rows for this (competitor, date)
+  // so we can pre-fill the inputs with the survey's actual saved values.
+  const exactByKey = {};
+  if (competitor && date) {
+    for (const r of (cache.marketPrices || [])) {
+      if (r.Competitor === competitor && (r.SurveyDate||'').slice(0,10) === date) {
+        exactByKey[r.ItemKey] = r;
+      }
+    }
+  }
   // Group by category
   const groups = {};
   for (const it of items) (groups[it.Category||'other'] = groups[it.Category||'other'] || []).push(it);
@@ -1016,16 +1054,19 @@ function _renderSurveyDayBody() {
       })
       .map(it => {
         const key = _maItemKey(it);
+        const exact = exactByKey[key];
         const last = competitor ? latest.get(`${key}||${competitor}`) : null;
         const ph = (last?.Price != null) ? `prev ${_maMoney(last.Price)}` : '';
+        const valAttr   = exact ? `value="${escHtml(String(exact.Price))}"` : '';
+        const notesAttr = exact ? `value="${escHtml(exact.Notes||'')}"` : '';
         return `
           <tr>
             <td style="padding:5px 8px;font-size:12px;font-weight:600;">${escHtml(key)}</td>
             <td style="padding:5px 8px;text-align:right;">
-              <input type="number" step="0.01" min="0" class="field-input msd-price" data-id="${escHtml(String(it.id))}" data-key="${escHtml(key)}" placeholder="${escHtml(ph)}" style="width:100px;font-size:12px;padding:3px 6px;text-align:right;">
+              <input type="number" step="0.01" min="0" class="field-input msd-price" data-id="${escHtml(String(it.id))}" data-key="${escHtml(key)}" ${valAttr} placeholder="${escHtml(ph)}" style="width:100px;font-size:12px;padding:3px 6px;text-align:right;">
             </td>
             <td style="padding:5px 8px;">
-              <input type="text" class="field-input msd-notes" data-id="${escHtml(String(it.id))}" placeholder="notes (optional)" style="width:100%;font-size:12px;padding:3px 6px;">
+              <input type="text" class="field-input msd-notes" data-id="${escHtml(String(it.id))}" ${notesAttr} placeholder="notes (optional)" style="width:100%;font-size:12px;padding:3px 6px;">
             </td>
           </tr>`;
       }).join('');
@@ -1103,6 +1144,117 @@ async function saveSurveyDay() {
     toast('ok', `✓ ${written} new · ${replaced} updated`);
     renderMarketAnalysis();
   } finally {
-    btn.disabled = false; btn.textContent = 'Save Survey';
+    // Restore button label by re-deriving from current state
+    const isEdit = document.getElementById('msd-competitor')?.disabled;
+    btn.disabled = false;
+    btn.textContent = isEdit ? 'Save Changes' : 'Save Survey';
+  }
+}
+
+// ── Surveys list modal ───────────────────────────────────────────
+// Aggregates BSC_MarketPrices by (Competitor, SurveyDate) so each
+// "survey" (one Survey Day batch) appears as a single row with a count
+// of priced items. Click any row → reopens Survey Day in edit mode.
+function openSurveyList() {
+  if (!isOwner()) return;
+  _renderSurveyList();
+  openModal('modal-market-survey-list');
+}
+
+function _renderSurveyList() {
+  const body = document.getElementById('msl-body');
+  if (!body) return;
+  const rows = (cache.marketPrices || []);
+  // Group by (competitor, date)
+  const groups = new Map();
+  for (const r of rows) {
+    const date = (r.SurveyDate || '').slice(0, 10);
+    if (!date || !r.Competitor) continue;
+    const k = `${r.Competitor}||${date}`;
+    if (!groups.has(k)) groups.set(k, { competitor: r.Competitor, date, count: 0, sources: new Set() });
+    const g = groups.get(k);
+    g.count++;
+    if (r.Source) g.sources.add(r.Source);
+  }
+  const surveys = [...groups.values()].sort((a,b) => {
+    if (a.date !== b.date) return b.date.localeCompare(a.date); // newest first
+    return a.competitor.localeCompare(b.competitor);
+  });
+  if (!surveys.length) {
+    body.innerHTML = `<div style="padding:18px;color:var(--muted);font-size:13px;text-align:center;">No surveys yet — start one with 📅 Survey Day.</div>`;
+    return;
+  }
+  // Group rows under date headers for legibility
+  const byDate = new Map();
+  for (const s of surveys) {
+    if (!byDate.has(s.date)) byDate.set(s.date, []);
+    byDate.get(s.date).push(s);
+  }
+  const html = [...byDate.entries()].map(([date, items]) => {
+    const niceDate = _maFmtDate(new Date(date+'T00:00:00'));
+    const fresh = _maFreshness(new Date(date+'T00:00:00'));
+    const dot = fresh ? `<span title="${Math.round(fresh.days)} days ago" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${fresh.color};margin-right:6px;vertical-align:middle;"></span>` : '';
+    const rowsHtml = items.map(s => {
+      const sources = [...s.sources].join(', ') || '—';
+      return `
+        <tr style="border-bottom:1px solid var(--opal);">
+          <td style="padding:8px 10px;font-size:13px;font-weight:600;color:var(--dark-blue);">${escHtml(s.competitor)}</td>
+          <td style="padding:8px 10px;font-size:12px;color:var(--muted);">${s.count} item${s.count!==1?'s':''}</td>
+          <td style="padding:8px 10px;font-size:11px;color:var(--muted);">${escHtml(sources)}</td>
+          <td style="padding:8px 10px;text-align:right;">
+            <button class="btn btn-outline" data-c="${escHtml(s.competitor)}" data-d="${escHtml(s.date)}" onclick="editSurveyFromList(this.dataset.c, this.dataset.d)" style="padding:4px 12px;font-size:12px;">Edit</button>
+          </td>
+        </tr>`;
+    }).join('');
+    return `
+      <tr><td colspan="4" style="padding:14px 10px 6px;font-size:12px;font-weight:700;color:var(--dark-blue);">${dot}${escHtml(niceDate)}</td></tr>
+      ${rowsHtml}
+    `;
+  }).join('');
+  body.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr style="background:var(--cream);">
+          <th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--muted);">Competitor</th>
+          <th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--muted);">Items</th>
+          <th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--muted);">Source</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>${html}</tbody>
+    </table>
+  `;
+}
+
+function editSurveyFromList(competitor, date) {
+  closeModal('modal-market-survey-list');
+  // Small delay so the close animation doesn't clobber the open
+  setTimeout(() => openSurveyDay(competitor, date), 30);
+}
+
+async function deleteCurrentSurvey() {
+  if (!isOwner()) return;
+  const btn = document.getElementById('msd-delete-btn');
+  const competitor = btn?.dataset.competitor;
+  const date = btn?.dataset.date;
+  if (!competitor || !date) return;
+  if (!confirm(`Delete the entire survey for ${competitor} on ${date}? This removes every price row in that survey.`)) return;
+  const orphans = (cache.marketPrices || []).filter(p =>
+    p.Competitor === competitor &&
+    (p.SurveyDate||'').slice(0,10) === date
+  );
+  btn.disabled = true; btn.textContent = 'Deleting…';
+  try {
+    for (const p of orphans) {
+      await deleteListItem(LISTS.marketPrices, p.id).catch(()=>{});
+    }
+    cache.marketPrices = (cache.marketPrices || []).filter(p =>
+      !(p.Competitor === competitor && (p.SurveyDate||'').slice(0,10) === date)
+    );
+    closeModal('modal-market-survey-day');
+    toast('ok', `✓ Deleted ${orphans.length} price${orphans.length!==1?'s':''}`);
+    renderMarketAnalysis();
+  } finally {
+    btn.disabled = false; btn.textContent = 'Delete Survey';
   }
 }

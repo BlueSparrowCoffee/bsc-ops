@@ -280,7 +280,7 @@ const INV_COG_CFG = {
 // Bump APP_VERSION any time a deploy has breaking localStorage changes.
 // On version mismatch the entire localStorage is wiped so stale prefs never
 // cause weirdness after an update.
-const APP_VERSION = '2026-05-03l';
+const APP_VERSION = '2026-05-03m';
 (function() {
   try {
     if (localStorage.getItem('bsc_app_version') !== APP_VERSION) {
