@@ -102,19 +102,12 @@ function _autosaveCountDebounced(fn) {
   _draftSaveDebounceTimer = setTimeout(fn, 400);
 }
 
-// "par 1 case (1,000 cups)" — par × OrderSize gives total items at par
-// level, labeled with Unit (the inner item type). Returns "" when
-// there's nothing meaningful to show.
-function _parTotalItems(item, par) {
-  const p = Number(par) || 0;
-  if (!p) return '';
+// "(1,000 ct.)" — per-case pack size pulled from OrderSize. Returns
+// "" when the item has no OrderSize.
+function _caseSizeLabel(item) {
   const orderSize = (item.OrderSize != null && String(item.OrderSize) !== '') ? Number(item.OrderSize) : 0;
   if (!orderSize) return '';
-  const total = Math.round(p * orderSize);
-  if (!total) return '';
-  const unitRaw = (item.Unit || item.ServingUnit || '').trim();
-  const word = unitRaw + ((total !== 1 && unitRaw && !unitRaw.endsWith('s')) ? 's' : '');
-  return ` (${total.toLocaleString()}${word ? ' ' + escHtml(word) : ''})`;
+  return ` (${orderSize.toLocaleString()} ct.)`;
 }
 
 function _currentMerchMonthStr() {
@@ -505,7 +498,7 @@ function renderCountSheet() {
     return `<div class="count-row" data-id="${item.id}" data-name="${(item.ItemName||'').replace(/"/g,'&quot;')}" ${otherDataAttr}>
       <div style="flex:1;min-width:160px">
         <div class="count-item-name">${item.ItemName||'—'}</div>
-        <div class="count-item-meta">par ${_par} ${unit}${_parTotalItems(item, _par)}</div>
+        <div class="count-item-meta">par ${_par} ${unit}${_caseSizeLabel(item)}</div>
       </div>
       <div class="count-input-group">
         <label>${visibleColLabel}</label>
