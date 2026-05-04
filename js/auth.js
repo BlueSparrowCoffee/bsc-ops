@@ -14,14 +14,26 @@
 // slack is populated at deploy time via the staticwebapp.config
 // build step (SLACK_WEBHOOK_PLACEHOLDER → real webhook).
 // locations is the canonical list of physical BSC sites.
-// internalDomain gates staff-access provisioning (direct grant vs B2B invite).
+// internalDomains gates staff-access provisioning (direct grant vs B2B
+// invite). Any email ending in one of these is treated as a tenant
+// member — the auto-grant flow adds them to the SharePoint members
+// group directly. Other emails get a B2B guest invite.
 const CFG = {
-  clientId:       'a466e07b-68f4-4881-bdcc-d3adeb356799',
-  tenantId:       'b808062f-1ca4-4f25-a2eb-8998fac8dc52',
-  slack:          'SLACK_WEBHOOK_PLACEHOLDER',
-  locations:      ['Blake','Platte','Sherman','17th'],
-  internalDomain: 'bluesparrowcoffee.com'
+  clientId:        'a466e07b-68f4-4881-bdcc-d3adeb356799',
+  tenantId:        'b808062f-1ca4-4f25-a2eb-8998fac8dc52',
+  slack:           'SLACK_WEBHOOK_PLACEHOLDER',
+  locations:       ['Blake','Platte','Sherman','17th'],
+  internalDomains: ['bluesparrowcoffee.com', 'mainspringco.com']
 };
+
+// True when the email belongs to one of CFG.internalDomains. Used by
+// the staff-grant + sync-access flows so all our verified-tenant
+// domains are treated as internal (no B2B invite needed).
+function isInternalEmail(email) {
+  const e = String(email || '').toLowerCase();
+  if (!e) return false;
+  return CFG.internalDomains.some(d => e.endsWith('@' + String(d).toLowerCase()));
+}
 
 // ── OAuth scopes ────────────────────────────────────────────────
 // SCOPES       — requested on every login/token call
