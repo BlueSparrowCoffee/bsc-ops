@@ -488,11 +488,9 @@ function renderCountSheet() {
         <input type="number" class="count-num-input ${inputClass}" min="0" step="0.1"
           oninput="updateCountTotal(this)" placeholder="0" value="${visibleVal}">
       </div>
-      <div style="display:flex;flex-direction:column;gap:2px;align-self:flex-end;margin-bottom:1px;flex-shrink:0;">
-        <button onclick="countPlusOne(this, '${target}')" title="+1 to ${target}"
-          style="padding:3px 8px;background:var(--opal);border:1.5px solid var(--border);border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;color:var(--dark-blue);line-height:1;">+1</button>
-        <button onclick="countPlusOne(this, '${target}', -1)" title="-1 to ${target}"
-          style="padding:3px 8px;background:var(--opal);border:1.5px solid var(--border);border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;color:var(--dark-blue);line-height:1;">−1</button>
+      <div class="count-pm-group">
+        <button class="count-pm-btn" onclick="countPlusOne(this, '${target}')" title="+1 to ${target}">+1</button>
+        <button class="count-pm-btn" onclick="countPlusOne(this, '${target}', -1)" title="-1 to ${target}">−1</button>
       </div>
       <div class="count-total-box">
         <label>Total</label>
