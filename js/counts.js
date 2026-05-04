@@ -481,7 +481,7 @@ function renderCountSheet() {
     return `<div class="count-row" data-id="${item.id}" data-name="${(item.ItemName||'').replace(/"/g,'&quot;')}" ${otherDataAttr}>
       <div style="flex:1;min-width:160px">
         <div class="count-item-name">${item.ItemName||'—'}</div>
-        <div class="count-item-meta">par ${_par} ${unit}</div>
+        <div class="count-item-meta">par ${_par} ${unit}${last != null ? ` (${last.total} on hand)` : ''}</div>
       </div>
       <div class="count-input-group">
         <label>${visibleColLabel}</label>
