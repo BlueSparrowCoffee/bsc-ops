@@ -28,6 +28,6 @@ Use a HEREDOC for the commit message to preserve formatting.
 - Never use `--no-verify`
 - Never `git add -A` or `git add .` — always name files explicitly
 - Post module-split (April 2026), most COGs/inventory edits touch BOTH `index.html` (cache-bust strings) AND one or more `js/*.js` modules. Stage all of them.
-- If `js/constants.js` was modified to bump `APP_VERSION`, also confirm `index.html` had the matching `sed` cache-bust update (27 occurrences) — they go together.
+- If `js/constants.js` was modified to bump `APP_VERSION`, also confirm `index.html` had the matching `sed` cache-bust update — count should match `grep -c "v=<NEWVERSION>" index.html` (40 occurrences as of 2026-05-04y; bumps by 1 each time a new JS module is added).
 - If there is nothing to commit, say so and stop
 - Repo path: `/Users/jeffreyknott/Desktop/BSC x Claude 1.0/bsc-ops`
