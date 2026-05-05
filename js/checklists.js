@@ -491,12 +491,12 @@ async function editTaskDueDate(taskId) {
   const t = cache.checklists.find(x => x.id === taskId);
   if (!t) return;
   const current = t.DueDate ? String(t.DueDate).split('T')[0] : '';
-  const next = prompt('Due date (YYYY-MM-DD, blank to clear):', current);
-  if (next === null) return;
-  const trimmed = next.trim();
+  const res = await pickDate(current, 'Task due date');
+  if (!res.ok) return;
+  const trimmed = res.value;
   let dueIso = null;
   if (trimmed) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) { toast('err','Use YYYY-MM-DD format'); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) { toast('err','Invalid date'); return; }
     dueIso = trimmed + 'T00:00:00Z';
     // Soft warning if outside plan range
     const grp = cache.clGroups.find(g => g.id === t.GroupId);

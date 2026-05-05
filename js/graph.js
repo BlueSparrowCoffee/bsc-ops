@@ -14,29 +14,40 @@
 // graphAdmin() — admin scopes, used for staff sync / tenant ops
 // Both throw "[status] message" on non-2xx, return parsed JSON on 2xx,
 // and return null on 204 No Content.
-// Retry transient failures (429 throttling, 503/504 service blips). Honors
-// Retry-After header when Microsoft sends one; otherwise 1s / 2s / 4s backoff.
-// Other status codes throw immediately as before.
-const _GRAPH_RETRY_STATUSES = new Set([429, 503, 504]);
+// Retry transient failures (429 throttling, 500/502/503/504 service
+// blips). Honors Retry-After (seconds OR HTTP-date) when Microsoft
+// sends one; otherwise 1s / 2s / 5s backoff. Caps every wait at 30s.
+const _GRAPH_RETRY_STATUSES = new Set([429, 500, 502, 503, 504]);
 const _GRAPH_MAX_RETRIES = 3;
 function _graphBackoffMs(res, retriesLeft) {
-  const ra = parseInt(res.headers.get('Retry-After') || '', 10);
-  if (Number.isFinite(ra) && ra > 0) return Math.min(ra, 30) * 1000;
+  const raw = res.headers.get('Retry-After');
+  if (raw) {
+    // Try integer seconds first
+    const secs = parseInt(raw, 10);
+    if (Number.isFinite(secs) && secs > 0) return Math.min(secs, 30) * 1000;
+    // Then try HTTP-date format ("Wed, 21 Oct 2026 07:28:00 GMT")
+    const t = Date.parse(raw);
+    if (Number.isFinite(t)) {
+      const delta = t - Date.now();
+      if (delta > 0) return Math.min(delta, 30 * 1000);
+    }
+  }
   return ((_GRAPH_MAX_RETRIES - retriesLeft) ** 2) * 1000 + 1000; // 1s, 2s, 5s
 }
 
-async function graph(method, path, body = null, _retries = _GRAPH_MAX_RETRIES) {
+async function graph(method, path, body = null, _retries = _GRAPH_MAX_RETRIES, _extraHeaders = null) {
   const token = await getToken();
+  const headers = { 'Authorization':'Bearer '+token, 'Content-Type':'application/json' };
+  if (_extraHeaders) Object.assign(headers, _extraHeaders);
   const res = await fetch(`https://graph.microsoft.com/v1.0${path}`, {
-    method,
-    headers: { 'Authorization':'Bearer '+token, 'Content-Type':'application/json' },
+    method, headers,
     body: body ? JSON.stringify(body) : null
   });
   if (_GRAPH_RETRY_STATUSES.has(res.status) && _retries > 0) {
     const waitMs = _graphBackoffMs(res, _retries);
     console.warn(`[Graph ${res.status}] ${method} ${path} — retrying in ${waitMs}ms (${_retries} left)`);
     await new Promise(r => setTimeout(r, waitMs));
-    return graph(method, path, body, _retries - 1);
+    return graph(method, path, body, _retries - 1, _extraHeaders);
   }
   if (!res.ok) {
     const e = await res.json().catch(()=>({}));
@@ -44,7 +55,9 @@ async function graph(method, path, body = null, _retries = _GRAPH_MAX_RETRIES) {
     const msg = e?.error?.message || 'Graph error';
     // Flat log — prints key fields inline so you don't need to expand Object
     console.error(`[Graph ${res.status}] ${method} ${path}\n  message: ${msg}${inner ? '\n  inner:   '+inner : ''}\n  body:    ${body ? JSON.stringify(body) : '(none)'}\n  raw:`, e);
-    throw new Error(`[${res.status}] ${msg}${inner ? ' — ' + inner : ''}`);
+    const err = new Error(`[${res.status}] ${msg}${inner ? ' — ' + inner : ''}`);
+    err.status = res.status; // surface for 412 conflict-handling in callers
+    throw err;
   }
   return res.status === 204 ? null : res.json();
 }
@@ -64,7 +77,9 @@ async function graphAdmin(method, path, body = null, _retries = _GRAPH_MAX_RETRI
   }
   if (!res.ok) {
     const e = await res.json().catch(()=>({}));
-    throw new Error(`[${res.status}] ${e?.error?.message || 'Graph error'}`);
+    const err = new Error(`[${res.status}] ${e?.error?.message || 'Graph error'}`);
+    err.status = res.status;
+    throw err;
   }
   return res.status === 204 ? null : res.json();
 }
@@ -161,14 +176,20 @@ async function ensureList(listName, columns) {
 
 // ── List item CRUD ───────────────────────────────────────────────
 // All CRUD returns {id, ...fields} flattened. Pagination via @odata.nextLink
-// is handled transparently for reads.
+// is handled transparently for reads. The listItem-level @odata.etag is
+// captured into a non-conflicting `_etag` slot so callers can pass it
+// back into updateListItem({etag}) for optimistic-concurrency writes.
 async function getListItems(siteId, listName) {
   try {
     const items = [];
     let url = `/sites/${siteId}/lists/${listName}/items?expand=fields&$top=${SP_PAGE_SIZE}`;
     while (url) {
       const res = await graph('GET', url);
-      items.push(...(res.value||[]).map(i=>({id:i.id,...i.fields})));
+      items.push(...(res.value||[]).map(i=>({
+        id: i.id,
+        _etag: i['@odata.etag'] || null,
+        ...i.fields
+      })));
       url = res['@odata.nextLink']?.replace('https://graph.microsoft.com/v1.0','') ?? null;
     }
     return items;
@@ -186,7 +207,11 @@ async function getCountHistoryForList(siteId, listName) {
     let url = `/sites/${siteId}/lists/${listName}/items?expand=fields&$top=${SP_PAGE_SIZE}`;
     while (url) {
       const res = await graph('GET', url);
-      items.push(...(res.value||[]).map(i=>({id:i.id,...i.fields})));
+      items.push(...(res.value||[]).map(i=>({
+        id: i.id,
+        _etag: i['@odata.etag'] || null,
+        ...i.fields
+      })));
       url = res['@odata.nextLink']?.replace('https://graph.microsoft.com/v1.0','') ?? null;
     }
     return items;
@@ -239,10 +264,40 @@ async function addListItem(listName, fields) {
   return {id:res.id,...res.fields};
 }
 
-async function updateListItem(listName, itemId, fields) {
+// updateListItem(listName, itemId, fields)
+//   — backward-compatible last-write-wins PATCH (legacy default).
+//
+// updateListItem(listName, itemId, fields, { etag })
+//   — sends If-Match: <etag>. Throws an Error with .status === 412 when
+//     the row was modified since the etag was captured. Caller is
+//     responsible for refetching + retrying (or use updateListItemSafe).
+async function updateListItem(listName, itemId, fields, opts = null) {
   const siteId = await getSiteId();
   const safe = _remapFieldNames(listName, fields);
-  await graph('PATCH',`/sites/${siteId}/lists/${listName}/items/${itemId}/fields`,safe);
+  const headers = (opts && opts.etag) ? { 'If-Match': opts.etag } : null;
+  await graph('PATCH',`/sites/${siteId}/lists/${listName}/items/${itemId}/fields`, safe, undefined, headers);
+}
+
+// Optimistic-concurrency wrapper for hot-contention rows (auto-sync lock,
+// project status, etc.). Reads the current etag, PATCHes with If-Match.
+// On 412 (someone else just modified the row), re-reads and retries once.
+// After two conflicts, throws — caller decides whether to surface a toast.
+async function updateListItemSafe(listName, itemId, fields) {
+  const siteId = await getSiteId();
+  let etag = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      if (!etag) {
+        const cur = await graph('GET', `/sites/${siteId}/lists/${listName}/items/${itemId}?$select=id`);
+        etag = cur?.['@odata.etag'] || null;
+      }
+      await updateListItem(listName, itemId, fields, etag ? { etag } : null);
+      return;
+    } catch (e) {
+      if (e?.status === 412 && attempt === 0) { etag = null; continue; }
+      throw e;
+    }
+  }
 }
 
 async function deleteListItem(listName, itemId) {

@@ -11,17 +11,20 @@
 
 // ── App configuration ───────────────────────────────────────────
 // clientId/tenantId point at the BSC Ops AAD app registration.
-// slack is populated at deploy time via the staticwebapp.config
-// build step (SLACK_WEBHOOK_PLACEHOLDER → real webhook).
 // locations is the canonical list of physical BSC sites.
 // internalDomains gates staff-access provisioning (direct grant vs B2B
 // invite). Any email ending in one of these is treated as a tenant
 // member — the auto-grant flow adds them to the SharePoint members
 // group directly. Other emails get a B2B guest invite.
+//
+// Slack webhooks are no longer baked into the page at deploy time. All
+// Slack posts now route through /api/slack-post, which reads
+// SLACK_WEBHOOK_URL from the Function-app environment. This keeps the
+// webhook out of page source (it was readable to any AAD-authenticated
+// user via "View Source" before this change).
 const CFG = {
   clientId:        'a466e07b-68f4-4881-bdcc-d3adeb356799',
   tenantId:        'b808062f-1ca4-4f25-a2eb-8998fac8dc52',
-  slack:           'SLACK_WEBHOOK_PLACEHOLDER',
   locations:       ['Blake','Platte','Sherman','17th'],
   internalDomains: ['bluesparrowcoffee.com', 'mainspringco.com']
 };

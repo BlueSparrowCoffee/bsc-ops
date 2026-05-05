@@ -17,55 +17,27 @@
 
 const https = require('https');
 const { URL } = require('url');
+const { validateAadToken } = require('../shared/jwt');
 
 const SQUARE_BASE = 'https://connect.squareup.com/v2';
 const SQUARE_VERSION = '2024-10-17';
 
 /**
- * Decode and lightly validate an MSAL JWT Bearer token.
- * Checks: token is well-formed, not expired, and (if TENANT_ID env var is
- * set) the tenant matches. Signature verification would require jsonwebtoken
- * + jwks-rsa — add in a future hardening pass if needed.
+ * AAD JWT validation lives in api/shared/jwt.js and prefers full
+ * signature verification (jsonwebtoken + jwks-rsa) when those packages
+ * are installed in api/. Without them, it falls back to the original
+ * format/expiry/tenant check so existing deployments don't break.
  *
- * TENANT_ID is optional: if not set, any non-expired MSAL JWT is accepted.
- * Set it in Azure Portal → Configuration to lock down to a specific tenant.
+ * To turn on signature verification: add `jsonwebtoken` and `jwks-rsa`
+ * to api/package.json, run `npm install` (or let SWA's automated build
+ * pick them up on next deploy), and set TENANT_ID in Azure Portal.
  */
-function validateToken(authHeader, expectedTenantId) {
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return { ok: false, reason: 'Missing or malformed Authorization header' };
-  }
-  const jwt = authHeader.slice(7);
-  const parts = jwt.split('.');
-  if (parts.length !== 3) {
-    return { ok: false, reason: 'Invalid token format' };
-  }
-  let payload;
-  try {
-    const decoded = Buffer.from(parts[1], 'base64url').toString('utf8');
-    payload = JSON.parse(decoded);
-  } catch {
-    return { ok: false, reason: 'Token payload could not be decoded' };
-  }
-  const nowSecs = Math.floor(Date.now() / 1000);
-  if (payload.exp && payload.exp < nowSecs) {
-    return { ok: false, reason: 'Token is expired' };
-  }
-  // Only enforce tenant check when TENANT_ID is set AND the token actually has a tid claim
-  // (some MSAL token types — e.g. v1 tokens, certain scopes — omit tid)
-  if (expectedTenantId && payload.tid && payload.tid !== expectedTenantId) {
-    return {
-      ok: false,
-      reason: `Token tenant does not match (token tid: ${payload.tid}, expected: ${expectedTenantId})`
-    };
-  }
-  return { ok: true };
-}
 
 module.exports = async function (context, req) {
   // ── Auth check ────────────────────────────────────────────────────────────
   // TENANT_ID is optional — if not set, any valid non-expired MSAL JWT passes
   const tenantId = process.env.TENANT_ID || null;
-  const authResult = validateToken(req.headers['authorization'], tenantId);
+  const authResult = await validateAadToken(req.headers['authorization'], tenantId);
   if (!authResult.ok) {
     context.log.warn('Square proxy: auth rejected —', authResult.reason);
     context.res = {
@@ -74,6 +46,9 @@ module.exports = async function (context, req) {
       body: JSON.stringify({ error: 'Unauthorized', reason: authResult.reason })
     };
     return;
+  }
+  if (authResult._unverified) {
+    context.log.warn('Square proxy: token signature NOT verified — install jsonwebtoken + jwks-rsa in api/ to close this gap.');
   }
 
   // ── Square token ──────────────────────────────────────────────────────────

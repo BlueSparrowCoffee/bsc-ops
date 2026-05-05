@@ -1,1 +1,10 @@
 .DS_Store
+node_modules/
+*.log
+local.settings.json
+.env
+.env.local
+.vscode/
+.idea/
+*.swp
+api/node_modules/

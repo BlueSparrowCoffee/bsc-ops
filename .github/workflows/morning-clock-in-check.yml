@@ -1,0 +1,53 @@
+name: Morning Clock-In Check
+
+# Triggers the BSC_Ops Function /api/morning-clock-in-check via HTTP
+# at 6:20 AM Mountain. The function self-gates on local Mountain time,
+# so the schedule fires twice (12:20 UTC = 6:20 MDT, 13:20 UTC = 6:20
+# MST) and the off-window invocation no-ops. This way the cron survives
+# DST without code changes.
+#
+# Required GitHub repository secrets:
+#   CRON_TARGET_URL  — full URL to /api/morning-clock-in-check
+#                       (e.g. https://red-mushroom-0cc9a1e10.azurestaticapps.net/api/morning-clock-in-check)
+#   CRON_KEY         — matches CRON_KEY env var on the Function app
+#
+# To run on demand:
+#   Actions tab → "Morning Clock-In Check" → "Run workflow" → optionally
+#   pass force=1 to bypass the time gate.
+
+on:
+  schedule:
+    - cron: '20 12 * * *'  # 6:20 MDT (UTC-6)
+    - cron: '20 13 * * *'  # 6:20 MST (UTC-7)
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force run (bypass 6:20 window)'
+        required: false
+        default: 'false'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Invoke clock-in check
+        env:
+          CRON_TARGET_URL: ${{ secrets.CRON_TARGET_URL }}
+          CRON_KEY: ${{ secrets.CRON_KEY }}
+          FORCE: ${{ github.event.inputs.force }}
+        run: |
+          if [ -z "$CRON_TARGET_URL" ] || [ -z "$CRON_KEY" ]; then
+            echo "::error::CRON_TARGET_URL or CRON_KEY repo secret is not set"
+            exit 1
+          fi
+          URL="$CRON_TARGET_URL"
+          if [ "$FORCE" = "true" ] || [ "$FORCE" = "1" ]; then
+            URL="${URL}?force=1"
+          fi
+          # -fS makes curl exit non-zero on HTTP >= 400; --max-time bounds the call
+          # so a hung function fails fast rather than blocking the runner.
+          response=$(curl -fSs --max-time 90 -X POST \
+            -H "X-Cron-Key: ${CRON_KEY}" \
+            -H "Content-Type: application/json" \
+            "$URL")
+          echo "Function response: $response"

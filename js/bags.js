@@ -124,12 +124,7 @@ async function syncRetailBagsSold() {
     return total;
   };
 
-  function _monthKey(str) {
-    if (!str) return '';
-    const d = new Date(str.trim() + ' 1');
-    if (!isNaN(d)) return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-    return str.trim().toLowerCase();
-  }
+  // _monthKey lives in utils.js (shared with labels.js).
 
   try {
     const [curBags, priorBags] = await Promise.all(months.map(fetchBags));

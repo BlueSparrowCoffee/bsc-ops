@@ -659,9 +659,10 @@ async function submitWeeklyCount() {
     }));
     cache[cfg.countKey].unshift(...newRecords);
 
-    // Slack alert for low items
+    // Slack alert for low items — O(1) lookup; was O(n²) over the inventory list
+    const _itemById = new Map((cache[cfg.cacheKey] || []).map(i => [String(i.id), i]));
     const lowItems = entries.filter(e => {
-      const item = cache[cfg.cacheKey].find(i=>String(i.id)===String(e.id));
+      const item = _itemById.get(String(e.id));
       if (!item) return false;
       const thresh = invLowThreshold(item, loc);
       if (thresh == null) return false;

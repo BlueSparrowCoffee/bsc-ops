@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-04y">
-<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-04y">
-<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-04y">
-<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-04y">
-<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-04y">
+<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-05a">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-05a">
+<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-05a">
+<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-05a">
+<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-05a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="BSC Ops">
@@ -944,7 +944,7 @@ html,body{overscroll-behavior:none;}
     <div class="modal" style="max-width:780px;">
       <div class="modal-header">
         <div class="modal-title" id="recipe-modal-title">Add Recipe</div>
-        <button class="modal-close" onclick="closeModal('modal-recipe')">×</button>
+        <button class="modal-close" aria-label="Close" onclick="closeModal('modal-recipe')">×</button>
       </div>
       <div style="display:flex;flex-direction:column;gap:16px;padding:4px 0;">
         <div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:end;">
@@ -994,7 +994,7 @@ html,body{overscroll-behavior:none;}
     <div class="modal" style="max-width:640px;">
       <div class="modal-header">
         <div class="modal-title" id="pi-modal-title">Add Prep Item</div>
-        <button class="modal-close" onclick="closeModal('modal-prep-item')">×</button>
+        <button class="modal-close" aria-label="Close" onclick="closeModal('modal-prep-item')">×</button>
       </div>
       <input type="hidden" id="pi-edit-id">
       <div style="display:flex;flex-direction:column;gap:14px;padding:4px 0;">
@@ -1050,7 +1050,7 @@ html,body{overscroll-behavior:none;}
     <div class="modal" style="max-width:600px;">
       <div class="modal-header">
         <div class="modal-title" id="pi-history-title">Edit History</div>
-        <button class="modal-close" onclick="closeModal('modal-prep-item-history')">×</button>
+        <button class="modal-close" aria-label="Close" onclick="closeModal('modal-prep-item-history')">×</button>
       </div>
       <div id="pi-history-list" style="max-height:480px;overflow-y:auto;padding:4px 0;"></div>
       <div class="form-actions">
@@ -1065,7 +1065,7 @@ html,body{overscroll-behavior:none;}
     <div class="modal" style="max-width:500px;">
       <div class="modal-header">
         <div class="modal-title" id="staff-modal-title">Add Staff Member</div>
-        <button class="modal-close" onclick="closeModal('modal-staff')">×</button>
+        <button class="modal-close" aria-label="Close" onclick="closeModal('modal-staff')">×</button>
       </div>
       <div class="form-grid">
         <div class="form-group"><label>Full Name *</label><input id="sf-name" placeholder="e.g. Danny Knott"></div>
@@ -1105,7 +1105,7 @@ html,body{overscroll-behavior:none;}
     <div class="modal" style="max-width:580px;">
       <div class="modal-header">
         <div class="modal-title" id="maint-task-modal-title">Add Maintenance Task</div>
-        <button class="modal-close" onclick="closeModal('modal-maint-task')">×</button>
+        <button class="modal-close" aria-label="Close" onclick="closeModal('modal-maint-task')">×</button>
       </div>
       <div class="form-grid">
         <div class="form-group" style="grid-column:span 2;"><label>Task Name *</label><input id="mt-title" placeholder="e.g. Deep Clean Espresso Machine"></div>
@@ -1149,7 +1149,7 @@ html,body{overscroll-behavior:none;}
     <div class="modal" style="max-width:520px;">
       <div class="modal-header">
         <div class="modal-title" id="maint-complete-title">Complete Task</div>
-        <button class="modal-close" onclick="closeModal('modal-maint-complete')">×</button>
+        <button class="modal-close" aria-label="Close" onclick="closeModal('modal-maint-complete')">×</button>
       </div>
       <div style="display:flex;flex-direction:column;gap:16px;padding:4px 0;">
         <div id="maint-complete-info" style="padding:12px 14px;background:var(--cream);border-radius:8px;font-size:13px;line-height:1.6;"></div>
@@ -1181,7 +1181,7 @@ html,body{overscroll-behavior:none;}
     <div class="modal" style="max-width:560px;">
       <div class="modal-header">
         <div class="modal-title" id="maint-modal-title">Add Contact</div>
-        <button class="modal-close" onclick="closeModal('modal-maint')">×</button>
+        <button class="modal-close" aria-label="Close" onclick="closeModal('modal-maint')">×</button>
       </div>
       <div id="maint-form-fields" class="form-grid"></div>
       <div class="form-actions">
@@ -1198,7 +1198,7 @@ html,body{overscroll-behavior:none;}
     <div class="modal" style="max-width:520px;">
       <div class="modal-header">
         <div class="modal-title" id="foodpar-modal-title">Add Item</div>
-        <button class="modal-close" onclick="closeModal('modal-foodpar')">×</button>
+        <button class="modal-close" aria-label="Close" onclick="closeModal('modal-foodpar')">×</button>
       </div>
       <div style="padding:4px 0 16px;">
         <label class="field-label">Item Name</label>
@@ -1268,7 +1268,7 @@ html,body{overscroll-behavior:none;}
     <div class="modal" style="max-width:480px;">
       <div class="modal-header">
         <div class="modal-title" id="fp-sync-title">Sync from Square</div>
-        <button class="modal-close" onclick="closeModal('modal-foodpar-sync')">×</button>
+        <button class="modal-close" aria-label="Close" onclick="closeModal('modal-foodpar-sync')">×</button>
       </div>
       <div id="fp-sync-body" style="padding:8px 0 16px;max-height:360px;overflow-y:auto;"></div>
       <div class="form-actions">
@@ -1283,7 +1283,7 @@ html,body{overscroll-behavior:none;}
     <div class="modal" style="max-width:560px;">
       <div class="modal-header">
         <div class="modal-title">⇅ Reorder Items — <span id="cco-location-label"></span></div>
-        <button class="modal-close" onclick="closeModal('modal-count-order')">×</button>
+        <button class="modal-close" aria-label="Close" onclick="closeModal('modal-count-order')">×</button>
       </div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:8px;line-height:1.5;">
         Drag the ⠿ handle to reorder. Order is saved per location and applied to the count sheet for that location only. <span id="cco-saved-flag" style="font-style:italic;"></span>
@@ -1306,7 +1306,7 @@ html,body{overscroll-behavior:none;}
     <div class="modal" style="max-width:640px;">
       <div class="modal-header">
         <div class="modal-title">🗑 Manage Count Records</div>
-        <button class="modal-close" onclick="closeModal('modal-merch-count-records')">×</button>
+        <button class="modal-close" aria-label="Close" onclick="closeModal('modal-merch-count-records')">×</button>
       </div>
       <div id="mcr-body" style="max-height:520px;overflow-y:auto;"></div>
       <div class="form-actions">
@@ -1320,7 +1320,7 @@ html,body{overscroll-behavior:none;}
     <div class="modal" style="max-width:440px;">
       <div class="modal-header">
         <div class="modal-title">Update Label Balance</div>
-        <button class="modal-close" onclick="closeModal('modal-labels-entry')">×</button>
+        <button class="modal-close" aria-label="Close" onclick="closeModal('modal-labels-entry')">×</button>
       </div>
       <div class="form-grid">
         <div class="form-group" style="grid-column:span 2;">
@@ -1352,7 +1352,7 @@ html,body{overscroll-behavior:none;}
     <div class="modal" style="max-width:520px;">
       <div class="modal-header">
         <div class="modal-title">📊 Monthly Reconciliation</div>
-        <button class="modal-close" onclick="closeModal('modal-labels-reconcile')">×</button>
+        <button class="modal-close" aria-label="Close" onclick="closeModal('modal-labels-reconcile')">×</button>
       </div>
       <div id="labels-reconcile-body" style="padding:4px 0;font-size:13px;line-height:1.8;"></div>
       <div class="form-actions">
@@ -1367,7 +1367,7 @@ html,body{overscroll-behavior:none;}
     <div class="modal" style="max-width:440px;">
       <div class="modal-header">
         <div class="modal-title">Update Retail Bag Stock</div>
-        <button class="modal-close" onclick="closeModal('modal-retail-bags-entry')">×</button>
+        <button class="modal-close" aria-label="Close" onclick="closeModal('modal-retail-bags-entry')">×</button>
       </div>
       <div class="form-grid">
         <div class="form-group" style="grid-column:span 2;">
@@ -1399,7 +1399,7 @@ html,body{overscroll-behavior:none;}
     <div class="modal" style="max-width:520px;">
       <div class="modal-header">
         <div class="modal-title">📊 Monthly Reconciliation</div>
-        <button class="modal-close" onclick="closeModal('modal-retail-bags-reconcile')">×</button>
+        <button class="modal-close" aria-label="Close" onclick="closeModal('modal-retail-bags-reconcile')">×</button>
       </div>
       <div id="retail-bags-reconcile-body" style="padding:4px 0;font-size:13px;line-height:1.8;"></div>
       <div class="form-actions">
@@ -1414,7 +1414,7 @@ html,body{overscroll-behavior:none;}
     <div class="modal" style="max-width:440px;">
       <div class="modal-header">
         <div class="modal-title">Add 5 LB Label Entry</div>
-        <button class="modal-close" onclick="closeModal('modal-5lb-labels-entry')">×</button>
+        <button class="modal-close" aria-label="Close" onclick="closeModal('modal-5lb-labels-entry')">×</button>
       </div>
       <div class="form-grid">
         <div class="form-group">
@@ -1453,7 +1453,7 @@ html,body{overscroll-behavior:none;}
     <div class="modal" style="max-width:600px;">
       <div class="modal-header">
         <div class="modal-title" id="recipe-history-title">Edit History</div>
-        <button class="modal-close" onclick="closeModal('modal-recipe-history')">×</button>
+        <button class="modal-close" aria-label="Close" onclick="closeModal('modal-recipe-history')">×</button>
       </div>
       <div id="recipe-history-list" style="max-height:480px;overflow-y:auto;padding:4px 0;"></div>
       <div class="form-actions">
@@ -1468,7 +1468,7 @@ html,body{overscroll-behavior:none;}
     <div class="modal" style="max-width:500px;">
       <div class="modal-header">
         <span class="modal-title">↑ Sync Pastry Pars → Order Sheet</span>
-        <button class="modal-close" onclick="closeModal('modal-pastry-sync')">×</button>
+        <button class="modal-close" aria-label="Close" onclick="closeModal('modal-pastry-sync')">×</button>
       </div>
       <div style="padding:20px 24px 24px;">
         <pre id="pastry-sync-log" style="font-size:12px;font-family:monospace;background:#f8f8f8;border:1px solid var(--border);border-radius:8px;padding:12px 14px;max-height:320px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;margin-bottom:16px;min-height:80px;color:var(--text);"></pre>
@@ -1801,7 +1801,7 @@ html,body{overscroll-behavior:none;}
           <div class="modal-title" id="cog-hist-modal-title">Cost History</div>
           <div id="cog-hist-modal-sub" style="font-size:12px;color:var(--muted);margin-top:2px;"></div>
         </div>
-        <button class="modal-close" onclick="closeModal('modal-cog-item-history')">×</button>
+        <button class="modal-close" aria-label="Close" onclick="closeModal('modal-cog-item-history')">×</button>
       </div>
       <div class="modal-body" style="padding:20px;">
         <div id="cog-hist-modal-trend" style="margin-bottom:20px;"></div>
@@ -1870,7 +1870,7 @@ html,body{overscroll-behavior:none;}
     <div class="modal" style="max-width:480px;">
       <div class="modal-header">
         <div class="modal-title" id="mpe-title">Edit Price</div>
-        <button class="modal-close" onclick="closeModal('modal-market-price-edit')">×</button>
+        <button class="modal-close" aria-label="Close" onclick="closeModal('modal-market-price-edit')">×</button>
       </div>
       <input type="hidden" id="mpe-item-id">
       <input type="hidden" id="mpe-item-key">
@@ -1903,7 +1903,7 @@ html,body{overscroll-behavior:none;}
     <div class="modal" style="max-width:760px;">
       <div class="modal-header">
         <div class="modal-title">Manage Market Analysis</div>
-        <button class="modal-close" onclick="closeModal('modal-market-manage')">×</button>
+        <button class="modal-close" aria-label="Close" onclick="closeModal('modal-market-manage')">×</button>
       </div>
       <div style="padding:8px 0;">
         <div style="font-weight:700;font-size:13px;color:var(--dark-blue);margin-bottom:6px;">Competitors</div>
@@ -1930,7 +1930,7 @@ html,body{overscroll-behavior:none;}
     <div class="modal" style="max-width:560px;">
       <div class="modal-header">
         <div class="modal-title" id="mie-title-text">Edit Tracked Item</div>
-        <button class="modal-close" onclick="closeModal('modal-market-item-edit')">×</button>
+        <button class="modal-close" aria-label="Close" onclick="closeModal('modal-market-item-edit')">×</button>
       </div>
       <input type="hidden" id="mie-id">
       <input type="hidden" id="mie-square-ref-id">
@@ -1983,7 +1983,7 @@ html,body{overscroll-behavior:none;}
     <div class="modal" style="max-width:680px;">
       <div class="modal-header">
         <div class="modal-title" id="msd-title">📅 Survey Day</div>
-        <button class="modal-close" onclick="closeModal('modal-market-survey-day')">×</button>
+        <button class="modal-close" aria-label="Close" onclick="closeModal('modal-market-survey-day')">×</button>
       </div>
       <div style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px;">
         <div class="form-group" style="flex:1;min-width:200px;">
@@ -2009,7 +2009,7 @@ html,body{overscroll-behavior:none;}
     <div class="modal" style="max-width:720px;">
       <div class="modal-header">
         <div class="modal-title">📋 Surveys</div>
-        <button class="modal-close" onclick="closeModal('modal-market-survey-list')">×</button>
+        <button class="modal-close" aria-label="Close" onclick="closeModal('modal-market-survey-list')">×</button>
       </div>
       <div id="msl-body" style="max-height:520px;overflow-y:auto;"></div>
       <div class="form-actions">
@@ -2049,7 +2049,7 @@ html,body{overscroll-behavior:none;}
     <div class="modal" style="max-width:620px;">
       <div class="modal-header">
         <div class="modal-title" id="proj-modal-title">New Project</div>
-        <button class="modal-close" onclick="closeModal('modal-project')">×</button>
+        <button class="modal-close" aria-label="Close" onclick="closeModal('modal-project')">×</button>
       </div>
       <div class="form-grid">
         <div class="form-group" style="grid-column:1/-1">
@@ -2127,7 +2127,7 @@ html,body{overscroll-behavior:none;}
     <div class="modal" style="max-width:480px;">
       <div class="modal-header">
         <div class="modal-title" id="proj-link-title">Add Link</div>
-        <button class="modal-close" onclick="closeModal('modal-project-link')">×</button>
+        <button class="modal-close" aria-label="Close" onclick="closeModal('modal-project-link')">×</button>
       </div>
       <div class="form-grid">
         <div class="form-group" style="grid-column:1/-1">
@@ -2341,14 +2341,13 @@ html,body{overscroll-behavior:none;}
           <button id="slack-global-pause-btn" class="btn btn-outline" style="font-size:12px;padding:5px 14px;margin-left:auto;" onclick="toggleGlobalSlackPause()">⏸ Pause All</button>
         </div>
 
-        <!-- Webhook URL -->
-        <label class="field-label">Webhook URL</label>
-        <div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap">
-          <input id="slack-webhook-input" type="password" class="field-input" style="flex:1;min-width:200px" placeholder="https://hooks.slack.com/services/…">
-          <button class="btn btn-outline" onclick="toggleWebhookVis()" style="padding:8px 12px">👁</button>
-          <button class="btn btn-primary" onclick="saveSlackWebhook()" style="padding:8px 16px">Save</button>
+        <!-- Webhook URL — moved server-side -->
+        <div id="slack-webhook-status" style="font-size:12px;color:var(--muted);margin-bottom:16px;padding:10px 12px;background:var(--cream);border-radius:8px;line-height:1.5">
+          The Slack webhook URL is configured on the Function app
+          (<code style="background:rgba(0,0,0,.05);padding:1px 6px;border-radius:4px">SLACK_WEBHOOK_URL</code> environment variable). Set or
+          rotate it in the Azure Portal → Function App → Configuration.
+          Posts route through <code style="background:rgba(0,0,0,.05);padding:1px 6px;border-radius:4px">/api/slack-post</code>.
         </div>
-        <div id="slack-webhook-status" style="font-size:12px;color:var(--muted);margin-bottom:16px"></div>
 
         <!-- Channel -->
         <label class="field-label">Channel</label>
@@ -2494,7 +2493,7 @@ html,body{overscroll-behavior:none;}
   <div class="modal" style="max-width:560px;">
     <div class="modal-header">
       <div class="modal-title" id="parking-modal-title">Add Parking Entry</div>
-      <button class="modal-close" onclick="closeModal('modal-parking')">×</button>
+      <button class="modal-close" aria-label="Close" onclick="closeModal('modal-parking')">×</button>
     </div>
     <div class="form-grid">
       <div class="form-group"><label>First Name *</label><input id="pk-first" placeholder="First name"></div>
@@ -2531,7 +2530,7 @@ html,body{overscroll-behavior:none;}
   <div class="modal" style="max-width:640px;">
     <div class="modal-header">
       <div class="modal-title" id="vendor-modal-title">Add Vendor</div>
-      <button class="modal-close" onclick="closeModal('modal-vendor')">×</button>
+      <button class="modal-close" aria-label="Close" onclick="closeModal('modal-vendor')">×</button>
     </div>
     <div id="vendor-form-fields" class="form-grid"></div>
     <div class="form-actions" style="justify-content:space-between;">
@@ -2550,7 +2549,7 @@ html,body{overscroll-behavior:none;}
 <!-- Add Inventory Item -->
 <div class="modal-overlay" id="modal-add-item">
   <div class="modal">
-    <div class="modal-header"><div class="modal-title">Add Inventory Item</div><button class="modal-close" onclick="closeModal('modal-add-item')">×</button></div>
+    <div class="modal-header"><div class="modal-title">Add Inventory Item</div><button class="modal-close" aria-label="Close" onclick="closeModal('modal-add-item')">×</button></div>
     <div class="form-grid">
       <div class="form-group" style="grid-column:1/-1"><label>Item Name *</label><input id="new-item-name" placeholder="e.g. Whole Milk"></div>
       <div class="form-group" id="new-item-cat-group"><label>Category</label>
@@ -2621,7 +2620,7 @@ html,body{overscroll-behavior:none;}
 <!-- Log Count -->
 <div class="modal-overlay" id="modal-count">
   <div class="modal">
-    <div class="modal-header"><div class="modal-title">📋 Log Inventory Count</div><button class="modal-close" onclick="closeModal('modal-count')">×</button></div>
+    <div class="modal-header"><div class="modal-title">📋 Log Inventory Count</div><button class="modal-close" aria-label="Close" onclick="closeModal('modal-count')">×</button></div>
     <div class="form-grid">
       <div class="form-group"><label>Item *</label><select id="count-item-sel"></select></div>
       <div class="form-group"><label>Location *</label>
@@ -2638,7 +2637,7 @@ html,body{overscroll-behavior:none;}
 <!-- Transfer -->
 <div class="modal-overlay" id="modal-transfer">
   <div class="modal">
-    <div class="modal-header"><div class="modal-title">🔄 New Transfer</div><button class="modal-close" onclick="closeModal('modal-transfer')">×</button></div>
+    <div class="modal-header"><div class="modal-title">🔄 New Transfer</div><button class="modal-close" aria-label="Close" onclick="closeModal('modal-transfer')">×</button></div>
     <div class="form-grid">
       <div class="form-group"><label>Item *</label><select id="xfer-item"></select></div>
       <div class="form-group"><label>Quantity *</label><input id="xfer-qty" type="number" placeholder="0"></div>
@@ -2659,7 +2658,7 @@ html,body{overscroll-behavior:none;}
   <div class="modal" style="max-width:780px;">
     <div class="modal-header">
       <div class="modal-title">🛒 Build Order from Low Stock</div>
-      <button class="modal-close" onclick="closeModal('modal-build-order')">×</button>
+      <button class="modal-close" aria-label="Close" onclick="closeModal('modal-build-order')">×</button>
     </div>
     <div id="build-order-body" style="font-size:13px;"></div>
     <div class="form-actions">
@@ -2673,7 +2672,7 @@ html,body{overscroll-behavior:none;}
   <div class="modal" style="max-width:720px;">
     <div class="modal-header">
       <div class="modal-title">📋 Order Detail</div>
-      <button class="modal-close" onclick="closeModal('modal-order-detail')">×</button>
+      <button class="modal-close" aria-label="Close" onclick="closeModal('modal-order-detail')">×</button>
     </div>
     <div id="order-detail-body" style="font-size:13px;"></div>
     <div class="form-actions" id="order-detail-footer" style="justify-content:flex-end;"></div>
@@ -2685,7 +2684,7 @@ html,body{overscroll-behavior:none;}
   <div class="modal" style="max-width:640px;">
     <div class="modal-header">
       <div class="modal-title">📦 Receive Order</div>
-      <button class="modal-close" onclick="closeModal('modal-receive-order')">×</button>
+      <button class="modal-close" aria-label="Close" onclick="closeModal('modal-receive-order')">×</button>
     </div>
     <div id="receive-order-body" style="font-size:13px;"></div>
     <div class="form-actions">
@@ -2700,7 +2699,7 @@ html,body{overscroll-behavior:none;}
   <div class="modal" style="max-width:560px;">
     <div class="modal-header">
       <div class="modal-title">📤 Send Order</div>
-      <button class="modal-close" onclick="closeModal('modal-send-fallback')">×</button>
+      <button class="modal-close" aria-label="Close" onclick="closeModal('modal-send-fallback')">×</button>
     </div>
     <div id="send-fallback-body" style="font-size:13px;"></div>
     <div class="form-actions">
@@ -2716,7 +2715,7 @@ html,body{overscroll-behavior:none;}
   <div class="modal" style="max-width:520px;">
     <div class="modal-header">
       <div class="modal-title" id="cl-group-modal-title">New Checklist</div>
-      <button class="modal-close" onclick="closeModal('modal-cl-group')">×</button>
+      <button class="modal-close" aria-label="Close" onclick="closeModal('modal-cl-group')">×</button>
     </div>
     <div class="form-grid">
       <div class="form-group" style="grid-column:1/-1">
@@ -2782,7 +2781,7 @@ html,body{overscroll-behavior:none;}
   <div class="modal" style="max-width:440px;">
     <div class="modal-header">
       <div class="modal-title">💡 Suggest a Task</div>
-      <button class="modal-close" onclick="closeModal('modal-cl-suggest')">×</button>
+      <button class="modal-close" aria-label="Close" onclick="closeModal('modal-cl-suggest')">×</button>
     </div>
     <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Your suggestion will be sent to a manager for review before being added to the checklist.</p>
     <div class="form-group" style="margin-bottom:12px;">
@@ -2807,7 +2806,7 @@ html,body{overscroll-behavior:none;}
   <div class="modal" style="max-width:520px;">
     <div class="modal-header">
       <div class="modal-title" id="role-modal-title">Add Role</div>
-      <button class="modal-close" onclick="closeModal('modal-role')">×</button>
+      <button class="modal-close" aria-label="Close" onclick="closeModal('modal-role')">×</button>
     </div>
     <div class="form-grid">
       <div class="form-group"><label>Role Name *</label><input id="role-name" placeholder="e.g. Assistant Manager"></div>
@@ -2826,40 +2825,40 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-05-04y" defer></script>
-<script src="/js/utils.js?v=2026-05-04y" defer></script>
-<script src="/js/state.js?v=2026-05-04y" defer></script>
-<script src="/js/auth.js?v=2026-05-04y" defer></script>
-<script src="/js/graph.js?v=2026-05-04y" defer></script>
-<script src="/js/signalr.js?v=2026-05-04y" defer></script>
-<script src="/js/tags.js?v=2026-05-04y" defer></script>
-<script src="/js/nav.js?v=2026-05-04y" defer></script>
-<script src="/js/settings.js?v=2026-05-04y" defer></script>
-<script src="/js/dashboard.js?v=2026-05-04y" defer></script>
-<script src="/js/inventory.js?v=2026-05-04y" defer></script>
-<script src="/js/inventory-form.js?v=2026-05-04y" defer></script>
-<script src="/js/counts.js?v=2026-05-04y" defer></script>
-<script src="/js/foodpars.js?v=2026-05-04y" defer></script>
-<script src="/js/labels.js?v=2026-05-04y" defer></script>
-<script src="/js/bags.js?v=2026-05-04y" defer></script>
-<script src="/js/bag-labels-5lb.js?v=2026-05-04y" defer></script>
-<script src="/js/pastry-sync.js?v=2026-05-04y" defer></script>
-<script src="/js/recipes.js?v=2026-05-04y" defer></script>
-<script src="/js/cogs.js?v=2026-05-04y" defer></script>
-<script src="/js/vendors.js?v=2026-05-04y" defer></script>
-<script src="/js/contacts.js?v=2026-05-04y" defer></script>
-<script src="/js/maintenance.js?v=2026-05-04y" defer></script>
-<script src="/js/checklists.js?v=2026-05-04y" defer></script>
-<script src="/js/ordering.js?v=2026-05-04y" defer></script>
-<script src="/js/ordering-build.js?v=2026-05-04y" defer></script>
-<script src="/js/market-analysis.js?v=2026-05-04y" defer></script>
-<script src="/js/projects.js?v=2026-05-04y" defer></script>
-<script src="/js/parking.js?v=2026-05-04y" defer></script>
-<script src="/js/prepItems.js?v=2026-05-04y" defer></script>
-<script src="/js/square.js?v=2026-05-04y" defer></script>
-<script src="/js/timeclock.js?v=2026-05-04y" defer></script>
-<script src="/js/slack.js?v=2026-05-04y" defer></script>
-<script src="/js/auto-sync.js?v=2026-05-04y" defer></script>
+<script src="/js/constants.js?v=2026-05-05a" defer></script>
+<script src="/js/utils.js?v=2026-05-05a" defer></script>
+<script src="/js/state.js?v=2026-05-05a" defer></script>
+<script src="/js/auth.js?v=2026-05-05a" defer></script>
+<script src="/js/graph.js?v=2026-05-05a" defer></script>
+<script src="/js/signalr.js?v=2026-05-05a" defer></script>
+<script src="/js/tags.js?v=2026-05-05a" defer></script>
+<script src="/js/nav.js?v=2026-05-05a" defer></script>
+<script src="/js/settings.js?v=2026-05-05a" defer></script>
+<script src="/js/dashboard.js?v=2026-05-05a" defer></script>
+<script src="/js/inventory.js?v=2026-05-05a" defer></script>
+<script src="/js/inventory-form.js?v=2026-05-05a" defer></script>
+<script src="/js/counts.js?v=2026-05-05a" defer></script>
+<script src="/js/foodpars.js?v=2026-05-05a" defer></script>
+<script src="/js/labels.js?v=2026-05-05a" defer></script>
+<script src="/js/bags.js?v=2026-05-05a" defer></script>
+<script src="/js/bag-labels-5lb.js?v=2026-05-05a" defer></script>
+<script src="/js/pastry-sync.js?v=2026-05-05a" defer></script>
+<script src="/js/recipes.js?v=2026-05-05a" defer></script>
+<script src="/js/cogs.js?v=2026-05-05a" defer></script>
+<script src="/js/vendors.js?v=2026-05-05a" defer></script>
+<script src="/js/contacts.js?v=2026-05-05a" defer></script>
+<script src="/js/maintenance.js?v=2026-05-05a" defer></script>
+<script src="/js/checklists.js?v=2026-05-05a" defer></script>
+<script src="/js/ordering.js?v=2026-05-05a" defer></script>
+<script src="/js/ordering-build.js?v=2026-05-05a" defer></script>
+<script src="/js/market-analysis.js?v=2026-05-05a" defer></script>
+<script src="/js/projects.js?v=2026-05-05a" defer></script>
+<script src="/js/parking.js?v=2026-05-05a" defer></script>
+<script src="/js/prepItems.js?v=2026-05-05a" defer></script>
+<script src="/js/square.js?v=2026-05-05a" defer></script>
+<script src="/js/timeclock.js?v=2026-05-05a" defer></script>
+<script src="/js/slack.js?v=2026-05-05a" defer></script>
+<script src="/js/auto-sync.js?v=2026-05-05a" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
@@ -2898,6 +2897,42 @@ function clearLocalDataAndReload() {
   localStorage.clear();
   location.reload();
 }
+
+// ── Global client-error reporters ────────────────────────────────
+// Both handlers are best-effort: they log to the console and try to
+// post a compact record to /api/log-error (writes to BSC_ErrorLog).
+// Throttled to one report per ~2 s per signature so a render loop
+// can't spam the endpoint.
+(function() {
+  const _seen = new Map();
+  const _src = () => { try { return location.hash.replace('#','') || (document.querySelector('.page.active')||{}).id || 'unknown'; } catch { return 'unknown'; } };
+  function _report(severity, message, body) {
+    const sig = severity + '|' + (message || '').slice(0, 80);
+    const now = Date.now();
+    const last = _seen.get(sig) || 0;
+    if (now - last < 2000) return;
+    _seen.set(sig, now);
+    // utils.js exposes reportClientError
+    if (typeof reportClientError !== 'function') return;
+    reportClientError({
+      message:  String(message || '').slice(0, 200),
+      severity, source: _src(),
+      url: location.href,
+      userAgent: navigator.userAgent,
+      username: (typeof currentUser === 'object' && currentUser && (currentUser.username || currentUser.name)) || '',
+      body: String(body || '').slice(0, 4000)
+    });
+  }
+  window.addEventListener('error', (e) => {
+    _report('error', e?.message || 'window.onerror', (e?.error && e.error.stack) || `${e?.filename || ''}:${e?.lineno || ''}`);
+  });
+  window.addEventListener('unhandledrejection', (e) => {
+    const r = e?.reason;
+    const msg = (r && (r.message || String(r))) || 'unhandledrejection';
+    const stack = (r && r.stack) || '';
+    _report('promise', msg, stack);
+  });
+})();
 
 window.addEventListener('DOMContentLoaded', async () => {
   const _now = new Date();
@@ -2999,12 +3034,20 @@ async function bootstrapApp() {
   setLoading(true,'Loading BSC Operations…');
   try {
     await getSiteId();
-    // Skip ensureAllLists on normal loads — only run when version changes or forced
+    // Skip ensureAllLists on normal loads — only run when version changes or forced.
+    // The provision marker is only stamped if ensureAllLists fully completes; a
+    // mid-run network drop leaves the old version in place so the next reload
+    // re-runs the (idempotent) provisioning rather than skipping the missing lists/columns.
     const provOk = localStorage.getItem('bsc_provision_v') === PROVISION_VERSION;
     if (!provOk) {
       setLoading(true,'First-time setup…');
-      await ensureAllLists();
-      localStorage.setItem('bsc_provision_v', PROVISION_VERSION);
+      try {
+        await ensureAllLists();
+        localStorage.setItem('bsc_provision_v', PROVISION_VERSION);
+      } catch (e) {
+        console.warn('[bootstrap] ensureAllLists failed — leaving bsc_provision_v as-is so next reload retries:', e?.message || e);
+        throw e;
+      }
     }
     if (tryLoadCachedData()) {
       // Rendered from cache instantly — refresh data in background
@@ -3266,6 +3309,20 @@ async function ensureAllLists() {
     {name:'ProjectId',text:{}},{name:'Label',text:{}},{name:'URL',text:{}},
     {name:'LinkType',text:{}},{name:'SortOrder',number:{decimalPlaces:'automatic'}}
   ]);
+
+  // Client-side error reports (PROVISION_VERSION 39). Written by
+  // /api/log-error which is called from the global window.onerror /
+  // unhandledrejection handlers. Title = short message; full payload
+  // is in Body. Source is the page (e.g. "projects"), Severity is
+  // "error" / "promise" / "manual".
+  await ensureList(LISTS.errorLog, [
+    {name:'Source',     text:{}},
+    {name:'Severity',   text:{}},
+    {name:'Url',        text:{}},
+    {name:'UserAgent',  text:{}},
+    {name:'Username',   text:{}},
+    {name:'Body',       text:{allowMultipleLines:true,linesForEditing:8}}
+  ]);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -3430,21 +3487,31 @@ async function getRecipeItems(siteId) {
 // ════════════════════════════════════════════════════════════════════════════
 // RENDER ALL
 // ════════════════════════════════════════════════════════════════════════════
+// Render after bootstrap / cache-rehydrate. Used to call every page's
+// render fn back-to-back ("renderAll"); that meant ~12 full DOM rebuilds
+// while the splash was up, regardless of which page the user opened
+// onto. Now we render only the active page (plus the always-needed
+// populateSelects + maintenance-notification check). Inactive pages
+// render lazily on nav() — they have always done so via PAGE_RENDER_FN.
 function renderAll() {
-  renderDashboard();
-  renderInventory();
-  renderTransfers();
-  renderOrders();
-  renderChecklists();
-  renderVendors();
-  renderRecipes();
-  renderStaff();
-  renderMaintSchedule();
-  renderMaintContacts();
-  renderRoles();
-  renderLocations();
   populateSelects();
   checkMaintNotifications();
+  // Pages that always render (small / cheap, also drives sidebar counts)
+  if (typeof renderLocations === 'function') renderLocations();
+  if (typeof renderRoles     === 'function') renderRoles();
+  // Active page only
+  let active = null;
+  try {
+    const el = document.querySelector('.page.active');
+    active = el ? el.id.replace('page-', '') : null;
+  } catch {}
+  const map = (typeof PAGE_RENDER_FN === 'object' && PAGE_RENDER_FN) ? PAGE_RENDER_FN : null;
+  if (active && map && typeof map[active] === 'function') {
+    try { map[active](); } catch (e) { console.warn('[renderAll] active page render failed:', e?.message || e); }
+  } else {
+    // Default to dashboard if we can't resolve the active page
+    if (typeof renderDashboard === 'function') renderDashboard();
+  }
 }
 
 // REAL-TIME SYNC (SharePoint webhooks → Azure SignalR → browser):
@@ -4919,7 +4986,7 @@ async function closeMerchMonth() {
   }
 }
 
-// Slack module (getNotifRules/saveNotifRules/isNotifEnabled, getSlackWebhook/sendSlackAlert, renderSlackSettings, toggleGlobalSlackPause/saveSlackChannel/saveSlackWebhook/toggleWebhookVis, renderNotifRules, toggleNotifRule/deleteNotifRule/pauseAllNotifs/resumeAllNotifs, openAddNotifForm/closeAddNotifForm/saveNewNotif) → js/slack.js
+// Slack module (getNotifRules/saveNotifRules/isNotifEnabled, sendSlackAlert via /api/slack-post, renderSlackSettings, toggleGlobalSlackPause/saveSlackChannel, renderNotifRules, toggleNotifRule/deleteNotifRule/pauseAllNotifs/resumeAllNotifs, openAddNotifForm/closeAddNotifForm/saveNewNotif) → js/slack.js
 
 // ════════════════════════════════════════════════════════════════════════════
 // MODAL / TOAST / LOADING
@@ -5198,7 +5265,7 @@ function renderMenu(query='', catFilter='') {
     const stockDisplay = stock != null ? stock : '—';
     const vars = (i.Variations||'').split('\n').filter(Boolean);
     return `<tr data-gs-id="${escHtml(i.id)}" style="${isHidden?'opacity:0.45;':''}">
-      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-04y" alt="" title="Synced with Square">':''}</td>
+      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-05a" alt="" title="Synced with Square">':''}</td>
       <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${escHtml(i.Category||'—')}</span></td>
       <td style="font-size:12px;color:var(--muted);max-width:220px">${escHtml(i.Description||'')}</td>
       <td>${i.Price != null ? '$'+Number(i.Price).toFixed(2) : '—'}</td>

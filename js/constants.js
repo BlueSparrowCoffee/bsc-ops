@@ -14,6 +14,14 @@ const WEBHOOK_EXPIRY_DAYS   = 170;  // SharePoint webhook max lifetime (days)
 const AUTO_SYNC_INTERVAL_HOURS = 24;       // daily Square→SP auto-sync cooldown
 const AUTO_SYNC_LOCK_TTL_MS    = 5 * 60 * 1000; // hot lock duration (5 min)
 
+// Time helpers (kept here so they're globals for any module to use)
+const MS_PER_MIN  = 60 * 1000;
+const MS_PER_HOUR = 60 * MS_PER_MIN;
+const MS_PER_DAY  = 24 * MS_PER_HOUR;
+
+// Project tracker
+const PROJECT_AUTO_ARCHIVE_DAYS = 90; // Done > N days → hide from active grid (in-memory only)
+
 // ── App modules / navigation ─────────────────────────────────────
 const MODULES = ['Dashboard','Inventory','Transfers','Ordering','Checklists','Vendors','Recipes','Staff','Maintenance','Contacts','Menu','Prep','Square','COGs','MarketAnalysis','Projects','Settings'];
 
@@ -245,7 +253,8 @@ const LISTS = {
   projects:            'BSC_Projects',         // project tracker — top-level project rows
   projectTasks:        'BSC_ProjectTasks',     // tasks belonging to a project (per-task assignee + due date)
   projectUpdates:      'BSC_ProjectUpdates',   // chronological status updates (newest first)
-  projectLinks:        'BSC_ProjectLinks'      // ordered list of links/refs attached to a project
+  projectLinks:        'BSC_ProjectLinks',     // ordered list of links/refs attached to a project
+  errorLog:            'BSC_ErrorLog'          // client-side error reports written via /api/log-error
 };
 
 // ── Inventory type config — drives which list/cache key each inv type uses ──
@@ -289,7 +298,7 @@ const INV_COG_CFG = {
 // Bump APP_VERSION any time a deploy has breaking localStorage changes.
 // On version mismatch the entire localStorage is wiped so stale prefs never
 // cause weirdness after an update.
-const APP_VERSION = '2026-05-04y';
+const APP_VERSION = '2026-05-05a';
 (function() {
   try {
     if (localStorage.getItem('bsc_app_version') !== APP_VERSION) {
@@ -301,7 +310,7 @@ const APP_VERSION = '2026-05-04y';
 
 // Bump when SharePoint schema changes. User must clear bsc_provision_v
 // from localStorage (or Settings → Clear Local Data) to trigger re-provisioning.
-const PROVISION_VERSION = '38';
+const PROVISION_VERSION = '39';
 
 // ── Market Analysis list schemas ─────────────────────────────────
 // Provisioned in ensureAllLists (index.html). Denormalized text columns

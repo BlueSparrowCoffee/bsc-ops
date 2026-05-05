@@ -1,15 +1,16 @@
 /* ================================================================
  * BSC Ops — slack.js
- * Slack webhook + notification-rules system. SharePoint is the source
- * of truth (BSC_Settings) so pause/resume is shared across devices;
- * localStorage is a per-device fallback.
+ * Slack notification-rules + posting. The webhook URL itself lives on
+ * the Function app (SLACK_WEBHOOK_URL env var) and all posts route
+ * through /api/slack-post — the URL is never bundled into page source.
+ * Pause/resume + channel preferences still live in BSC_Settings so
+ * they survive across devices.
  *
  * Contents:
  *   - getNotifRules / saveNotifRules / isNotifEnabled
- *   - getSlackWebhook / sendSlackAlert
+ *   - sendSlackAlert (proxy via /api/slack-post)
  *   - renderSlackSettings — populates the Settings → Slack card
- *   - toggleGlobalSlackPause / saveSlackChannel / saveSlackWebhook /
- *     toggleWebhookVis
+ *   - toggleGlobalSlackPause / saveSlackChannel
  *   - renderNotifRules — rule-list table
  *   - toggleNotifRule / deleteNotifRule / pauseAllNotifs /
  *     resumeAllNotifs
@@ -17,9 +18,10 @@
  *
  * Depends on:
  *   state.js     — cache.settingsItems
- *   constants.js — CFG, DEFAULT_NOTIF_RULES
+ *   constants.js — DEFAULT_NOTIF_RULES
  *   utils.js     — escHtml, toast
  *   settings.js  — getSetting, saveSetting
+ *   auth.js      — getToken (MSAL Bearer for /api/slack-post)
  * ================================================================ */
 
 function getNotifRules() {
@@ -48,38 +50,27 @@ function isNotifEnabled(type) {
   return rule ? rule.enabled : true;
 }
 
-function getSlackWebhook() {
-  return getSetting('slack_webhook') || CFG.slack;
-}
-
+// Slack posts are proxied through /api/slack-post — the webhook lives
+// in SLACK_WEBHOOK_URL on the Function app, never in page source. The
+// proxy validates an MSAL Bearer before forwarding.
 async function sendSlackAlert(text, type=null) {
   // Global kill switch — overrides all individual rules
   if (getSetting('slack_paused') === '1') return;
   if (type && !isNotifEnabled(type)) return;
-  const webhook = getSlackWebhook();
-  if (!webhook || webhook.includes('PLACEHOLDER')) return;
   const channel = getSetting('slack_channel') || '#bsc_ops';
   try {
-    await fetch(webhook, {
-      method:'POST', headers:{'Content-Type':'application/json'},
+    const bearer = await getToken();
+    await fetch('/api/slack-post', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + bearer },
       body: JSON.stringify({ text, channel })
     });
-  } catch(e) { console.warn('Slack alert failed',e); }
+  } catch(e) { console.warn('Slack alert failed', e); }
 }
 
 function renderSlackSettings() {
-  const input  = document.getElementById('slack-webhook-input');
-  const status = document.getElementById('slack-webhook-status');
-  const spVal  = getSetting('slack_webhook');
-  if (spVal) {
-    input.value = spVal;
-    status.innerHTML = '<span style="color:var(--green)">✓ Saved in SharePoint — shared across all devices</span>';
-  } else if (CFG.slack && !CFG.slack.includes('PLACEHOLDER')) {
-    input.value = CFG.slack;
-    status.innerHTML = '<span style="color:var(--muted)">Using deploy-time webhook (not shared). Save above to share with all users.</span>';
-  } else {
-    status.innerHTML = '<span style="color:var(--orange)">⚠ No webhook configured — enter URL above and save</span>';
-  }
+  // Webhook URL now lives in SLACK_WEBHOOK_URL on the Function app —
+  // the static status panel in #slack-webhook-status reflects that.
   // Global pause state
   const paused = getSetting('slack_paused') === '1';
   const pauseBtn = document.getElementById('slack-global-pause-btn');
@@ -144,27 +135,10 @@ function renderNotifRules() {
     </div>`).join('');
 }
 
-async function saveSlackWebhook() {
-  const val = document.getElementById('slack-webhook-input').value.trim();
-  if (!val) { toast('err','Enter a webhook URL'); return; }
-  const btn = document.querySelector('[onclick="saveSlackWebhook()"]');
-  if (btn) { btn.disabled=true; btn.textContent='Saving…'; }
-  try {
-    await saveSetting('slack_webhook', val);
-    document.getElementById('slack-webhook-status').innerHTML =
-      '<span style="color:var(--green)">✓ Saved in SharePoint — shared across all devices</span>';
-    toast('ok','✓ Webhook saved to SharePoint');
-  } catch(e) {
-    toast('err','Save failed: '+e.message);
-  } finally {
-    if (btn) { btn.disabled=false; btn.textContent='Save'; }
-  }
-}
-
-function toggleWebhookVis() {
-  const input = document.getElementById('slack-webhook-input');
-  input.type = input.type === 'password' ? 'text' : 'password';
-}
+// Legacy save/toggle helpers retired — webhook URL is now configured
+// via SLACK_WEBHOOK_URL on the Function app, and posts go through
+// /api/slack-post. The old "Save" / "Show" buttons in Settings have
+// been replaced with a static status indicator.
 
 function toggleNotifRule(id) {
   const rules = getNotifRules();

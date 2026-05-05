@@ -132,13 +132,7 @@ async function syncLabelsBagsSold() {
     return total;
   };
 
-  // Normalize "April 2026", "Apr 2026", etc. to "YYYY-MM" for flexible matching
-  function _monthKey(str) {
-    if (!str) return '';
-    const d = new Date(str.trim() + ' 1');
-    if (!isNaN(d)) return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-    return str.trim().toLowerCase();
-  }
+  // _monthKey lives in utils.js (shared with bags.js).
 
   try {
     const [curBags, priorBags] = await Promise.all(months.map(fetchBags));

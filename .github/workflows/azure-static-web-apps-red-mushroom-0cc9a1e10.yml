@@ -22,8 +22,19 @@ jobs:
         with:
           submodules: true
           lfs: false
-      - name: Inject Slack webhook
-        run: sed -i 's|SLACK_WEBHOOK_PLACEHOLDER|${{ secrets.SLACK_WEBHOOK_URL }}|g' index.html
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Syntax-check JS modules
+        # Cheap pre-deploy gate: catches typos / unclosed strings before
+        # they reach prod. Doesn't replace lint, but prevents the most
+        # common "white screen of death" deploys.
+        run: |
+          set -e
+          for f in js/*.js; do
+            node --check "$f"
+          done
       - name: Build And Deploy
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1

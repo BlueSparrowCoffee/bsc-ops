@@ -67,6 +67,16 @@ async function tryAutoSync() {
   // hit the lock-write at the same instant
   await new Promise(r => setTimeout(r, Math.floor(Math.random() * 3000)));
 
+  // Re-check the lock after the jitter — narrows the race window from
+  // the bootstrap-to-write span (~seconds) down to the recheck-to-write
+  // span (~ms). Doesn't fully eliminate (no compare-and-swap), but
+  // greatly reduces the chance of two tabs both passing.
+  const lockAfter = parseSettingJSON(getSetting('auto_sync_lock'));
+  if (lockAfter && lockAfter.ts && Date.now() - lockAfter.ts < lockTtl) {
+    console.log(`[auto-sync] Skip after jitter — another browser acquired the lock (${lockAfter.owner || 'unknown'})`);
+    return;
+  }
+
   await _runAutoSync(/* manualOverride */ false);
 }
 
@@ -109,6 +119,7 @@ async function _runAutoSync(manual) {
   ];
 
   let okCount = 0, failCount = 0;
+  const failedLabels = [];
   for (const t of targets) {
     try {
       await t.fn();
@@ -116,14 +127,25 @@ async function _runAutoSync(manual) {
       console.log(`[auto-sync] ✓ ${t.label}`);
     } catch (e) {
       failCount++;
+      failedLabels.push(t.label);
       console.warn(`[auto-sync] ✗ ${t.label}:`, e.message);
     }
   }
 
-  // Stamp completion (only on success of at least one — partial OK)
-  if (okCount > 0) {
+  // Stamp completion ONLY when every target succeeded. A partial-failure
+  // run (e.g. catalog ok, food threw) used to stamp last_run anyway, which
+  // suppressed the next 24 h's retry and left food/grocery silently 24 h
+  // stale. Now we keep last_run unset on partial failure so the next
+  // browser opening rolls the dice again. The failed-target list is also
+  // saved so the Settings UI can surface "last run had failures".
+  if (failCount === 0 && okCount > 0) {
     try { await saveSetting('auto_sync_last_run', new Date().toISOString()); }
     catch(e) { console.warn('[auto-sync] Could not write last-run:', e.message); }
+    try { await saveSetting('auto_sync_last_failed', ''); } catch {}
+  } else if (failCount > 0) {
+    const failed = failedLabels.join(', ');
+    try { await saveSetting('auto_sync_last_failed', failed); } catch {}
+    console.warn(`[auto-sync] Partial failure — not stamping last_run. Failed targets: ${failed}`);
   }
 
   // Always clear lock

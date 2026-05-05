@@ -16,7 +16,8 @@
  * ================================================================ */
 
 const PROJECT_STATUSES   = ['Planning', 'Active', 'On Hold', 'Done'];
-const PROJECT_STATUS_BG  = { 'Planning':'#9ca3af', 'Active':'#3b82f6', 'On Hold':'#f59e0b', 'Done':'#16a34a' };
+// Planning was #9ca3af with white text — failed WCAG AA (~3.8:1). Darkened to #6b7280 (~5.0:1).
+const PROJECT_STATUS_BG  = { 'Planning':'#6b7280', 'Active':'#3b82f6', 'On Hold':'#f59e0b', 'Done':'#16a34a' };
 const PROJECT_HEALTH_DOT = { 'Green':'🟢', 'Yellow':'🟡', 'Red':'🔴' };
 const LINK_TYPE_ICON     = { web:'🌐', doc:'📄', sheet:'📊', folder:'📁', video:'🎬', vendor:'🛒', other:'📎' };
 
@@ -63,12 +64,12 @@ function _projIsArchived(p) {
   return p.Archived === 'archived' || p.Archived === true;
 }
 function _projShouldAutoArchive(p) {
-  // Done > 90 days → auto-archive
+  // Done > PROJECT_AUTO_ARCHIVE_DAYS → auto-archive (in-memory only; no SP write)
   if (p.Status !== 'Done' || _projIsArchived(p)) return false;
   const done = _projParseDate(p.DoneDate);
   if (!done) return false;
-  const days = Math.floor((_projTodayMidnight() - done) / 86400000);
-  return days > 90;
+  const days = Math.floor((_projTodayMidnight() - done) / MS_PER_DAY);
+  return days > PROJECT_AUTO_ARCHIVE_DAYS;
 }
 function _projCanEdit() {
   return typeof isManagerOrOwner === 'function' ? isManagerOrOwner() : true;
@@ -703,12 +704,12 @@ async function editProjectTaskDate(taskId) {
   const t = (cache.projectTasks || []).find(x => x.id === taskId);
   if (!t) return;
   const current = t.DueDate ? String(t.DueDate).split('T')[0] : '';
-  const next = prompt('Due date (YYYY-MM-DD, blank to clear):', current);
-  if (next === null) return;
-  const trimmed = next.trim();
+  const res = await pickDate(current, 'Task due date');
+  if (!res.ok) return;
+  const trimmed = res.value;
   let dueIso = null;
   if (trimmed) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) { toast('err','Use YYYY-MM-DD format'); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) { toast('err','Invalid date'); return; }
     dueIso = trimmed + 'T00:00:00Z';
   }
   try {
@@ -722,11 +723,11 @@ async function editProjectTaskAssignee(taskId) {
   if (!_projCanEdit()) return;
   const t = (cache.projectTasks || []).find(x => x.id === taskId);
   if (!t) return;
-  const next = prompt('Assignee (blank to unassign):', t.Assignee || '');
-  if (next === null) return;
+  const res = await pickText(t.Assignee || '', 'Assignee', 'Name (blank to unassign)');
+  if (!res.ok) return;
   try {
-    await updateListItem(LISTS.projectTasks, taskId, { Assignee: next.trim() });
-    t.Assignee = next.trim();
+    await updateListItem(LISTS.projectTasks, taskId, { Assignee: res.value });
+    t.Assignee = res.value;
     renderProjects();
   } catch(e) { toast('err','Update failed: '+e.message); }
 }

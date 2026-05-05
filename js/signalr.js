@@ -35,6 +35,8 @@ const PAGE_RENDER_FN = {
   settings:         () => { renderRoles(); renderTagsSettings(); initColMgr(); },
   parking:          () => renderParking(),
   projects:         () => { if (typeof renderProjects === 'function') renderProjects(); },
+  'market-analysis':() => { if (typeof renderMarketAnalysis === 'function') renderMarketAnalysis(); },
+  square:           () => { if (typeof renderSquarePage === 'function') renderSquarePage(); },
 };
 
 // ── Connection state ─────────────────────────────────────────────
@@ -107,7 +109,26 @@ async function initSignalR() {
       setTimeout(initSignalR, 60_000);
     });
     _signalRConn.onreconnecting(() => {});
-    _signalRConn.onreconnected(() => {});
+    _signalRConn.onreconnected(() => {
+      // We may have missed change notifications during the disconnect.
+      // Refetch all lists so the cache catches up, then re-render the
+      // active page. Skip while a modal is open — flush after close.
+      console.log('[BSC] SignalR reconnected — refetching state');
+      if (typeof loadAllData !== 'function') return;
+      loadAllData()
+        .then(() => {
+          const active = getActivePage();
+          if (active && PAGE_RENDER_FN[active]) {
+            if (isAnyModalOpen()) {
+              // Defer until modal closes — closeModal flushes _pendingRefreshKeys.
+              Object.keys(LISTS).forEach(k => _pendingRefreshKeys.add(k));
+            } else {
+              PAGE_RENDER_FN[active]();
+            }
+          }
+        })
+        .catch(e => console.warn('[BSC] Reconnect refetch failed:', e?.message || e));
+    });
     await _signalRConn.start();
   } catch(e) {
     console.warn('[BSC] SignalR unavailable — will retry in 60 s:', e.message);
