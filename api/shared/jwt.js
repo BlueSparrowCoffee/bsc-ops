@@ -3,17 +3,27 @@
  *
  * Two modes:
  *   1. Lightweight (default): format + expiry + tenant check.
- *   2. Full signature verification (preferred): when `jsonwebtoken`
- *      and `jwks-rsa` are installed in api/, fetches Microsoft's
- *      signing keys from the AAD JWKS endpoint and verifies the
- *      RS256 signature. This closes the auth-bypass gap where any
- *      attacker who knows the tenant id could forge an unsigned JWT.
+ *   2. Full signature verification: opt-in via env var
+ *      AAD_VERIFY_SIGNATURE=1, requires jsonwebtoken + jwks-rsa
+ *      installed in api/.
  *
- * Requires deps in api/package.json:
- *     "dependencies": { "jsonwebtoken": "^9.0.2", "jwks-rsa": "^3.1.0" }
+ * Why opt-in:
+ *   The current flow Bears Microsoft Graph access tokens
+ *   (audience https://graph.microsoft.com). Microsoft documents these
+ *   as "opaque to clients" — the headers don't always carry a `kid`
+ *   that resolves through the public JWKS, so blanket RS256 verify
+ *   produces "No KID specified" failures and locks legitimate users
+ *   out. The proper fix is to register a dedicated AAD app + scope
+ *   for our API and have the client mint a token for that audience,
+ *   which IS signature-verifiable. Until that migration happens,
+ *   leaving signature verification off keeps the lightweight tenant +
+ *   expiry checks (same shape as the audit-baseline behavior) and
+ *   avoids breaking production.
  *
- * Until those are installed, the helper transparently falls back to
- * the lightweight path so deployments don't break mid-rollout.
+ * To enable when an audience-specific token is in flight:
+ *   1. Add `"jsonwebtoken": "^9.0.2"` and `"jwks-rsa": "^3.1.0"` to
+ *      api/package.json dependencies (already done).
+ *   2. Set AAD_VERIFY_SIGNATURE=1 on the Function app config.
  */
 
 let _jwt = null;
@@ -80,8 +90,8 @@ async function validateAadToken(authHeader, expectedTenantId) {
     return { ok: false, reason: 'Invalid token format' };
   }
 
-  // Full signature verification path (preferred)
-  if (_jwt && _jwksRsa && expectedTenantId) {
+  // Full signature verification path — opt-in only (see header comment).
+  if (process.env.AAD_VERIFY_SIGNATURE === '1' && _jwt && _jwksRsa && expectedTenantId) {
     const verified = await _verifyWithJwks(jwt, expectedTenantId);
     if (verified) {
       if (!verified.ok) return verified;
