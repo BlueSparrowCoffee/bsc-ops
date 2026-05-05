@@ -15,7 +15,7 @@ const AUTO_SYNC_INTERVAL_HOURS = 24;       // daily Square→SP auto-sync cooldo
 const AUTO_SYNC_LOCK_TTL_MS    = 5 * 60 * 1000; // hot lock duration (5 min)
 
 // ── App modules / navigation ─────────────────────────────────────
-const MODULES = ['Dashboard','Inventory','Transfers','Ordering','Checklists','Vendors','Recipes','Staff','Maintenance','Contacts','Menu','Prep','Square','COGs','MarketAnalysis','Settings'];
+const MODULES = ['Dashboard','Inventory','Transfers','Ordering','Checklists','Vendors','Recipes','Staff','Maintenance','Contacts','Menu','Prep','Square','COGs','MarketAnalysis','Projects','Settings'];
 
 const PAGE_MODULE = {
   'dashboard':      'Dashboard',
@@ -31,6 +31,7 @@ const PAGE_MODULE = {
   'square':         'Square',
   'cogs':           'COGs',
   'market-analysis':'MarketAnalysis',
+  'projects':       'Projects',
   'settings':       'Settings',
 };
 
@@ -59,6 +60,10 @@ const LIST_PAGE_MAP = {
   marketCompetitors:   ['market-analysis'],
   marketItems:         ['market-analysis'],
   marketPrices:        ['market-analysis'],
+  projects:            ['projects','dashboard'],
+  projectTasks:        ['projects','dashboard'],
+  projectUpdates:      ['projects'],
+  projectLinks:        ['projects'],
 };
 
 // ── Maintenance / equipment ──────────────────────────────────────
@@ -236,7 +241,11 @@ const LISTS = {
   inventoryPars:       'BSC_InventoryPars',    // per-location par + reorder trigger for consumable items
   marketCompetitors:   'BSC_MarketCompetitors',// owner-curated list of comp shops we track pricing for
   marketItems:         'BSC_MarketItems',      // curated set of items being compared (links to Square item or modifier)
-  marketPrices:        'BSC_MarketPrices'      // one row per (item, competitor, survey date)
+  marketPrices:        'BSC_MarketPrices',     // one row per (item, competitor, survey date)
+  projects:            'BSC_Projects',         // project tracker — top-level project rows
+  projectTasks:        'BSC_ProjectTasks',     // tasks belonging to a project (per-task assignee + due date)
+  projectUpdates:      'BSC_ProjectUpdates',   // chronological status updates (newest first)
+  projectLinks:        'BSC_ProjectLinks'      // ordered list of links/refs attached to a project
 };
 
 // ── Inventory type config — drives which list/cache key each inv type uses ──
@@ -280,7 +289,7 @@ const INV_COG_CFG = {
 // Bump APP_VERSION any time a deploy has breaking localStorage changes.
 // On version mismatch the entire localStorage is wiped so stale prefs never
 // cause weirdness after an update.
-const APP_VERSION = '2026-05-04x';
+const APP_VERSION = '2026-05-04y';
 (function() {
   try {
     if (localStorage.getItem('bsc_app_version') !== APP_VERSION) {
@@ -292,7 +301,7 @@ const APP_VERSION = '2026-05-04x';
 
 // Bump when SharePoint schema changes. User must clear bsc_provision_v
 // from localStorage (or Settings → Clear Local Data) to trigger re-provisioning.
-const PROVISION_VERSION = '36';
+const PROVISION_VERSION = '38';
 
 // ── Market Analysis list schemas ─────────────────────────────────
 // Provisioned in ensureAllLists (index.html). Denormalized text columns

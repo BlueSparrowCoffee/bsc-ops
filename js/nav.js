@@ -80,6 +80,7 @@ function nav(page) {
   if (page==='parking')     renderParking();
   if (page==='prep-items')  renderPrepItems();
   if (page==='market-analysis' && typeof renderMarketAnalysis === 'function') renderMarketAnalysis();
+  if (page==='projects' && typeof renderProjects === 'function') renderProjects();
 }
 
 // ── Per-page filter reset ───────────────────────────────────────
@@ -150,5 +151,14 @@ function _resetPageFilters(page) {
       clearInp(byId('parking-status-filter'));
       clearInp(byId('parking-loc-filter'));
       break; // renderParking is already called by nav()
+    case 'projects':
+      clearInp(byId('proj-search'));
+      clearInp(byId('proj-owner-filter'));
+      clearInp(byId('proj-loc-filter'));
+      clearInp(byId('proj-tag-filter'));
+      clearChk(byId('proj-show-archived'));
+      // Reset to grid view (in case user was on a detail page)
+      if (typeof exitProjectDetail === 'function') exitProjectDetail();
+      break;
   }
 }

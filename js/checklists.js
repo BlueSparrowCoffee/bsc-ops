@@ -29,6 +29,72 @@
 
 let _clGroupEditId = null;
 
+// ── Multi-day plan helpers ────────────────────────────────────────
+// A group is a "multi-day plan" if it has an EndDate set. Such groups
+// have per-task due dates (Checklists.DueDate) and no group-level
+// recurrence — each task is independently due/overdue/done.
+function _isMultidayPlan(group) {
+  return !!(group && group.EndDate);
+}
+function _todayMidnight() {
+  const d = new Date(); d.setHours(0,0,0,0); return d;
+}
+function _parseDateOnly(iso) {
+  if (!iso) return null;
+  const s = String(iso).split('T')[0];
+  const [y, m, day] = s.split('-').map(Number);
+  if (!y || !m || !day) return null;
+  return new Date(y, m - 1, day);
+}
+function _fmtShortDate(d) {
+  if (!d) return '';
+  return d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+}
+// Per-task due status for multi-day plans.
+function getTaskDueStatus(task) {
+  const isDone = !!cache.clProgress[task.id];
+  const due    = _parseDateOnly(task.DueDate);
+  if (isDone) {
+    return { status:'done', badge:`<span style="font-size:11px;background:#dcfce7;color:#16a34a;padding:2px 8px;border-radius:10px;">✓ Done</span>` };
+  }
+  if (!due) {
+    return { status:'undated', badge:`<span style="font-size:11px;background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:10px;">Undated</span>` };
+  }
+  const today = _todayMidnight();
+  const diff  = Math.round((due - today) / 86400000);
+  if (diff < 0)  return { status:'overdue', badge:`<span style="font-size:11px;background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:10px;">Overdue ${Math.abs(diff)}d</span>` };
+  if (diff === 0) return { status:'due',     badge:`<span style="font-size:11px;background:#fef9c3;color:#b45309;padding:2px 8px;border-radius:10px;">Due Today</span>` };
+  if (diff <= 3)  return { status:'soon',    badge:`<span style="font-size:11px;background:#fef9c3;color:#b45309;padding:2px 8px;border-radius:10px;">Due in ${diff}d</span>` };
+  return { status:'ok', badge:`<span style="font-size:11px;background:#dcfce7;color:#16a34a;padding:2px 8px;border-radius:10px;">Due in ${diff}d</span>` };
+}
+// Group-level summary for multi-day plans.
+function getPlanSummary(group, tasks) {
+  const total = tasks.length;
+  if (!total) return { status:'none', badge:`<span style="font-size:11px;color:var(--muted);">No tasks yet</span>` };
+  let done = 0, overdue = 0;
+  for (const t of tasks) {
+    const s = getTaskDueStatus(t);
+    if (s.status === 'done') done++;
+    else if (s.status === 'overdue') overdue++;
+  }
+  if (done === total) return { status:'ok', badge:`<span style="font-size:11px;background:#dcfce7;color:#16a34a;padding:2px 8px;border-radius:10px;">All done!</span>` };
+  if (overdue) return { status:'overdue', badge:`<span style="font-size:11px;background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:10px;">${overdue} overdue · ${done}/${total} done</span>` };
+  return { status:'ok', badge:`<span style="font-size:11px;background:#fef9c3;color:#b45309;padding:2px 8px;border-radius:10px;">${done}/${total} done</span>` };
+}
+// Sort comparator for multi-day plan tasks: DueDate ASC (undated last),
+// then SortOrder, then alphabetical.
+function _multidayTaskSort(a, b) {
+  const da = _parseDateOnly(a.DueDate);
+  const db = _parseDateOnly(b.DueDate);
+  if (da && db) {
+    if (da.getTime() !== db.getTime()) return da - db;
+  } else if (da) return -1;
+  else if (db) return 1;
+  const sa = parseFloat(a.SortOrder); const sb = parseFloat(b.SortOrder);
+  if (!isNaN(sa) && !isNaN(sb) && sa !== sb) return sa - sb;
+  return (a.TaskName || '').localeCompare(b.TaskName || '');
+}
+
 // ── Due-status helper ─────────────────────────────────────────────
 function getGroupDueStatus(group) {
   const days = parseFloat(group.RecurEveryDays) || 0;
@@ -114,27 +180,51 @@ function renderChecklists() {
 // ── Single card ──────────────────────────────────────────────────
 function renderChecklistCard(group, userIsMgr) {
   const gid   = group.id;
-  const tasks = cache.checklists.filter(t => t.GroupId === gid && t.Status !== 'Suggested');
+  const isMultiday = _isMultidayPlan(group);
+  let tasks = cache.checklists.filter(t => t.GroupId === gid && t.Status !== 'Suggested');
+  if (isMultiday) tasks = [...tasks].sort(_multidayTaskSort);
   const done  = tasks.filter(t => cache.clProgress[t.id]).length;
   const pct   = tasks.length ? Math.round(done / tasks.length * 100) : 0;
-  const due   = getGroupDueStatus(group);
+  const due   = isMultiday ? getPlanSummary(group, tasks) : getGroupDueStatus(group);
 
   const borderColor = due.status === 'overdue' ? '#dc2626' : due.status === 'due' ? '#f59e0b' : 'var(--border)';
   const roleBadge   = group.Role === 'Manager' ? '#3b82f6' : group.Role === 'Barista' ? 'var(--teal)' : '#9ca3af';
-  const days = parseFloat(group.RecurEveryDays) || 0;
-  const recurLabel = days ? `Every ${days} day${days!==1?'s':''}${group.RecurTime ? ' · '+group.RecurTime : ''}` : 'No recurrence';
+
+  let cadenceLabel;
+  if (isMultiday) {
+    const sd = _parseDateOnly(group.StartDate);
+    const ed = _parseDateOnly(group.EndDate);
+    cadenceLabel = `📅 ${sd ? _fmtShortDate(sd) : '?'} – ${ed ? _fmtShortDate(ed) : '?'}`;
+  } else {
+    const days = parseFloat(group.RecurEveryDays) || 0;
+    cadenceLabel = '🔄 ' + (days ? `Every ${days} day${days!==1?'s':''}${group.RecurTime ? ' · '+group.RecurTime : ''}` : 'No recurrence');
+  }
 
   const taskRows = tasks.map(t => {
     const isDone = !!cache.clProgress[t.id];
+    let dueChip = '';
+    if (isMultiday) {
+      const ts = getTaskDueStatus(t);
+      const ddate = _parseDateOnly(t.DueDate);
+      const dateLabel = ddate ? _fmtShortDate(ddate) : 'Set date';
+      dueChip = userIsMgr
+        ? `<button onclick="editTaskDueDate('${t.id}')" title="Click to change due date" style="background:none;border:1px dashed var(--border);border-radius:8px;padding:2px 8px;font-size:11px;color:var(--muted);cursor:pointer;flex-shrink:0;">${escHtml(dateLabel)}</button>`
+        : `<span style="font-size:11px;color:var(--muted);flex-shrink:0;">${escHtml(ddate ? dateLabel : '—')}</span>`;
+      dueChip += ts.badge;
+    }
     return `<div class="checklist-item${isDone?' done':''}" id="cli-${t.id}" style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--opal);">
       <input type="checkbox" id="chk-${t.id}" ${isDone?'checked':''}
         onchange="toggleCheck('${t.id}',this.checked,'${gid}')">
       <label for="chk-${t.id}" style="flex:1;cursor:pointer;font-size:13px;${isDone?'text-decoration:line-through;color:var(--muted);':''}">${escHtml(t.TaskName||'')}</label>
+      ${dueChip}
       ${t.Notes ? `<span title="${escHtml(t.Notes)}" style="font-size:12px;cursor:help;flex-shrink:0;">ℹ️</span>` : ''}
       ${userIsMgr ? `<button onclick="deleteChecklistTask('${t.id}','${gid}')" title="Remove task" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;line-height:1;padding:0 2px;flex-shrink:0;">×</button>` : ''}
     </div>`;
   }).join('');
 
+  const dateInput = isMultiday
+    ? `<input id="cl-new-due-${gid}" type="date" title="Due date (optional)" style="width:130px;padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;">`
+    : '';
   const footerBtn = userIsMgr
     ? `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;flex:1;">
         <input id="cl-new-task-${gid}" placeholder="Add a task…"
@@ -142,13 +232,14 @@ function renderChecklistCard(group, userIsMgr) {
           onkeydown="if(event.key==='Enter')addTaskInline('${gid}')">
         <input id="cl-new-notes-${gid}" placeholder="Notes…"
           style="width:90px;padding:5px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;">
+        ${dateInput}
         <button onclick="addTaskInline('${gid}')"
           style="padding:5px 12px;background:var(--gold);color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;white-space:nowrap;">+ Add</button>
       </div>`
     : `<button onclick="openSuggestTask('${gid}','${escHtml(group.Title||'')}')"
         style="padding:5px 12px;background:none;border:1.5px solid var(--border);border-radius:8px;font-size:12px;cursor:pointer;">💡 Suggest Task</button>`;
 
-  const completeBtn = tasks.length
+  const completeBtn = (!isMultiday && tasks.length)
     ? `<button onclick="markGroupComplete('${gid}','${escHtml(group.Title||'')}')"
         style="padding:5px 12px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;white-space:nowrap;">✅ Mark All Done</button>`
     : '';
@@ -162,7 +253,7 @@ function renderChecklistCard(group, userIsMgr) {
             <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:5px;">
               <span style="font-size:11px;background:${roleBadge};color:#fff;padding:2px 8px;border-radius:10px;">${escHtml(group.Role||'All')}</span>
               <span style="font-size:11px;background:var(--opal);padding:2px 8px;border-radius:10px;">📍 ${escHtml(group.Location||'All Locations')}</span>
-              <span style="font-size:11px;color:var(--muted);">🔄 ${escHtml(recurLabel)}</span>
+              <span style="font-size:11px;color:var(--muted);">${escHtml(cadenceLabel)}</span>
             </div>
           </div>
           <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
@@ -362,23 +453,66 @@ async function markGroupComplete(groupId, groupName) {
 async function addTaskInline(groupId) {
   const nameEl  = document.getElementById(`cl-new-task-${groupId}`);
   const notesEl = document.getElementById(`cl-new-notes-${groupId}`);
+  const dueEl   = document.getElementById(`cl-new-due-${groupId}`);
   const name = (nameEl?.value||'').trim();
   if (!name) { toast('err','Task name required'); return; }
   try {
     const grp = cache.clGroups.find(g => g.id === groupId);
-    const item = await addListItem(LISTS.checklists, {
+    const fields = {
       Title: name, TaskName: name,
       GroupId: groupId,
       Notes: notesEl?.value || '',
       Status: 'Active',
       Location: grp?.Location || 'All',
       AssignedRole: grp?.Role || 'All'
-    });
+    };
+    const dueRaw = (dueEl?.value || '').trim();
+    if (dueRaw) {
+      fields.DueDate = dueRaw + 'T00:00:00Z';
+      // Soft warning if outside the plan's Start/End range
+      const sd = _parseDateOnly(grp?.StartDate);
+      const ed = _parseDateOnly(grp?.EndDate);
+      const d  = _parseDateOnly(dueRaw);
+      if (d && ((sd && d < sd) || (ed && d > ed))) {
+        if (!confirm('Due date is outside the plan range. Save anyway?')) return;
+      }
+    }
+    const item = await addListItem(LISTS.checklists, fields);
     cache.checklists.push(item);
     if (nameEl)  nameEl.value  = '';
     if (notesEl) notesEl.value = '';
+    if (dueEl)   dueEl.value   = '';
     renderChecklists();
   } catch(e) { toast('err', 'Failed to add task: '+e.message); }
+}
+
+// ── Edit a task's DueDate inline (manager-only, multi-day plans) ──
+async function editTaskDueDate(taskId) {
+  const t = cache.checklists.find(x => x.id === taskId);
+  if (!t) return;
+  const current = t.DueDate ? String(t.DueDate).split('T')[0] : '';
+  const next = prompt('Due date (YYYY-MM-DD, blank to clear):', current);
+  if (next === null) return;
+  const trimmed = next.trim();
+  let dueIso = null;
+  if (trimmed) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) { toast('err','Use YYYY-MM-DD format'); return; }
+    dueIso = trimmed + 'T00:00:00Z';
+    // Soft warning if outside plan range
+    const grp = cache.clGroups.find(g => g.id === t.GroupId);
+    const sd = _parseDateOnly(grp?.StartDate);
+    const ed = _parseDateOnly(grp?.EndDate);
+    const d  = _parseDateOnly(trimmed);
+    if (d && ((sd && d < sd) || (ed && d > ed))) {
+      if (!confirm('Due date is outside the plan range. Save anyway?')) return;
+    }
+  }
+  try {
+    await updateListItem(LISTS.checklists, taskId, { DueDate: dueIso });
+    t.DueDate = dueIso;
+    renderChecklists();
+    toast('ok','✓ Due date updated');
+  } catch(e) { toast('err', 'Update failed: '+e.message); }
 }
 
 // ── Delete a task ────────────────────────────────────────────────
@@ -393,9 +527,21 @@ async function deleteChecklistTask(taskId, groupId) {
 }
 
 // ── Create / Edit checklist group ────────────────────────────────
+function onClPlanTypeChange() {
+  const type = document.querySelector('input[name="cl-plan-type"]:checked')?.value || 'recurring';
+  const isMulti = type === 'multiday';
+  const recurWrap = document.getElementById('cl-group-recur-wrap');
+  const timeWrap  = document.getElementById('cl-group-time-wrap');
+  const endWrap   = document.getElementById('cl-group-end-wrap');
+  if (recurWrap) recurWrap.style.display = isMulti ? 'none' : '';
+  if (timeWrap)  timeWrap.style.display  = isMulti ? 'none' : '';
+  if (endWrap)   endWrap.style.display   = isMulti ? '' : 'none';
+}
+
 function openChecklistGroupForm(groupId) {
   _clGroupEditId = groupId;
   const grp = groupId ? cache.clGroups.find(g => g.id === groupId) : null;
+  const isMulti = _isMultidayPlan(grp);
   document.getElementById('cl-group-modal-title').textContent = grp ? 'Edit Checklist' : 'New Checklist';
   document.getElementById('cl-group-name').value   = grp?.Title || '';
   document.getElementById('cl-group-role').value   = grp?.Role  || 'All';
@@ -403,7 +549,13 @@ function openChecklistGroupForm(groupId) {
   document.getElementById('cl-group-start').value  = grp?.StartDate ? grp.StartDate.split('T')[0] : '';
   document.getElementById('cl-group-recur').value  = grp?.RecurEveryDays != null ? grp.RecurEveryDays : '';
   document.getElementById('cl-group-time').value   = grp?.RecurTime || '';
+  document.getElementById('cl-group-end').value    = grp?.EndDate ? grp.EndDate.split('T')[0] : '';
   document.getElementById('cl-group-desc').value   = grp?.Description || '';
+  // Plan-type radio
+  document.querySelectorAll('input[name="cl-plan-type"]').forEach(r => {
+    r.checked = (r.value === (isMulti ? 'multiday' : 'recurring'));
+  });
+  onClPlanTypeChange();
   document.getElementById('cl-group-delete-btn').style.display = grp ? '' : 'none';
   openModal('modal-cl-group');
 }
@@ -411,17 +563,24 @@ function openChecklistGroupForm(groupId) {
 async function saveChecklistGroup() {
   const name = document.getElementById('cl-group-name').value.trim();
   if (!name) { toast('err','Checklist name required'); return; }
+  const planType = document.querySelector('input[name="cl-plan-type"]:checked')?.value || 'recurring';
+  const isMulti  = planType === 'multiday';
   const startRaw = document.getElementById('cl-group-start').value;
+  const endRaw   = document.getElementById('cl-group-end').value;
+  if (isMulti && (!startRaw || !endRaw)) { toast('err','Multi-day plans need both Start and End dates'); return; }
+  if (isMulti && startRaw && endRaw && startRaw > endRaw) { toast('err','End date must be on or after Start date'); return; }
   const fields = {
     Title:         name,
     Role:          document.getElementById('cl-group-role').value,
     Location:      document.getElementById('cl-group-loc').value,
     StartDate:     startRaw ? startRaw + 'T00:00:00Z' : null,
-    RecurEveryDays: parseFloat(document.getElementById('cl-group-recur').value) || 0,
-    RecurTime:     document.getElementById('cl-group-time').value.trim(),
+    EndDate:       isMulti && endRaw ? endRaw + 'T00:00:00Z' : null,
+    RecurEveryDays: isMulti ? 0 : (parseFloat(document.getElementById('cl-group-recur').value) || 0),
+    RecurTime:     isMulti ? '' : document.getElementById('cl-group-time').value.trim(),
     Description:   document.getElementById('cl-group-desc').value.trim()
   };
   if (!fields.StartDate) delete fields.StartDate;
+  if (!fields.EndDate)   fields.EndDate = null;  // explicit null clears the field on edit
   try {
     if (_clGroupEditId) {
       await updateListItem(LISTS.clGroups, _clGroupEditId, fields);
@@ -543,5 +702,18 @@ async function dismissSuggestedTask(taskId) {
 function updateDashChecklist() {
   const allTasks = cache.checklists.filter(t => t.Status !== 'Suggested' && t.GroupId);
   const done     = allTasks.filter(t => cache.clProgress[t.id]).length;
-  document.getElementById('d-checklist').textContent = `${done}/${allTasks.length}`;
+  // Count overdue tasks in multi-day plans (DueDate < today, not done)
+  const multidayGroupIds = new Set(
+    (cache.clGroups || []).filter(g => g.EndDate).map(g => g.id)
+  );
+  const today = _todayMidnight();
+  let overdue = 0;
+  for (const t of allTasks) {
+    if (!multidayGroupIds.has(t.GroupId)) continue;
+    if (cache.clProgress[t.id]) continue;
+    const d = _parseDateOnly(t.DueDate);
+    if (d && d < today) overdue++;
+  }
+  const el = document.getElementById('d-checklist');
+  if (el) el.textContent = overdue ? `${done}/${allTasks.length} · ${overdue}⚠` : `${done}/${allTasks.length}`;
 }

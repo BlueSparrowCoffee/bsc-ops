@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-04x">
-<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-04x">
-<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-04x">
-<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-04x">
-<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-04x">
+<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-04y">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-04y">
+<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-04y">
+<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-04y">
+<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-04y">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="BSC Ops">
@@ -565,6 +565,7 @@ html,body{overscroll-behavior:none;}
   <div class="nav-item" data-module="Staff" onclick="nav('staff')"><span class="nav-icon">👥</span> Staff</div>
   <div class="nav-item" data-module="Vendors" onclick="nav('vendors')"><span class="nav-icon">🤝</span> Vendors</div>
   <div class="nav-item" data-module="MarketAnalysis" onclick="nav('market-analysis')"><span class="nav-icon">📊</span> Market Analysis</div>
+  <div class="nav-item" data-module="Projects" onclick="nav('projects')"><span class="nav-icon">🗂</span> Projects</div>
   <div class="nav-section">Admin</div>
   <div class="nav-item" onclick="nav('parking')" style="display:none"><span class="nav-icon">🅿️</span> Parking</div>
   <div class="nav-item" data-module="Square" onclick="nav('square')"><span class="nav-icon">◼</span> Square</div>
@@ -2017,6 +2018,146 @@ html,body{overscroll-behavior:none;}
     </div>
   </div>
 
+  <!-- PROJECTS -->
+  <div class="page section-load-target" id="page-projects">
+    <div class="page-header">
+      <div class="page-title">🗂 Projects</div>
+      <div class="page-sub">Plan, assign, and track ongoing initiatives</div>
+    </div>
+
+    <!-- Grid view (list of projects) -->
+    <div id="projects-grid-view">
+      <div class="toolbar" style="flex-wrap:wrap;gap:8px;">
+        <button class="btn btn-primary" id="proj-new-btn" onclick="openProjectForm()">+ New Project</button>
+        <input id="proj-search" class="search-input" placeholder="Search projects…" oninput="renderProjects()">
+        <select id="proj-owner-filter" onchange="renderProjects()" style="min-width:150px;"><option value="">All owners</option></select>
+        <select id="proj-loc-filter" onchange="renderProjects()" style="min-width:150px;"><option value="">All locations</option></select>
+        <select id="proj-tag-filter" onchange="renderProjects()" style="min-width:140px;"><option value="">All tags</option></select>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;color:var(--muted);"><input type="checkbox" id="proj-show-archived" onchange="renderProjects()"> Show archived</label>
+      </div>
+      <div id="proj-status-pills" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;"></div>
+      <div id="projects-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px;"></div>
+      <div id="projects-empty" class="no-data" style="display:none;padding:40px 20px;">No projects match.</div>
+    </div>
+
+    <!-- Detail view (single project) -->
+    <div id="projects-detail-view" style="display:none;"></div>
+  </div>
+
+  <!-- Project — Create / Edit -->
+  <div class="modal-overlay" id="modal-project">
+    <div class="modal" style="max-width:620px;">
+      <div class="modal-header">
+        <div class="modal-title" id="proj-modal-title">New Project</div>
+        <button class="modal-close" onclick="closeModal('modal-project')">×</button>
+      </div>
+      <div class="form-grid">
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Project Name *</label>
+          <input id="proj-title" placeholder="e.g. Sherman menu refresh, Holiday merch launch">
+        </div>
+        <div class="form-group">
+          <label>Status</label>
+          <select id="proj-status">
+            <option value="Planning">Planning</option>
+            <option value="Active">Active</option>
+            <option value="On Hold">On Hold</option>
+            <option value="Done">Done</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Priority</label>
+          <select id="proj-priority"><option>Low</option><option selected>Medium</option><option>High</option></select>
+        </div>
+        <div class="form-group">
+          <label>Health</label>
+          <select id="proj-health">
+            <option value="Green">🟢 On Track</option>
+            <option value="Yellow">🟡 At Risk</option>
+            <option value="Red">🔴 Off Track</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Tag</label>
+          <select id="proj-tag">
+            <option value="">—</option>
+            <option>Equipment</option><option>Marketing</option><option>Maintenance</option>
+            <option>Hiring</option><option>Renovation</option><option>Menu</option><option>Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Owner</label>
+          <select id="proj-owner"><option value="">—</option></select>
+        </div>
+        <div class="form-group">
+          <label>Location</label>
+          <select id="proj-loc"><option value="All">All Locations</option></select>
+        </div>
+        <div class="form-group">
+          <label>Start Date</label>
+          <input id="proj-start" type="date">
+        </div>
+        <div class="form-group">
+          <label>Due Date</label>
+          <input id="proj-due" type="date">
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Watchers (people CC'd, comma-separated)</label>
+          <input id="proj-watchers" placeholder="e.g. Manager A, Accountant B">
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Description</label>
+          <textarea id="proj-desc" rows="3" placeholder="What's the goal? Why now?"></textarea>
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Blocker (leave blank if none)</label>
+          <textarea id="proj-blocker" rows="2" placeholder="What's blocking this? Who needs to act?"></textarea>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="saveProject()">Save Project</button>
+        <button class="btn btn-outline" onclick="closeModal('modal-project')">Cancel</button>
+        <button class="btn btn-outline" id="proj-delete-btn" style="margin-left:auto;color:var(--red);border-color:var(--red);display:none;" onclick="deleteProject()">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Project Link — Add / Edit -->
+  <div class="modal-overlay" id="modal-project-link">
+    <div class="modal" style="max-width:480px;">
+      <div class="modal-header">
+        <div class="modal-title" id="proj-link-title">Add Link</div>
+        <button class="modal-close" onclick="closeModal('modal-project-link')">×</button>
+      </div>
+      <div class="form-grid">
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Label *</label>
+          <input id="proj-link-label" placeholder="e.g. Vendor quote, Marketing brief">
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label>URL *</label>
+          <input id="proj-link-url" placeholder="https://…">
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Type</label>
+          <select id="proj-link-type">
+            <option value="web">🌐 Web</option>
+            <option value="doc">📄 Doc</option>
+            <option value="sheet">📊 Sheet</option>
+            <option value="folder">📁 Folder</option>
+            <option value="video">🎬 Video</option>
+            <option value="vendor">🛒 Vendor</option>
+            <option value="other">📎 Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="saveProjectLink()">Save</button>
+        <button class="btn btn-outline" onclick="closeModal('modal-project-link')">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <!-- SQUARE -->
   <div class="page section-load-target" id="page-square">
     <div class="page-header">
@@ -2596,17 +2737,32 @@ html,body{overscroll-behavior:none;}
           <option value="All">All Locations</option>
         </select>
       </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Plan Type</label>
+        <div style="display:flex;gap:14px;margin-top:4px;font-size:13px;">
+          <label style="font-weight:400;cursor:pointer;display:flex;align-items:center;gap:6px;">
+            <input type="radio" name="cl-plan-type" value="recurring" checked onchange="onClPlanTypeChange()"> Recurring (every N days)
+          </label>
+          <label style="font-weight:400;cursor:pointer;display:flex;align-items:center;gap:6px;">
+            <input type="radio" name="cl-plan-type" value="multiday" onchange="onClPlanTypeChange()"> Multi-day plan (per-task due dates)
+          </label>
+        </div>
+      </div>
       <div class="form-group">
         <label>Start Date</label>
         <input id="cl-group-start" type="date">
       </div>
-      <div class="form-group">
+      <div class="form-group" id="cl-group-recur-wrap">
         <label>Recur every (days)</label>
         <input id="cl-group-recur" type="number" min="0" placeholder="0 = no recurrence, 1 = daily, 7 = weekly">
       </div>
-      <div class="form-group">
+      <div class="form-group" id="cl-group-time-wrap">
         <label>Time of day</label>
         <input id="cl-group-time" placeholder="e.g. 7:00 AM, 9:00 PM">
+      </div>
+      <div class="form-group" id="cl-group-end-wrap" style="display:none;">
+        <label>End Date</label>
+        <input id="cl-group-end" type="date">
       </div>
       <div class="form-group" style="grid-column:1/-1">
         <label>Description</label>
@@ -2670,39 +2826,40 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-05-04x" defer></script>
-<script src="/js/utils.js?v=2026-05-04x" defer></script>
-<script src="/js/state.js?v=2026-05-04x" defer></script>
-<script src="/js/auth.js?v=2026-05-04x" defer></script>
-<script src="/js/graph.js?v=2026-05-04x" defer></script>
-<script src="/js/signalr.js?v=2026-05-04x" defer></script>
-<script src="/js/tags.js?v=2026-05-04x" defer></script>
-<script src="/js/nav.js?v=2026-05-04x" defer></script>
-<script src="/js/settings.js?v=2026-05-04x" defer></script>
-<script src="/js/dashboard.js?v=2026-05-04x" defer></script>
-<script src="/js/inventory.js?v=2026-05-04x" defer></script>
-<script src="/js/inventory-form.js?v=2026-05-04x" defer></script>
-<script src="/js/counts.js?v=2026-05-04x" defer></script>
-<script src="/js/foodpars.js?v=2026-05-04x" defer></script>
-<script src="/js/labels.js?v=2026-05-04x" defer></script>
-<script src="/js/bags.js?v=2026-05-04x" defer></script>
-<script src="/js/bag-labels-5lb.js?v=2026-05-04x" defer></script>
-<script src="/js/pastry-sync.js?v=2026-05-04x" defer></script>
-<script src="/js/recipes.js?v=2026-05-04x" defer></script>
-<script src="/js/cogs.js?v=2026-05-04x" defer></script>
-<script src="/js/vendors.js?v=2026-05-04x" defer></script>
-<script src="/js/contacts.js?v=2026-05-04x" defer></script>
-<script src="/js/maintenance.js?v=2026-05-04x" defer></script>
-<script src="/js/checklists.js?v=2026-05-04x" defer></script>
-<script src="/js/ordering.js?v=2026-05-04x" defer></script>
-<script src="/js/ordering-build.js?v=2026-05-04x" defer></script>
-<script src="/js/market-analysis.js?v=2026-05-04x" defer></script>
-<script src="/js/parking.js?v=2026-05-04x" defer></script>
-<script src="/js/prepItems.js?v=2026-05-04x" defer></script>
-<script src="/js/square.js?v=2026-05-04x" defer></script>
-<script src="/js/timeclock.js?v=2026-05-04x" defer></script>
-<script src="/js/slack.js?v=2026-05-04x" defer></script>
-<script src="/js/auto-sync.js?v=2026-05-04x" defer></script>
+<script src="/js/constants.js?v=2026-05-04y" defer></script>
+<script src="/js/utils.js?v=2026-05-04y" defer></script>
+<script src="/js/state.js?v=2026-05-04y" defer></script>
+<script src="/js/auth.js?v=2026-05-04y" defer></script>
+<script src="/js/graph.js?v=2026-05-04y" defer></script>
+<script src="/js/signalr.js?v=2026-05-04y" defer></script>
+<script src="/js/tags.js?v=2026-05-04y" defer></script>
+<script src="/js/nav.js?v=2026-05-04y" defer></script>
+<script src="/js/settings.js?v=2026-05-04y" defer></script>
+<script src="/js/dashboard.js?v=2026-05-04y" defer></script>
+<script src="/js/inventory.js?v=2026-05-04y" defer></script>
+<script src="/js/inventory-form.js?v=2026-05-04y" defer></script>
+<script src="/js/counts.js?v=2026-05-04y" defer></script>
+<script src="/js/foodpars.js?v=2026-05-04y" defer></script>
+<script src="/js/labels.js?v=2026-05-04y" defer></script>
+<script src="/js/bags.js?v=2026-05-04y" defer></script>
+<script src="/js/bag-labels-5lb.js?v=2026-05-04y" defer></script>
+<script src="/js/pastry-sync.js?v=2026-05-04y" defer></script>
+<script src="/js/recipes.js?v=2026-05-04y" defer></script>
+<script src="/js/cogs.js?v=2026-05-04y" defer></script>
+<script src="/js/vendors.js?v=2026-05-04y" defer></script>
+<script src="/js/contacts.js?v=2026-05-04y" defer></script>
+<script src="/js/maintenance.js?v=2026-05-04y" defer></script>
+<script src="/js/checklists.js?v=2026-05-04y" defer></script>
+<script src="/js/ordering.js?v=2026-05-04y" defer></script>
+<script src="/js/ordering-build.js?v=2026-05-04y" defer></script>
+<script src="/js/market-analysis.js?v=2026-05-04y" defer></script>
+<script src="/js/projects.js?v=2026-05-04y" defer></script>
+<script src="/js/parking.js?v=2026-05-04y" defer></script>
+<script src="/js/prepItems.js?v=2026-05-04y" defer></script>
+<script src="/js/square.js?v=2026-05-04y" defer></script>
+<script src="/js/timeclock.js?v=2026-05-04y" defer></script>
+<script src="/js/slack.js?v=2026-05-04y" defer></script>
+<script src="/js/auto-sync.js?v=2026-05-04y" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
@@ -2920,12 +3077,14 @@ async function ensureAllLists() {
     {name:'TaskName',text:{}},{name:'Frequency',text:{}},{name:'Type',text:{}},
     {name:'Location',text:{}},{name:'AssignedRole',text:{}},{name:'Notes',text:{}},
     {name:'GroupId',text:{}},{name:'SortOrder',number:{decimalPlaces:'automatic'}},
-    {name:'Status',text:{}},{name:'SuggestedBy',text:{}}
+    {name:'Status',text:{}},{name:'SuggestedBy',text:{}},
+    {name:'DueDate',dateTime:{}}
   ]);
   await ensureList(LISTS.clGroups,[
     {name:'Role',text:{}},{name:'Location',text:{}},
     {name:'RecurEveryDays',number:{decimalPlaces:'automatic'}},{name:'RecurTime',text:{}},
-    {name:'Description',text:{}},{name:'StartDate',dateTime:{}}
+    {name:'Description',text:{}},{name:'StartDate',dateTime:{}},
+    {name:'EndDate',dateTime:{}}
   ]);
   await ensureList(LISTS.clCompletions,[
     {name:'GroupId',text:{}},{name:'GroupName',text:{}},{name:'Location',text:{}},
@@ -3081,6 +3240,32 @@ async function ensureAllLists() {
   await ensureList(LISTS.marketCompetitors, MARKET_COMPETITORS_COLS);
   await ensureList(LISTS.marketItems,       MARKET_ITEMS_COLS);
   await ensureList(LISTS.marketPrices,      MARKET_PRICES_COLS);
+
+  // Project tracker lists (PROVISION_VERSION 38)
+  await ensureList(LISTS.projects, [
+    {name:'Status',text:{}},{name:'Priority',text:{}},{name:'Health',text:{}},
+    {name:'Owner',text:{}},{name:'Watchers',text:{allowMultipleLines:true}},
+    {name:'StartDate',dateTime:{}},{name:'DueDate',dateTime:{}},{name:'DoneDate',dateTime:{}},
+    {name:'Location',text:{}},{name:'Tag',text:{}},
+    {name:'Description',text:{allowMultipleLines:true}},
+    {name:'Blocker',text:{allowMultipleLines:true}},
+    {name:'PinnedBy',text:{allowMultipleLines:true}},
+    {name:'Archived',text:{}}
+  ]);
+  await ensureList(LISTS.projectTasks, [
+    {name:'ProjectId',text:{}},{name:'TaskName',text:{}},
+    {name:'Assignee',text:{}},{name:'DueDate',dateTime:{}},
+    {name:'Status',text:{}},{name:'Notes',text:{allowMultipleLines:true}},
+    {name:'SortOrder',number:{decimalPlaces:'automatic'}}
+  ]);
+  await ensureList(LISTS.projectUpdates, [
+    {name:'ProjectId',text:{}},{name:'Author',text:{}},
+    {name:'Body',text:{allowMultipleLines:true}}
+  ]);
+  await ensureList(LISTS.projectLinks, [
+    {name:'ProjectId',text:{}},{name:'Label',text:{}},{name:'URL',text:{}},
+    {name:'LinkType',text:{}},{name:'SortOrder',number:{decimalPlaces:'automatic'}}
+  ]);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -3114,11 +3299,15 @@ async function loadAllData() {
     getListItems(siteId, LISTS.merchMonths).catch(()=>[]),
     getListItems(siteId, LISTS.lastCount).catch(()=>[]),
     getListItems(siteId, LISTS.inventoryPars).catch(()=>[]),
-    getListItems(siteId, LISTS.clProgress).catch(()=>[])
+    getListItems(siteId, LISTS.clProgress).catch(()=>[]),
+    getListItems(siteId, LISTS.projects).catch(()=>[]),
+    getListItems(siteId, LISTS.projectTasks).catch(()=>[]),
+    getListItems(siteId, LISTS.projectUpdates).catch(()=>[]),
+    getListItems(siteId, LISTS.projectLinks).catch(()=>[])
   ];
   // Drive the loading-screen fade: bg alpha follows fetches/total.
   setLoadingTotal(firstBatch.length + 4); // +4 for cogs+history+inv+menu
-  const [xfers, orders, cls, roles, vendors,,recipes,,contacts,staff,sched,log,appSettings,clGroups,clCompletions,foodParRows,parkingRows,contactArchiveRows,prepItemsRows,prepItemIngsRows,tagsRows,merchReceivedRows,merchMonthsRows,lastCountRows,invParsRows,clProgressRows] = await Promise.all(firstBatch.map(trackLoad));
+  const [xfers, orders, cls, roles, vendors,,recipes,,contacts,staff,sched,log,appSettings,clGroups,clCompletions,foodParRows,parkingRows,contactArchiveRows,prepItemsRows,prepItemIngsRows,tagsRows,merchReceivedRows,merchMonthsRows,lastCountRows,invParsRows,clProgressRows,projectRows,projectTaskRows,projectUpdateRows,projectLinkRows] = await Promise.all(firstBatch.map(trackLoad));
   cache.transfers=xfers; cache.orders=orders;
   cache.checklists=cls; cache.roles=roles; cache.vendors=vendors;
   cache.recipes=recipes; cache.maintContacts=contacts;
@@ -3136,6 +3325,10 @@ async function loadAllData() {
   cache.lastCount     = lastCountRows     || [];
   cache.inventoryPars = invParsRows       || [];
   cache.clProgressRows = clProgressRows   || [];
+  cache.projects        = projectRows       || [];
+  cache.projectTasks    = projectTaskRows   || [];
+  cache.projectUpdates  = projectUpdateRows || [];
+  cache.projectLinks    = projectLinkRows   || [];
   rebuildClProgressMap();
   migrateTagsToRegistry(); // fire-and-forget: seed BSC_Tags from existing vendor/contact tags
   migrateParLevelsToPerLocation(); // fire-and-forget: backfill legacy ParLevel/ReorderTrigger to per-location rows (one-time, guarded)
@@ -5005,7 +5198,7 @@ function renderMenu(query='', catFilter='') {
     const stockDisplay = stock != null ? stock : '—';
     const vars = (i.Variations||'').split('\n').filter(Boolean);
     return `<tr data-gs-id="${escHtml(i.id)}" style="${isHidden?'opacity:0.45;':''}">
-      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-04x" alt="" title="Synced with Square">':''}</td>
+      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-04y" alt="" title="Synced with Square">':''}</td>
       <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${escHtml(i.Category||'—')}</span></td>
       <td style="font-size:12px;color:var(--muted);max-width:220px">${escHtml(i.Description||'')}</td>
       <td>${i.Price != null ? '$'+Number(i.Price).toFixed(2) : '—'}</td>

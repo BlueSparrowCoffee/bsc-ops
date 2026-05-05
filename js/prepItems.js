@@ -603,9 +603,8 @@ function printPrepItems() {
           </table>
         </section>` : '<div class="empty">No ingredients added.</div>'}
         ${item.Notes ? `<aside class="notes"><div class="section-label">Notes</div><div class="notes-body">${escHtml(item.Notes).replace(/\n/g,'<br>')}</div></aside>` : ''}
-        <footer class="print-footer">Printed ${escHtml(printedDate)} · Blue Sparrow Coffee</footer>
       </article>`;
-  }).join('');
+  }).join('') + `<footer class="print-footer">Printed ${escHtml(printedDate)} · Blue Sparrow Coffee</footer>`;
 
   _openPrintWindow('Prep Items — Blue Sparrow Coffee', blocks, _printPrepStyles());
 }
@@ -614,49 +613,46 @@ function _printPrepStyles() {
   return `
     *{box-sizing:border-box;}
     html,body{margin:0;padding:0;background:#fff;}
-    body{font-family:Georgia,'Times New Roman',serif;color:#111;font-size:16px;line-height:1.55;}
+    body{font-family:Georgia,'Times New Roman',serif;color:#111;font-size:9px;line-height:1.35;}
 
-    /* Page layout */
-    .prep-page{padding:32px 48px 36px;page-break-after:always;}
-    .prep-page:last-child{page-break-after:auto;}
+    /* Page layout — compact, several prep items per page */
+    .prep-page{padding:10px 18px 12px;break-inside:avoid;page-break-inside:avoid;}
+    .prep-page + .prep-page{border-top:1px dashed #bbb;margin-top:8px;padding-top:10px;}
 
     /* Header */
-    header{border-bottom:3px solid #111;padding-bottom:14px;margin-bottom:24px;}
-    h1{font-size:34px;margin:0 0 8px;font-weight:700;letter-spacing:-.01em;line-height:1.1;}
-    .meta{display:flex;flex-wrap:wrap;gap:18px;font-size:14px;color:#444;align-items:center;}
+    header{border-bottom:1.5px solid #111;padding-bottom:3px;margin-bottom:6px;}
+    h1{font-size:14px;margin:0 0 2px;font-weight:700;letter-spacing:-.01em;line-height:1.1;}
+    .meta{display:flex;flex-wrap:wrap;gap:10px;font-size:9px;color:#444;align-items:center;}
     .meta b{color:#111;}
     .meta .cost{color:#b78b40;font-weight:700;}
-    .meta .meta-tag{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#b78b40;background:#faf6ec;padding:3px 9px;border-radius:10px;border:1px solid #f0e3c0;}
+    .meta .meta-tag{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#b78b40;background:#faf6ec;padding:1px 6px;border-radius:8px;border:1px solid #f0e3c0;}
 
     /* Sections */
-    section{margin-bottom:22px;page-break-inside:avoid;}
-    .section-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#b78b40;margin:0 0 10px;padding-bottom:5px;border-bottom:2px solid #b78b40;}
+    section{margin-bottom:6px;page-break-inside:avoid;}
+    .section-label{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#b78b40;margin:0 0 3px;padding-bottom:1px;border-bottom:1px solid #b78b40;}
 
-    /* Ingredients table — bigger text + tabular numerals for cost columns */
+    /* Ingredients table */
     .ing-table{width:100%;border-collapse:collapse;}
-    .ing-table th{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#666;border-bottom:2px solid #111;padding:8px 10px;text-align:left;font-family:'Helvetica Neue',Arial,sans-serif;}
+    .ing-table th{font-size:8px;text-transform:uppercase;letter-spacing:.08em;color:#666;border-bottom:1.5px solid #111;padding:3px 6px;text-align:left;font-family:'Helvetica Neue',Arial,sans-serif;}
     .ing-table th.r,.ing-table td.r{text-align:right;font-variant-numeric:tabular-nums;}
-    .ing-table td{padding:9px 10px;font-size:15px;line-height:1.4;border-bottom:1px solid #e5e5e5;}
+    .ing-table td{padding:3px 6px;font-size:9px;line-height:1.3;border-bottom:1px solid #e5e5e5;}
     .ing-table tr:last-child td{border-bottom:none;}
     .ing-table td.muted{color:#666;}
     .ing-table td.b{font-weight:700;color:#111;}
-    .ing-table .type{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#7c3aed;background:#f1ecff;padding:2px 6px;border-radius:8px;margin-left:6px;vertical-align:middle;}
-    .empty{font-size:14px;color:#666;padding:14px 0;font-style:italic;}
+    .ing-table .type{font-size:7px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#7c3aed;background:#f1ecff;padding:1px 4px;border-radius:6px;margin-left:4px;vertical-align:middle;}
+    .empty{font-size:9px;color:#666;padding:6px 0;font-style:italic;}
 
     /* Notes callout */
-    .notes{margin-top:24px;padding:14px 18px;background:#faf6ec;border-left:4px solid #b78b40;font-size:14px;color:#333;line-height:1.55;page-break-inside:avoid;}
-    .notes .section-label{margin-bottom:6px;border:none;padding:0;}
+    .notes{margin-top:5px;padding:4px 8px;background:#faf6ec;border-left:3px solid #b78b40;font-size:8px;color:#333;line-height:1.35;page-break-inside:avoid;}
+    .notes .section-label{margin-bottom:2px;border:none;padding:0;font-size:7px;}
 
-    /* Footer */
-    .print-footer{margin-top:28px;padding-top:8px;border-top:1px solid #ddd;font-size:10px;color:#999;text-align:right;font-style:italic;}
+    /* Footer (rendered once at the very end) */
+    .print-footer{margin-top:10px;padding-top:3px;border-top:1px solid #ddd;font-size:7px;color:#999;text-align:right;font-style:italic;}
 
     /* Print-specific */
     @media print{
-      body{font-size:15px;}
-      h1{font-size:30px;}
-      .prep-page{padding:18mm 22mm 16mm;page-break-inside:auto;}
-      .ing-table td{padding:7px 8px;font-size:14px;}
+      .prep-page{padding:6mm 9mm 5mm;}
     }
-    @page{margin:12mm;}
+    @page{margin:8mm;}
   `;
 }

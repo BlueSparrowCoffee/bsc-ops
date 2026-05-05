@@ -46,6 +46,10 @@ const cache = {
   marketCompetitors: [],
   marketItems: [],
   marketPrices: [],
+  projects: [],
+  projectTasks: [],
+  projectUpdates: [],
+  projectLinks: [],
   squareModifiers: [],     // flattened modifier list pulled from Square Catalog
   squareItemVariations: [] // flattened ITEM_VARIATION list pulled from Square Catalog
 };

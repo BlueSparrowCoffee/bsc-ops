@@ -34,6 +34,7 @@ const PAGE_RENDER_FN = {
   'maint-schedule': () => { renderMaintSchedule(); if (typeof renderMaintContacts === 'function') renderMaintContacts(); },
   settings:         () => { renderRoles(); renderTagsSettings(); initColMgr(); },
   parking:          () => renderParking(),
+  projects:         () => { if (typeof renderProjects === 'function') renderProjects(); },
 };
 
 // ── Connection state ─────────────────────────────────────────────
