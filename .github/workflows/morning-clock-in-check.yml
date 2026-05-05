@@ -26,6 +26,11 @@ on:
         required: false
         default: 'false'
 
+# This workflow only curls an external URL — no GITHUB_TOKEN scopes
+# are needed. Locked to empty so a compromised step can't write to
+# the repo, issues, or packages.
+permissions: {}
+
 jobs:
   check:
     runs-on: ubuntu-latest
