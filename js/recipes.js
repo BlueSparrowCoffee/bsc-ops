@@ -364,9 +364,8 @@ function printRecipes() {
         ${stepsHtml ? `<section class="steps"><div class="section-label">Steps</div>${stepsHtml}</section>` : ''}
         ${legacyHtml ? `<section class="steps">${legacyHtml}</section>` : ''}
         ${notesHtml}
-        <footer class="print-footer">Printed ${escHtml(printedDate)} · Blue Sparrow Coffee</footer>
       </article>`;
-  }).join('');
+  }).join('') + `<footer class="print-footer">Printed ${escHtml(printedDate)} · Blue Sparrow Coffee</footer>`;
 
   _openPrintWindow('Recipes — Blue Sparrow Coffee', recipeBlocks, _printRecipeStyles());
 }
@@ -391,55 +390,51 @@ function _printRecipeStyles() {
   return `
     *{box-sizing:border-box;}
     html,body{margin:0;padding:0;background:#fff;}
-    body{font-family:Georgia,'Times New Roman',serif;color:#111;font-size:16px;line-height:1.55;}
+    body{font-family:Georgia,'Times New Roman',serif;color:#111;font-size:11px;line-height:1.4;}
 
-    /* Page layout */
-    .recipe-page{padding:32px 48px 36px;page-break-after:always;}
-    .recipe-page:last-child{page-break-after:auto;}
+    /* Page layout — compact, several recipes per page */
+    .recipe-page{padding:14px 24px 16px;break-inside:avoid;page-break-inside:avoid;}
+    .recipe-page + .recipe-page{border-top:1px dashed #bbb;margin-top:10px;padding-top:14px;}
 
     /* Header */
-    header{border-bottom:3px solid #111;padding-bottom:14px;margin-bottom:24px;}
-    h1{font-size:38px;margin:0 0 6px;font-weight:700;letter-spacing:-.01em;line-height:1.1;}
-    .yield{font-size:15px;color:#444;font-style:italic;font-weight:600;}
+    header{border-bottom:2px solid #111;padding-bottom:5px;margin-bottom:9px;}
+    h1{font-size:18px;margin:0 0 2px;font-weight:700;letter-spacing:-.01em;line-height:1.1;}
+    .yield{font-size:10px;color:#444;font-style:italic;font-weight:600;}
 
     /* Sections */
-    section{margin-bottom:24px;page-break-inside:avoid;}
-    .section-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#b78b40;margin:0 0 12px;padding-bottom:5px;border-bottom:2px solid #b78b40;}
+    section{margin-bottom:9px;page-break-inside:avoid;}
+    .section-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#b78b40;margin:0 0 5px;padding-bottom:2px;border-bottom:1px solid #b78b40;}
 
     /* Ingredients — two-column with right-aligned qty for fast scanning */
-    .ing-list{list-style:none;margin:0;padding:0;column-count:2;column-gap:40px;column-rule:1px solid #eee;}
-    .ing-list li{padding:6px 0;font-size:16px;line-height:1.45;break-inside:avoid;display:flex;gap:12px;align-items:baseline;}
-    .ing-qty{flex:0 0 90px;font-weight:700;color:#222;text-align:right;font-variant-numeric:tabular-nums;}
+    .ing-list{list-style:none;margin:0;padding:0;column-count:2;column-gap:28px;column-rule:1px solid #eee;}
+    .ing-list li{padding:2px 0;font-size:11px;line-height:1.35;break-inside:avoid;display:flex;gap:8px;align-items:baseline;}
+    .ing-qty{flex:0 0 64px;font-weight:700;color:#222;text-align:right;font-variant-numeric:tabular-nums;}
     .ing-name{flex:1;}
 
     /* Steps — auto-numbered with dark filled circles for at-a-glance progress */
     .steps-ol{list-style:none;counter-reset:step;padding:0;margin:0;}
-    .steps-ol li{position:relative;padding:2px 0 16px 48px;font-size:16px;line-height:1.6;counter-increment:step;break-inside:avoid;}
-    .steps-ol li::before{content:counter(step);position:absolute;left:0;top:0;width:32px;height:32px;border-radius:50%;background:#111;color:#fff;font-weight:700;font-family:'Helvetica Neue',Arial,sans-serif;font-size:15px;text-align:center;line-height:32px;}
-    .steps-ol li:last-child{padding-bottom:4px;}
-    .single-step{margin:0;font-size:16px;line-height:1.6;}
+    .steps-ol li{position:relative;padding:0 0 5px 24px;font-size:11px;line-height:1.45;counter-increment:step;break-inside:avoid;}
+    .steps-ol li::before{content:counter(step);position:absolute;left:0;top:1px;width:18px;height:18px;border-radius:50%;background:#111;color:#fff;font-weight:700;font-family:'Helvetica Neue',Arial,sans-serif;font-size:10px;text-align:center;line-height:18px;}
+    .steps-ol li:last-child{padding-bottom:0;}
+    .single-step{margin:0;font-size:11px;line-height:1.45;}
     /* Legacy / fallback content rendering */
-    .steps p{margin:0 0 10px;font-size:16px;line-height:1.6;}
-    .steps ul,.steps ol{padding-left:28px;margin:0 0 12px;}
-    .steps li{font-size:16px;line-height:1.55;margin-bottom:6px;}
+    .steps p{margin:0 0 4px;font-size:11px;line-height:1.45;}
+    .steps ul,.steps ol{padding-left:18px;margin:0 0 6px;}
+    .steps li{font-size:11px;line-height:1.4;margin-bottom:2px;}
 
     /* Notes callout */
-    .notes{margin-top:24px;padding:14px 18px;background:#faf6ec;border-left:4px solid #b78b40;font-size:14px;color:#333;line-height:1.55;page-break-inside:avoid;}
-    .notes .section-label{margin-bottom:6px;border:none;padding:0;}
+    .notes{margin-top:8px;padding:6px 10px;background:#faf6ec;border-left:3px solid #b78b40;font-size:10px;color:#333;line-height:1.4;page-break-inside:avoid;}
+    .notes .section-label{margin-bottom:3px;border:none;padding:0;font-size:8px;}
     .notes-body{}
 
-    /* Footer */
-    .print-footer{margin-top:28px;padding-top:8px;border-top:1px solid #ddd;font-size:10px;color:#999;text-align:right;font-style:italic;}
+    /* Footer (rendered once at the very end) */
+    .print-footer{margin-top:14px;padding-top:4px;border-top:1px solid #ddd;font-size:8px;color:#999;text-align:right;font-style:italic;}
 
-    /* Print-specific: tighten margins, allow long recipes to break */
+    /* Print-specific: tighter margins */
     @media print{
-      body{font-size:15px;}
-      h1{font-size:32px;}
-      .recipe-page{padding:18mm 22mm 16mm;page-break-inside:auto;}
-      .ing-list{column-gap:32px;}
-      .steps-ol li{font-size:15px;}
+      .recipe-page{padding:8mm 12mm 6mm;}
     }
-    @page{margin:12mm;}
+    @page{margin:10mm;}
   `;
 }
 

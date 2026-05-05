@@ -175,9 +175,75 @@ function renderDashboard() {
   updateMaintDashboard();
 }
 
+// ── Transfer summary helpers (shared by dashboard card + transfer page) ──
+// Bucket the per-transfer InventoryType into one of the 4 user-facing
+// categories: Consumable, Merch, Equipment & Smallwares, Bags & Labels.
+const TRANSFER_CATEGORIES = ['Consumable', 'Merch', 'Equipment & Smallwares', 'Bags & Labels'];
+function _xferCategory(invType) {
+  if (invType === 'merch')      return 'Merch';
+  if (invType === 'equipment')  return 'Equipment & Smallwares';
+  if (invType === 'retailBags' || invType === 'labels' || invType === 'fiveLbLabels') return 'Bags & Labels';
+  return 'Consumable';
+}
+
+// Resolve current per-unit cost ($) for a transfer record by looking up
+// the matching item master at render time. Bags/labels read the most-
+// recent record's CostPerBag / CostPerLabel.
+function _xferCostPerUnit(t) {
+  const type = t.InventoryType || 'consumable';
+  const name = (t.ItemName || '').trim();
+  if (type === 'consumable' || type === 'equipment') {
+    const items = type === 'consumable' ? (cache.inventory || []) : (cache.equipInventory || []);
+    const item = items.find(i => (i.ItemName || '').trim() === name);
+    if (!item) return 0;
+    const cost = parseFloat(item.CostPerCase) || 0;
+    const size = parseFloat(item.OrderSize) || 1;
+    return cost / (size || 1);
+  }
+  if (type === 'merch') {
+    const item = (cache.merchInventory || []).find(i => (i.ItemName || '').trim() === name);
+    return item ? (parseFloat(item.CostPerUnit) || 0) : 0;
+  }
+  const field = type === 'retailBags' ? 'CostPerBag' : 'CostPerLabel';
+  const recs = (cache[type] || []).filter(r => r[field] != null && r[field] !== '');
+  if (!recs.length) return 0;
+  const latest = [...recs].sort((a,b) => {
+    const aT = a.Created ? new Date(a.Created).getTime() : 0;
+    const bT = b.Created ? new Date(b.Created).getTime() : 0;
+    return bT - aT;
+  })[0];
+  return parseFloat(latest[field]) || 0;
+}
+
+function _xferMonthKey(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+function _xferMonthName(d) { return d.toLocaleDateString('en-US', {month:'long', year:'numeric'}); }
+function _xferMoney(n) { return '$' + (Math.round(n * 100) / 100).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
+
+// Aggregate a list of transfers into category totals + per-route breakdown.
+function _summarizeTransfers(transfers) {
+  const byCategory = {};                  // cat → total $
+  const byRoute    = {};                  // cat → { route → { count, total } }
+  let total = 0, count = 0;
+  for (const t of transfers) {
+    const qty = parseFloat(t.Quantity) || 0;
+    if (!qty) continue;
+    const value = qty * _xferCostPerUnit(t);
+    const cat   = _xferCategory(t.InventoryType);
+    const route = `${t.FromLocation || '?'} → ${t.ToLocation || '?'}`;
+    byCategory[cat] = (byCategory[cat] || 0) + value;
+    if (!byRoute[cat]) byRoute[cat] = {};
+    if (!byRoute[cat][route]) byRoute[cat][route] = { count: 0, total: 0 };
+    byRoute[cat][route].count++;
+    byRoute[cat][route].total += value;
+    total += value;
+    count++;
+  }
+  return { total, count, byCategory, byRoute };
+}
+
 // ── Owner/Accounting card: Transfer Summary ──────────────────────
-// Counts this-month + last-month transfers, plus top routes and top items
-// over the last 60 days. Visible to owner OR accounting.
+// This-month total $ + per-category breakdown, with last-month total
+// as a comparison line. Visible to owner OR accounting.
 function renderTransfersDashboardCard() {
   const card = document.getElementById('dash-transfers-card');
   const body = document.getElementById('dash-transfers-body');
@@ -195,50 +261,124 @@ function renderTransfersDashboardCard() {
   }
 
   const now = new Date();
-  const monthKey = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-  const thisMonth = monthKey(now);
-  const lastMonthDate = new Date(now.getFullYear(), now.getMonth()-1, 1);
-  const lastMonth = monthKey(lastMonthDate);
-  const sixtyDaysAgo = new Date(now.getTime() - 60*24*60*60*1000);
+  const lastDate = new Date(now.getFullYear(), now.getMonth()-1, 1);
+  const thisKey  = _xferMonthKey(now);
+  const lastKey  = _xferMonthKey(lastDate);
+  const thisXfers = transfers.filter(t => t.Created && _xferMonthKey(new Date(t.Created)) === thisKey);
+  const lastXfers = transfers.filter(t => t.Created && _xferMonthKey(new Date(t.Created)) === lastKey);
+  const thisSum = _summarizeTransfers(thisXfers);
+  const lastSum = _summarizeTransfers(lastXfers);
 
-  let thisCount = 0;
-  let lastCount = 0;
-  const routeCounts = {};
-  const itemCounts  = {};
-  for (const t of transfers) {
-    if (!t.Created) continue;
-    const created = new Date(t.Created);
-    const k = monthKey(created);
-    if (k === thisMonth) thisCount++;
-    else if (k === lastMonth) lastCount++;
-    if (created >= sixtyDaysAgo) {
-      const route = `${t.FromLocation || '?'} → ${t.ToLocation || '?'}`;
-      routeCounts[route] = (routeCounts[route] || 0) + 1;
-      const item = (t.ItemName || '').trim();
-      if (item) itemCounts[item] = (itemCounts[item] || 0) + 1;
-    }
-  }
-  const topRoutes = Object.entries(routeCounts).sort((a,b) => b[1]-a[1]).slice(0,3);
-  const topItems  = Object.entries(itemCounts).sort((a,b) => b[1]-a[1]).slice(0,3);
-
-  const monthName = (d) => d.toLocaleDateString('en-US', {month:'long'});
-  const row = (label, val) =>
-    `<tr><td style="padding:5px 0;color:var(--muted);">${escHtml(label)}</td><td style="padding:5px 0;text-align:right;font-weight:600;">${val}</td></tr>`;
-  const list = (entries, fallback) => entries.length
-    ? entries.map(([name, n]) => `<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px;"><span>${escHtml(name)}</span><span style="color:var(--muted);font-weight:600;">${n}</span></div>`).join('')
-    : `<div style="font-size:12px;color:var(--muted);font-style:italic;">${fallback}</div>`;
+  const catRow = (cat) => {
+    const v = thisSum.byCategory[cat] || 0;
+    return `<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px;">
+      <span style="color:var(--muted);">${escHtml(cat)}</span>
+      <span style="font-weight:600;">${_xferMoney(v)}</span>
+    </div>`;
+  };
 
   body.innerHTML = `
-    <table style="width:100%;font-size:13px;border-collapse:collapse;margin-bottom:14px;">
-      <tbody>
-        ${row(`This month (${monthName(now)})`, thisCount)}
-        ${row(`Last month (${monthName(lastMonthDate)})`, lastCount)}
-      </tbody>
-    </table>
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:6px;">Top routes (last 60 days)</div>
-    <div style="margin-bottom:14px;">${list(topRoutes, 'No recent transfers')}</div>
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:6px;">Top items (last 60 days)</div>
-    <div>${list(topItems, '—')}</div>`;
+    <div style="padding:4px 0 12px;border-bottom:1px solid var(--border);margin-bottom:10px;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);">${escHtml(_xferMonthName(now))}</div>
+      <div style="font-size:24px;font-weight:700;color:var(--dark-blue);line-height:1.2;">${_xferMoney(thisSum.total)}</div>
+      <div style="font-size:12px;color:var(--muted);">${thisSum.count} transfer${thisSum.count===1?'':'s'}</div>
+    </div>
+    ${TRANSFER_CATEGORIES.map(catRow).join('')}
+    <div style="padding-top:10px;margin-top:10px;border-top:1px solid var(--border);font-size:12px;color:var(--muted);display:flex;justify-content:space-between;">
+      <span>${escHtml(_xferMonthName(lastDate))}</span>
+      <span>${_xferMoney(lastSum.total)} · ${lastSum.count} transfer${lastSum.count===1?'':'s'}</span>
+    </div>`;
+}
+
+// ── Page-top panel: Transfer Summary on the Transfers tab ────────
+// Toggle pills (This Month / Last Month) drive a category-grouped
+// table of routes (From → To) with transfer counts + dollar value.
+// Owner/accounting only.
+let _transferSummaryView = null; // 'this' | 'last' — lazy-init from localStorage
+function _getTransferSummaryView() {
+  if (_transferSummaryView != null) return _transferSummaryView;
+  try { _transferSummaryView = localStorage.getItem('bsc_transfer_summary_view') || 'this'; }
+  catch { _transferSummaryView = 'this'; }
+  return _transferSummaryView;
+}
+function setTransferSummaryView(v) {
+  _transferSummaryView = v;
+  try { localStorage.setItem('bsc_transfer_summary_view', v); } catch {}
+  renderTransferSummaryPanel();
+}
+
+function renderTransferSummaryPanel() {
+  const el = document.getElementById('transfer-summary');
+  if (!el) return;
+  if (typeof isOwnerOrAccounting !== 'function' || !isOwnerOrAccounting()) {
+    el.style.display = 'none'; return;
+  }
+  el.style.display = '';
+
+  const transfers = cache.transfers || [];
+  const now = new Date();
+  const lastDate = new Date(now.getFullYear(), now.getMonth()-1, 1);
+  const view = _getTransferSummaryView();
+  const target = view === 'last' ? lastDate : now;
+  const targetKey  = _xferMonthKey(target);
+  const targetName = _xferMonthName(target);
+
+  const filtered = transfers.filter(t => t.Created && _xferMonthKey(new Date(t.Created)) === targetKey);
+  const sum = _summarizeTransfers(filtered);
+
+  const pillBtn = (key, label) => {
+    const active = view === key;
+    const bg     = active ? 'var(--dark-blue)' : 'var(--bg-card)';
+    const color  = active ? '#fff' : 'var(--text)';
+    return `<button type="button" data-view="${escHtml(key)}" onclick="setTransferSummaryView(this.dataset.view)" style="padding:6px 14px;border-radius:999px;border:1px solid var(--border);background:${bg};color:${color};cursor:pointer;font-size:12px;font-weight:600;">${escHtml(label)}</button>`;
+  };
+
+  let tbody = '';
+  if (!filtered.length) {
+    tbody = `<tr><td colspan="4" style="padding:14px;color:var(--muted);font-style:italic;text-align:center;">No transfers in ${escHtml(targetName)}</td></tr>`;
+  } else {
+    for (const cat of TRANSFER_CATEGORIES) {
+      const routes = sum.byRoute[cat];
+      if (!routes) continue;
+      const sortedRoutes = Object.entries(routes).sort((a,b) => b[1].total - a[1].total);
+      const catTotal = sum.byCategory[cat] || 0;
+      const catCount = sortedRoutes.reduce((n, [,v]) => n + v.count, 0);
+      sortedRoutes.forEach(([route, v], i) => {
+        const catCell = i === 0
+          ? `<td rowspan="${sortedRoutes.length + 1}" style="vertical-align:top;font-weight:600;color:var(--dark-blue);">${escHtml(cat)}</td>`
+          : '';
+        tbody += `<tr>${catCell}<td>${escHtml(route)}</td><td style="text-align:right;">${v.count}</td><td style="text-align:right;font-weight:600;">${_xferMoney(v.total)}</td></tr>`;
+      });
+      tbody += `<tr style="background:var(--cream);">
+        <td style="padding:6px 8px;font-size:12px;color:var(--muted);text-align:right;">Subtotal</td>
+        <td style="padding:6px 8px;text-align:right;font-size:12px;color:var(--muted);">${catCount}</td>
+        <td style="padding:6px 8px;text-align:right;font-weight:700;">${_xferMoney(catTotal)}</td>
+      </tr>`;
+    }
+  }
+
+  el.innerHTML = `
+    <div class="card" style="margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
+        <div class="card-title" style="margin:0;">🧮 Transfer Summary</div>
+        <div style="display:flex;gap:6px;">
+          ${pillBtn('this', _xferMonthName(now))}
+          ${pillBtn('last', _xferMonthName(lastDate))}
+        </div>
+        <div class="ml-auto" style="font-size:13px;color:var(--muted);text-align:right;">
+          <div><strong style="color:var(--dark-blue);font-size:20px;">${_xferMoney(sum.total)}</strong></div>
+          <div style="font-size:12px;">${sum.count} transfer${sum.count===1?'':'s'}</div>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Category</th><th>From → To</th><th style="text-align:right;">Transfers</th><th style="text-align:right;">Value</th>
+          </tr></thead>
+          <tbody>${tbody}</tbody>
+        </table>
+      </div>
+    </div>`;
 }
 
 // ── Per-location value helpers (module scope so accounting cards reuse) ──

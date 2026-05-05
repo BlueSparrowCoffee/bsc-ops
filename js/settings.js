@@ -415,7 +415,7 @@ function renderOrderEmailTemplateCard() {
   const ownerOnly = !isOwner();
   wrap.innerHTML = `
     <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">
-      Customize what vendors see when you send an order. Placeholders: <code>{vendor}</code> <code>{location}</code> <code>{location_address}</code> <code>{date}</code> <code>{user}</code> <code>{total}</code>. The items list, total, and notes are filled in automatically. Addresses are set per location in the Locations card below.
+      Customize what vendors see when you send an order. Placeholders: <code>{vendor}</code> <code>{location}</code> <code>{location_address}</code> <code>{date}</code> <code>{user}</code> <code>{total}</code>. The items list and notes are filled in automatically. Addresses are set per location in the Locations card below.
     </p>
     <label class="field-label">Subject</label>
     <input id="oet-subject" class="field-input" style="width:100%;margin-bottom:14px;" value="${escHtml(subj)}" ${ownerOnly?'disabled':''} oninput="renderOrderEmailPreview()">
@@ -462,7 +462,7 @@ function renderOrderEmailPreview() {
   if (bodyEl) {
     const sampleItems = '  • 5 × Whole Milk (gallon)\n  • 12 × Oat Milk (carton)\n  • 2 × Heavy Cream (quart)';
     bodyEl.textContent = [
-      sub(intro), '', 'Items:', sampleItems, '', `Total: ${vars.total}`, '', sub(sig)
+      sub(intro), '', 'Items:', sampleItems, '', sub(sig)
     ].filter(Boolean).join('\n');
   }
 }

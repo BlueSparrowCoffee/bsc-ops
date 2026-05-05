@@ -170,7 +170,6 @@ function _orderEmailVars(order, lines) {
 }
 
 function _orderBody(order, lines) {
-  const total = _orderSubtotal(lines);
   const itemsBlock = lines.map(l => `  • ${l.qty} × ${l.name}${l.unit ? ' ('+l.unit+')' : ''}`).join('\n');
   const tpl = _orderEmailTemplates();
   const vars = _orderEmailVars(order, lines);
@@ -182,7 +181,6 @@ function _orderBody(order, lines) {
     'Items:',
     itemsBlock,
     '',
-    `Total: ${_money(total)}`,
     order.Notes ? `Notes: ${order.Notes}` : '',
     '',
     signature
