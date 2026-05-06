@@ -126,13 +126,7 @@ function updateTopbarStaffInfo() {
       }
     }
     if (avatarEl) {
-      avatarEl.textContent  = first.charAt(0).toUpperCase();
-      // Colour avatar by effective role (so test-mode shows the simulated colour)
-      const r = (_roleOverride || realRole).toLowerCase();
-      avatarEl.style.background = r.includes('owner') ? '#b78b40'
-        : r.includes('manager') ? '#3b82f6'
-        : r.includes('accounting') ? '#8b5cf6'
-        : 'var(--teal)';
+      avatarEl.textContent = first.charAt(0).toUpperCase();
     }
   } else if (currentUser) {
     // Logged in via Microsoft but no matching staff record
@@ -140,7 +134,7 @@ function updateTopbarStaffInfo() {
     const first = displayName.split(' ')[0];
     if (nameEl)   nameEl.textContent = first;
     if (roleEl)   roleEl.innerHTML = `<span style="color:var(--orange);">⚠ Not linked</span>`;
-    if (avatarEl) { avatarEl.textContent = '?'; avatarEl.style.background = '#9ca3af'; }
+    if (avatarEl) avatarEl.textContent = '?';
     // Show the unlinked banner
     const banner = document.getElementById('unlinked-banner');
     const emailEl = document.getElementById('unlinked-email');

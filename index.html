@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-06e">
-<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-06e">
-<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-06e">
-<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-06e">
-<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-06e">
+<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-06f">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-06f">
+<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-06f">
+<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-06f">
+<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-06f">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="BSC Ops">
@@ -62,22 +62,79 @@ h1,h2,h3,.stat-value{font-family:'IvyPresto Display','Hoefler Text',Georgia,seri
 .btn-signin{margin-top:8px;padding:13px 40px;background:var(--gold);color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;}
 .btn-signin:hover{opacity:.88;}
 
-/* ── TOP BAR ── */
-#topbar{background:var(--dark-blue);color:#fff;height:56px;display:flex;align-items:center;padding:0 20px;gap:16px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.25);}
+/* ── TOP BAR (PR 2 of design refresh) ── */
+#topbar{
+  background:linear-gradient(180deg,#133c47 0%,var(--navy) 100%);
+  color:#fff;height:56px;display:flex;align-items:center;
+  padding:0 20px;gap:16px;position:sticky;top:0;z-index:100;
+  border-bottom:1px solid rgba(0,0,0,.30);
+  box-shadow:inset 0 1px 0 rgba(185,223,227,0.10),
+             inset 0 -1px 0 rgba(0,0,0,0.20),
+             0 4px 14px -4px rgba(14,53,64,0.30);
+}
 #nav-toggle{display:none;background:none;border:none;color:#fff;font-size:22px;cursor:pointer;padding:6px 10px;line-height:1;margin-left:-6px;font-family:inherit;}
 #nav-backdrop{display:none;position:fixed;inset:56px 0 0 0;background:rgba(0,0,0,.45);z-index:90;}
 #nav-backdrop.show{display:block;}
-.topbar-logo{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:600;}
-.topbar-logo img{height:36px;width:36px;object-fit:contain;flex-shrink:0;}
-.topbar-logo span{font-size:22px;}
-.topbar-logo small{font-size:10px;color:rgba(255,255,255,.7);font-weight:400;display:block;margin-top:1px;}
-.location-switcher{display:flex;gap:4px;margin-left:24px;}
+.topbar-logo{display:flex;align-items:center;gap:10px;}
+.topbar-logo img{height:22px;width:22px;object-fit:contain;flex-shrink:0;opacity:.95;}
+.topbar-logo .brand{font-family:var(--font-display);font-weight:300;font-size:17px;color:#fff;letter-spacing:.005em;line-height:1.05;}
+.topbar-logo small{display:block;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:rgba(185,223,227,.55);font-weight:600;margin-top:2px;}
+/* Metallic location switcher */
+.location-switcher{
+  display:flex;margin-left:18px;
+  background:linear-gradient(180deg,rgba(0,0,0,0.18),rgba(0,0,0,0.08));
+  border:1px solid rgba(0,0,0,0.30);border-radius:7px;padding:2px;
+  box-shadow:inset 0 1px 0 rgba(185,223,227,0.08),0 1px 0 rgba(255,255,255,0.05);
+}
 .location-switcher-mobile{display:none;padding:12px 14px 10px;gap:6px;flex-wrap:wrap;border-bottom:1px solid rgba(185,223,227,.1);margin-bottom:4px;}
-.loc-btn{padding:4px 12px;border:1.5px solid rgba(255,255,255,.3);border-radius:20px;background:transparent;color:#fff;font-size:12px;cursor:pointer;font-family:inherit;transition:all .15s;}
-.loc-btn:hover,.loc-btn.active{background:var(--gold);border-color:var(--gold);color:#fff;}
-.topbar-right{margin-left:auto;display:flex;align-items:flex-start;gap:12px;}
-.btn-signout{font-size:11px;padding:3px 10px;border:1px solid rgba(255,255,255,.35);border-radius:8px;background:transparent;color:rgba(255,255,255,.85);cursor:pointer;font-family:inherit;margin-top:1px;}
-.btn-signout:hover{border-color:#fff;color:#fff;}
+.loc-btn{
+  padding:4px 11px;background:transparent;border:none;
+  color:rgba(185,223,227,.72);font-family:inherit;font-size:12px;font-weight:500;
+  border-radius:5px;cursor:pointer;transition:all 120ms ease;
+}
+.loc-btn:hover{color:#fff;background:rgba(185,223,227,.05);}
+.loc-btn.active{
+  background:linear-gradient(180deg,#d4ecf0 0%,var(--light-blue) 100%);
+  color:var(--ink);font-weight:600;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.7),
+             inset 0 -1px 0 rgba(14,53,64,0.12),
+             0 1px 2px rgba(0,0,0,0.20);
+}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:14px;}
+/* Sync pill — sync-label text node inside is updated by auto-sync.js */
+.sync-pill{
+  display:inline-flex;align-items:center;gap:7px;
+  font-size:11px;color:rgba(185,223,227,.65);font-weight:500;font-family:inherit;
+  padding:4px 10px;background:rgba(0,0,0,0.18);
+  border:1px solid rgba(0,0,0,0.30);border-radius:999px;
+  box-shadow:inset 0 1px 0 rgba(185,223,227,0.08);
+  white-space:nowrap;
+}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:var(--light-blue);box-shadow:0 0 6px rgba(185,223,227,0.6);flex-shrink:0;}
+/* Role meta + avatar */
+.role-meta{text-align:right;line-height:1.2;}
+.role-meta .name{font-size:12px;font-weight:600;color:#fff;}
+.role-meta .role{font-size:10px;color:rgba(185,223,227,.55);text-transform:uppercase;letter-spacing:.06em;margin-top:1px;}
+.avatar{
+  width:30px;height:30px;border-radius:50%;
+  background:linear-gradient(180deg,#d4ecf0,var(--light-blue));
+  color:var(--ink);
+  display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:700;font-family:var(--font-display);
+  border:1px solid rgba(0,0,0,0.30);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.7),0 1px 2px rgba(0,0,0,0.20);
+  flex-shrink:0;
+}
+/* Sign-out (compact icon button — kept since avatar dropdown is not yet designed) */
+.btn-signout{
+  width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;
+  background:transparent;border:1px solid rgba(0,0,0,0.30);border-radius:6px;
+  color:rgba(185,223,227,.7);cursor:pointer;font-family:inherit;padding:0;
+  box-shadow:inset 0 1px 0 rgba(185,223,227,0.08);
+  transition:all 120ms ease;
+}
+.btn-signout:hover{color:#fff;background:rgba(255,255,255,0.06);}
+.btn-signout svg{width:13px;height:13px;}
 
 /* ── APP SHELL ── */
 #app{display:flex;flex:1;}
@@ -511,7 +568,7 @@ html,body{overscroll-behavior:none;}
 </style>
 <!-- Design tokens (PR 1 of refresh) — loaded after inline <style> so legacy
      aliases at the bottom of :root override the older brand values. -->
-<link rel="stylesheet" href="/css/tokens.css?v=2026-05-06e">
+<link rel="stylesheet" href="/css/tokens.css?v=2026-05-06f">
 </head>
 <body>
 
@@ -527,8 +584,11 @@ html,body{overscroll-behavior:none;}
 <div id="topbar">
   <button id="nav-toggle" onclick="toggleNav()" aria-label="Menu">☰</button>
   <div class="topbar-logo">
-    <img src="/images/feather.png" alt="" aria-hidden="true">
-    <div><div>Blue Sparrow Coffee</div><small>Operations Platform</small></div>
+    <img src="/images/feather-light.png?v=2026-05-06f" alt="" aria-hidden="true">
+    <div>
+      <div class="brand">Blue Sparrow</div>
+      <small>Operations</small>
+    </div>
   </div>
   <div class="location-switcher" id="loc-switcher">
     <button class="loc-btn active" onclick="setLocation('all',this)">All</button>
@@ -538,18 +598,18 @@ html,body{overscroll-behavior:none;}
     <button class="loc-btn" onclick="setLocation('17th',this)">17th</button>
   </div>
   <div class="topbar-right">
-    <div id="user-info" style="display:flex;align-items:center;gap:8px;position:relative;">
-      <div style="text-align:right;line-height:1.4;">
-        <div id="user-role-label" style="font-size:11px;color:rgba(185,223,227,.7);"></div>
-        <div id="sync-label" style="font-size:10px;color:rgba(255,255,255,.4);"></div>
+    <div class="sync-pill" title="Sync status"><span class="sync-dot"></span><span id="sync-label">Connected</span></div>
+    <div id="user-info" style="position:relative;display:flex;align-items:center;gap:14px;">
+      <div class="role-meta">
+        <div class="name" id="user-label"></div>
+        <div class="role" id="user-role-label"></div>
       </div>
-      <div id="user-avatar" style="display:none;"></div>
-      <!-- Owner-only role-test switcher popover (opened by clicking role label) -->
+      <div class="avatar" id="user-avatar"></div>
+      <button class="btn-signout" onclick="signOut()" aria-label="Sign out" title="Sign out">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+      <!-- Owner-only role-test switcher popover (opened by clicking the role line) -->
       <div id="role-switcher-pop" style="display:none;position:absolute;top:calc(100% + 6px);right:0;min-width:200px;background:#fff;color:var(--text);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);z-index:1000;overflow:hidden;"></div>
-    </div>
-    <div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
-      <div id="user-label" style="font-size:11px;font-weight:600;color:rgba(255,255,255,.85);"></div>
-      <button class="btn-signout" onclick="signOut()">Sign out</button>
     </div>
   </div>
 </div>
@@ -2840,40 +2900,40 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-05-06e" defer></script>
-<script src="/js/utils.js?v=2026-05-06e" defer></script>
-<script src="/js/state.js?v=2026-05-06e" defer></script>
-<script src="/js/auth.js?v=2026-05-06e" defer></script>
-<script src="/js/graph.js?v=2026-05-06e" defer></script>
-<script src="/js/signalr.js?v=2026-05-06e" defer></script>
-<script src="/js/tags.js?v=2026-05-06e" defer></script>
-<script src="/js/nav.js?v=2026-05-06e" defer></script>
-<script src="/js/settings.js?v=2026-05-06e" defer></script>
-<script src="/js/dashboard.js?v=2026-05-06e" defer></script>
-<script src="/js/inventory.js?v=2026-05-06e" defer></script>
-<script src="/js/inventory-form.js?v=2026-05-06e" defer></script>
-<script src="/js/counts.js?v=2026-05-06e" defer></script>
-<script src="/js/foodpars.js?v=2026-05-06e" defer></script>
-<script src="/js/labels.js?v=2026-05-06e" defer></script>
-<script src="/js/bags.js?v=2026-05-06e" defer></script>
-<script src="/js/bag-labels-5lb.js?v=2026-05-06e" defer></script>
-<script src="/js/pastry-sync.js?v=2026-05-06e" defer></script>
-<script src="/js/recipes.js?v=2026-05-06e" defer></script>
-<script src="/js/cogs.js?v=2026-05-06e" defer></script>
-<script src="/js/vendors.js?v=2026-05-06e" defer></script>
-<script src="/js/contacts.js?v=2026-05-06e" defer></script>
-<script src="/js/maintenance.js?v=2026-05-06e" defer></script>
-<script src="/js/checklists.js?v=2026-05-06e" defer></script>
-<script src="/js/ordering.js?v=2026-05-06e" defer></script>
-<script src="/js/ordering-build.js?v=2026-05-06e" defer></script>
-<script src="/js/market-analysis.js?v=2026-05-06e" defer></script>
-<script src="/js/projects.js?v=2026-05-06e" defer></script>
-<script src="/js/parking.js?v=2026-05-06e" defer></script>
-<script src="/js/prepItems.js?v=2026-05-06e" defer></script>
-<script src="/js/square.js?v=2026-05-06e" defer></script>
-<script src="/js/timeclock.js?v=2026-05-06e" defer></script>
-<script src="/js/slack.js?v=2026-05-06e" defer></script>
-<script src="/js/auto-sync.js?v=2026-05-06e" defer></script>
+<script src="/js/constants.js?v=2026-05-06f" defer></script>
+<script src="/js/utils.js?v=2026-05-06f" defer></script>
+<script src="/js/state.js?v=2026-05-06f" defer></script>
+<script src="/js/auth.js?v=2026-05-06f" defer></script>
+<script src="/js/graph.js?v=2026-05-06f" defer></script>
+<script src="/js/signalr.js?v=2026-05-06f" defer></script>
+<script src="/js/tags.js?v=2026-05-06f" defer></script>
+<script src="/js/nav.js?v=2026-05-06f" defer></script>
+<script src="/js/settings.js?v=2026-05-06f" defer></script>
+<script src="/js/dashboard.js?v=2026-05-06f" defer></script>
+<script src="/js/inventory.js?v=2026-05-06f" defer></script>
+<script src="/js/inventory-form.js?v=2026-05-06f" defer></script>
+<script src="/js/counts.js?v=2026-05-06f" defer></script>
+<script src="/js/foodpars.js?v=2026-05-06f" defer></script>
+<script src="/js/labels.js?v=2026-05-06f" defer></script>
+<script src="/js/bags.js?v=2026-05-06f" defer></script>
+<script src="/js/bag-labels-5lb.js?v=2026-05-06f" defer></script>
+<script src="/js/pastry-sync.js?v=2026-05-06f" defer></script>
+<script src="/js/recipes.js?v=2026-05-06f" defer></script>
+<script src="/js/cogs.js?v=2026-05-06f" defer></script>
+<script src="/js/vendors.js?v=2026-05-06f" defer></script>
+<script src="/js/contacts.js?v=2026-05-06f" defer></script>
+<script src="/js/maintenance.js?v=2026-05-06f" defer></script>
+<script src="/js/checklists.js?v=2026-05-06f" defer></script>
+<script src="/js/ordering.js?v=2026-05-06f" defer></script>
+<script src="/js/ordering-build.js?v=2026-05-06f" defer></script>
+<script src="/js/market-analysis.js?v=2026-05-06f" defer></script>
+<script src="/js/projects.js?v=2026-05-06f" defer></script>
+<script src="/js/parking.js?v=2026-05-06f" defer></script>
+<script src="/js/prepItems.js?v=2026-05-06f" defer></script>
+<script src="/js/square.js?v=2026-05-06f" defer></script>
+<script src="/js/timeclock.js?v=2026-05-06f" defer></script>
+<script src="/js/slack.js?v=2026-05-06f" defer></script>
+<script src="/js/auto-sync.js?v=2026-05-06f" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
@@ -5283,7 +5343,7 @@ function renderMenu(query='', catFilter='') {
     const stockDisplay = stock != null ? stock : '—';
     const vars = (i.Variations||'').split('\n').filter(Boolean);
     return `<tr data-gs-id="${escHtml(i.id)}" style="${isHidden?'opacity:0.45;':''}">
-      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-06e" alt="" title="Synced with Square">':''}</td>
+      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-06f" alt="" title="Synced with Square">':''}</td>
       <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${escHtml(i.Category||'—')}</span></td>
       <td style="font-size:12px;color:var(--muted);max-width:220px">${escHtml(i.Description||'')}</td>
       <td>${i.Price != null ? '$'+Number(i.Price).toFixed(2) : '—'}</td>
