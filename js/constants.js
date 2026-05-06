@@ -308,7 +308,7 @@ const INV_COG_CFG = {
 // Bump APP_VERSION any time a deploy has breaking localStorage changes.
 // On version mismatch the entire localStorage is wiped so stale prefs never
 // cause weirdness after an update.
-const APP_VERSION = '2026-05-06ac';
+const APP_VERSION = '2026-05-06ad';
 (function() {
   try {
     if (localStorage.getItem('bsc_app_version') !== APP_VERSION) {
@@ -320,7 +320,7 @@ const APP_VERSION = '2026-05-06ac';
 
 // Bump when SharePoint schema changes. User must clear bsc_provision_v
 // from localStorage (or Settings → Clear Local Data) to trigger re-provisioning.
-const PROVISION_VERSION = '41';
+const PROVISION_VERSION = '42';
 
 // ── Market Analysis list schemas ─────────────────────────────────
 // Provisioned in ensureAllLists (index.html). Denormalized text columns
@@ -424,6 +424,8 @@ const PROVISIONED_COL_NAMES = new Set([
   // Checklists
   'TaskName','Frequency','Type','AssignedRole','GroupId','SortOrder','SuggestedBy',
   'GroupName','CompletedBy','CompletedDate','TaskId','RecurEveryDays','RecurTime','Description','StartDate',
+  // Phase 2 evidence types (PR 27)
+  'EvidenceType','NumericMin','NumericMax','NumericUnit',
   // Roles
   'RoleName','Permissions','LocationAccess',
   // Vendors

@@ -172,22 +172,29 @@ function renderChecklistsLanes(filteredGroups) {
   for (const lane of LANE_ORDER) byLane[lane] = [];
   for (const g of filteredGroups) byLane[_laneFor(g)].push(g);
 
-  // PR 26 — Build per-lane "done" sets from today's Run + TaskLogs at
-  // the current location. When location is 'all', no Run exists per
-  // shift (Runs are location-scoped) so every lane shows nothing done
-  // and clicks will toast a prompt to pick a location.
+  // PR 26/27 — Build per-lane TaskLog maps from today's Run at the
+  // current location. logsByLane maps lane → Map<taskId, log> so the
+  // row render can both check completion AND read captured numeric
+  // inputs / photo URLs. When location is 'all', no Run exists per
+  // shift (Runs are location-scoped) so lanes render read-only.
   const dateISO = _phase2TodayISO();
   const interactive = currentLocation !== 'all';
-  const doneByLane = {};
+  const logsByLane = {};
   for (const lane of LANE_ORDER) {
     const run = interactive ? _phase2FindRun(dateISO, currentLocation, lane) : null;
-    doneByLane[lane] = new Set(
-      run ? (cache.clTaskLogs || [])
-              .filter(l => String(l.RunId) === String(run.id) && l.Status === 'complete')
-              .map(l => String(l.TaskId))
-          : []
-    );
+    const m = new Map();
+    if (run) {
+      for (const l of (cache.clTaskLogs || [])) {
+        if (String(l.RunId) === String(run.id) && l.Status === 'complete') {
+          m.set(String(l.TaskId), l);
+        }
+      }
+    }
+    logsByLane[lane] = m;
   }
+  // Back-compat: sets used by progress math below.
+  const doneByLane = {};
+  for (const lane of LANE_ORDER) doneByLane[lane] = new Set(logsByLane[lane].keys());
 
   // Day ribbon — Open / Mid / Close / Weekly progress at a glance
   const ribbon = ['open','mid','close','weekly'].map(lane => {
@@ -215,14 +222,45 @@ function renderChecklistsLanes(filteredGroups) {
                                      .sort((a,b) => (Number(a.SortOrder)||0) - (Number(b.SortOrder)||0));
       const taskRowsHtml = tasks.map(t => {
         const done = doneByLane[lane].has(String(t.id));
-        const click = interactive ? `onclick="togglePhase2Task('${escHtml(t.id)}','${lane}')"` : '';
+        const log  = logsByLane[lane].get(String(t.id));
+        const ev   = (t.EvidenceType || 'check').toLowerCase();
+        const click = interactive ? `onclick="handlePhase2Click('${escHtml(t.id)}','${lane}')"` : '';
         const cursor = interactive ? 'cursor:pointer;' : '';
+
+        // Captured-value pill (numeric reading) when a log exists.
+        let valuePill = '';
+        if (done && ev === 'numeric' && log?.Inputs) {
+          try {
+            const parsed = JSON.parse(log.Inputs);
+            if (parsed && parsed.value != null) {
+              const u = parsed.unit || t.NumericUnit || '';
+              valuePill = `<span class="badge badge-mint" style="font-size:10px;font-family:var(--mono);">${escHtml(String(parsed.value))}${u?'&nbsp;'+escHtml(u):''}</span>`;
+            }
+          } catch {}
+        }
+
+        // Evidence-type indicator (photo/numeric only — check is implicit).
+        let evPill = '';
+        if (ev === 'numeric') {
+          const u = t.NumericUnit ? ` ${escHtml(t.NumericUnit)}` : '';
+          evPill = `<span class="badge badge-blue" style="font-size:10px;">🌡️${u||' Reading'}</span>`;
+        } else if (ev === 'photo') {
+          evPill = `<span class="badge badge-blue" style="font-size:10px;">📷 Photo</span>`;
+        }
+
+        const rolePill = (t.AssignedRole && t.AssignedRole !== 'All')
+          ? `<span class="badge badge-blue" style="font-size:10px;">${escHtml(t.AssignedRole)}</span>`
+          : '';
+
         return `
-          <div class="cl-row${done?' done':''}" ${click} style="display:flex;align-items:center;gap:10px;padding:6px 0;font-size:13px;${cursor}">
+          <div class="cl-row${done?' done':''}" ${click} style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px;${cursor}">
             <div class="cl-check" style="width:16px;height:16px;border-radius:4px;border:1px solid var(--border-2);display:flex;align-items:center;justify-content:center;flex-shrink:0;background:${done ? 'linear-gradient(180deg,#1d4753,var(--navy))' : 'linear-gradient(180deg,#ffffff,#f5f0e2)'};color:#fff;font-size:10px;">${done ? '✓' : ''}</div>
-            <span style="${done?'text-decoration:line-through;color:var(--muted);':''}">${escHtml(t.TaskName||t.Title||'—')}</span>
-            ${t.AssignedRole && t.AssignedRole !== 'All' ? `<span class="badge badge-blue" style="margin-left:auto;font-size:10px;">${escHtml(t.AssignedRole)}</span>` : ''}
-          </div>`;
+            <span style="flex:1;${done?'text-decoration:line-through;color:var(--muted);':''}">${escHtml(t.TaskName||t.Title||'—')}</span>
+            ${valuePill}
+            ${evPill}
+            ${rolePill}
+          </div>
+          <div class="phase2-task-drawer" id="p2td-${escHtml(t.id)}" style="display:none;background:var(--bg-card-soft);border-radius:8px;padding:12px 14px;margin:4px 0 10px;border:1px solid var(--border);"></div>`;
       }).join('');
       return `
         <div style="padding:0 18px 14px;">
@@ -370,6 +408,7 @@ function renderChecklistCard(group, userIsMgr) {
       <label for="chk-${t.id}" style="flex:1;cursor:pointer;font-size:13px;${isDone?'text-decoration:line-through;color:var(--muted);':''}">${escHtml(t.TaskName||'')}</label>
       ${dueChip}
       ${t.Notes ? `<span title="${escHtml(t.Notes)}" style="font-size:12px;cursor:help;flex-shrink:0;">ℹ️</span>` : ''}
+      ${userIsMgr ? `<button onclick="openTaskForm('${t.id}','${gid}')" title="Edit task" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:13px;line-height:1;padding:0 2px;flex-shrink:0;">✏️</button>` : ''}
       ${userIsMgr ? `<button onclick="deleteChecklistTask('${t.id}','${gid}')" title="Remove task" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;line-height:1;padding:0 2px;flex-shrink:0;">×</button>` : ''}
     </div>`;
   }).join('');
@@ -636,6 +675,73 @@ async function addTaskInline(groupId) {
     if (dueEl)   dueEl.value   = '';
     renderChecklists();
   } catch(e) { toast('err', 'Failed to add task: '+e.message); }
+}
+
+// ── PR 27: Task edit modal (manager-only) ────────────────────────
+// Opens the modal pre-filled from cache.checklists[taskId]. Save
+// PATCHes the row in place. Delete removes from SP + cache and
+// closes the modal. The numeric config block is hidden until the
+// 'numeric' radio is selected.
+function openTaskForm(taskId, groupId) {
+  const t = cache.checklists.find(x => String(x.id) === String(taskId));
+  if (!t) return;
+  document.getElementById('cl-task-id').value   = t.id;
+  document.getElementById('cl-task-gid').value  = groupId || t.GroupId || '';
+  document.getElementById('cl-task-name').value = t.TaskName || t.Title || '';
+  document.getElementById('cl-task-notes').value = t.Notes || '';
+  const ev = (t.EvidenceType || 'check').toLowerCase();
+  document.querySelectorAll('input[name="cl-task-evtype"]').forEach(r => { r.checked = (r.value === ev); });
+  document.getElementById('cl-task-num-min').value  = t.NumericMin ?? '';
+  document.getElementById('cl-task-num-max').value  = t.NumericMax ?? '';
+  document.getElementById('cl-task-num-unit').value = t.NumericUnit ?? '';
+  onTaskEvidenceTypeChange();
+  openModal('modal-cl-task');
+}
+
+function onTaskEvidenceTypeChange() {
+  const ev = document.querySelector('input[name="cl-task-evtype"]:checked')?.value || 'check';
+  const numBlock   = document.getElementById('cl-task-numeric-config');
+  const photoHint  = document.getElementById('cl-task-photo-hint');
+  if (numBlock)  numBlock.style.display  = ev === 'numeric' ? '' : 'none';
+  if (photoHint) photoHint.style.display = ev === 'photo'   ? '' : 'none';
+}
+
+async function saveTaskForm() {
+  const taskId = document.getElementById('cl-task-id').value;
+  const gid    = document.getElementById('cl-task-gid').value;
+  const name   = (document.getElementById('cl-task-name').value || '').trim();
+  if (!name) { toast('err', 'Task name required'); return; }
+  const ev     = document.querySelector('input[name="cl-task-evtype"]:checked')?.value || 'check';
+  const numMin  = document.getElementById('cl-task-num-min').value;
+  const numMax  = document.getElementById('cl-task-num-max').value;
+  const numUnit = (document.getElementById('cl-task-num-unit').value || '').trim();
+  const fields = {
+    Title: name, TaskName: name,
+    Notes: document.getElementById('cl-task-notes').value || '',
+    EvidenceType: ev,
+    // Always send Min/Max/Unit (empty when not numeric) so toggling type
+    // back to check doesn't leave stale numeric config behind.
+    NumericMin:  ev === 'numeric' && numMin  !== '' ? Number(numMin)  : null,
+    NumericMax:  ev === 'numeric' && numMax  !== '' ? Number(numMax)  : null,
+    NumericUnit: ev === 'numeric' ? numUnit : ''
+  };
+  try {
+    await updateListItem(LISTS.checklists, taskId, fields);
+    const t = cache.checklists.find(x => String(x.id) === String(taskId));
+    if (t) Object.assign(t, fields);
+    closeModal('modal-cl-task');
+    renderChecklists();
+    toast('ok', '✓ Task updated');
+  } catch (e) {
+    toast('err', 'Save failed: ' + (e?.message || e));
+  }
+}
+
+async function deleteTaskFromForm() {
+  const taskId = document.getElementById('cl-task-id').value;
+  const gid    = document.getElementById('cl-task-gid').value;
+  closeModal('modal-cl-task');
+  await deleteChecklistTask(taskId, gid);
 }
 
 // ── Edit a task's DueDate inline (manager-only, multi-day plans) ──

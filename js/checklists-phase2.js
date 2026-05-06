@@ -302,31 +302,132 @@ function _phase2TaskLog(runId, taskId) {
   ) || null;
 }
 
-// Click handler for lane-view task rows. Toggles the complete TaskLog
-// for {today's run, taskId}. Re-renders on success so progress bars +
-// row strikethrough update.
-async function togglePhase2Task(taskId, shift) {
+// PR 26 — toggles the complete TaskLog for {today's run, taskId}.
+// Used directly by check-type tasks; also called by submitPhase2Numeric
+// after the user enters a reading. `inputs` (optional) is a payload
+// object that gets stringified into the Inputs column for numeric and
+// future photo types. When `inputs` is null and a log already exists,
+// the log is deleted (uncheck).
+async function togglePhase2Task(taskId, shift, inputs = null) {
   const run = await _phase2EnsureRun(shift);
-  if (!run) return;
+  if (!run) return false;
   const existing = _phase2TaskLog(run.id, taskId);
   try {
-    if (existing) {
+    if (existing && inputs == null) {
       await deleteListItem(LISTS.clTaskLogs, existing.id);
       cache.clTaskLogs = (cache.clTaskLogs || []).filter(l => String(l.id) !== String(existing.id));
+    } else if (existing && inputs != null) {
+      // Re-submit with new inputs (numeric reading correction). PATCH
+      // in place so we don't accumulate duplicate complete logs.
+      const patch = {
+        CompletedBy: currentUser?.name || currentUser?.username || '',
+        CompletedAt: new Date().toISOString(),
+        Inputs:      JSON.stringify(inputs)
+      };
+      await updateListItem(LISTS.clTaskLogs, existing.id, patch);
+      Object.assign(existing, patch);
     } else {
-      const rec = await addListItem(LISTS.clTaskLogs, {
+      const fields = {
         RunId:       String(run.id),
         TaskId:      String(taskId),
         Status:      'complete',
         CompletedBy: currentUser?.name || currentUser?.username || '',
         CompletedAt: new Date().toISOString()
-      });
+      };
+      if (inputs != null) fields.Inputs = JSON.stringify(inputs);
+      const rec = await addListItem(LISTS.clTaskLogs, fields);
       cache.clTaskLogs = cache.clTaskLogs || [];
       cache.clTaskLogs.push(rec);
     }
   } catch (e) {
     if (typeof toast === 'function') toast('err', 'Save failed: ' + (e?.message || e));
-    return;
+    return false;
   }
   if (typeof renderChecklists === 'function') renderChecklists();
+  return true;
+}
+
+// PR 27 — Click dispatcher for lane-view rows. Branches on the task's
+// EvidenceType: check toggles immediately, numeric opens the inline
+// drawer with a range bar, photo defers to PR 27b for now.
+async function handlePhase2Click(taskId, shift) {
+  const t = (cache.checklists || []).find(x => String(x.id) === String(taskId));
+  const ev = (t?.EvidenceType || 'check').toLowerCase();
+  if (ev === 'numeric') {
+    openPhase2NumericDrawer(taskId, shift);
+  } else if (ev === 'photo') {
+    if (typeof toast === 'function') toast('warn', 'Photo evidence coming in PR 27b — task left unchecked');
+  } else {
+    await togglePhase2Task(taskId, shift);
+  }
+}
+
+// PR 27 — Inline numeric-reading drawer. Mounts mountRangeBar with the
+// task's NumericMin/Max/Unit configured by a manager via the task-edit
+// modal. Submit calls togglePhase2Task with inputs = {value, unit};
+// Cancel + Clear give the user escape hatches.
+function openPhase2NumericDrawer(taskId, shift) {
+  const host = document.getElementById('p2td-' + taskId);
+  const t = (cache.checklists || []).find(x => String(x.id) === String(taskId));
+  if (!host || !t) return;
+  // Toggle: click again on an open drawer closes it without writing.
+  if (host.style.display !== 'none') { closePhase2Drawer(taskId); return; }
+
+  const run = _phase2FindRun(_phase2TodayISO(), currentLocation, shift);
+  const existing = run ? _phase2TaskLog(run.id, taskId) : null;
+  let initial = '';
+  if (existing?.Inputs) {
+    try { const p = JSON.parse(existing.Inputs); if (p?.value != null) initial = p.value; } catch {}
+  }
+
+  const min  = (t.NumericMin  != null && t.NumericMin  !== '') ? Number(t.NumericMin)  : 0;
+  const max  = (t.NumericMax  != null && t.NumericMax  !== '') ? Number(t.NumericMax)  : 100;
+  const unit = t.NumericUnit || '';
+  const taskName = t.TaskName || t.Title || 'Reading';
+
+  host.style.display = '';
+  host.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+      <div style="font-size:12px;font-weight:600;color:var(--ink);">${escHtml(taskName)} — enter reading</div>
+      <button onclick="closePhase2Drawer('${escHtml(taskId)}')" aria-label="Close" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;line-height:1;padding:0 4px;">×</button>
+    </div>
+    <div id="p2td-rb-${escHtml(taskId)}"></div>
+    <div style="display:flex;gap:8px;margin-top:14px;align-items:center;">
+      <button class="btn btn-primary btn-sm" onclick="submitPhase2Numeric('${escHtml(taskId)}','${shift}')">${existing ? 'Update reading' : 'Submit'}</button>
+      <button class="btn btn-outline btn-sm" onclick="closePhase2Drawer('${escHtml(taskId)}')">Cancel</button>
+      ${existing ? `<button class="btn btn-sm" style="margin-left:auto;color:var(--bad);border-color:var(--bad);" onclick="clearPhase2Numeric('${escHtml(taskId)}','${shift}')">Clear</button>` : ''}
+    </div>`;
+
+  const rbHost = document.getElementById('p2td-rb-' + taskId);
+  const rb = mountRangeBar(rbHost, { min, max, unit, initial, step: 'any' });
+  // Stash the controller so submit can read the value without re-querying.
+  host._rangeBar = rb;
+}
+
+function closePhase2Drawer(taskId) {
+  const host = document.getElementById('p2td-' + taskId);
+  if (!host) return;
+  host.style.display = 'none';
+  if (host._rangeBar?.destroy) host._rangeBar.destroy();
+  host._rangeBar = null;
+  host.innerHTML = '';
+}
+
+async function submitPhase2Numeric(taskId, shift) {
+  const host = document.getElementById('p2td-' + taskId);
+  const t = (cache.checklists || []).find(x => String(x.id) === String(taskId));
+  if (!host?._rangeBar || !t) return;
+  const value = host._rangeBar.value();
+  if (value == null || !Number.isFinite(value)) {
+    if (typeof toast === 'function') toast('err', 'Enter a numeric reading');
+    return;
+  }
+  const ok = await togglePhase2Task(taskId, shift, { value, unit: t.NumericUnit || '' });
+  if (ok) closePhase2Drawer(taskId); // re-render also runs but drawer is recreated cleanly
+}
+
+async function clearPhase2Numeric(taskId, shift) {
+  // Pass inputs=null on an existing log → togglePhase2Task deletes it.
+  await togglePhase2Task(taskId, shift, null);
+  closePhase2Drawer(taskId);
 }
