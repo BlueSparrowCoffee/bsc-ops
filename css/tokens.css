@@ -77,6 +77,13 @@
   --sh-input-focus:     0 0 0 3px rgba(185,223,227,0.45);
   --sh-drawer:          -8px 0 24px -10px rgba(14,53,64,0.18),
                         -2px 0 6px -2px rgba(14,53,64,0.10);
+  --sh-card-hover:      0 1px 0 rgba(255,255,255,0.6) inset,
+                        0 2px 4px rgba(14,53,64,0.06),
+                        0 4px 8px rgba(14,53,64,0.08),
+                        0 12px 28px -10px rgba(14,53,64,0.16);
+
+  /* ---- Light-blue deep accent (used by .btn.accent, focus rings) -- */
+  --bsc-light-blue-deep: #8fc4cb;
 
   /* ---- Type stacks ------------------------------------------- */
   --font-display:       'IvyPresto Display', 'Cormorant Garamond', Georgia, serif;
@@ -102,6 +109,16 @@
   --red:                #b03142;
   --orange:             #c55a11;
   --text:               var(--ink);
+  /* Mock-CSS-style aliases consumed by primitives.css (mocks use --mono / --sans
+     / --gold-deep / --opal-50 / --light-blue-deep / --light-blue-25 directly). */
+  --mono:               var(--font-mono);
+  --sans:               var(--font-body);
+  --gold-deep:          var(--bsc-gold-deep);
+  --gold-soft:          var(--bsc-gold-soft);
+  --light-blue-deep:    var(--bsc-light-blue-deep);
+  --light-blue-25:      var(--bsc-light-blue-25);
+  --light-blue-50:      var(--bsc-light-blue-50);
+  --opal-50:            var(--bsc-opal-mint-50);
 }
 
 /* ---- Page chrome ------------------------------------------ */
