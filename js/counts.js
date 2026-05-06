@@ -694,7 +694,12 @@ async function submitWeeklyCount() {
     // the count record only — the inventory item master has no CurrentStock /
     // StoreCount / StorageCount columns. Display reads via getLatestCountsMap()
     // / recentMap, so writing back to the item is unnecessary (and used to 400).
-    const countTasks = entries.map(e => () => addListItem(cntList, {
+    // PR 14c — route writes through safeAddListItem so they queue
+    // to IndexedDB if we're offline (or hit a recoverable error).
+    // The queue auto-drains when the browser comes back online.
+    // Falls back to addListItem directly if sync-queue.js failed to load.
+    const _writer = (typeof safeAddListItem === 'function') ? safeAddListItem : addListItem;
+    const countTasks = entries.map(e => () => _writer(cntList, {
       Title: e.name,
       WeekOf: countedAt,
       StoreCount: e.store,
@@ -702,7 +707,7 @@ async function submitWeeklyCount() {
       TotalCount: e.total,
       Location: loc,
       CountedBy: countedBy
-    }));
+    }, { kind: 'count', label: `${e.name} @ ${loc}` }));
 
     for (let i=0; i<countTasks.length; i+=8) {
       await Promise.all(countTasks.slice(i,i+8).map(t=>t()));

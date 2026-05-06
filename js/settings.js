@@ -499,3 +499,43 @@ async function resetOrderEmailTemplate() {
     toast('err', 'Reset failed: ' + e.message);
   }
 }
+
+// ── Pending-sync card (PR 14d) ──────────────────────────────────
+// Surfaces SyncQueue state on the Settings page. Hidden when the
+// queue is empty so the card doesn't clutter normal operation.
+async function renderSyncQueueCard() {
+  const card = document.getElementById('settings-sync-queue-card');
+  const body = document.getElementById('settings-sync-queue-body');
+  if (!card || !body) return;
+  if (typeof SyncQueue === 'undefined') { card.style.display = 'none'; return; }
+  // Force-refresh size from IDB on render.
+  await SyncQueue.refresh();
+  const size = SyncQueue.size();
+  if (size === 0) { card.style.display = 'none'; body.innerHTML = ''; return; }
+  card.style.display = '';
+  body.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;font-family:var(--mono);font-variant-numeric:tabular-nums;">
+      <span style="font-size:22px;font-weight:700;color:var(--ink);">${size}</span>
+      <span style="font-size:13px;color:var(--muted);font-family:inherit;">change${size===1?'':'s'} pending</span>
+    </div>`;
+}
+
+async function drainSyncQueueNow() {
+  if (typeof SyncQueue === 'undefined') return;
+  if (!navigator.onLine) { toast('err','Still offline — try again when you reconnect'); return; }
+  try {
+    const { ok, failed, remaining } = await SyncQueue.drain();
+    if (ok > 0) toast('ok', `↻ Synced ${ok} change${ok===1?'':'s'}${failed?` · ${failed} still pending`:''}`);
+    else if (failed > 0) toast('err', `Sync failed — ${remaining} change${remaining===1?'':'s'} still pending`);
+    else toast('ok', 'Nothing to sync');
+  } catch(e) { toast('err','Sync failed: '+e.message); }
+  renderSyncQueueCard();
+}
+
+// Subscribe to size changes so the card auto-shows/hides as the
+// queue fills/drains in the background.
+if (typeof SyncQueue !== 'undefined') {
+  SyncQueue.on('change', () => {
+    if (document.getElementById('settings-sync-queue-card')) renderSyncQueueCard();
+  });
+}
