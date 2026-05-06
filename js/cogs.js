@@ -143,8 +143,8 @@ function toggleCogsMissingFilter() {
     banner.style.borderColor  = '#d97706';
     label.textContent = 'Show all items';
   } else {
-    banner.style.background   = '#fff8e1';
-    banner.style.borderColor  = '#f59e0b';
+    banner.style.background   = 'var(--warning)';
+    banner.style.borderColor  = 'var(--orange)';
     label.textContent = 'Filter to affected items';
   }
   renderCogCards();
@@ -892,7 +892,7 @@ function renderCogCard(item, cogMap, invMap, prepMap, invIdMap) {
           </div>
         </td>
         <td style="padding:6px 8px;font-size:12px;text-align:right;color:var(--muted);">
-          ${ing.costPerServing != null ? '$'+ing.costPerServing.toFixed(3) : '<span style="color:#f59e0b" title="Add Cost Per Serving in Inventory">—</span>'}
+          ${ing.costPerServing != null ? '$'+ing.costPerServing.toFixed(3) : '<span style="color:var(--orange)" title="Add Cost Per Serving in Inventory">—</span>'}
         </td>
         <td style="padding:6px 8px;font-size:12px;text-align:right;font-weight:600;">
           ${ing.lineCost != null ? '$'+ing.lineCost.toFixed(3) : '—'}
@@ -945,7 +945,7 @@ function renderCogCard(item, cogMap, invMap, prepMap, invIdMap) {
 
     return `
       <div id="cog-panel-${itemId}-${vi}" style="display:${vi===activeVi?'block':'none'}">
-        ${hasMissingCost ? `<div style="font-size:11px;color:#f59e0b;padding:4px 0 6px;"><span>⚠️ Some ingredients missing Cost Per Serving</span></div>` : ''}
+        ${hasMissingCost ? `<div style="font-size:11px;color:var(--orange);padding:4px 0 6px;"><span>⚠️ Some ingredients missing Cost Per Serving</span></div>` : ''}
         <div style="overflow-x:auto;">
         <table style="width:100%;border-collapse:collapse;min-width:320px;">
           <thead>
@@ -1616,7 +1616,7 @@ function renderCogsOverview() {
   ].map(([label, val]) => `
     <div class="card" style="padding:12px 16px;">
       <div style="font-size:11px;color:var(--muted);margin-bottom:4px">${label}</div>
-      <div style="font-size:20px;font-weight:700">${val}</div>
+      <div style="font-size:22px;font-weight:700">${val}</div>
     </div>`).join('');
 
   // Chart — always based on visibleItems

@@ -208,7 +208,7 @@ function renderAutoSyncCard() {
       Last synced: <strong>${escHtml(lastLabel)}</strong>
       ${lockHot ? `<br><span style="color:var(--gold);">🔄 Currently syncing in another tab (${escHtml(lock.owner || 'unknown')})</span>` : ''}
     </div>
-    <button class="btn btn-outline" onclick="runAutoSyncNow()" ${ownerOnly||lockHot?'disabled':''} style="font-size:13px;">
+    <button class="btn btn-outline" onclick="runAutoSyncNow()" ${ownerOnly||lockHot?'disabled':''}>
       🔄 Run Now
     </button>
     ${ownerOnly ? '<div style="font-size:11px;color:var(--muted);margin-top:10px;">Owner access required to enable or run.</div>' : ''}

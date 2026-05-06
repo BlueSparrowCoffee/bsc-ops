@@ -366,7 +366,7 @@ function renderTransferSummaryPanel() {
           ${pillBtn('last', _xferMonthName(lastDate))}
         </div>
         <div class="ml-auto" style="font-size:13px;color:var(--muted);text-align:right;">
-          <div><strong style="color:var(--dark-blue);font-size:20px;">${_xferMoney(sum.total)}</strong></div>
+          <div><strong style="color:var(--dark-blue);font-size:22px;">${_xferMoney(sum.total)}</strong></div>
           <div style="font-size:12px;">${sum.count} transfer${sum.count===1?'':'s'}</div>
         </div>
       </div>
@@ -699,15 +699,15 @@ function renderAcctCogsCard() {
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px;">
       <div style="padding:10px 12px;background:var(--cream);border-radius:8px;">
         <div style="font-size:11px;color:var(--muted);margin-bottom:2px;">Total Items</div>
-        <div style="font-size:20px;font-weight:700;">${items.length}</div>
+        <div style="font-size:22px;font-weight:700;">${items.length}</div>
       </div>
       <div style="padding:10px 12px;background:var(--cream);border-radius:8px;">
         <div style="font-size:11px;color:var(--muted);margin-bottom:2px;">Avg Margin</div>
-        <div style="font-size:20px;font-weight:700;">${avg.toFixed(1)}%</div>
+        <div style="font-size:22px;font-weight:700;">${avg.toFixed(1)}%</div>
       </div>
       <div style="padding:10px 12px;background:var(--cream);border-radius:8px;">
         <div style="font-size:11px;color:var(--muted);margin-bottom:2px;">Best</div>
-        <div style="font-size:14px;font-weight:600;color:#16a34a;" title="${escHtml(best?.name||'')}">${best ? best.margin.toFixed(1)+'%' : '—'}</div>
+        <div style="font-size:14px;font-weight:600;color:var(--green);" title="${escHtml(best?.name||'')}">${best ? best.margin.toFixed(1)+'%' : '—'}</div>
         <div style="font-size:11px;color:var(--muted);" title="${escHtml(best?.name||'')}">${escHtml((best?.name||'').slice(0,24))}${(best?.name||'').length>24?'…':''}</div>
       </div>
       <div style="padding:10px 12px;background:var(--cream);border-radius:8px;">

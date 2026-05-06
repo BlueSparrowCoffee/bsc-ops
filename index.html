@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-05a">
-<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-05a">
-<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-05a">
-<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-05a">
-<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-05a">
+<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-06b">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-06b">
+<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-06b">
+<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-06b">
+<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-06b">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="BSC Ops">
@@ -29,6 +29,7 @@
   --opal:      #d7e7dd;
   --cream:     #eef6f3;
   --milk:      #f5faf8;
+  --warning:   #fff8e1;
   --text:      #023d4a;
   --muted:     #4d8a98;
   --border:    #b9dfe3;
@@ -65,7 +66,7 @@ h1,h2,h3,.stat-value{font-family:'IvyPresto Display','Hoefler Text',Georgia,seri
 .loc-btn{padding:4px 12px;border:1.5px solid rgba(255,255,255,.3);border-radius:20px;background:transparent;color:#fff;font-size:12px;cursor:pointer;font-family:inherit;transition:all .15s;}
 .loc-btn:hover,.loc-btn.active{background:var(--gold);border-color:var(--gold);color:#fff;}
 .topbar-right{margin-left:auto;display:flex;align-items:flex-start;gap:12px;}
-.btn-signout{font-size:11px;padding:3px 10px;border:1px solid rgba(255,255,255,.35);border-radius:5px;background:transparent;color:rgba(255,255,255,.85);cursor:pointer;font-family:inherit;margin-top:1px;}
+.btn-signout{font-size:11px;padding:3px 10px;border:1px solid rgba(255,255,255,.35);border-radius:8px;background:transparent;color:rgba(255,255,255,.85);cursor:pointer;font-family:inherit;margin-top:1px;}
 .btn-signout:hover{border-color:#fff;color:#fff;}
 
 /* ── APP SHELL ── */
@@ -357,7 +358,7 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
 .count-num-input.count-adjust-active{outline:2px solid var(--gold);outline-offset:2px;background:rgba(183,139,64,.10);transform:scale(1.06);transition:transform .12s ease, background .12s ease;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
 /* +1 / -1 stepper buttons next to count inputs */
 .count-pm-group{display:flex;flex-direction:column;gap:2px;align-self:flex-end;margin-bottom:1px;flex-shrink:0;}
-.count-pm-btn{padding:3px 8px;background:var(--opal);border:1.5px solid var(--border);border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;color:var(--dark-blue);line-height:1;}
+.count-pm-btn{padding:3px 8px;background:var(--opal);border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;color:var(--dark-blue);line-height:1;}
 @media(max-width:720px){
   .count-pm-group{flex-direction:row;gap:8px;align-self:center;margin-bottom:0;}
   .count-pm-btn{padding:10px 18px;font-size:16px;border-radius:8px;min-width:48px;min-height:44px;}
@@ -386,7 +387,7 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
 /* ── MAINTENANCE STATUS BADGES ── */
 .maint-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;letter-spacing:.04em;padding:3px 9px;border-radius:20px;}
 .maint-overdue{background:#fde8e8;color:var(--red);}
-.maint-due-soon{background:#fff8e1;color:#9a7200;}
+.maint-due-soon{background:var(--warning);color:#9a7200;}
 .maint-upcoming{background:#e8f5e9;color:#2e7d32;}
 .maint-card{background:#fff;border:1.5px solid var(--border);border-radius:12px;padding:18px 20px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:8px;transition:box-shadow .15s,border-color .15s;}
 .maint-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.12);}
@@ -444,7 +445,7 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
 .spark-bar{width:8px;min-height:2px;background:var(--gold);border-radius:2px 2px 0 0;opacity:.8;}
 .days-pill{display:inline-block;padding:2px 9px;border-radius:10px;font-size:12px;font-weight:600;}
 .days-pill.urgent{background:#fde8e8;color:var(--red);}
-.days-pill.warn{background:#fff8e1;color:#9a7200;}
+.days-pill.warn{background:var(--warning);color:#9a7200;}
 .days-pill.ok{background:#e8f5e9;color:#2e7d32;}
 .order-qty{font-weight:700;color:var(--espresso);}
 /* ── MULTI-CATEGORY FILTER ── */
@@ -576,7 +577,7 @@ html,body{overscroll-behavior:none;}
 <div id="content">
 
   <!-- Unlinked account banner (shown when login email isn't in BSC_Staff) -->
-  <div id="unlinked-banner" style="display:none;background:#fff8e1;border-bottom:2px solid #f59e0b;padding:10px 24px;align-items:center;gap:12px;font-size:13px;">
+  <div id="unlinked-banner" style="display:none;background:var(--warning);border-bottom:2px solid var(--orange);padding:10px 24px;align-items:center;gap:12px;font-size:13px;">
     <span style="font-size:18px;">⚠️</span>
     <div>
       <strong>Your Microsoft account isn't linked to a staff record.</strong>
@@ -849,7 +850,7 @@ html,body{overscroll-behavior:none;}
       <button class="btn btn-primary" id="cl-new-btn" style="display:none;" onclick="openChecklistGroupForm(null)">+ New Checklist</button>
     </div>
     <!-- Suggestions panel (manager only) -->
-    <div id="cl-suggestions-panel" style="display:none;background:#fff8e1;border:1.5px solid #f59e0b;border-radius:12px;padding:16px 20px;margin-bottom:20px;">
+    <div id="cl-suggestions-panel" style="display:none;background:var(--warning);border:1.5px solid var(--orange);border-radius:12px;padding:16px 20px;margin-bottom:20px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
         <div style="font-weight:700;font-size:14px;">💡 Suggested Tasks</div>
         <button onclick="toggleSuggestionsPanel()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px;line-height:1;">×</button>
@@ -883,12 +884,12 @@ html,body{overscroll-behavior:none;}
       <select class="filter" id="vendor-tag-filter" onchange="renderVendors(document.querySelector('#page-vendors .search-input').value)">
         <option value="">All Tags</option>
       </select>
-      <button id="vendor-add-btn" class="btn btn-outline" onclick="openVendorForm(null)" style="font-size:12px;padding:5px 12px;">+ Add Vendor</button>
-      <button id="vendor-edit-btn" class="btn btn-outline" onclick="toggleVendorEditMode()" style="font-size:12px;padding:5px 12px;">✏️ Edit</button>
-      <button id="vendor-save-btn" class="btn btn-primary" onclick="saveAllVendors()" style="display:none;font-size:12px;padding:5px 12px;">Save All</button>
-      <button id="vendor-cancel-btn" class="btn btn-outline" onclick="cancelVendorEditMode()" style="display:none;font-size:12px;padding:5px 12px;">Cancel</button>
+      <button id="vendor-add-btn" class="btn btn-outline btn-sm" onclick="openVendorForm(null)">+ Add Vendor</button>
+      <button id="vendor-edit-btn" class="btn btn-outline btn-sm" onclick="toggleVendorEditMode()">✏️ Edit</button>
+      <button id="vendor-save-btn" class="btn btn-primary btn-sm" onclick="saveAllVendors()" style="display:none;">Save All</button>
+      <button id="vendor-cancel-btn" class="btn btn-outline btn-sm" onclick="cancelVendorEditMode()" style="display:none;">Cancel</button>
       <div style="position:relative;display:inline-block;">
-        <button class="btn btn-outline" onclick="toggleColPanel()" style="font-size:12px;padding:5px 12px;">⚙ Columns</button>
+        <button class="btn btn-outline btn-sm" onclick="toggleColPanel()">⚙ Columns</button>
         <div id="col-panel" style="display:none;position:absolute;right:0;top:32px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:12px;min-width:200px;z-index:200;box-shadow:var(--shadow);max-height:320px;overflow-y:auto;font-size:13px;"></div>
       </div>
       <span id="vendor-count" style="font-size:13px;color:var(--muted);margin-left:auto;"></span>
@@ -1026,7 +1027,7 @@ html,body{overscroll-behavior:none;}
         <div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
             <label style="margin:0;font-weight:600;">Ingredients</label>
-            <button class="btn btn-outline" style="font-size:12px;padding:4px 10px;" onclick="addPrepIngRow(null)">+ Add Ingredient</button>
+            <button class="btn btn-outline btn-sm" onclick="addPrepIngRow(null)">+ Add Ingredient</button>
           </div>
           <div id="pi-ing-rows" style="display:flex;flex-direction:column;gap:0;"></div>
           <div id="pi-no-ings" style="font-size:12px;color:var(--muted);padding:8px 0;">No ingredients added yet.</div>
@@ -1207,38 +1208,38 @@ html,body{overscroll-behavior:none;}
         <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;">
           <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
             <span style="font-size:11px;font-weight:600;color:var(--muted);">Mon</span>
-            <input type="number" id="fp-mon" min="0" placeholder="0" style="width:100%;text-align:center;padding:8px 2px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;box-sizing:border-box;">
+            <input type="number" id="fp-mon" min="0" placeholder="0" style="width:100%;text-align:center;padding:8px 2px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;box-sizing:border-box;">
           </div>
           <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
             <span style="font-size:11px;font-weight:600;color:var(--muted);">Tue</span>
-            <input type="number" id="fp-tue" min="0" placeholder="0" style="width:100%;text-align:center;padding:8px 2px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;box-sizing:border-box;">
+            <input type="number" id="fp-tue" min="0" placeholder="0" style="width:100%;text-align:center;padding:8px 2px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;box-sizing:border-box;">
           </div>
           <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
             <span style="font-size:11px;font-weight:600;color:var(--muted);">Wed</span>
-            <input type="number" id="fp-wed" min="0" placeholder="0" style="width:100%;text-align:center;padding:8px 2px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;box-sizing:border-box;">
+            <input type="number" id="fp-wed" min="0" placeholder="0" style="width:100%;text-align:center;padding:8px 2px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;box-sizing:border-box;">
           </div>
           <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
             <span style="font-size:11px;font-weight:600;color:var(--muted);">Thu</span>
-            <input type="number" id="fp-thu" min="0" placeholder="0" style="width:100%;text-align:center;padding:8px 2px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;box-sizing:border-box;">
+            <input type="number" id="fp-thu" min="0" placeholder="0" style="width:100%;text-align:center;padding:8px 2px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;box-sizing:border-box;">
           </div>
           <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
             <span style="font-size:11px;font-weight:600;color:var(--muted);">Fri</span>
-            <input type="number" id="fp-fri" min="0" placeholder="0" style="width:100%;text-align:center;padding:8px 2px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;box-sizing:border-box;">
+            <input type="number" id="fp-fri" min="0" placeholder="0" style="width:100%;text-align:center;padding:8px 2px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;box-sizing:border-box;">
           </div>
           <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
             <span style="font-size:11px;font-weight:600;color:var(--muted);">Sat</span>
-            <input type="number" id="fp-sat" min="0" placeholder="0" style="width:100%;text-align:center;padding:8px 2px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;box-sizing:border-box;">
+            <input type="number" id="fp-sat" min="0" placeholder="0" style="width:100%;text-align:center;padding:8px 2px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;box-sizing:border-box;">
           </div>
           <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
             <span style="font-size:11px;font-weight:600;color:var(--muted);">Sun</span>
-            <input type="number" id="fp-sun" min="0" placeholder="0" style="width:100%;text-align:center;padding:8px 2px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;box-sizing:border-box;">
+            <input type="number" id="fp-sun" min="0" placeholder="0" style="width:100%;text-align:center;padding:8px 2px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;box-sizing:border-box;">
           </div>
         </div>
         <div style="margin-top:14px;">
           <label class="field-label" style="margin-bottom:4px;display:block;">Price <span style="font-weight:400;color:var(--muted);">(per unit)</span></label>
           <div style="position:relative;max-width:140px;">
             <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:14px;">$</span>
-            <input type="number" id="fp-price" min="0" step="0.01" placeholder="0.00" style="width:100%;padding:8px 10px 8px 22px;border:1.5px solid var(--border);border-radius:7px;font-size:14px;box-sizing:border-box;">
+            <input type="number" id="fp-price" min="0" step="0.01" placeholder="0.00" style="width:100%;padding:8px 10px 8px 22px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;box-sizing:border-box;">
           </div>
         </div>
         <!-- Advanced toggle (export name for order sheet) -->
@@ -1693,7 +1694,7 @@ html,body{overscroll-behavior:none;}
           </label>
           <button class="btn btn-primary" onclick="snapshotCogs()" style="font-size:12px;padding:6px 14px;" title="Save current COG & margin to history">📸 Snapshot Costs</button>
         </div>
-        <div id="cogs-missing-costs" style="display:none;background:#fff8e1;border:1.5px solid #f59e0b;border-radius:10px;padding:12px 16px;font-size:13px;color:#92400e;margin-bottom:16px;cursor:pointer;user-select:none;" onclick="toggleCogsMissingFilter()">
+        <div id="cogs-missing-costs" style="display:none;background:var(--warning);border:1.5px solid var(--orange);border-radius:12px;padding:12px 16px;font-size:13px;color:#92400e;margin-bottom:16px;cursor:pointer;user-select:none;" onclick="toggleCogsMissingFilter()">
           ⚠️ Some ingredients are missing <strong>Cost Per Serving</strong>. <span id="cogs-missing-filter-label" style="text-decoration:underline;font-weight:600;">Filter to affected items</span>
         </div>
         <div id="cogs-empty" style="display:none;text-align:center;padding:60px;color:var(--muted)">
@@ -2169,7 +2170,7 @@ html,body{overscroll-behavior:none;}
     <div id="sq-status-bar" style="display:flex;align-items:center;gap:12px;padding:12px 18px;border-radius:10px;margin-bottom:24px;background:#fff;border:1.5px solid var(--border);">
       <div id="sq-status-dot" style="width:10px;height:10px;border-radius:50%;background:#ccc;flex-shrink:0;"></div>
       <div id="sq-status-text" style="font-size:13px;color:var(--muted);">Not connected — add your Square access token below</div>
-      <button class="btn btn-outline" style="margin-left:auto;font-size:12px;padding:5px 12px" onclick="testSquareConnection()">Test Connection</button>
+      <button class="btn btn-outline btn-sm ml-auto" onclick="testSquareConnection()">Test Connection</button>
     </div>
 
     <div class="cards-grid">
@@ -2276,7 +2277,7 @@ html,body{overscroll-behavior:none;}
         <option value="BSC 17th">BSC 17th</option>
       </select>
       <span id="parking-count" style="font-size:13px;color:var(--muted);"></span>
-      <button class="btn btn-primary" onclick="openParkingForm(null)" style="font-size:12px;padding:5px 12px;">+ Add Entry</button>
+      <button class="btn btn-primary btn-sm" onclick="openParkingForm(null)">+ Add Entry</button>
     </div>
     <div class="table-wrap">
       <table>
@@ -2338,7 +2339,7 @@ html,body{overscroll-behavior:none;}
         </div>
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;padding:10px 14px;background:var(--cream);border-radius:8px;">
           <span style="font-size:13px;font-weight:600;">Global Slack Pause</span>
-          <button id="slack-global-pause-btn" class="btn btn-outline" style="font-size:12px;padding:5px 14px;margin-left:auto;" onclick="toggleGlobalSlackPause()">⏸ Pause All</button>
+          <button id="slack-global-pause-btn" class="btn btn-outline btn-sm ml-auto" onclick="toggleGlobalSlackPause()">⏸ Pause All</button>
         </div>
 
         <!-- Webhook URL — moved server-side -->
@@ -2393,8 +2394,8 @@ html,body{overscroll-behavior:none;}
             <input type="text" id="new-notif-desc" class="field-input" placeholder="When this fires…" style="width:100%">
           </div>
           <div style="display:flex;gap:8px">
-            <button class="btn btn-primary" style="font-size:13px" onclick="saveNewNotif()">Add Rule</button>
-            <button class="btn btn-outline" style="font-size:13px" onclick="closeAddNotifForm()">Cancel</button>
+            <button class="btn btn-primary" onclick="saveNewNotif()">Add Rule</button>
+            <button class="btn btn-outline" onclick="closeAddNotifForm()">Cancel</button>
           </div>
         </div>
       </div>
@@ -2586,7 +2587,7 @@ html,body{overscroll-behavior:none;}
           <div style="display:flex;gap:6px;align-items:center;">
             <input id="new-item-supplier-name" class="field-input" placeholder="New vendor name" style="flex:1;"
               onkeydown="if(event.key==='Enter'){event.preventDefault();createVendorQuick();}">
-            <button type="button" class="btn btn-outline" style="font-size:12px;padding:5px 10px;white-space:nowrap;" onclick="createVendorQuick()">Add</button>
+            <button type="button" class="btn btn-outline btn-sm" style="white-space:nowrap;" onclick="createVendorQuick()">Add</button>
           </div>
         </div>
       </div>
@@ -2597,9 +2598,9 @@ html,body{overscroll-behavior:none;}
       <div class="form-group inv-cons-only"><label>Cost</label><input id="new-item-cost" type="number" step="0.01" placeholder="0.00" oninput="calcCostPerServing()"></div>
       <div class="form-group inv-cons-only" style="grid-column:1/-1">
         <label>Par Level &amp; Reorder Trigger <span style="font-size:10px;color:var(--muted);font-weight:400;">(per location)</span></label>
-        <div id="inv-par-table-wrap" style="border:1.5px solid var(--border);border-radius:7px;overflow:hidden;background:var(--cream);"></div>
+        <div id="inv-par-table-wrap" style="border:1.5px solid var(--border);border-radius:8px;overflow:hidden;background:var(--cream);"></div>
       </div>
-      <div class="form-group inv-cons-only"><label>Cost / Serving <span style="font-size:10px;color:var(--muted)">(auto)</span></label><div id="cost-per-serving-preview" style="padding:7px 10px;background:var(--cream);border-radius:7px;font-size:13px;color:var(--muted);border:1.5px solid var(--border);">—</div></div>
+      <div class="form-group inv-cons-only"><label>Cost / Serving <span style="font-size:10px;color:var(--muted)">(auto)</span></label><div id="cost-per-serving-preview" style="padding:7px 10px;background:var(--cream);border-radius:8px;font-size:13px;color:var(--muted);border:1.5px solid var(--border);">—</div></div>
       <div class="form-group" style="grid-column:1/-1"><label>Tags</label><div id="inv-item-tags-editor"></div></div>
     </div>
     <div class="form-actions" style="justify-content:space-between;">
@@ -2825,40 +2826,40 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-05-05a" defer></script>
-<script src="/js/utils.js?v=2026-05-05a" defer></script>
-<script src="/js/state.js?v=2026-05-05a" defer></script>
-<script src="/js/auth.js?v=2026-05-05a" defer></script>
-<script src="/js/graph.js?v=2026-05-05a" defer></script>
-<script src="/js/signalr.js?v=2026-05-05a" defer></script>
-<script src="/js/tags.js?v=2026-05-05a" defer></script>
-<script src="/js/nav.js?v=2026-05-05a" defer></script>
-<script src="/js/settings.js?v=2026-05-05a" defer></script>
-<script src="/js/dashboard.js?v=2026-05-05a" defer></script>
-<script src="/js/inventory.js?v=2026-05-05a" defer></script>
-<script src="/js/inventory-form.js?v=2026-05-05a" defer></script>
-<script src="/js/counts.js?v=2026-05-05a" defer></script>
-<script src="/js/foodpars.js?v=2026-05-05a" defer></script>
-<script src="/js/labels.js?v=2026-05-05a" defer></script>
-<script src="/js/bags.js?v=2026-05-05a" defer></script>
-<script src="/js/bag-labels-5lb.js?v=2026-05-05a" defer></script>
-<script src="/js/pastry-sync.js?v=2026-05-05a" defer></script>
-<script src="/js/recipes.js?v=2026-05-05a" defer></script>
-<script src="/js/cogs.js?v=2026-05-05a" defer></script>
-<script src="/js/vendors.js?v=2026-05-05a" defer></script>
-<script src="/js/contacts.js?v=2026-05-05a" defer></script>
-<script src="/js/maintenance.js?v=2026-05-05a" defer></script>
-<script src="/js/checklists.js?v=2026-05-05a" defer></script>
-<script src="/js/ordering.js?v=2026-05-05a" defer></script>
-<script src="/js/ordering-build.js?v=2026-05-05a" defer></script>
-<script src="/js/market-analysis.js?v=2026-05-05a" defer></script>
-<script src="/js/projects.js?v=2026-05-05a" defer></script>
-<script src="/js/parking.js?v=2026-05-05a" defer></script>
-<script src="/js/prepItems.js?v=2026-05-05a" defer></script>
-<script src="/js/square.js?v=2026-05-05a" defer></script>
-<script src="/js/timeclock.js?v=2026-05-05a" defer></script>
-<script src="/js/slack.js?v=2026-05-05a" defer></script>
-<script src="/js/auto-sync.js?v=2026-05-05a" defer></script>
+<script src="/js/constants.js?v=2026-05-06b" defer></script>
+<script src="/js/utils.js?v=2026-05-06b" defer></script>
+<script src="/js/state.js?v=2026-05-06b" defer></script>
+<script src="/js/auth.js?v=2026-05-06b" defer></script>
+<script src="/js/graph.js?v=2026-05-06b" defer></script>
+<script src="/js/signalr.js?v=2026-05-06b" defer></script>
+<script src="/js/tags.js?v=2026-05-06b" defer></script>
+<script src="/js/nav.js?v=2026-05-06b" defer></script>
+<script src="/js/settings.js?v=2026-05-06b" defer></script>
+<script src="/js/dashboard.js?v=2026-05-06b" defer></script>
+<script src="/js/inventory.js?v=2026-05-06b" defer></script>
+<script src="/js/inventory-form.js?v=2026-05-06b" defer></script>
+<script src="/js/counts.js?v=2026-05-06b" defer></script>
+<script src="/js/foodpars.js?v=2026-05-06b" defer></script>
+<script src="/js/labels.js?v=2026-05-06b" defer></script>
+<script src="/js/bags.js?v=2026-05-06b" defer></script>
+<script src="/js/bag-labels-5lb.js?v=2026-05-06b" defer></script>
+<script src="/js/pastry-sync.js?v=2026-05-06b" defer></script>
+<script src="/js/recipes.js?v=2026-05-06b" defer></script>
+<script src="/js/cogs.js?v=2026-05-06b" defer></script>
+<script src="/js/vendors.js?v=2026-05-06b" defer></script>
+<script src="/js/contacts.js?v=2026-05-06b" defer></script>
+<script src="/js/maintenance.js?v=2026-05-06b" defer></script>
+<script src="/js/checklists.js?v=2026-05-06b" defer></script>
+<script src="/js/ordering.js?v=2026-05-06b" defer></script>
+<script src="/js/ordering-build.js?v=2026-05-06b" defer></script>
+<script src="/js/market-analysis.js?v=2026-05-06b" defer></script>
+<script src="/js/projects.js?v=2026-05-06b" defer></script>
+<script src="/js/parking.js?v=2026-05-06b" defer></script>
+<script src="/js/prepItems.js?v=2026-05-06b" defer></script>
+<script src="/js/square.js?v=2026-05-06b" defer></script>
+<script src="/js/timeclock.js?v=2026-05-06b" defer></script>
+<script src="/js/slack.js?v=2026-05-06b" defer></script>
+<script src="/js/auto-sync.js?v=2026-05-06b" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
@@ -4106,10 +4107,10 @@ function renderStaff(query='') {
         ${s.Email?`<div>✉️ <a href="mailto:${escHtml(s.Email)}" onclick="event.stopPropagation()">${escHtml(s.Email)}</a></div>`:''}
       </div>
       <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
-        <button class="btn btn-outline" style="padding:5px 12px;font-size:12px;flex:1" onclick="event.stopPropagation();openStaffForm('${s.id}')">✏️ Edit</button>
+        <button class="btn btn-outline btn-sm" style="flex:1;" onclick="event.stopPropagation();openStaffForm('${s.id}')">✏️ Edit</button>
         ${s.Email?`
-        <button class="btn btn-primary" style="padding:5px 12px;font-size:12px;flex:1" onclick="event.stopPropagation();grantMemberAccess('${s.id}')">${grantLbl}</button>
-        <button class="btn btn-danger" style="padding:5px 12px;font-size:12px;flex:1" onclick="event.stopPropagation();revokeMemberAccess('${s.id}')">🚫 Revoke</button>
+        <button class="btn btn-primary btn-sm" style="flex:1;" onclick="event.stopPropagation();grantMemberAccess('${s.id}')">${grantLbl}</button>
+        <button class="btn btn-danger btn-sm" style="flex:1;" onclick="event.stopPropagation();revokeMemberAccess('${s.id}')">🚫 Revoke</button>
         `:''}
       </div>
     </div>`;
@@ -4180,7 +4181,7 @@ function openStaffForm(id) {
   if (isCurrentUser) {
     const note = document.createElement('div');
     note.id = 'sf-current-user-note';
-    note.style.cssText = 'font-size:12px;color:#16a34a;margin-top:4px;';
+    note.style.cssText = 'font-size:12px;color:var(--green);margin-top:4px;';
     note.textContent = '✓ This is your account — linked to ' + myEmail;
     emailInput?.parentElement?.appendChild(note);
   }
@@ -4343,12 +4344,12 @@ async function loadColMgrColumns() {
               <td style="padding:8px 10px;color:var(--muted);">${escHtml(colMgrType(c))}</td>
               <td style="padding:8px 10px;color:var(--muted);">${c.required ? 'Yes' : '—'}</td>
               <td style="padding:6px 10px;display:flex;gap:6px;">
-                <button class="btn" style="font-size:12px;padding:4px 10px;"
+                <button class="btn btn-outline btn-sm"
                   data-list="${escHtml(listName)}" data-id="${escHtml(c.id)}" data-display="${escHtml(c.displayName)}"
                   onclick="renameColMgrColumn(this.dataset.list,this.dataset.id,this.dataset.display)">
                   Rename
                 </button>
-                <button class="btn btn-danger" style="font-size:12px;padding:4px 10px;"
+                <button class="btn btn-danger btn-sm"
                   data-list="${escHtml(listName)}" data-id="${escHtml(c.id)}" data-name="${escHtml(c.name)}"
                   onclick="deleteColMgrColumn(this.dataset.list,this.dataset.id,this.dataset.name)">
                   Delete
@@ -4790,9 +4791,9 @@ async function renderMerchMonthlyCost() {
     <!-- Month nav + actions -->
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
       <div style="display:flex;align-items:center;gap:8px;">
-        <button class="btn btn-outline" style="padding:4px 12px;" onclick="navigateMerchMonth(-1)">◀</button>
+        <button class="btn btn-outline btn-sm" onclick="navigateMerchMonth(-1)">◀</button>
         <span style="font-size:15px;font-weight:600;min-width:160px;text-align:center">${escHtml(monthLabel)}</span>
-        <button class="btn btn-outline" style="padding:4px 12px;" onclick="navigateMerchMonth(1)" ${isCurrentMonth?'disabled':''}>▶</button>
+        <button class="btn btn-outline btn-sm" onclick="navigateMerchMonth(1)" ${isCurrentMonth?'disabled':''}>▶</button>
       </div>
       <span style="font-size:12px;color:var(--muted)">${escHtml(loc)}</span>
       ${canAct && !isClosed && isCurrentMonth ? `<button class="btn btn-primary" style="margin-left:auto" onclick="closeMerchMonth()">Close Month</button>` : ''}
@@ -5265,7 +5266,7 @@ function renderMenu(query='', catFilter='') {
     const stockDisplay = stock != null ? stock : '—';
     const vars = (i.Variations||'').split('\n').filter(Boolean);
     return `<tr data-gs-id="${escHtml(i.id)}" style="${isHidden?'opacity:0.45;':''}">
-      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-05a" alt="" title="Synced with Square">':''}</td>
+      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-06b" alt="" title="Synced with Square">':''}</td>
       <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${escHtml(i.Category||'—')}</span></td>
       <td style="font-size:12px;color:var(--muted);max-width:220px">${escHtml(i.Description||'')}</td>
       <td>${i.Price != null ? '$'+Number(i.Price).toFixed(2) : '—'}</td>

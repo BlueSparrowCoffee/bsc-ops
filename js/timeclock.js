@@ -100,7 +100,7 @@ async function renderClockedInCard() {
       </div>
       ${byLoc[loc].map(s => `
         <div class="alert-item">
-          <div class="alert-dot" style="background:#16a34a"></div>
+          <div class="alert-dot" style="background:var(--green)"></div>
           <span>${escHtml(s.teamMemberName)}</span>
           <span style="margin-left:auto;font-size:11px;color:var(--muted);">in @ ${fmt(s.startedAt)}</span>
         </div>`).join('')}

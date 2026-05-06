@@ -394,7 +394,7 @@ function renderProjectDetail() {
     <div style="padding:10px 12px;border-bottom:2px solid var(--border);">
       <textarea id="proj-new-update" rows="2" placeholder="Add an update — what changed? what's next?" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;resize:vertical;font-family:inherit;"></textarea>
       <div style="display:flex;justify-content:flex-end;margin-top:6px;">
-        <button class="btn btn-primary" style="padding:5px 14px;font-size:12px;" onclick="addProjectUpdate('${escHtml(p.id)}')">Post Update</button>
+        <button class="btn btn-primary btn-sm" onclick="addProjectUpdate('${escHtml(p.id)}')">Post Update</button>
       </div>
     </div>`;
 
@@ -481,7 +481,7 @@ function renderProjectDetail() {
       <div class="card">
         <div style="padding:14px 16px 10px;border-bottom:1px solid var(--opal);display:flex;justify-content:space-between;align-items:center;">
           <div style="font-weight:700;font-size:14px;">🔗 Links <span style="font-weight:400;color:var(--muted);font-size:12px;">${links.length}</span></div>
-          ${userIsMgr ? `<button class="btn btn-outline" style="padding:5px 12px;font-size:12px;" onclick="openProjectLinkForm('${escHtml(p.id)}')">+ Add Link</button>` : ''}
+          ${userIsMgr ? `<button class="btn btn-outline btn-sm" onclick="openProjectLinkForm('${escHtml(p.id)}')">+ Add Link</button>` : ''}
         </div>
         <div style="padding:6px 16px 14px;">
           ${linkRows || `<div style="font-size:12px;color:var(--muted);padding:14px 0;text-align:center;font-style:italic;">No links yet${userIsMgr?' — click + Add Link':''}</div>`}

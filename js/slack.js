@@ -128,10 +128,10 @@ function renderNotifRules() {
         <div style="font-size:11px;color:var(--muted)">${escHtml(r.description||'')}</div>
       </div>
       <span class="badge ${r.enabled?'badge-green':'badge-orange'}" style="font-size:11px">${r.enabled?'Active':'Paused'}</span>
-      <button class="btn btn-outline" style="font-size:12px;padding:5px 12px" data-id="${escHtml(r.id)}" onclick="toggleNotifRule(this.dataset.id)">
+      <button class="btn btn-outline btn-sm" data-id="${escHtml(r.id)}" onclick="toggleNotifRule(this.dataset.id)">
         ${r.enabled?'⏸ Pause':'▶ Resume'}
       </button>
-      <button class="btn btn-outline" style="font-size:12px;padding:5px 10px;color:var(--red);border-color:var(--red)" data-id="${escHtml(r.id)}" onclick="deleteNotifRule(this.dataset.id)">✕</button>
+      <button class="btn btn-danger btn-sm" data-id="${escHtml(r.id)}" onclick="deleteNotifRule(this.dataset.id)">✕</button>
     </div>`).join('');
 }
 

@@ -241,7 +241,7 @@ function renderChecklistCard(group, userIsMgr) {
 
   const completeBtn = (!isMultiday && tasks.length)
     ? `<button onclick="markGroupComplete('${gid}','${escHtml(group.Title||'')}')"
-        style="padding:5px 12px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;white-space:nowrap;">✅ Mark All Done</button>`
+        style="padding:5px 12px;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;white-space:nowrap;">✅ Mark All Done</button>`
     : '';
 
   return `

@@ -421,7 +421,7 @@ function renderCountSheet() {
   const container = document.getElementById('count-sheet-body');
   if (currentLocation === 'all') {
     container.innerHTML = `
-      <div style="background:#fff8e1;border:1.5px solid #f0c040;border-radius:10px;padding:20px 24px;margin-top:12px;text-align:center">
+      <div style="background:var(--warning);border:1.5px solid var(--orange);border-radius:12px;padding:20px 24px;margin-top:12px;text-align:center">
         <div style="font-size:22px;margin-bottom:8px">📍</div>
         <div style="font-weight:600;font-size:14px;margin-bottom:4px">Select a location to enter counts</div>
         <div style="font-size:13px;color:var(--muted)">Use the location buttons at the top to choose Sherman, Blake, or Platte before entering weekly counts.</div>
@@ -706,7 +706,7 @@ function renderMerchCountSheet() {
   const container = document.getElementById('count-sheet-body');
   if (currentLocation === 'all') {
     container.innerHTML = `
-      <div style="background:#fff8e1;border:1.5px solid #f0c040;border-radius:10px;padding:20px 24px;margin-top:12px;text-align:center">
+      <div style="background:var(--warning);border:1.5px solid var(--orange);border-radius:12px;padding:20px 24px;margin-top:12px;text-align:center">
         <div style="font-size:22px;margin-bottom:8px">📍</div>
         <div style="font-weight:600;font-size:14px;margin-bottom:4px">Select a location to enter counts</div>
         <div style="font-size:13px;color:var(--muted)">Use the location buttons at the top to choose a specific location before entering monthly counts.</div>
@@ -722,9 +722,9 @@ function renderMerchCountSheet() {
     const monthLabel = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     headerBar.innerHTML = `
       <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-        <button class="btn btn-outline" onclick="shiftMerchMonth(-1)" style="padding:5px 12px;">◀</button>
+        <button class="btn btn-outline btn-sm" onclick="shiftMerchMonth(-1)">◀</button>
         <div style="font-weight:700;font-size:15px;min-width:160px;text-align:center">${monthLabel}</div>
-        <button class="btn btn-outline" onclick="shiftMerchMonth(1)" style="padding:5px 12px;" ${_merchCountMonth>=0?'disabled':''}>▶</button>
+        <button class="btn btn-outline btn-sm" onclick="shiftMerchMonth(1)" ${_merchCountMonth>=0?'disabled':''}>▶</button>
         <div style="font-size:13px;color:var(--muted)">${currentUser?.name || currentUser?.username || ''}</div>
         <div style="display:flex;gap:6px;align-items:center;margin-left:8px;">
           <span style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Counting</span>
@@ -1122,7 +1122,7 @@ function _renderMerchCountRecords() {
             <td style="padding:8px 10px;text-align:right;">${g.count}</td>
             <td style="padding:8px 10px;font-size:12px;color:var(--muted);">${escHtml(by)}</td>
             <td style="padding:8px 10px;text-align:right;">
-              <button class="btn btn-outline" data-month="${escHtml(g.month)}" data-loc="${escHtml(loc)}" onclick="deleteMerchCountBatch(this.dataset.loc, this.dataset.month, this)" style="padding:4px 12px;font-size:12px;color:var(--red);">Delete batch</button>
+              <button class="btn btn-danger btn-sm" data-month="${escHtml(g.month)}" data-loc="${escHtml(loc)}" onclick="deleteMerchCountBatch(this.dataset.loc, this.dataset.month, this)">Delete batch</button>
             </td>
           </tr>`;
       }).join('')}

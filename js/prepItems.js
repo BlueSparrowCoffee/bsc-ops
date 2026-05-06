@@ -101,14 +101,14 @@ function renderPrepItemCard(item) {
       const cp = invItem ? parseFloat(invItem.CostPerServing) : null;
       const badge = ' <span style="font-size:10px;color:var(--teal);background:rgba(0,128,128,.1);padding:1px 5px;border-radius:8px;">inv</span>';
       nameHtml = invItemLink(ing.IngredientName || '', badge);
-      costLabel = cp != null ? '$'+cp.toFixed(4) : '<span style="color:#f59e0b">no cost</span>';
+      costLabel = cp != null ? '$'+cp.toFixed(4) : '<span style="color:var(--orange)">no cost</span>';
       lineCost = cp != null ? qty * cp : null;
     } else if (ing.IngredientType === 'prepItem') {
       const sub = calcPrepItemCost(ing.IngredientId);
       const cp = sub.costPerUnit;
       const badge = ' <span style="font-size:10px;color:#7c3aed;background:rgba(124,58,237,.1);padding:1px 5px;border-radius:8px;">prep</span>';
       nameHtml = `<span style="font-weight:500;">${escHtml(ing.IngredientName||'')}</span>${badge}`;
-      costLabel = cp > 0 ? '$'+cp.toFixed(4) : '<span style="color:#f59e0b">no cost</span>';
+      costLabel = cp > 0 ? '$'+cp.toFixed(4) : '<span style="color:var(--orange)">no cost</span>';
       lineCost = cp > 0 ? qty * cp : null;
     } else {
       nameHtml = escHtml(ing.IngredientName || '');
@@ -133,7 +133,7 @@ function renderPrepItemCard(item) {
           ${item.Notes?`<div style="font-size:11px;color:var(--muted);margin-top:4px;">${escHtml(item.Notes)}</div>`:''}
         </div>
         <div style="text-align:right;flex-shrink:0;">
-          <div style="font-size:20px;font-weight:700;color:var(--gold);">$${costPerUnit.toFixed(4)}<span style="font-size:11px;font-weight:400;color:var(--muted);">/${escHtml(yieldUnit||'unit')}</span></div>
+          <div style="font-size:22px;font-weight:700;color:var(--gold);">$${costPerUnit.toFixed(4)}<span style="font-size:11px;font-weight:400;color:var(--muted);">/${escHtml(yieldUnit||'unit')}</span></div>
           <div style="font-size:11px;color:var(--muted);margin-top:2px;">$${totalCost.toFixed(2)} total · ${yieldQty} ${escHtml(yieldUnit||'unit')} batch</div>
         </div>
       </div>
@@ -427,7 +427,7 @@ function updatePiCostPreview() {
       <span style="color:var(--muted);">Cost per ${escHtml(yieldUnit)}</span>
       <span style="font-weight:700;color:var(--gold);font-size:17px;">$${cpu.toFixed(4)}</span>
     </div>
-    ${hasGap?'<div style="font-size:11px;color:#f59e0b;margin-top:6px;">⚠️ Some inventory items are missing Cost Per Serving — set it in Inventory to get accurate costs.</div>':''}
+    ${hasGap?'<div style="font-size:11px;color:var(--orange);margin-top:6px;">⚠️ Some inventory items are missing Cost Per Serving — set it in Inventory to get accurate costs.</div>':''}
   </div>`;
 }
 

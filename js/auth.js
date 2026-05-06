@@ -110,7 +110,7 @@ function updateTopbarStaffInfo() {
     if (nameEl) nameEl.textContent = first;
     if (roleEl) {
       const ownerCanSwitch = _realIsOwner();
-      const testingSuffix = _roleOverride ? ` <span style="color:#f59e0b;font-weight:600;">🧪</span>` : '';
+      const testingSuffix = _roleOverride ? ` <span style="color:var(--orange);font-weight:600;">🧪</span>` : '';
       const baseLabel = displayRole ? `${escHtml(displayRole)} · ${escHtml(loc)}` : escHtml(loc);
       roleEl.innerHTML = baseLabel + testingSuffix;
       if (ownerCanSwitch) {
@@ -139,7 +139,7 @@ function updateTopbarStaffInfo() {
     const displayName = currentUser.name || currentUser.username || '';
     const first = displayName.split(' ')[0];
     if (nameEl)   nameEl.textContent = first;
-    if (roleEl)   roleEl.innerHTML = `<span style="color:#f59e0b;">⚠ Not linked</span>`;
+    if (roleEl)   roleEl.innerHTML = `<span style="color:var(--orange);">⚠ Not linked</span>`;
     if (avatarEl) { avatarEl.textContent = '?'; avatarEl.style.background = '#9ca3af'; }
     // Show the unlinked banner
     const banner = document.getElementById('unlinked-banner');

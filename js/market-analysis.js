@@ -1202,7 +1202,7 @@ function _renderSurveyList() {
           <td style="padding:8px 10px;font-size:12px;color:var(--muted);">${s.count} item${s.count!==1?'s':''}</td>
           <td style="padding:8px 10px;font-size:11px;color:var(--muted);">${escHtml(sources)}</td>
           <td style="padding:8px 10px;text-align:right;">
-            <button class="btn btn-outline" data-c="${escHtml(s.competitor)}" data-d="${escHtml(s.date)}" onclick="editSurveyFromList(this.dataset.c, this.dataset.d)" style="padding:4px 12px;font-size:12px;">Edit</button>
+            <button class="btn btn-outline btn-sm" data-c="${escHtml(s.competitor)}" data-d="${escHtml(s.date)}" onclick="editSurveyFromList(this.dataset.c, this.dataset.d)">Edit</button>
           </td>
         </tr>`;
     }).join('');
