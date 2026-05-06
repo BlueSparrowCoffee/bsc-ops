@@ -254,7 +254,13 @@ const LISTS = {
   projectTasks:        'BSC_ProjectTasks',     // tasks belonging to a project (per-task assignee + due date)
   projectUpdates:      'BSC_ProjectUpdates',   // chronological status updates (newest first)
   projectLinks:        'BSC_ProjectLinks',     // ordered list of links/refs attached to a project
-  errorLog:            'BSC_ErrorLog'          // client-side error reports written via /api/log-error
+  errorLog:            'BSC_ErrorLog',         // client-side error reports written via /api/log-error
+  // PR 15 — Checklists Phase 2 schema additions. Existing checklists/
+  // clGroups/clProgress/clCompletions stay live; these new lists model
+  // the run-based workflow (lanes, sign-offs, photo evidence). Empty
+  // until the Phase 2 UI starts writing to them.
+  clRuns:              'BSC_ChecklistRuns',    // one row per shift-block per location per day
+  clTaskLogs:          'BSC_ChecklistTaskLogs' // one row per task event (complete / skip / backfill)
 };
 
 // ── Inventory type config — drives which list/cache key each inv type uses ──
@@ -298,7 +304,7 @@ const INV_COG_CFG = {
 // Bump APP_VERSION any time a deploy has breaking localStorage changes.
 // On version mismatch the entire localStorage is wiped so stale prefs never
 // cause weirdness after an update.
-const APP_VERSION = '2026-05-06u';
+const APP_VERSION = '2026-05-06v';
 (function() {
   try {
     if (localStorage.getItem('bsc_app_version') !== APP_VERSION) {
@@ -310,7 +316,7 @@ const APP_VERSION = '2026-05-06u';
 
 // Bump when SharePoint schema changes. User must clear bsc_provision_v
 // from localStorage (or Settings → Clear Local Data) to trigger re-provisioning.
-const PROVISION_VERSION = '39';
+const PROVISION_VERSION = '40';
 
 // ── Market Analysis list schemas ─────────────────────────────────
 // Provisioned in ensureAllLists (index.html). Denormalized text columns
