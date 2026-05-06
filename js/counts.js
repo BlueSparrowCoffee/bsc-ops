@@ -540,11 +540,26 @@ function updateCountTotal(input) {
   const storage = storageEl ? (parseFloat(storageEl.value)||0) : (parseFloat(row.dataset.storage)||0);
   const totalEl = document.getElementById('count-total-'+id);
   if (totalEl) totalEl.textContent = +(store+storage).toFixed(2);
+  _flashCountRow(row);
   // Autosave the whole sheet as a draft
   _autosaveCountDebounced(() => {
     const cfg = invCfg();
     if (cfg && currentLocation !== 'all') saveCountDraft('.count-row', cfg, currentLocation, null);
   });
+}
+
+// Briefly flash a count row (cream → light-blue → fade) so the user
+// gets visual confirmation the change is staged. Lightweight: just
+// toggle a class that drives a 600 ms CSS keyframe (see index.html
+// .count-row.count-saved). Re-triggering during the animation
+// removes + re-adds so successive edits keep flashing.
+function _flashCountRow(row) {
+  if (!row) return;
+  row.classList.remove('count-saved');
+  // Force reflow so re-adding the class restarts the animation.
+  void row.offsetWidth;
+  row.classList.add('count-saved');
+  setTimeout(() => row.classList.remove('count-saved'), 650);
 }
 
 function countPlusOne(btn, target='store', delta=1) {
@@ -948,6 +963,7 @@ function updateMerchCountTotal(input) {
   const storage = storageEl ? (parseFloat(storageEl.value)||0) : (parseFloat(row.dataset.storage)||0);
   const el = document.getElementById('merch-total-'+id);
   if (el) el.textContent = store + storage;
+  _flashCountRow(row);
   // Autosave draft
   _autosaveCountDebounced(() => {
     const cfg = invCfg();

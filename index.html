@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-06k">
-<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-06k">
-<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-06k">
-<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-06k">
-<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-06k">
+<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-06l">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-06l">
+<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-06l">
+<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-06l">
+<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-06l">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="BSC Ops">
@@ -627,13 +627,44 @@ body.splash-active #loading{display:none !important;}
 .fp-drag-handle{cursor:grab;color:var(--border);font-size:16px;padding:10px 6px 10px 10px;text-align:center;border-bottom:1px solid var(--border);user-select:none;transition:color .15s;}
 .fp-drag-handle:hover{color:var(--muted);}
 tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px solid var(--gold)!important;}
-.count-num-input.count-adjust-active{outline:2px solid var(--gold);outline-offset:2px;background:rgba(183,139,64,.10);transform:scale(1.06);transition:transform .12s ease, background .12s ease;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
-/* +1 / -1 stepper buttons next to count inputs */
+/* Count input "active" highlight (mobile drag-to-adjust) */
+.count-num-input.count-adjust-active{
+  outline:3px solid var(--bsc-light-blue-deep);outline-offset:1px;
+  background:linear-gradient(180deg,#ffffff,var(--light-blue-25));
+  transform:scale(1.06);
+  transition:transform .12s ease, background .12s ease, outline-color .12s ease;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+}
+/* +1 / -1 stepper buttons next to count inputs (PR 8 of design refresh) */
 .count-pm-group{display:flex;flex-direction:column;gap:2px;align-self:flex-end;margin-bottom:1px;flex-shrink:0;}
-.count-pm-btn{padding:3px 8px;background:var(--opal);border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;color:var(--dark-blue);line-height:1;}
+.count-pm-btn{
+  padding:3px 8px;
+  background:linear-gradient(180deg,#ffffff,#f5f0e2);
+  border:1px solid var(--border-2);
+  border-radius:6px;
+  font-size:12px;font-weight:700;
+  cursor:pointer;color:var(--ink);line-height:1;
+  font-family:inherit;
+  box-shadow:var(--sh-btn);
+  transition:all 100ms ease;
+}
+.count-pm-btn:hover{background:linear-gradient(180deg,#ffffff,var(--light-blue-25));border-color:var(--border-3);}
+.count-pm-btn:active{box-shadow:var(--sh-btn-press);transform:translateY(0.5px);}
 @media(max-width:720px){
   .count-pm-group{flex-direction:row;gap:8px;align-self:center;margin-bottom:0;}
   .count-pm-btn{padding:10px 18px;font-size:16px;border-radius:8px;min-width:48px;min-height:44px;}
+}
+/* Row-flash animation when an autosave commits — cream → light-blue tint
+   over 600 ms then fades. Triggered by updateCountTotal/Merch via the
+   .count-saved class toggle. */
+@keyframes count-row-saved-flash {
+  0%   { background:transparent; }
+  20%  { background:linear-gradient(90deg,var(--light-blue-25),var(--light-blue-50)); }
+  100% { background:transparent; }
+}
+.count-row.count-saved,
+.merch-count-row.count-saved {
+  animation:count-row-saved-flash 600ms ease-out;
 }
 .recipe-sections{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
 @media(max-width:520px){.recipe-sections{grid-template-columns:1fr;}}
@@ -739,8 +770,20 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
 .count-item-meta{font-size:11px;color:var(--muted);white-space:nowrap;}
 .count-input-group{display:flex;flex-direction:column;align-items:center;gap:3px;}
 .count-input-group label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);}
-.count-num-input{width:76px;padding:8px 6px;text-align:center;border:1.5px solid var(--border);border-radius:8px;font-size:16px;font-weight:600;background:#fff;}
-.count-num-input:focus{border-color:var(--gold);outline:none;background:#fffdf4;}
+.count-num-input{
+  width:76px;padding:7px 6px;text-align:center;
+  border:1px solid var(--border-2);border-radius:7px;
+  font-family:var(--mono);font-size:15px;font-weight:600;
+  font-variant-numeric:tabular-nums;
+  background:linear-gradient(180deg,#ffffff,#fbf8f1);
+  color:var(--ink);
+  box-shadow:inset 0 1px 1px rgba(2,61,74,0.05);
+}
+.count-num-input:focus{
+  border-color:var(--bsc-light-blue-deep);outline:none;
+  background:#ffffff;
+  box-shadow:inset 0 1px 1px rgba(2,61,74,0.05),0 0 0 3px rgba(185,223,227,0.40);
+}
 .count-total-box{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:56px;}
 .count-total-box label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);}
 .count-total-val{font-size:16px;font-weight:700;color:var(--espresso);}
@@ -823,11 +866,11 @@ html,body{overscroll-behavior:none;}
 </style>
 <!-- Design tokens (PR 1 of refresh) — loaded after inline <style> so legacy
      aliases at the bottom of :root override the older brand values. -->
-<link rel="stylesheet" href="/css/tokens.css?v=2026-05-06k">
+<link rel="stylesheet" href="/css/tokens.css?v=2026-05-06l">
 <!-- Shared primitives (PR 4) — loaded after tokens.css and after the
      inline <style> so it overrides legacy .btn-primary / .badge-* /
      .card / .alert-item rules with the new gradient + metallic look. -->
-<link rel="stylesheet" href="/css/primitives.css?v=2026-05-06k">
+<link rel="stylesheet" href="/css/primitives.css?v=2026-05-06l">
 </head>
 <body>
 
@@ -843,7 +886,7 @@ html,body{overscroll-behavior:none;}
 <div id="topbar">
   <button id="nav-toggle" onclick="toggleNav()" aria-label="Menu">☰</button>
   <div class="topbar-logo">
-    <img src="/images/feather-light.png?v=2026-05-06k" alt="" aria-hidden="true">
+    <img src="/images/feather-light.png?v=2026-05-06l" alt="" aria-hidden="true">
     <div>
       <div class="brand">Blue Sparrow</div>
       <small>Operations</small>
@@ -3224,40 +3267,40 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-05-06k" defer></script>
-<script src="/js/utils.js?v=2026-05-06k" defer></script>
-<script src="/js/state.js?v=2026-05-06k" defer></script>
-<script src="/js/auth.js?v=2026-05-06k" defer></script>
-<script src="/js/graph.js?v=2026-05-06k" defer></script>
-<script src="/js/signalr.js?v=2026-05-06k" defer></script>
-<script src="/js/tags.js?v=2026-05-06k" defer></script>
-<script src="/js/nav.js?v=2026-05-06k" defer></script>
-<script src="/js/settings.js?v=2026-05-06k" defer></script>
-<script src="/js/dashboard.js?v=2026-05-06k" defer></script>
-<script src="/js/inventory.js?v=2026-05-06k" defer></script>
-<script src="/js/inventory-form.js?v=2026-05-06k" defer></script>
-<script src="/js/counts.js?v=2026-05-06k" defer></script>
-<script src="/js/foodpars.js?v=2026-05-06k" defer></script>
-<script src="/js/labels.js?v=2026-05-06k" defer></script>
-<script src="/js/bags.js?v=2026-05-06k" defer></script>
-<script src="/js/bag-labels-5lb.js?v=2026-05-06k" defer></script>
-<script src="/js/pastry-sync.js?v=2026-05-06k" defer></script>
-<script src="/js/recipes.js?v=2026-05-06k" defer></script>
-<script src="/js/cogs.js?v=2026-05-06k" defer></script>
-<script src="/js/vendors.js?v=2026-05-06k" defer></script>
-<script src="/js/contacts.js?v=2026-05-06k" defer></script>
-<script src="/js/maintenance.js?v=2026-05-06k" defer></script>
-<script src="/js/checklists.js?v=2026-05-06k" defer></script>
-<script src="/js/ordering.js?v=2026-05-06k" defer></script>
-<script src="/js/ordering-build.js?v=2026-05-06k" defer></script>
-<script src="/js/market-analysis.js?v=2026-05-06k" defer></script>
-<script src="/js/projects.js?v=2026-05-06k" defer></script>
-<script src="/js/parking.js?v=2026-05-06k" defer></script>
-<script src="/js/prepItems.js?v=2026-05-06k" defer></script>
-<script src="/js/square.js?v=2026-05-06k" defer></script>
-<script src="/js/timeclock.js?v=2026-05-06k" defer></script>
-<script src="/js/slack.js?v=2026-05-06k" defer></script>
-<script src="/js/auto-sync.js?v=2026-05-06k" defer></script>
+<script src="/js/constants.js?v=2026-05-06l" defer></script>
+<script src="/js/utils.js?v=2026-05-06l" defer></script>
+<script src="/js/state.js?v=2026-05-06l" defer></script>
+<script src="/js/auth.js?v=2026-05-06l" defer></script>
+<script src="/js/graph.js?v=2026-05-06l" defer></script>
+<script src="/js/signalr.js?v=2026-05-06l" defer></script>
+<script src="/js/tags.js?v=2026-05-06l" defer></script>
+<script src="/js/nav.js?v=2026-05-06l" defer></script>
+<script src="/js/settings.js?v=2026-05-06l" defer></script>
+<script src="/js/dashboard.js?v=2026-05-06l" defer></script>
+<script src="/js/inventory.js?v=2026-05-06l" defer></script>
+<script src="/js/inventory-form.js?v=2026-05-06l" defer></script>
+<script src="/js/counts.js?v=2026-05-06l" defer></script>
+<script src="/js/foodpars.js?v=2026-05-06l" defer></script>
+<script src="/js/labels.js?v=2026-05-06l" defer></script>
+<script src="/js/bags.js?v=2026-05-06l" defer></script>
+<script src="/js/bag-labels-5lb.js?v=2026-05-06l" defer></script>
+<script src="/js/pastry-sync.js?v=2026-05-06l" defer></script>
+<script src="/js/recipes.js?v=2026-05-06l" defer></script>
+<script src="/js/cogs.js?v=2026-05-06l" defer></script>
+<script src="/js/vendors.js?v=2026-05-06l" defer></script>
+<script src="/js/contacts.js?v=2026-05-06l" defer></script>
+<script src="/js/maintenance.js?v=2026-05-06l" defer></script>
+<script src="/js/checklists.js?v=2026-05-06l" defer></script>
+<script src="/js/ordering.js?v=2026-05-06l" defer></script>
+<script src="/js/ordering-build.js?v=2026-05-06l" defer></script>
+<script src="/js/market-analysis.js?v=2026-05-06l" defer></script>
+<script src="/js/projects.js?v=2026-05-06l" defer></script>
+<script src="/js/parking.js?v=2026-05-06l" defer></script>
+<script src="/js/prepItems.js?v=2026-05-06l" defer></script>
+<script src="/js/square.js?v=2026-05-06l" defer></script>
+<script src="/js/timeclock.js?v=2026-05-06l" defer></script>
+<script src="/js/slack.js?v=2026-05-06l" defer></script>
+<script src="/js/auto-sync.js?v=2026-05-06l" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
@@ -5666,7 +5709,7 @@ function renderMenu(query='', catFilter='') {
     const stockDisplay = stock != null ? stock : '—';
     const vars = (i.Variations||'').split('\n').filter(Boolean);
     return `<tr data-gs-id="${escHtml(i.id)}" style="${isHidden?'opacity:0.45;':''}">
-      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-06k" alt="" title="Synced with Square">':''}</td>
+      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-06l" alt="" title="Synced with Square">':''}</td>
       <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${escHtml(i.Category||'—')}</span></td>
       <td style="font-size:12px;color:var(--muted);max-width:220px">${escHtml(i.Description||'')}</td>
       <td>${i.Price != null ? '$'+Number(i.Price).toFixed(2) : '—'}</td>
