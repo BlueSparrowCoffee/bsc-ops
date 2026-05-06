@@ -56,7 +56,7 @@ function renderVendorTagPills(tagsStr, vendorId) {
   const tags = (tagsStr||'').split(',').map(t=>t.trim()).filter(Boolean);
   if (!tags.length) return '';
   return `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:3px;">${
-    tags.map(t=>`<span style="display:inline-block;padding:1px 7px;border-radius:10px;background:rgba(183,139,64,.12);color:var(--gold);font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;" data-tag="${escHtml(t)}" onclick="filterVendorsByTag(this.dataset.tag)">${escHtml(t)}</span>`).join('')
+    tags.map(t=>`<span class="badge badge-gold" style="padding:1px 7px;font-size:11px;cursor:pointer;white-space:nowrap;" data-tag="${escHtml(t)}" onclick="filterVendorsByTag(this.dataset.tag)">${escHtml(t)}</span>`).join('')
   }</div>`;
 }
 

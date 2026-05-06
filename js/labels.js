@@ -261,7 +261,7 @@ function renderLabelsPage() {
       <div style="font-size:12px;color:var(--muted);margin-top:4px">${balLabel}</div>
     </div>
     <div class="card" style="flex:1;min-width:140px;text-align:center;padding:18px 12px;">
-      <div style="font-size:26px;font-weight:700;color:var(--gold)">${valueNum}</div>
+      <div style="font-family:var(--mono);font-size:26px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;">${valueNum}</div>
       <div style="font-size:12px;color:var(--muted);margin-top:4px">${valLabel}</div>
     </div>
     <div class="card" style="flex:1;min-width:140px;text-align:center;padding:18px 12px;">

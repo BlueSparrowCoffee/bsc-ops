@@ -536,7 +536,7 @@ function _renderOrderDetail(order) {
       <div><div style="font-size:11px;color:var(--muted);">Status</div><span class="badge ${statusBadge}">${escHtml(status)}</span>${isLegacy ? ' <span class="badge badge-gray" style="margin-left:6px;">Legacy</span>' : ''}</div>
       <div><div style="font-size:11px;color:var(--muted);">Expected delivery</div><div>${escHtml(expected)}</div></div>
       <div><div style="font-size:11px;color:var(--muted);">Created</div><div>${escHtml(created)}${order.OrderedBy ? ' · ' + escHtml(order.OrderedBy) : ''}</div></div>
-      ${total != null ? `<div><div style="font-size:11px;color:var(--muted);">Total</div><div style="font-weight:700;color:var(--gold);">${_money(total)}</div></div>` : ''}
+      ${total != null ? `<div><div style="font-size:11px;color:var(--muted);">Total</div><div style="font-family:var(--mono);font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;">${_money(total)}</div></div>` : ''}
     </div>
     ${receivedInfo}
     <div style="margin-top:12px;">

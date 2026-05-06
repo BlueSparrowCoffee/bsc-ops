@@ -88,11 +88,11 @@ function tagEditorRenderPills(instanceId) {
   if (!c) return;
   const tags = _tagEditorState[instanceId]?.tags||[];
   c.innerHTML = tags.map(t=>`
-    <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;background:rgba(183,139,64,.15);color:var(--gold);font-size:12px;font-weight:600;">
+    <span class="badge badge-gold" style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;font-size:12px;">
       ${escHtml(t)}
       <button type="button" data-id="${escHtml(instanceId)}" data-tag="${escHtml(t)}"
         onclick="tagEditorRemoveTag(this.dataset.id,this.dataset.tag)"
-        style="background:none;border:none;cursor:pointer;color:var(--gold);font-size:14px;line-height:1;padding:0;margin-left:2px;">×</button>
+        style="background:none;border:none;cursor:pointer;color:var(--gold-deep);font-size:14px;line-height:1;padding:0;margin-left:2px;">×</button>
     </span>`).join('');
 }
 
@@ -147,7 +147,7 @@ function renderTagPills(tagsStr) {
   const tags = (tagsStr||'').split(',').map(t=>t.trim()).filter(Boolean);
   if (!tags.length) return '';
   return `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:3px;">${
-    tags.map(t=>`<span style="display:inline-block;padding:1px 7px;border-radius:10px;background:rgba(183,139,64,.12);color:var(--gold);font-size:11px;font-weight:600;white-space:nowrap;">${escHtml(t)}</span>`).join('')
+    tags.map(t=>`<span class="badge badge-gold" style="padding:1px 7px;font-size:11px;white-space:nowrap;">${escHtml(t)}</span>`).join('')
   }</div>`;
 }
 
@@ -161,10 +161,10 @@ function renderTagsSettings() {
     return;
   }
   list.innerHTML = tags.map(t=>`
-    <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;background:rgba(183,139,64,.12);color:var(--gold);font-size:13px;font-weight:600;">
+    <span class="badge badge-gold" style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;font-size:13px;">
       ${escHtml(t)}
       <button type="button" data-tag="${escHtml(t)}" onclick="deleteGlobalTag(this.dataset.tag)"
-        style="background:none;border:none;cursor:pointer;color:var(--gold);font-size:16px;line-height:1;padding:0;margin-left:2px;">×</button>
+        style="background:none;border:none;cursor:pointer;color:var(--gold-deep);font-size:16px;line-height:1;padding:0;margin-left:2px;">×</button>
     </span>`).join('');
 }
 

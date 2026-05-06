@@ -133,7 +133,7 @@ function renderPrepItemCard(item) {
           ${item.Notes?`<div style="font-size:11px;color:var(--muted);margin-top:4px;">${escHtml(item.Notes)}</div>`:''}
         </div>
         <div style="text-align:right;flex-shrink:0;">
-          <div style="font-size:22px;font-weight:700;color:var(--gold);">$${costPerUnit.toFixed(4)}<span style="font-size:11px;font-weight:400;color:var(--muted);">/${escHtml(yieldUnit||'unit')}</span></div>
+          <div style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;">$${costPerUnit.toFixed(4)}<span style="font-size:11px;font-weight:400;color:var(--muted);font-family:inherit;">/${escHtml(yieldUnit||'unit')}</span></div>
           <div style="font-size:11px;color:var(--muted);margin-top:2px;">$${totalCost.toFixed(2)} total · ${yieldQty} ${escHtml(yieldUnit||'unit')} batch</div>
         </div>
       </div>
@@ -425,7 +425,7 @@ function updatePiCostPreview() {
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
       <span style="color:var(--muted);">Cost per ${escHtml(yieldUnit)}</span>
-      <span style="font-weight:700;color:var(--gold);font-size:17px;">$${cpu.toFixed(4)}</span>
+      <span style="font-family:var(--mono);font-weight:700;color:var(--ink);font-size:17px;font-variant-numeric:tabular-nums;">$${cpu.toFixed(4)}</span>
     </div>
     ${hasGap?'<div style="font-size:11px;color:var(--orange);margin-top:6px;">⚠️ Some inventory items are missing Cost Per Serving — set it in Inventory to get accurate costs.</div>':''}
   </div>`;

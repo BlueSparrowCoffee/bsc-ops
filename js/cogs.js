@@ -212,7 +212,7 @@ document.addEventListener('click', e => {
 
 function cogTab(tab) {
   const tabs = ['overview','coffee-bar','merch','food','grocery','history'];
-  const active   = 'color:var(--gold);border-bottom:2px solid var(--gold);margin-bottom:-2px;';
+  const active   = 'color:var(--ink);border-bottom:2px solid var(--bsc-light-blue-deep);margin-bottom:-2px;';
   const inactive = 'color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-2px;';
   tabs.forEach(t => {
     const panel = document.getElementById(`cogs-panel-${t}`);
@@ -867,9 +867,9 @@ function renderCogCard(item, cogMap, invMap, prepMap, invIdMap) {
   const varTabs = variations.map((v, vi) =>
     `<button class="cog-var-tab" id="cog-tab-${itemId}-${vi}"
       onclick="cogVarTab('${itemId}',${vi},${variations.length})"
-      style="padding:5px 12px;font-size:12px;font-weight:600;border:1.5px solid var(--border);
-        border-radius:20px;cursor:pointer;background:${vi===activeVi?'var(--gold)':'transparent'};
-        color:${vi===activeVi?'#fff':'var(--muted)'};transition:all .15s;white-space:nowrap;">
+      style="padding:5px 12px;font-size:12px;font-weight:600;border:1px solid ${vi===activeVi?'var(--light-blue-deep)':'var(--border-2)'};
+        border-radius:6px;cursor:pointer;background:${vi===activeVi?'linear-gradient(180deg,var(--light-blue-25),var(--light-blue-50))':'linear-gradient(180deg,#ffffff,#f5f0e2)'};
+        color:var(--ink);transition:all 100ms ease;white-space:nowrap;font-family:inherit;">
       ${escHtml(v.name)}
     </button>`
   ).join('');
@@ -919,8 +919,8 @@ function renderCogCard(item, cogMap, invMap, prepMap, invIdMap) {
             </div>
             <input type="number" step="1" min="0" placeholder="Qty" id="cog-new-qty-${itemId}-${vi}"
               style="width:60px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;">
-            <button onclick="addCogIngredient('${escHtml(itemId)}','${escHtml(itemName)}','${escHtml(v.name)}',${vi})"
-              style="padding:4px 10px;background:var(--gold);color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;white-space:nowrap;">+ Add</button>
+            <button class="btn primary" onclick="addCogIngredient('${escHtml(itemId)}','${escHtml(itemName)}','${escHtml(v.name)}',${vi})"
+              style="padding:4px 10px;font-size:12px;white-space:nowrap;">+ Add</button>
           </div>
         </td>
       </tr>`;
