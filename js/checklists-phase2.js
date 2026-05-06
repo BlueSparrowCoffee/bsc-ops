@@ -242,3 +242,91 @@ function mountPhotoGrid(host, opts = {}) {
     destroy: () => { host.innerHTML = ''; files = []; }
   };
 }
+
+// ── Phase 2 runtime: Run + TaskLog helpers (PR 26) ──────────────
+// First slice that actually writes to BSC_ChecklistRuns and
+// BSC_ChecklistTaskLogs. Lane view checkbox clicks land here:
+// the helper finds (or creates) today's Run row for the current
+// {date, location, shift} and then writes a TaskLog row per click.
+// A re-click on a completed task deletes the TaskLog so the uncheck
+// persists. No signature, no photo evidence, no numeric inputs yet
+// — those layer on in PR 27/28.
+
+// Local-time YYYY-MM-DD so a Run created at 11pm doesn't slip to
+// tomorrow when the system is in UTC+ timezones.
+function _phase2TodayISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function _phase2RunKey(dateISO, loc, shift) {
+  return `${dateISO}|${loc}|${shift}`;
+}
+
+function _phase2FindRun(dateISO, loc, shift) {
+  const key = _phase2RunKey(dateISO, loc, shift);
+  return (cache.clRuns || []).find(r => r.Title === key) || null;
+}
+
+// Returns the in-cache Run for today/loc/shift, creating one in SP if
+// needed. Null if no specific location is selected (we don't write Run
+// rows under "all" — a shift is location-scoped).
+async function _phase2EnsureRun(shift) {
+  if (currentLocation === 'all') {
+    if (typeof toast === 'function') toast('warn', 'Pick a location to interact with Phase 2 tasks');
+    return null;
+  }
+  const dateISO = _phase2TodayISO();
+  const loc = currentLocation;
+  const existing = _phase2FindRun(dateISO, loc, shift);
+  if (existing) return existing;
+  const fields = {
+    Title:     _phase2RunKey(dateISO, loc, shift),
+    RunDate:   new Date(dateISO + 'T00:00:00').toISOString(),
+    Location:  loc,
+    Shift:     shift,
+    Status:    'in_progress',
+    StartedBy: currentUser?.name || currentUser?.username || ''
+  };
+  const rec = await addListItem(LISTS.clRuns, fields);
+  cache.clRuns = cache.clRuns || [];
+  cache.clRuns.push(rec);
+  return rec;
+}
+
+function _phase2TaskLog(runId, taskId) {
+  return (cache.clTaskLogs || []).find(l =>
+    String(l.RunId) === String(runId) &&
+    String(l.TaskId) === String(taskId) &&
+    l.Status === 'complete'
+  ) || null;
+}
+
+// Click handler for lane-view task rows. Toggles the complete TaskLog
+// for {today's run, taskId}. Re-renders on success so progress bars +
+// row strikethrough update.
+async function togglePhase2Task(taskId, shift) {
+  const run = await _phase2EnsureRun(shift);
+  if (!run) return;
+  const existing = _phase2TaskLog(run.id, taskId);
+  try {
+    if (existing) {
+      await deleteListItem(LISTS.clTaskLogs, existing.id);
+      cache.clTaskLogs = (cache.clTaskLogs || []).filter(l => String(l.id) !== String(existing.id));
+    } else {
+      const rec = await addListItem(LISTS.clTaskLogs, {
+        RunId:       String(run.id),
+        TaskId:      String(taskId),
+        Status:      'complete',
+        CompletedBy: currentUser?.name || currentUser?.username || '',
+        CompletedAt: new Date().toISOString()
+      });
+      cache.clTaskLogs = cache.clTaskLogs || [];
+      cache.clTaskLogs.push(rec);
+    }
+  } catch (e) {
+    if (typeof toast === 'function') toast('err', 'Save failed: ' + (e?.message || e));
+    return;
+  }
+  if (typeof renderChecklists === 'function') renderChecklists();
+}

@@ -172,11 +172,29 @@ function renderChecklistsLanes(filteredGroups) {
   for (const lane of LANE_ORDER) byLane[lane] = [];
   for (const g of filteredGroups) byLane[_laneFor(g)].push(g);
 
+  // PR 26 — Build per-lane "done" sets from today's Run + TaskLogs at
+  // the current location. When location is 'all', no Run exists per
+  // shift (Runs are location-scoped) so every lane shows nothing done
+  // and clicks will toast a prompt to pick a location.
+  const dateISO = _phase2TodayISO();
+  const interactive = currentLocation !== 'all';
+  const doneByLane = {};
+  for (const lane of LANE_ORDER) {
+    const run = interactive ? _phase2FindRun(dateISO, currentLocation, lane) : null;
+    doneByLane[lane] = new Set(
+      run ? (cache.clTaskLogs || [])
+              .filter(l => String(l.RunId) === String(run.id) && l.Status === 'complete')
+              .map(l => String(l.TaskId))
+          : []
+    );
+  }
+
   // Day ribbon — Open / Mid / Close / Weekly progress at a glance
   const ribbon = ['open','mid','close','weekly'].map(lane => {
     const groupsInLane = byLane[lane] || [];
-    const totalTasks = groupsInLane.reduce((sum, g) => sum + cache.checklists.filter(t => t.GroupId === g.id && t.Status !== 'Suggested').length, 0);
-    const doneTasks = groupsInLane.reduce((sum, g) => sum + cache.checklists.filter(t => t.GroupId === g.id && t.Status !== 'Suggested' && cache.clProgress[t.id]).length, 0);
+    const tasksInLane = groupsInLane.flatMap(g => cache.checklists.filter(t => t.GroupId === g.id && t.Status !== 'Suggested'));
+    const totalTasks = tasksInLane.length;
+    const doneTasks  = tasksInLane.filter(t => doneByLane[lane].has(String(t.id))).length;
     return `
       <div class="day-ribbon-cell">
         <div class="dr-label">${LANE_META[lane].label}</div>
@@ -189,16 +207,18 @@ function renderChecklistsLanes(filteredGroups) {
     const meta = LANE_META[lane];
     const groups = byLane[lane];
     const allTasks   = groups.flatMap(g => cache.checklists.filter(t => t.GroupId === g.id && t.Status !== 'Suggested'));
-    const doneTasks  = allTasks.filter(t => cache.clProgress[t.id]);
+    const doneTasks  = allTasks.filter(t => doneByLane[lane].has(String(t.id)));
     const pct = allTasks.length ? Math.round(doneTasks.length / allTasks.length * 100) : 0;
 
     const sectionsHtml = groups.map(g => {
       const tasks = cache.checklists.filter(t => t.GroupId === g.id && t.Status !== 'Suggested')
                                      .sort((a,b) => (Number(a.SortOrder)||0) - (Number(b.SortOrder)||0));
       const taskRowsHtml = tasks.map(t => {
-        const done = !!cache.clProgress[t.id];
+        const done = doneByLane[lane].has(String(t.id));
+        const click = interactive ? `onclick="togglePhase2Task('${escHtml(t.id)}','${lane}')"` : '';
+        const cursor = interactive ? 'cursor:pointer;' : '';
         return `
-          <div class="cl-row${done?' done':''}" style="display:flex;align-items:center;gap:10px;padding:6px 0;font-size:13px;">
+          <div class="cl-row${done?' done':''}" ${click} style="display:flex;align-items:center;gap:10px;padding:6px 0;font-size:13px;${cursor}">
             <div class="cl-check" style="width:16px;height:16px;border-radius:4px;border:1px solid var(--border-2);display:flex;align-items:center;justify-content:center;flex-shrink:0;background:${done ? 'linear-gradient(180deg,#1d4753,var(--navy))' : 'linear-gradient(180deg,#ffffff,#f5f0e2)'};color:#fff;font-size:10px;">${done ? '✓' : ''}</div>
             <span style="${done?'text-decoration:line-through;color:var(--muted);':''}">${escHtml(t.TaskName||t.Title||'—')}</span>
             ${t.AssignedRole && t.AssignedRole !== 'All' ? `<span class="badge badge-blue" style="margin-left:auto;font-size:10px;">${escHtml(t.AssignedRole)}</span>` : ''}
@@ -231,9 +251,12 @@ function renderChecklistsLanes(filteredGroups) {
       </div>`;
   }).join('');
 
+  const banner = interactive
+    ? `Phase 2 preview — checking off tasks writes to today's Run for <b>${escHtml(currentLocation)}</b>. Card view is unchanged.`
+    : `Phase 2 preview — pick a specific location in the top bar to check off tasks. Card view is unchanged.`;
   host.innerHTML = `
     <div class="day-ribbon">${ribbon}</div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;font-style:italic;">Phase 2 preview — read-only. Use the toggle to return to the card view for editing.</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;font-style:italic;">${banner}</div>
     ${lanesHtml || '<div class="no-data" style="padding:40px;text-align:center;">No checklist groups visible at this location.</div>'}`;
 }
 
