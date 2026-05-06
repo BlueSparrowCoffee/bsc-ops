@@ -183,6 +183,7 @@ function renderDashboard() {
   if (typeof renderClockedInCard === 'function') renderClockedInCard();
 
   updateMaintDashboard();
+  _renderPendingCountsTile();
 }
 
 // Updates the dashboard page-header breadcrumb (location · day · time).
@@ -201,6 +202,136 @@ function _renderDashBreadcrumb() {
 // Stub for the dashboard "Export" header button. Full implementation deferred.
 function exportDashboard() {
   if (typeof toast === 'function') toast('ok', 'Export coming soon — bug Jeff if you need this.');
+}
+
+// ── Counter approval inbox (PR 12b) ─────────────────────────────
+// Counter-submitted counts land in cache.pendingCounts. Manager-or-
+// owner sees a stat-card tile + can open a modal to approve/reject
+// each pending row.
+function _pendingCountsForViewer() {
+  if (!Array.isArray(cache.pendingCounts)) return [];
+  if (typeof isManagerOrOwner === 'function' && !isManagerOrOwner()) return [];
+  return cache.pendingCounts.filter(r => (r.Status || 'pending') === 'pending');
+}
+
+function _renderPendingCountsTile() {
+  const tile = document.getElementById('d-pending-stat');
+  const num  = document.getElementById('d-pending');
+  if (!tile || !num) return;
+  const rows = _pendingCountsForViewer();
+  if (!rows.length) { tile.style.display = 'none'; return; }
+  tile.style.display = '';
+  num.textContent = rows.length;
+}
+
+function openPendingCountsModal() {
+  if (!isManagerOrOwner()) { toast('err','Manager access required'); return; }
+  _renderPendingCountsModalBody();
+  openModal('modal-pending-counts');
+}
+
+function _renderPendingCountsModalBody() {
+  const body = document.getElementById('pending-counts-body');
+  if (!body) return;
+  const rows = _pendingCountsForViewer();
+  if (!rows.length) {
+    body.innerHTML = `<div class="no-data" style="padding:20px;text-align:center;">No pending counts. Counters' submissions show up here for review.</div>`;
+    return;
+  }
+  // Group by location for readability.
+  const byLoc = {};
+  for (const r of rows) {
+    const loc = r.Location || 'Unassigned';
+    (byLoc[loc] = byLoc[loc] || []).push(r);
+  }
+  body.innerHTML = Object.keys(byLoc).sort().map(loc => `
+    <div style="margin-bottom:18px;">
+      <div style="font-size:11px;font-weight:700;color:var(--ink);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">${escHtml(loc)} <span style="color:var(--muted);font-weight:600;margin-left:6px;">${byLoc[loc].length} pending</span></div>
+      <table style="width:100%;font-size:12px;border-collapse:collapse;">
+        <thead>
+          <tr>
+            <th style="text-align:left;">Item</th>
+            <th class="num">Store</th>
+            <th class="num">Storage</th>
+            <th class="num">Total</th>
+            <th>Submitted by</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${byLoc[loc].map(r => {
+            const itemName = (r.Title || '').split('@')[0] || '—';
+            const ts = r.CountedAt ? new Date(r.CountedAt).toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}) : '';
+            return `
+              <tr data-pid="${escHtml(r.id)}">
+                <td>${escHtml(itemName)}</td>
+                <td class="num">${r.StoreCount ?? 0}</td>
+                <td class="num">${r.StorageCount ?? 0}</td>
+                <td class="num total">${r.TotalCount ?? 0}</td>
+                <td>${escHtml(r.CountedBy || '—')}<div style="font-size:10px;color:var(--muted);font-family:var(--mono);">${escHtml(ts)}</div></td>
+                <td style="text-align:right;white-space:nowrap;">
+                  <button class="btn btn-sm primary" onclick="approvePendingCount('${escHtml(r.id)}')">Approve</button>
+                  <button class="btn btn-sm" onclick="rejectPendingCount('${escHtml(r.id)}')" style="color:var(--red);border-color:rgba(176,49,66,0.40);">Reject</button>
+                </td>
+              </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`).join('');
+}
+
+async function approvePendingCount(id) {
+  const rec = (cache.pendingCounts || []).find(r => String(r.id) === String(id));
+  if (!rec) return;
+  const loc = rec.Location;
+  // Resolve target counts list for this location (consumable only — counters
+  // operate on consumable inventory). Mirrors the path inside submitWeeklyCount.
+  const cfg = INV_TYPE_CFG.consumable;
+  const cntList = cfg.countsPrefix.replace('{loc}', (loc || '').replace(/[\s\/\\]/g, '_'));
+  const itemName = (rec.Title || '').split('@')[0];
+  const approver = currentStaffMember?.Title || currentUser?.name || currentUser?.username || 'Manager';
+  try {
+    setLoading(true, 'Approving count…');
+    // 1) Write the real count record
+    await addListItem(cntList, {
+      Title:        itemName,
+      WeekOf:       rec.CountedAt || new Date().toISOString(),
+      StoreCount:   rec.StoreCount,
+      StorageCount: rec.StorageCount,
+      TotalCount:   rec.TotalCount,
+      Location:     loc,
+      CountedBy:    `${rec.CountedBy} (approved by ${approver})`
+    });
+    // 2) Delete the pending row
+    await deleteListItem(LISTS.pendingCounts, rec.id);
+    cache.pendingCounts = cache.pendingCounts.filter(r => String(r.id) !== String(id));
+    toast('ok','✓ Approved');
+    _renderPendingCountsTile();
+    _renderPendingCountsModalBody();
+  } catch (e) {
+    toast('err','Approve failed: ' + e.message);
+  } finally { setLoading(false); }
+}
+
+async function rejectPendingCount(id) {
+  const rec = (cache.pendingCounts || []).find(r => String(r.id) === String(id));
+  if (!rec) return;
+  if (typeof confirmModal === 'function') {
+    const ok = await confirmModal('Reject this count?', 'The Counter will need to re-enter it. This cannot be undone.', 'Reject', 'Keep');
+    if (!ok) return;
+  } else if (!confirm('Reject this count? The Counter will need to re-enter it.')) {
+    return;
+  }
+  try {
+    setLoading(true, 'Rejecting…');
+    await deleteListItem(LISTS.pendingCounts, rec.id);
+    cache.pendingCounts = cache.pendingCounts.filter(r => String(r.id) !== String(id));
+    toast('ok','✗ Rejected');
+    _renderPendingCountsTile();
+    _renderPendingCountsModalBody();
+  } catch (e) {
+    toast('err','Reject failed: ' + e.message);
+  } finally { setLoading(false); }
 }
 
 // ── Transfer summary helpers (shared by dashboard card + transfer page) ──

@@ -46,6 +46,7 @@ const cache = {
   marketCompetitors: [],
   marketItems: [],
   marketPrices: [],
+  pendingCounts: [],   // PR 12b — Counter-submitted counts awaiting Manager approval
   projects: [],
   projectTasks: [],
   projectUpdates: [],

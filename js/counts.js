@@ -698,16 +698,34 @@ async function submitWeeklyCount() {
     // to IndexedDB if we're offline (or hit a recoverable error).
     // The queue auto-drains when the browser comes back online.
     // Falls back to addListItem directly if sync-queue.js failed to load.
+    // PR 12b — Counter role: Submit to Lead. When the active role is
+    // Counter, every entry goes to BSC_PendingCounts instead of the
+    // location's BSC_Counts_* list. A Manager later approves each row,
+    // which copies it across (see approvePendingCount in dashboard.js).
     const _writer = (typeof safeAddListItem === 'function') ? safeAddListItem : addListItem;
-    const countTasks = entries.map(e => () => _writer(cntList, {
-      Title: e.name,
-      WeekOf: countedAt,
-      StoreCount: e.store,
-      StorageCount: e.storage,
-      TotalCount: e.total,
-      Location: loc,
-      CountedBy: countedBy
-    }, { kind: 'count', label: `${e.name} @ ${loc}` }));
+    const _isCounter = (typeof isCounter === 'function') && isCounter();
+    const targetList = _isCounter ? LISTS.pendingCounts : cntList;
+    const countTasks = entries.map(e => () => {
+      const fields = _isCounter ? {
+        Title:        `${e.name}@${loc}@${countedAt}`,
+        Location:     loc,
+        StoreCount:   e.store,
+        StorageCount: e.storage,
+        TotalCount:   e.total,
+        CountedBy:    countedBy,
+        CountedAt:    countedAt,
+        Status:       'pending'
+      } : {
+        Title:        e.name,
+        WeekOf:       countedAt,
+        StoreCount:   e.store,
+        StorageCount: e.storage,
+        TotalCount:   e.total,
+        Location:     loc,
+        CountedBy:    countedBy
+      };
+      return _writer(targetList, fields, { kind: 'count', label: `${e.name} @ ${loc}` });
+    });
 
     for (let i=0; i<countTasks.length; i+=8) {
       await Promise.all(countTasks.slice(i,i+8).map(t=>t()));
@@ -715,14 +733,29 @@ async function submitWeeklyCount() {
     }
 
     // update cache — assign synthetic ids higher than any existing so recentMap tiebreak picks these
-    const maxExistingId = Math.max(0, ...cache[cfg.countKey].map(r => Number(r.id||0)));
-    const newRecords = entries.map((e, idx) => ({
-      id: maxExistingId + idx + 1,
-      Title: e.name, WeekOf: countedAt,
-      StoreCount: e.store, StorageCount: e.storage, TotalCount: e.total,
-      Location: loc, CountedBy: countedBy
-    }));
-    cache[cfg.countKey].unshift(...newRecords);
+    if (_isCounter) {
+      // Counter path: pending records don't show as last-counted on the
+      // items table (they need Manager approval first). Push to the
+      // pendingCounts cache so the Manager dashboard tile updates.
+      const maxPendingId = Math.max(0, ...cache.pendingCounts.map(r => Number(r.id||0)));
+      const pendingRecords = entries.map((e, idx) => ({
+        id: maxPendingId + idx + 1,
+        Title: `${e.name}@${loc}@${countedAt}`,
+        Location: loc,
+        StoreCount: e.store, StorageCount: e.storage, TotalCount: e.total,
+        CountedBy: countedBy, CountedAt: countedAt, Status: 'pending'
+      }));
+      cache.pendingCounts.unshift(...pendingRecords);
+    } else {
+      const maxExistingId = Math.max(0, ...cache[cfg.countKey].map(r => Number(r.id||0)));
+      const newRecords = entries.map((e, idx) => ({
+        id: maxExistingId + idx + 1,
+        Title: e.name, WeekOf: countedAt,
+        StoreCount: e.store, StorageCount: e.storage, TotalCount: e.total,
+        Location: loc, CountedBy: countedBy
+      }));
+      cache[cfg.countKey].unshift(...newRecords);
+    }
 
     // Slack alert for low items — O(1) lookup; was O(n²) over the inventory list
     const _itemById = new Map((cache[cfg.cacheKey] || []).map(i => [String(i.id), i]));
@@ -744,7 +777,9 @@ async function submitWeeklyCount() {
     // Always start the next session in Store view (matches the workflow)
     _consumableCountView = 'store';
     try { localStorage.setItem('bsc_count_view', 'store'); } catch {}
-    toast('ok',`✓ Count submitted — ${entries.length} items`);
+    toast('ok', _isCounter
+      ? `↪ Sent to Lead for review — ${entries.length} item${entries.length===1?'':'s'}`
+      : `✓ Count submitted — ${entries.length} items`);
     clearCountSheet();
     renderCountSheet();
     renderDashboard();

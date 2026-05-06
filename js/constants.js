@@ -260,7 +260,11 @@ const LISTS = {
   // the run-based workflow (lanes, sign-offs, photo evidence). Empty
   // until the Phase 2 UI starts writing to them.
   clRuns:              'BSC_ChecklistRuns',    // one row per shift-block per location per day
-  clTaskLogs:          'BSC_ChecklistTaskLogs' // one row per task event (complete / skip / backfill)
+  clTaskLogs:          'BSC_ChecklistTaskLogs',// one row per task event (complete / skip / backfill)
+  // PR 12b — Counter role pending counts. Counters write here (not directly
+  // to BSC_Counts_<loc>); Managers approve, which creates the real record
+  // and removes the pending row.
+  pendingCounts:       'BSC_PendingCounts'
 };
 
 // ── Inventory type config — drives which list/cache key each inv type uses ──
@@ -304,7 +308,7 @@ const INV_COG_CFG = {
 // Bump APP_VERSION any time a deploy has breaking localStorage changes.
 // On version mismatch the entire localStorage is wiped so stale prefs never
 // cause weirdness after an update.
-const APP_VERSION = '2026-05-06w';
+const APP_VERSION = '2026-05-06x';
 (function() {
   try {
     if (localStorage.getItem('bsc_app_version') !== APP_VERSION) {
@@ -316,7 +320,7 @@ const APP_VERSION = '2026-05-06w';
 
 // Bump when SharePoint schema changes. User must clear bsc_provision_v
 // from localStorage (or Settings → Clear Local Data) to trigger re-provisioning.
-const PROVISION_VERSION = '40';
+const PROVISION_VERSION = '41';
 
 // ── Market Analysis list schemas ─────────────────────────────────
 // Provisioned in ensureAllLists (index.html). Denormalized text columns
