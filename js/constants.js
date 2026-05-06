@@ -308,7 +308,7 @@ const INV_COG_CFG = {
 // Bump APP_VERSION any time a deploy has breaking localStorage changes.
 // On version mismatch the entire localStorage is wiped so stale prefs never
 // cause weirdness after an update.
-const APP_VERSION = '2026-05-06ab';
+const APP_VERSION = '2026-05-06ac';
 (function() {
   try {
     if (localStorage.getItem('bsc_app_version') !== APP_VERSION) {
@@ -364,7 +364,7 @@ const SP_SYSTEM_FIELDS = new Set([
   'LabelApplied','LabelAppliedBy','RetentionLabel',
   'Label_x0020_Applied','Label_x0020_Applied_x0020_By','_LabelApplied','_LabelAppliedBy',
   'Attachments','ContentType','ContentTypeId','FolderChildCount','ItemChildCount',
-  '@odata.etag','LinkTitle','LinkTitleNoMenu','_ColorTag','Edit','DocIcon',
+  '@odata.etag','_etag','LinkTitle','LinkTitleNoMenu','_ColorTag','Edit','DocIcon',
   'FileSystemObjectType','ServerRedirectedEmbedUri','ServerRedirectedEmbedUrl',
   'FileDirRef','FileRef','FileLeafRef','UniqueId','ScopeId','_Level','_IsCurrentVersion'
 ]);
