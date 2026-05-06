@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-06h">
-<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-06h">
-<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-06h">
-<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-06h">
-<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-06h">
+<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-06i">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-06i">
+<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-06i">
+<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-06i">
+<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-06i">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="BSC Ops">
@@ -187,12 +187,132 @@ h1,h2,h3,.stat-value{font-family:'IvyPresto Display','Hoefler Text',Georgia,seri
 .page-title{font-size:26px;font-weight:600;color:var(--dark-blue);}
 .page-sub{font-size:13px;color:var(--muted);margin-top:4px;}
 
-/* ── STATS ROW ── */
-.stats-row{display:flex;gap:16px;margin-bottom:24px;flex-wrap:wrap;}
-.stat-card{background:#fff;border:1.5px solid var(--border);border-radius:12px;padding:16px 20px;flex:1;min-width:140px;box-shadow:var(--shadow);}
-.stat-value{font-size:28px;font-weight:700;color:var(--gold);}
-.stat-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-top:2px;}
+/* ── DASHBOARD (PR 5 of design refresh) — page-header, stats row, 12-col grid, iv-table ── */
+.dash-page-header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px;}
+.dash-breadcrumb{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-top:6px;font-family:inherit;}
+.dash-breadcrumb b{color:var(--ink);font-weight:700;}
+.dash-actions{display:inline-flex;gap:8px;align-items:center;flex-shrink:0;}
+
+/* Stats row — 5 metallic mini-tiles */
+.stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:18px;}
+.stat-card{
+  background:linear-gradient(180deg,#ffffff 0%,var(--bg-card-soft) 100%);
+  border:1px solid var(--border);
+  border-radius:9px;
+  padding:13px 14px 14px;
+  box-shadow:var(--sh-card);
+  cursor:pointer;
+  transition:all 140ms ease;
+  position:relative;overflow:hidden;
+  min-width:0;
+}
+.stat-card::after{
+  content:'';position:absolute;inset:0 0 auto 0;height:50%;
+  background:linear-gradient(180deg,rgba(255,255,255,0.5) 0%,transparent 100%);
+  pointer-events:none;border-radius:9px 9px 0 0;
+}
+.stat-card:hover{transform:translateY(-1px);box-shadow:var(--sh-card-hover);}
+.stat-card.alert{border-color:rgba(176,49,66,0.18);}
+.stat-card.alert::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,var(--red),#c4485a);z-index:1;
+}
+.stat-label{
+  font-size:10px;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.08em;font-weight:600;
+  margin-bottom:6px;
+  display:flex;align-items:center;justify-content:space-between;gap:6px;
+  position:relative;z-index:1;
+  font-family:inherit;
+}
+.stat-icon{width:13px;height:13px;color:var(--ink);opacity:.30;flex-shrink:0;}
+.stat-value{
+  font-family:var(--mono);font-weight:600;
+  font-size:28px;line-height:1;color:var(--ink);
+  letter-spacing:-.02em;font-variant-numeric:tabular-nums;
+  position:relative;z-index:1;
+}
 .stat-card.alert .stat-value{color:var(--red);}
+.stat-trend{
+  margin-top:6px;font-size:11px;color:var(--muted);
+  display:flex;align-items:center;gap:4px;
+  position:relative;z-index:1;
+  font-family:inherit;
+}
+.stat-trend.up{color:var(--red);font-weight:500;}
+
+/* Dashboard cards grid is 12-col with flush cards (head/body pattern).
+   Other pages keep the legacy auto-fill grid + padded cards. */
+#page-dashboard .cards-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px;}
+#page-dashboard .cards-grid .card{padding:0;display:flex;flex-direction:column;overflow:hidden;}
+
+/* Inventory value table (rendered into #dash-inv-value-body by dashboard.js) */
+.iv-table{width:100%;border-collapse:collapse;font-size:13px;}
+.iv-table thead th{
+  text-align:left;padding:8px 16px;
+  font-size:10px;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.06em;font-weight:600;
+  border-bottom:1px solid var(--border);
+  background:linear-gradient(180deg,var(--bg-card-soft),#f1ebdc);
+}
+.iv-table thead th.num{text-align:right;font-family:var(--mono);}
+.iv-table tbody td{
+  padding:10px 16px;
+  border-bottom:1px solid var(--border);
+  font-family:var(--mono);
+  font-variant-numeric:tabular-nums;
+}
+.iv-table tbody td.loc{font-family:inherit;font-weight:500;color:var(--ink);}
+.iv-table tbody tr:nth-child(even) td{background:var(--bg-stripe);}
+.iv-table tbody td.num{text-align:right;color:var(--ink-2);}
+.iv-table tbody td.total{color:var(--ink);font-weight:600;}
+.iv-table tr.grand td{
+  background:linear-gradient(180deg,var(--light-blue-25),var(--light-blue-50)) !important;
+  font-weight:700;
+  border-top:2px solid var(--light-blue);
+  border-bottom:none;padding-top:13px;padding-bottom:13px;
+}
+.iv-table tr.grand td.num{color:var(--ink);font-size:14px;}
+.iv-foot{
+  padding:10px 16px;
+  border-top:1px solid var(--border);
+  display:flex;justify-content:space-between;align-items:center;
+  background:var(--bg-card-soft);
+  font-size:11px;color:var(--gold-deep);
+}
+
+/* Dashboard checklist preview rows — used by #dash-checklist-preview */
+#dash-checklist-preview .progress-meta{font-size:12px;color:var(--muted);margin-top:4px;}
+#dash-checklist-preview .cl-row{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:13px;}
+#dash-checklist-preview .cl-row.done span{text-decoration:line-through;color:var(--muted);}
+#dash-checklist-preview .cl-check{
+  width:16px;height:16px;border-radius:4px;
+  border:1px solid var(--border-2);
+  flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(180deg,#ffffff,#f5f0e2);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.6),0 1px 1px rgba(2,61,74,0.05);
+}
+#dash-checklist-preview .cl-row.done .cl-check{
+  background:linear-gradient(180deg,#1d4753,var(--navy));
+  border-color:rgba(0,0,0,0.30);
+  color:#fff;font-size:10px;font-weight:700;
+  box-shadow:inset 0 1px 0 rgba(185,223,227,0.30),0 1px 1px rgba(14,53,64,0.20);
+}
+
+/* Mobile collapse for stats + dashboard cards */
+@media (max-width:1100px){
+  .stats-row{grid-template-columns:repeat(3,1fr);}
+  #page-dashboard .cards-grid .span-7,
+  #page-dashboard .cards-grid .span-5,
+  #page-dashboard .cards-grid .span-6,
+  #page-dashboard .cards-grid .span-4,
+  #page-dashboard .cards-grid .span-3{grid-column:span 12;}
+}
+@media (max-width:640px){
+  .stats-row{grid-template-columns:repeat(2,1fr);}
+  .dash-actions{flex-wrap:wrap;}
+  .dash-page-header h1.page-title{font-size:22px;}
+}
 
 /* ── CARDS GRID ── */
 .cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;}
@@ -599,11 +719,11 @@ html,body{overscroll-behavior:none;}
 </style>
 <!-- Design tokens (PR 1 of refresh) — loaded after inline <style> so legacy
      aliases at the bottom of :root override the older brand values. -->
-<link rel="stylesheet" href="/css/tokens.css?v=2026-05-06h">
+<link rel="stylesheet" href="/css/tokens.css?v=2026-05-06i">
 <!-- Shared primitives (PR 4) — loaded after tokens.css and after the
      inline <style> so it overrides legacy .btn-primary / .badge-* /
      .card / .alert-item rules with the new gradient + metallic look. -->
-<link rel="stylesheet" href="/css/primitives.css?v=2026-05-06h">
+<link rel="stylesheet" href="/css/primitives.css?v=2026-05-06i">
 </head>
 <body>
 
@@ -619,7 +739,7 @@ html,body{overscroll-behavior:none;}
 <div id="topbar">
   <button id="nav-toggle" onclick="toggleNav()" aria-label="Menu">☰</button>
   <div class="topbar-logo">
-    <img src="/images/feather-light.png?v=2026-05-06h" alt="" aria-hidden="true">
+    <img src="/images/feather-light.png?v=2026-05-06i" alt="" aria-hidden="true">
     <div>
       <div class="brand">Blue Sparrow</div>
       <small>Operations</small>
@@ -697,64 +817,127 @@ html,body{overscroll-behavior:none;}
       style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:18px;color:var(--muted);flex-shrink:0;">×</button>
   </div>
 
-  <!-- DASHBOARD -->
+  <!-- DASHBOARD (PR 5 of design refresh) -->
   <div class="page active" id="page-dashboard">
-    <div class="page-header">
-      <div class="page-title" id="dash-greeting">Good morning ☕</div>
-      <div class="page-sub" id="dash-date"></div>
+    <div class="page-header dash-page-header">
+      <div>
+        <h1 class="page-title">Dashboard</h1>
+        <div class="page-sub dash-breadcrumb" id="dash-date"></div>
+      </div>
+      <div class="dash-actions">
+        <button class="btn" onclick="exportDashboard()" title="Export dashboard data">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export
+        </button>
+        <button class="btn primary" onclick="nav('inventory')" title="Start a new inventory count">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New count
+        </button>
+      </div>
     </div>
+
     <div class="stats-row">
-      <div class="stat-card alert" style="cursor:pointer;" onclick="navLowStock()"><div class="stat-value" id="d-low">—</div><div class="stat-label">Low Stock Alerts</div></div>
-      <div class="stat-card" style="cursor:pointer;" onclick="nav('ordering')"><div class="stat-value" id="d-orders">—</div><div class="stat-label">Pending Orders</div></div>
-      <div class="stat-card" style="cursor:pointer;" onclick="nav('checklists')"><div class="stat-value" id="d-checklist">—</div><div class="stat-label">Today's Checklist</div></div>
-      <div class="stat-card alert" id="d-maint-stat" style="cursor:pointer;" onclick="nav('maint-schedule')"><div class="stat-value" id="d-maint">—</div><div class="stat-label">Maintenance Alerts</div></div>
+      <div class="stat-card" style="cursor:pointer;" onclick="nav('inventory')">
+        <div class="stat-label">Inventory items <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>
+        <div class="stat-value" id="d-inv-items">—</div>
+        <div class="stat-trend" id="d-inv-trend">tracked across locations</div>
+      </div>
+      <div class="stat-card alert" style="cursor:pointer;" onclick="navLowStock()">
+        <div class="stat-label">Low stock <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+        <div class="stat-value" id="d-low">—</div>
+        <div class="stat-trend" id="d-low-trend">at or below par</div>
+      </div>
+      <div class="stat-card" style="cursor:pointer;" onclick="nav('ordering')">
+        <div class="stat-label">Pending orders <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></div>
+        <div class="stat-value" id="d-orders">—</div>
+        <div class="stat-trend" id="d-orders-trend">awaiting delivery</div>
+      </div>
+      <div class="stat-card" style="cursor:pointer;" onclick="nav('checklists')">
+        <div class="stat-label">Today's checklist <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+        <div class="stat-value" id="d-checklist">—</div>
+        <div class="stat-trend" id="d-checklist-trend">tasks complete</div>
+      </div>
+      <div class="stat-card alert" id="d-maint-stat" style="cursor:pointer;" onclick="nav('maint-schedule')">
+        <div class="stat-label">Maintenance <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div>
+        <div class="stat-value" id="d-maint">—</div>
+        <div class="stat-trend" id="d-maint-trend">overdue or due soon</div>
+      </div>
     </div>
+
     <div class="cards-grid">
-      <div class="card section-load-target" style="cursor:pointer;" onclick="navLowStock()">
-        <div class="card-title">🔴 Low Stock Alerts</div>
-        <div id="dash-alerts"><div class="no-data">Loading…</div></div>
+      <!-- Row 1: Today's Checklist (span-7) + Low Stock (span-5) -->
+      <div class="card span-7 section-load-target" style="cursor:pointer;" onclick="nav('checklists')">
+        <div class="card-head">
+          <div class="card-title">Today's Checklist <span class="card-title-count" id="d-checklist-count" style="display:none">—</span></div>
+          <button class="btn btn-sm" onclick="event.stopPropagation();nav('checklists')">Open →</button>
+        </div>
+        <div class="card-body" id="dash-checklist-preview"></div>
       </div>
-      <div class="card section-load-target" style="cursor:pointer;" onclick="nav('checklists')">
-        <div class="card-title">✅ Today's Checklist</div>
-        <div id="dash-checklist-preview"></div>
-        <div style="margin-top:12px;"><button class="btn btn-outline btn-sm" onclick="event.stopPropagation();nav('checklists')">Open Checklists →</button></div>
+      <div class="card span-5 section-load-target" style="cursor:pointer;" onclick="navLowStock()">
+        <div class="card-head">
+          <div class="card-title">Low Stock</div>
+        </div>
+        <div class="card-body" id="dash-alerts"><div class="no-data">Loading…</div></div>
       </div>
-      <div class="card section-load-target" style="cursor:pointer;" onclick="nav('ordering')">
-        <div class="card-title">🛒 Recent Orders</div>
-        <div id="dash-orders"><div class="no-data">Loading…</div></div>
+
+      <!-- Row 2: Recent Orders (span-5) + Maintenance (span-7) -->
+      <div class="card span-5 section-load-target" style="cursor:pointer;" onclick="nav('ordering')">
+        <div class="card-head">
+          <div class="card-title">Recent Orders</div>
+        </div>
+        <div class="card-body" id="dash-orders"><div class="no-data">Loading…</div></div>
       </div>
-      <div class="card section-load-target" id="dash-maint-card" style="cursor:pointer;" onclick="nav('maint-schedule')">
-        <div class="card-title">🔧 Maintenance Alerts</div>
-        <div id="dash-maint-alerts"><div class="no-data">Loading…</div></div>
-        <div style="margin-top:12px;"><button class="btn btn-outline btn-sm" onclick="event.stopPropagation();nav('maint-schedule')">Open Maintenance →</button></div>
+      <div class="card span-7 section-load-target" id="dash-maint-card" style="cursor:pointer;" onclick="nav('maint-schedule')">
+        <div class="card-head">
+          <div class="card-title">Maintenance Alerts</div>
+          <button class="btn btn-sm" onclick="event.stopPropagation();nav('maint-schedule')">Open →</button>
+        </div>
+        <div class="card-body" id="dash-maint-alerts"><div class="no-data">Loading…</div></div>
       </div>
-      <div class="card section-load-target" id="dash-clocked-in-card">
-        <div class="card-title">⏱️ Currently Clocked In</div>
-        <div id="dash-clocked-in-body"><div class="no-data">Loading…</div></div>
+
+      <!-- Currently Clocked In - kept (not in mock; full width below the main grid) -->
+      <div class="card span-12 section-load-target" id="dash-clocked-in-card">
+        <div class="card-head">
+          <div class="card-title">Currently Clocked In</div>
+        </div>
+        <div class="card-body" id="dash-clocked-in-body"><div class="no-data">Loading…</div></div>
       </div>
+
+      <!-- Section divider — owner/accounting from here down -->
+      <div class="section-divider span-12" id="dash-acct-divider" style="display:none"><span>Owner &amp; Accounting</span></div>
+
       <!-- Owner/accounting: transfer summary (shown via JS role gate) -->
-      <div class="card section-load-target" id="dash-transfers-card" style="display:none;cursor:pointer;" onclick="nav('inventory');switchInvType?.('transfers')">
-        <div class="card-title">🔄 Transfer Summary</div>
-        <div id="dash-transfers-body"><div class="no-data" style="padding:16px">Loading…</div></div>
+      <div class="card span-12 section-load-target" id="dash-transfers-card" style="display:none;cursor:pointer;" onclick="nav('inventory');switchInvType?.('transfers')">
+        <div class="card-head">
+          <div class="card-title">Transfer Summary</div>
+        </div>
+        <div class="card-body" id="dash-transfers-body"><div class="no-data" style="padding:16px">Loading…</div></div>
       </div>
       <!-- Owner/accounting-only: inventory value by location (shown via JS role gate) -->
-      <div class="card section-load-target" id="dash-inv-value-card" style="display:none;grid-column:1 / -1;">
-        <div class="card-title">💰 Inventory Value by Location</div>
-        <div id="dash-inv-value-body"><div class="no-data" style="padding:16px">Loading…</div></div>
-        <div style="font-size:11px;color:var(--muted);margin-top:8px;">Based on latest submitted counts × per-unit cost. Visible to owner and accounting only.</div>
+      <div class="card span-12 section-load-target" id="dash-inv-value-card" style="display:none;">
+        <div class="card-head">
+          <div class="card-title">Inventory Value by Location</div>
+        </div>
+        <div class="card-body" id="dash-inv-value-body" style="padding:0"><div class="no-data" style="padding:16px">Loading…</div></div>
       </div>
       <!-- Accounting-only summary cards (shown via JS role gate) -->
-      <div class="card section-load-target" id="dash-acct-merch-card" style="display:none;cursor:pointer;" onclick="nav('inventory');switchInvType?.('merch')">
-        <div class="card-title">🛍️ Merch Inventory</div>
-        <div id="dash-acct-merch-body"><div class="no-data" style="padding:16px">Loading…</div></div>
+      <div class="card span-6 section-load-target" id="dash-acct-merch-card" style="display:none;cursor:pointer;" onclick="nav('inventory');switchInvType?.('merch')">
+        <div class="card-head">
+          <div class="card-title">Merch Inventory</div>
+        </div>
+        <div class="card-body" id="dash-acct-merch-body"><div class="no-data" style="padding:16px">Loading…</div></div>
       </div>
-      <div class="card section-load-target" id="dash-acct-bags-card" style="display:none;grid-column:1 / -1;cursor:pointer;" onclick="nav('inventory');switchInvType?.('labels')">
-        <div class="card-title">🏷️ Bags &amp; Labels</div>
-        <div id="dash-acct-bags-body"><div class="no-data" style="padding:16px">Loading…</div></div>
+      <div class="card span-12 section-load-target" id="dash-acct-bags-card" style="display:none;cursor:pointer;" onclick="nav('inventory');switchInvType?.('labels')">
+        <div class="card-head">
+          <div class="card-title">Bags &amp; Labels</div>
+        </div>
+        <div class="card-body" id="dash-acct-bags-body"><div class="no-data" style="padding:16px">Loading…</div></div>
       </div>
-      <div class="card section-load-target" id="dash-acct-cogs-card" style="display:none;grid-column:1 / -1;cursor:pointer;" onclick="nav('cogs')">
-        <div class="card-title">📊 COGs Overview</div>
-        <div id="dash-acct-cogs-body"><div class="no-data" style="padding:16px">Loading…</div></div>
+      <div class="card span-12 section-load-target" id="dash-acct-cogs-card" style="display:none;cursor:pointer;" onclick="nav('cogs')">
+        <div class="card-head">
+          <div class="card-title">COGs Overview</div>
+        </div>
+        <div class="card-body" id="dash-acct-cogs-body"><div class="no-data" style="padding:16px">Loading…</div></div>
       </div>
     </div>
   </div>
@@ -2935,40 +3118,40 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-05-06h" defer></script>
-<script src="/js/utils.js?v=2026-05-06h" defer></script>
-<script src="/js/state.js?v=2026-05-06h" defer></script>
-<script src="/js/auth.js?v=2026-05-06h" defer></script>
-<script src="/js/graph.js?v=2026-05-06h" defer></script>
-<script src="/js/signalr.js?v=2026-05-06h" defer></script>
-<script src="/js/tags.js?v=2026-05-06h" defer></script>
-<script src="/js/nav.js?v=2026-05-06h" defer></script>
-<script src="/js/settings.js?v=2026-05-06h" defer></script>
-<script src="/js/dashboard.js?v=2026-05-06h" defer></script>
-<script src="/js/inventory.js?v=2026-05-06h" defer></script>
-<script src="/js/inventory-form.js?v=2026-05-06h" defer></script>
-<script src="/js/counts.js?v=2026-05-06h" defer></script>
-<script src="/js/foodpars.js?v=2026-05-06h" defer></script>
-<script src="/js/labels.js?v=2026-05-06h" defer></script>
-<script src="/js/bags.js?v=2026-05-06h" defer></script>
-<script src="/js/bag-labels-5lb.js?v=2026-05-06h" defer></script>
-<script src="/js/pastry-sync.js?v=2026-05-06h" defer></script>
-<script src="/js/recipes.js?v=2026-05-06h" defer></script>
-<script src="/js/cogs.js?v=2026-05-06h" defer></script>
-<script src="/js/vendors.js?v=2026-05-06h" defer></script>
-<script src="/js/contacts.js?v=2026-05-06h" defer></script>
-<script src="/js/maintenance.js?v=2026-05-06h" defer></script>
-<script src="/js/checklists.js?v=2026-05-06h" defer></script>
-<script src="/js/ordering.js?v=2026-05-06h" defer></script>
-<script src="/js/ordering-build.js?v=2026-05-06h" defer></script>
-<script src="/js/market-analysis.js?v=2026-05-06h" defer></script>
-<script src="/js/projects.js?v=2026-05-06h" defer></script>
-<script src="/js/parking.js?v=2026-05-06h" defer></script>
-<script src="/js/prepItems.js?v=2026-05-06h" defer></script>
-<script src="/js/square.js?v=2026-05-06h" defer></script>
-<script src="/js/timeclock.js?v=2026-05-06h" defer></script>
-<script src="/js/slack.js?v=2026-05-06h" defer></script>
-<script src="/js/auto-sync.js?v=2026-05-06h" defer></script>
+<script src="/js/constants.js?v=2026-05-06i" defer></script>
+<script src="/js/utils.js?v=2026-05-06i" defer></script>
+<script src="/js/state.js?v=2026-05-06i" defer></script>
+<script src="/js/auth.js?v=2026-05-06i" defer></script>
+<script src="/js/graph.js?v=2026-05-06i" defer></script>
+<script src="/js/signalr.js?v=2026-05-06i" defer></script>
+<script src="/js/tags.js?v=2026-05-06i" defer></script>
+<script src="/js/nav.js?v=2026-05-06i" defer></script>
+<script src="/js/settings.js?v=2026-05-06i" defer></script>
+<script src="/js/dashboard.js?v=2026-05-06i" defer></script>
+<script src="/js/inventory.js?v=2026-05-06i" defer></script>
+<script src="/js/inventory-form.js?v=2026-05-06i" defer></script>
+<script src="/js/counts.js?v=2026-05-06i" defer></script>
+<script src="/js/foodpars.js?v=2026-05-06i" defer></script>
+<script src="/js/labels.js?v=2026-05-06i" defer></script>
+<script src="/js/bags.js?v=2026-05-06i" defer></script>
+<script src="/js/bag-labels-5lb.js?v=2026-05-06i" defer></script>
+<script src="/js/pastry-sync.js?v=2026-05-06i" defer></script>
+<script src="/js/recipes.js?v=2026-05-06i" defer></script>
+<script src="/js/cogs.js?v=2026-05-06i" defer></script>
+<script src="/js/vendors.js?v=2026-05-06i" defer></script>
+<script src="/js/contacts.js?v=2026-05-06i" defer></script>
+<script src="/js/maintenance.js?v=2026-05-06i" defer></script>
+<script src="/js/checklists.js?v=2026-05-06i" defer></script>
+<script src="/js/ordering.js?v=2026-05-06i" defer></script>
+<script src="/js/ordering-build.js?v=2026-05-06i" defer></script>
+<script src="/js/market-analysis.js?v=2026-05-06i" defer></script>
+<script src="/js/projects.js?v=2026-05-06i" defer></script>
+<script src="/js/parking.js?v=2026-05-06i" defer></script>
+<script src="/js/prepItems.js?v=2026-05-06i" defer></script>
+<script src="/js/square.js?v=2026-05-06i" defer></script>
+<script src="/js/timeclock.js?v=2026-05-06i" defer></script>
+<script src="/js/slack.js?v=2026-05-06i" defer></script>
+<script src="/js/auto-sync.js?v=2026-05-06i" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
@@ -3045,17 +3228,16 @@ async function clearLocalDataAndReload() {
 })();
 
 window.addEventListener('DOMContentLoaded', async () => {
+  // Dashboard breadcrumb (PR 5) — "ALL LOCATIONS · FRI MAR 14 · 7:42 AM" pattern.
+  // The active-location label updates on setLocation; bootstrap fills the
+  // initial value here. dashboard-greeting was removed in PR 5.
   const _now = new Date();
-  document.getElementById('dash-date').textContent =
-    _now.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  (function() {
-    const h = _now.getHours();
-    const greet = h >= 5 && h < 12 ? 'Good morning ☕'
-                : h >= 12 && h < 17 ? 'Good afternoon ☕'
-                : h >= 17 && h < 21 ? 'Good evening ☕'
-                : 'Good night 🌙';
-    document.getElementById('dash-greeting').textContent = greet;
-  })();
+  const _date = _now.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+  const _time = _now.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+  const dashDate = document.getElementById('dash-date');
+  if (dashDate) {
+    dashDate.innerHTML = `<b>All locations</b> · ${escHtml(_date)} · ${escHtml(_time)}`;
+  }
 
   try {
     const resp = await msal.handleRedirectPromise();
@@ -5378,7 +5560,7 @@ function renderMenu(query='', catFilter='') {
     const stockDisplay = stock != null ? stock : '—';
     const vars = (i.Variations||'').split('\n').filter(Boolean);
     return `<tr data-gs-id="${escHtml(i.id)}" style="${isHidden?'opacity:0.45;':''}">
-      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-06h" alt="" title="Synced with Square">':''}</td>
+      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-06i" alt="" title="Synced with Square">':''}</td>
       <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${escHtml(i.Category||'—')}</span></td>
       <td style="font-size:12px;color:var(--muted);max-width:220px">${escHtml(i.Description||'')}</td>
       <td>${i.Price != null ? '$'+Number(i.Price).toFixed(2) : '—'}</td>

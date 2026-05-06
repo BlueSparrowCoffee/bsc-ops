@@ -16,6 +16,7 @@
  *     getLatestCountsMap, updateMaintDashboard
  * ================================================================ */
 function renderDashboard() {
+  _renderDashBreadcrumb();
   // ── Accounting-only view: financial cards only, operational hidden ──
   // Owner/admin always sees the full dashboard. Pure accounting role gets
   // the inventory-value table + merch / bags / cogs summary cards.
@@ -71,6 +72,14 @@ function renderDashboard() {
   document.getElementById('d-low').textContent = totalLow;
   document.getElementById('d-orders').textContent = pendingOrders.length;
   document.getElementById('d-checklist').textContent = `${done.length}/${todayTasks.length}`;
+  // Inventory-items stat (PR 5) — total active consumable items across the
+  // current location filter. Trend line stays static text for now; per-day
+  // delta plumbing comes in a follow-up (would need a localStorage snapshot).
+  const invEl = document.getElementById('d-inv-items');
+  if (invEl) {
+    const activeItems = (cache.inventory || []).filter(i => !i.Archived);
+    invEl.textContent = activeItems.length;
+  }
 
   // ── Per-location section renderer (used by alerts + orders cards) ──
   // When `clickable` is true, the location name acts as a link to that
@@ -91,9 +100,9 @@ function renderDashboard() {
   const _lowItemHtml = (i, stock, par, locLabel) => `
     <div class="alert-item">
       <div class="alert-dot ${stock===0?'red':'orange'}"></div>
-      <span>${escHtml(i.ItemName||'Unknown')}</span>
-      ${locLabel ? `<span style="margin-left:auto;font-size:11px;color:var(--muted)">${escHtml(locLabel)}</span>` : ''}
-      <span class="badge ${stock===0?'badge-red':'badge-orange'}" style="margin-left:${locLabel?'8px':'auto'}">
+      <span class="alert-name">${escHtml(i.ItemName||'Unknown')}</span>
+      ${locLabel ? `<span class="alert-loc">${escHtml(locLabel)}</span>` : ''}
+      <span class="badge ${stock===0?'badge-red':'badge-orange'}" style="${locLabel?'margin-left:8px':'margin-left:auto'}">
         ${stock} / ${par} ${escHtml(i.Unit||'')}
       </span>
     </div>`;
@@ -139,9 +148,10 @@ function renderDashboard() {
   const ordEl = document.getElementById('dash-orders');
   const _orderRowHtml = (o) => `
     <div class="alert-item">
-      <div class="alert-dot gold"></div>
-      <span>${escHtml(o.Vendor||'Unknown')}</span>
-      <span style="margin-left:auto"><span class="badge badge-gold">${escHtml(o.Status)}</span></span>
+      <div class="alert-dot blue"></div>
+      <span class="alert-name">${escHtml(o.Vendor||'Unknown')}</span>
+      ${o.Location ? `<span class="alert-loc">${escHtml(o.Location)}</span>` : ''}
+      <span class="badge badge-blue" style="${o.Location?'margin-left:8px':'margin-left:auto'}">${escHtml(o.Status)}</span>
     </div>`;
   if (ownerAllView) {
     if (!pendingOrders.length) {
@@ -173,6 +183,24 @@ function renderDashboard() {
   if (typeof renderClockedInCard === 'function') renderClockedInCard();
 
   updateMaintDashboard();
+}
+
+// Updates the dashboard page-header breadcrumb (location · day · time).
+// Called from renderDashboard and the initial bootstrap. Keeps the location
+// label in sync with currentLocation as the user clicks topbar location chips.
+function _renderDashBreadcrumb() {
+  const el = document.getElementById('dash-date');
+  if (!el) return;
+  const loc = (currentLocation === 'all' || !currentLocation) ? 'All locations' : currentLocation;
+  const now = new Date();
+  const date = now.toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'});
+  const time = now.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'});
+  el.innerHTML = `<b>${escHtml(loc)}</b> · ${escHtml(date)} · ${escHtml(time)}`;
+}
+
+// Stub for the dashboard "Export" header button. Full implementation deferred.
+function exportDashboard() {
+  if (typeof toast === 'function') toast('ok', 'Export coming soon — bug Jeff if you need this.');
 }
 
 // ── Transfer summary helpers (shared by dashboard card + transfer page) ──
@@ -462,8 +490,16 @@ const _fmtMoney = n => '$' + (Number(n) || 0).toFixed(2).replace(/\B(?=(\d{3})+(
 function renderInventoryValueByLocation() {
   const card = document.getElementById('dash-inv-value-card');
   if (!card) return;
-  if (!isOwnerOrAccounting()) { card.style.display = 'none'; return; }
+  // Section divider rides along with the inventory-value card — visible
+  // whenever owner/accounting content is on the page.
+  const divider = document.getElementById('dash-acct-divider');
+  if (!isOwnerOrAccounting()) {
+    card.style.display = 'none';
+    if (divider) divider.style.display = 'none';
+    return;
+  }
   card.style.display = '';
+  if (divider) divider.style.display = '';
 
   const body = document.getElementById('dash-inv-value-body');
   if (!body) return;
@@ -479,41 +515,46 @@ function renderInventoryValueByLocation() {
     const b = _bagLabelsValue(loc);
     totalC += c; totalM += m; totalE += e; totalB += b;
     return `
-      <tr style="border-bottom:1px solid var(--border);">
-        <td style="padding:8px 10px;font-weight:500">${escHtml(loc)}</td>
-        <td style="padding:8px 10px;text-align:right">${fmt(c)}</td>
-        <td style="padding:8px 10px;text-align:right">${fmt(m)}</td>
-        <td style="padding:8px 10px;text-align:right">${fmt(e)}</td>
-        <td style="padding:8px 10px;text-align:right">${fmt(b)}</td>
-        <td style="padding:8px 10px;text-align:right;font-weight:600">${fmt(c + m + e + b)}</td>
+      <tr>
+        <td class="loc">${escHtml(loc)}</td>
+        <td class="num">${fmt(c)}</td>
+        <td class="num">${fmt(m)}</td>
+        <td class="num">${fmt(e)}</td>
+        <td class="num">${fmt(b)}</td>
+        <td class="num total">${fmt(c + m + e + b)}</td>
       </tr>`;
   }).join('');
 
+  const emptyRow = `<tr><td colspan="6" style="padding:12px;color:var(--muted);text-align:center;">No locations configured.</td></tr>`;
+
   body.innerHTML = `
     <div style="overflow-x:auto;">
-      <table style="width:100%;font-size:13px;border-collapse:collapse;min-width:560px;">
+      <table class="iv-table" style="min-width:560px;">
         <thead>
-          <tr style="border-bottom:2px solid var(--border);color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em;">
-            <th style="text-align:left;padding:8px 10px;">Location</th>
-            <th style="text-align:right;padding:8px 10px;">Consumables</th>
-            <th style="text-align:right;padding:8px 10px;">Merch</th>
-            <th style="text-align:right;padding:8px 10px;">Equipment</th>
-            <th style="text-align:right;padding:8px 10px;">Bags &amp; Labels</th>
-            <th style="text-align:right;padding:8px 10px;">Total</th>
+          <tr>
+            <th>Location</th>
+            <th class="num">Consumables</th>
+            <th class="num">Merch</th>
+            <th class="num">Equipment</th>
+            <th class="num">Bags &amp; Labels</th>
+            <th class="num">Total</th>
           </tr>
         </thead>
         <tbody>
-          ${locRows || `<tr><td colspan="6" style="padding:12px;color:var(--muted);text-align:center;">No locations configured.</td></tr>`}
-          <tr style="border-top:2px solid var(--border);background:var(--cream);font-weight:700;">
-            <td style="padding:10px;">All Locations</td>
-            <td style="padding:10px;text-align:right;">${fmt(totalC)}</td>
-            <td style="padding:10px;text-align:right;">${fmt(totalM)}</td>
-            <td style="padding:10px;text-align:right;">${fmt(totalE)}</td>
-            <td style="padding:10px;text-align:right;">${fmt(totalB)}</td>
-            <td style="padding:10px;text-align:right;">${fmt(totalC + totalM + totalE + totalB)}</td>
+          ${locRows || emptyRow}
+          <tr class="grand">
+            <td class="loc">All Locations</td>
+            <td class="num">${fmt(totalC)}</td>
+            <td class="num">${fmt(totalM)}</td>
+            <td class="num">${fmt(totalE)}</td>
+            <td class="num">${fmt(totalB)}</td>
+            <td class="num total">${fmt(totalC + totalM + totalE + totalB)}</td>
           </tr>
         </tbody>
       </table>
+    </div>
+    <div class="iv-foot">
+      <span>Based on latest submitted counts × per-unit cost. Visible to owner and accounting only.</span>
     </div>`;
 }
 

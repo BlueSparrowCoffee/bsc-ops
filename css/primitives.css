@@ -141,18 +141,22 @@
 /* ──────────────────────────────────────────────────────────────
    Cards
    ────────────────────────────────────────────────────────────── */
+/* Conservative .card override — keeps legacy 20px padding (set by the inline
+   <style>) untouched so Recipes / Maintenance / Settings / Projects / etc.
+   don't regress. Only touches the visual chrome (border, radius, shadow).
+   Pages that want the new flush head/body pattern opt in by adding
+   .card-flush (or scoping their grid: e.g. `#page-dashboard .cards-grid .card{padding:0}`). */
 .card {
   background:var(--bg-card);
   border:1px solid var(--border);
   border-radius:10px;
   box-shadow:var(--sh-card);
-  overflow:hidden;
-  display:flex;flex-direction:column;
-  /* Existing rule had padding:20px built-in. Keep that as a fallback for
-     cards that don't use the .card-head/.card-body sub-elements yet. */
-  padding:0;
 }
-.card.card-padded { padding:20px; }
+.card-flush {
+  padding:0 !important;
+  display:flex;flex-direction:column;
+  overflow:hidden;
+}
 .card-head {
   display:flex;align-items:center;justify-content:space-between;gap:10px;
   padding:12px 16px;
