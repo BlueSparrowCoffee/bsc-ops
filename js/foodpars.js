@@ -113,7 +113,7 @@ function renderFoodParsTable(category) {
     const weekRev = price * weekTotal;
     totalRevenue += weekRev;
     const revCell = price > 0
-      ? `<span style="color:#2e7d32;font-weight:600;">$${weekRev.toFixed(2)}</span>`
+      ? `<span style="color:var(--good);font-weight:600;">$${weekRev.toFixed(2)}</span>`
       : `<span style="color:var(--muted)">—</span>`;
     return `<tr data-id="${escHtml(p.id)}">
       <td class="fp-drag-handle" title="Drag to reorder" style="color:var(--muted);">⠿</td>
@@ -130,7 +130,7 @@ function renderFoodParsTable(category) {
   const tfoot = `<tfoot><tr>
     <td colspan="3" style="padding:10px 14px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Weekly Total</td>
     <td colspan="${FP_DAYS.length}"></td>
-    <td style="text-align:right;font-weight:700;font-size:14px;color:#2e7d32;padding:10px 14px;">$${totalRevenue.toFixed(2)}</td>
+    <td style="text-align:right;font-weight:700;font-size:14px;color:var(--good);padding:10px 14px;">$${totalRevenue.toFixed(2)}</td>
     <td></td>
   </tr></tfoot>`;
 

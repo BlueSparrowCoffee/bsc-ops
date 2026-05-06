@@ -691,7 +691,7 @@ function renderAcctCogsCard() {
         <tr style="border-bottom:1px solid var(--border);">
           <td style="padding:6px 8px;font-weight:500;">${escHtml(type)}</td>
           <td style="padding:6px 8px;text-align:right;">${margins.length}</td>
-          <td style="padding:6px 8px;text-align:right;font-weight:600;color:${a>=50?'#16a34a':a>=30?'#d97706':'var(--red)'};">${a.toFixed(1)}%</td>
+          <td style="padding:6px 8px;text-align:right;font-weight:600;color:${a>=50?'var(--good)':a>=30?'var(--warn)':'var(--bad)'};">${a.toFixed(1)}%</td>
         </tr>`;
     }).join('');
 
@@ -707,7 +707,7 @@ function renderAcctCogsCard() {
       </div>
       <div style="padding:10px 12px;background:var(--cream);border-radius:8px;">
         <div style="font-size:11px;color:var(--muted);margin-bottom:2px;">Best</div>
-        <div style="font-size:14px;font-weight:600;color:var(--green);" title="${escHtml(best?.name||'')}">${best ? best.margin.toFixed(1)+'%' : '—'}</div>
+        <div style="font-size:14px;font-weight:600;color:var(--good);" title="${escHtml(best?.name||'')}">${best ? best.margin.toFixed(1)+'%' : '—'}</div>
         <div style="font-size:11px;color:var(--muted);" title="${escHtml(best?.name||'')}">${escHtml((best?.name||'').slice(0,24))}${(best?.name||'').length>24?'…':''}</div>
       </div>
       <div style="padding:10px 12px;background:var(--cream);border-radius:8px;">

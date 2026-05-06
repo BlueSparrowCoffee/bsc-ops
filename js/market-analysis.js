@@ -105,9 +105,9 @@ function _maFreshness(date) {
   const d = (typeof date === 'string') ? new Date(date) : date;
   if (isNaN(d.getTime())) return null;
   const days = (Date.now() - d.getTime()) / (24*60*60*1000);
-  if (days < 60)  return { tier:'fresh',      color:'#16a34a', days };
-  if (days < 180) return { tier:'stale',      color:'#d97706', days };
-  return { tier:'very-stale', color:'#dc2626', days };
+  if (days < 60)  return { tier:'fresh',      color:'var(--good)', days };
+  if (days < 180) return { tier:'stale',      color:'var(--warn)', days };
+  return { tier:'very-stale', color:'var(--bad)', days };
 }
 
 // Latest COG snapshot for a tracked item that's linked to a Square
@@ -344,7 +344,7 @@ function _renderMarketBarChart() {
     // Change indicator: ▲/▼ vs prior survey for this (item,competitor)
     const chg = _maPriceChange(key, r.name);
     const chgTxt = chg
-      ? `<tspan dx="6" font-size="11" fill="${chg.delta >= 0 ? '#dc2626' : '#16a34a'}" font-weight="600">${chg.delta >= 0 ? '▲' : '▼'} ${chg.delta >= 0 ? '+' : '−'}${_maMoney(Math.abs(chg.delta))}</tspan>`
+      ? `<tspan dx="6" font-size="11" fill="${chg.delta >= 0 ? 'var(--bad)' : 'var(--good)'}" font-weight="600">${chg.delta >= 0 ? '▲' : '▼'} ${chg.delta >= 0 ? '+' : '−'}${_maMoney(Math.abs(chg.delta))}</tspan>`
       : '';
     return `
       <g>
@@ -373,7 +373,7 @@ function _renderMarketBarChart() {
       const oppTxt = (opportunity != null && Math.abs(opportunity) >= 0.05)
         ? (opportunity > 0
             ? ` · <span style="color:var(--gold);font-weight:600;">+${_maMoney(opportunity)} potential if you matched market</span>`
-            : ` · <span style="color:#16a34a;font-weight:600;">${_maMoney(Math.abs(opportunity))} above market — premium captured</span>`)
+            : ` · <span style="color:var(--good);font-weight:600;">${_maMoney(Math.abs(opportunity))} above market — premium captured</span>`)
         : '';
       marginRow = `
         <div style="margin-top:14px;padding:12px 14px;background:rgba(2,61,74,.05);border-radius:8px;font-size:12px;line-height:1.5;color:var(--dark-blue);">
@@ -496,7 +496,7 @@ function _renderMarketHeatmap() {
             const dot = fresh ? `<span title="surveyed ${Math.round(fresh.days)} days ago" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${fresh.color};margin-right:5px;vertical-align:middle;opacity:.85;"></span>` : '';
             const chg = _maPriceChange(key, c.Title);
             const chgInline = chg
-              ? `<span style="font-size:10px;color:${chg.delta >= 0 ? '#dc2626' : '#16a34a'};font-weight:600;margin-left:4px;" title="vs prior survey ${_maFmtDate(chg.prevDate)}">${chg.delta >= 0 ? '▲' : '▼'}</span>`
+              ? `<span style="font-size:10px;color:${chg.delta >= 0 ? 'var(--bad)' : 'var(--good)'};font-weight:600;margin-left:4px;" title="vs prior survey ${_maFmtDate(chg.prevDate)}">${chg.delta >= 0 ? '▲' : '▼'}</span>`
               : '';
             return `<td data-id="${it.id}" data-comp="${escHtml(c.Title)}" onclick="openMarketPriceEdit(this.dataset.id, this.dataset.comp)" style="text-align:right;padding:6px 10px;font-size:12px;background:${bg};color:${fg};cursor:pointer;font-variant-numeric:tabular-nums;">${dot}${_maMoney(p)}${chgInline}</td>`;
           }).join('');

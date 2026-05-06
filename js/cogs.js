@@ -140,7 +140,7 @@ function toggleCogsMissingFilter() {
   const label  = document.getElementById('cogs-missing-filter-label');
   if (_cogsMissingOnly) {
     banner.style.background   = '#fef3c7';
-    banner.style.borderColor  = '#d97706';
+    banner.style.borderColor  = 'var(--warn)';
     label.textContent = 'Show all items';
   } else {
     banner.style.background   = 'var(--warning)';
@@ -756,7 +756,7 @@ function renderInvCogCard(item, tabKey) {
   const cost       = parseFloat(item.CostPerUnit) || null;
   const price      = parseFloat(item.SellingPrice) || null;
   const margin     = (cost != null && price != null && price > 0) ? ((price - cost) / price * 100) : null;
-  const marginColor = margin == null ? '#999' : margin >= 65 ? '#16a34a' : margin >= 50 ? '#d97706' : '#dc2626';
+  const marginColor = margin == null ? '#999' : margin >= 65 ? 'var(--good)' : margin >= 50 ? 'var(--warn)' : 'var(--bad)';
   const marginLabel = margin != null ? margin.toFixed(1) + '% margin'
     : cost == null && price == null ? 'Enter cost & price'
     : cost == null ? 'Enter cost per unit' : 'Enter selling price';
@@ -878,7 +878,7 @@ function renderCogCard(item, cogMap, invMap, prepMap, invIdMap) {
     const { cog, lines, hasMissingCost } = calcCog(itemId, v.name, cogMap, invMap, prepMap, invIdMap);
     const price  = v.price;
     const margin = (price && !hasMissingCost) ? ((price - cog) / price * 100) : null;
-    const marginColor = margin == null ? '#999' : margin >= 65 ? '#16a34a' : margin >= 50 ? '#d97706' : '#dc2626';
+    const marginColor = margin == null ? '#999' : margin >= 65 ? 'var(--good)' : margin >= 50 ? 'var(--warn)' : 'var(--bad)';
 
     const ingRows = lines.map(ing => `
       <tr>
@@ -1230,8 +1230,8 @@ function handleCogDotEnter(evt, idx) {
   const tip = document.getElementById('cog-chart-tip');
   const host = document.getElementById('cogs-overview-chart');
   if (!tip || !host) return;
-  const mColor = pt.margin >= _cogChartTarget ? '#16a34a'
-               : pt.margin >= _cogChartTarget * 0.8 ? '#d97706' : '#dc2626';
+  const mColor = pt.margin >= _cogChartTarget ? 'var(--good)'
+               : pt.margin >= _cogChartTarget * 0.8 ? 'var(--warn)' : 'var(--bad)';
   const typeLbl = COG_TYPE_MARKERS[pt.type]?.label || pt.typeLabel || '';
   tip.innerHTML = `
     <div style="font-size:12px;font-weight:700;color:#fff;margin-bottom:2px;">${escHtml(pt.name)}${pt.variation ? ` <span style="font-weight:400;color:rgba(255,255,255,.7);">· ${escHtml(pt.variation)}</span>` : ''}</div>
@@ -1356,17 +1356,17 @@ function renderCogsOverviewChart(items, target) {
   const yTicks = [];
   for (let m = Math.ceil(yMin / yStep) * yStep; m <= yMax; m += yStep) yTicks.push(m);
 
-  const dotColor = (m) => m >= target ? '#16a34a' : m >= target * 0.8 ? '#d97706' : '#dc2626';
+  const dotColor = (m) => m >= target ? 'var(--good)' : m >= target * 0.8 ? 'var(--warn)' : 'var(--bad)';
 
   const svg = [];
 
   // Target band — subtle green wash above target line
   const tyTop = yScale(100);
   const tyTar = yScale(target);
-  svg.push(`<rect x="${PAD_L}" y="${tyTop}" width="${plotW}" height="${tyTar - tyTop}" fill="#16a34a" opacity=".07"/>`);
+  svg.push(`<rect x="${PAD_L}" y="${tyTop}" width="${plotW}" height="${tyTar - tyTop}" fill="var(--good)" opacity=".07"/>`);
   // Danger band — below 80% of target
   const dangerY = yScale(target * 0.8);
-  svg.push(`<rect x="${PAD_L}" y="${dangerY}" width="${plotW}" height="${PAD_T + plotH - dangerY}" fill="#dc2626" opacity=".07"/>`);
+  svg.push(`<rect x="${PAD_L}" y="${dangerY}" width="${plotW}" height="${PAD_T + plotH - dangerY}" fill="var(--bad)" opacity=".07"/>`);
 
   // Theme palette — light cream UI, dark teal text. Hardcoded so SVG fills work.
   const TEXT_DARK = '#023d4a';
@@ -1473,9 +1473,9 @@ function renderCogsOverviewChart(items, target) {
   const marginKey = `
     <div style="display:flex;gap:10px;align-items:center;font-size:11px;color:var(--text);flex-wrap:wrap;">
       <span style="color:var(--muted);font-weight:700;letter-spacing:.3px;text-transform:uppercase;font-size:10px;">Margin</span>
-      <span style="display:inline-flex;align-items:center;gap:5px;" title="At or above target margin"><span style="width:10px;height:10px;border-radius:50%;background:#16a34a;border:1px solid rgba(0,0,0,.1);"></span>On target (≥${target}%)</span>
-      <span style="display:inline-flex;align-items:center;gap:5px;" title="Below target but above 80% of target"><span style="width:10px;height:10px;border-radius:50%;background:#d97706;border:1px solid rgba(0,0,0,.1);"></span>Watch (${Math.round(target*0.8)}–${target-1}%)</span>
-      <span style="display:inline-flex;align-items:center;gap:5px;" title="Below 80% of target"><span style="width:10px;height:10px;border-radius:50%;background:#dc2626;border:1px solid rgba(0,0,0,.1);"></span>Below (&lt;${Math.round(target*0.8)}%)</span>
+      <span style="display:inline-flex;align-items:center;gap:5px;" title="At or above target margin"><span style="width:10px;height:10px;border-radius:50%;background:var(--good);border:1px solid rgba(0,0,0,.1);"></span>On target (≥${target}%)</span>
+      <span style="display:inline-flex;align-items:center;gap:5px;" title="Below target but above 80% of target"><span style="width:10px;height:10px;border-radius:50%;background:var(--warn);border:1px solid rgba(0,0,0,.1);"></span>Watch (${Math.round(target*0.8)}–${target-1}%)</span>
+      <span style="display:inline-flex;align-items:center;gap:5px;" title="Below 80% of target"><span style="width:10px;height:10px;border-radius:50%;background:var(--bad);border:1px solid rgba(0,0,0,.1);"></span>Below (&lt;${Math.round(target*0.8)}%)</span>
     </div>`;
 
   const lineKey = `
@@ -1611,7 +1611,7 @@ function renderCogsOverview() {
     ['Total Items', visibleItems.length],
     ['Avg Margin', avg.toFixed(1)+'%'],
     [`Below ${target}%`, `<span style="color:${below>0?'var(--red)':'var(--text)'}">${below}</span>`],
-    ['Best', best ? `<span title="${escHtml(best.name)}" style="font-size:12px;color:#16a34a">${best.margin.toFixed(1)}%</span>` : '—'],
+    ['Best', best ? `<span title="${escHtml(best.name)}" style="font-size:12px;color:var(--good)">${best.margin.toFixed(1)}%</span>` : '—'],
     ['Worst', worst ? `<span title="${escHtml(worst.name)}" style="font-size:12px;color:var(--red)">${worst.margin.toFixed(1)}%</span>` : '—']
   ].map(([label, val]) => `
     <div class="card" style="padding:12px 16px;">
@@ -1629,7 +1629,7 @@ function renderCogsOverview() {
 
   bodyEl.innerHTML = displayItems.map(item => {
     const m = item.margin;
-    const mColor = m >= target ? '#16a34a' : m >= target * 0.8 ? '#d97706' : '#dc2626';
+    const mColor = m >= target ? 'var(--good)' : m >= target * 0.8 ? 'var(--warn)' : 'var(--bad)';
     const barW   = Math.min(100, Math.max(0, m)).toFixed(1);
     const typePill = `<span style="font-size:10px;background:var(--opal);color:var(--dark-blue);padding:1px 6px;border-radius:8px;">${escHtml(item.typeLabel)}</span>`;
     const histBtn  = item.histKey
@@ -1684,7 +1684,7 @@ function openCogHistoryModal(itemName, varName) {
       ${snaps.map(s => {
         const m = parseFloat(s.GrossMargin)||0;
         const h = Math.round((m / maxM) * 52);
-        const col = m >= 65 ? '#16a34a' : m >= 50 ? '#d97706' : '#dc2626';
+        const col = m >= 65 ? 'var(--good)' : m >= 50 ? 'var(--warn)' : 'var(--bad)';
         const date = s.SnapshotDate ? new Date(s.SnapshotDate).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
         return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;min-width:28px;" title="${date}: ${m.toFixed(1)}%">
           <div style="font-size:9px;color:var(--muted)">${m.toFixed(0)}%</div>
@@ -1699,9 +1699,9 @@ function openCogHistoryModal(itemName, varName) {
     const m    = parseFloat(s.GrossMargin);
     const prev = arr[i+1] ? parseFloat(arr[i+1].GrossMargin) : null;
     const delta = (prev !== null && !isNaN(prev) && !isNaN(m)) ? m - prev : null;
-    const mColor = isNaN(m) ? '#999' : m >= 65 ? '#16a34a' : m >= 50 ? '#d97706' : '#dc2626';
+    const mColor = isNaN(m) ? '#999' : m >= 65 ? 'var(--good)' : m >= 50 ? 'var(--warn)' : 'var(--bad)';
     const deltaHtml = delta === null ? '—'
-      : `<span style="color:${delta>0?'#16a34a':delta<0?'#dc2626':'#999'}">${delta>0?'↑':'↓'} ${Math.abs(delta).toFixed(1)}%</span>`;
+      : `<span style="color:${delta>0?'var(--good)':delta<0?'var(--bad)':'#999'}">${delta>0?'↑':'↓'} ${Math.abs(delta).toFixed(1)}%</span>`;
     const dateStr = s.SnapshotDate ? new Date(s.SnapshotDate).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
     return `<tr style="border-bottom:1px solid var(--border);">
       <td style="padding:7px 10px;">${dateStr}</td>
@@ -1760,7 +1760,7 @@ function renderCogHistory() {
 
   tbody.innerHTML = snaps.map(s => {
     const margin = parseFloat(s.GrossMargin);
-    const marginColor = isNaN(margin) ? '#999' : margin >= 65 ? '#16a34a' : margin >= 50 ? '#d97706' : '#dc2626';
+    const marginColor = isNaN(margin) ? '#999' : margin >= 65 ? 'var(--good)' : margin >= 50 ? 'var(--warn)' : 'var(--bad)';
     const dateStr = s.SnapshotDate
       ? new Date(s.SnapshotDate).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
       : '—';
@@ -1771,7 +1771,7 @@ function renderCogHistory() {
     const prev = arr[idx+1] ? parseFloat(arr[idx+1].GrossMargin) : null;
     const delta = (prev !== null && !isNaN(prev) && !isNaN(margin)) ? margin - prev : null;
     const deltaHtml = delta === null ? '<span style="color:var(--muted)">—</span>'
-      : `<span style="color:${delta>0?'#16a34a':delta<0?'#dc2626':'#999'}">${delta>0?'↑':'↓'} ${Math.abs(delta).toFixed(1)}%</span>`;
+      : `<span style="color:${delta>0?'var(--good)':delta<0?'var(--bad)':'#999'}">${delta>0?'↑':'↓'} ${Math.abs(delta).toFixed(1)}%</span>`;
     return `<tr>
       <td>${dateStr}</td>
       <td><button style="background:none;border:none;cursor:pointer;color:var(--gold);font-size:13px;padding:0;text-align:left;" data-name="${escHtml(s.MenuItemName||'')}" data-var="${escHtml(s.VariationName||'')}" onclick="openCogHistoryModal(this.dataset.name,this.dataset.var)">${escHtml(s.MenuItemName||'')}</button></td>

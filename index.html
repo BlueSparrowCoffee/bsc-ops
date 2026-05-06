@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-06c">
-<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-06c">
-<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-06c">
-<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-06c">
-<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-06c">
+<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-06d">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-06d">
+<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-06d">
+<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-06d">
+<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-06d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="BSC Ops">
@@ -31,6 +31,16 @@
   --milk:      #f5faf8;
   --warning:   #fff8e1;
   --text:      #023d4a;
+  /* Status / data-signaling palette — distinct from brand --red/--orange/--green
+     which are used for UI (buttons, brand accents). Status tokens are brighter
+     so margin charts, badges, and due-status indicators read at a glance. */
+  --good:      #16a34a;
+  --good-bg:   #dcfce7;
+  --warn:      #d97706;
+  --warn-bg:   #fef9c3;
+  --warn-text: #b45309;
+  --bad:       #dc2626;
+  --bad-bg:    #fee2e2;
   --muted:     #4d8a98;
   --border:    #b9dfe3;
   --green:     #2d7a47;
@@ -130,6 +140,7 @@ select.filter:focus{border-color:var(--gold);}
 .btn-outline:hover{background:var(--gold);color:#fff;}
 .btn-danger{background:transparent;color:var(--red);border-color:var(--red);}
 .btn-danger:hover{background:var(--red);color:#fff;}
+.btn-md{padding:6px 14px;font-size:12px;}
 .btn-sm{padding:5px 12px;font-size:12px;}
 .ml-auto{margin-left:auto;}
 
@@ -386,9 +397,9 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
 
 /* ── MAINTENANCE STATUS BADGES ── */
 .maint-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;letter-spacing:.04em;padding:3px 9px;border-radius:20px;}
-.maint-overdue{background:#fde8e8;color:var(--red);}
-.maint-due-soon{background:var(--warning);color:#9a7200;}
-.maint-upcoming{background:#e8f5e9;color:#2e7d32;}
+.maint-overdue{background:var(--bad-bg);color:var(--bad);}
+.maint-due-soon{background:var(--warn-bg);color:var(--warn-text);}
+.maint-upcoming{background:var(--good-bg);color:var(--good);}
 .maint-card{background:#fff;border:1.5px solid var(--border);border-radius:12px;padding:18px 20px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:8px;transition:box-shadow .15s,border-color .15s;}
 .maint-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.12);}
 .maint-card.overdue{border-color:var(--red);}
@@ -444,9 +455,9 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
 .sparkline{display:flex;align-items:flex-end;gap:2px;height:24px;}
 .spark-bar{width:8px;min-height:2px;background:var(--gold);border-radius:2px 2px 0 0;opacity:.8;}
 .days-pill{display:inline-block;padding:2px 9px;border-radius:10px;font-size:12px;font-weight:600;}
-.days-pill.urgent{background:#fde8e8;color:var(--red);}
-.days-pill.warn{background:var(--warning);color:#9a7200;}
-.days-pill.ok{background:#e8f5e9;color:#2e7d32;}
+.days-pill.urgent{background:var(--bad-bg);color:var(--bad);}
+.days-pill.warn{background:var(--warn-bg);color:var(--warn-text);}
+.days-pill.ok{background:var(--good-bg);color:var(--good);}
 .order-qty{font-weight:700;color:var(--espresso);}
 /* ── MULTI-CATEGORY FILTER ── */
 .multi-cat-wrap{position:relative;display:inline-block;}
@@ -1692,7 +1703,7 @@ html,body{overscroll-behavior:none;}
           <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);cursor:pointer;white-space:nowrap;">
             <input type="checkbox" id="cogs-show-hidden" onchange="renderCogCards()"> Show hidden
           </label>
-          <button class="btn btn-primary" onclick="snapshotCogs()" style="font-size:12px;padding:6px 14px;" title="Save current COG & margin to history">📸 Snapshot Costs</button>
+          <button class="btn btn-primary btn-md" onclick="snapshotCogs()" title="Save current COG & margin to history">📸 Snapshot Costs</button>
         </div>
         <div id="cogs-missing-costs" style="display:none;background:var(--warning);border:1.5px solid var(--orange);border-radius:12px;padding:12px 16px;font-size:13px;color:#92400e;margin-bottom:16px;cursor:pointer;user-select:none;" onclick="toggleCogsMissingFilter()">
           ⚠️ Some ingredients are missing <strong>Cost Per Serving</strong>. <span id="cogs-missing-filter-label" style="text-decoration:underline;font-weight:600;">Filter to affected items</span>
@@ -1715,7 +1726,7 @@ html,body{overscroll-behavior:none;}
           <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);cursor:pointer;white-space:nowrap;">
             <input type="checkbox" id="merch-cogs-show-hidden" onchange="renderInvCogCards('merch')"> Show hidden
           </label>
-          <button class="btn btn-outline" onclick="syncMerchCostFromInventory()" id="merch-inv-sync-btn" style="font-size:12px;padding:6px 14px;">🛍️ Sync Cost from Inventory</button>
+          <button class="btn btn-outline btn-md" onclick="syncMerchCostFromInventory()" id="merch-inv-sync-btn">🛍️ Sync Cost from Inventory</button>
         </div>
         <div id="merch-inv-sync-log" style="display:none;background:var(--cream);border-radius:8px;padding:10px 14px;font-size:12px;font-family:monospace;margin-bottom:14px;white-space:pre-wrap;max-height:160px;overflow-y:auto;"></div>
         <div id="merch-cogs-empty" style="display:none;text-align:center;padding:60px;color:var(--muted);">
@@ -1736,7 +1747,7 @@ html,body{overscroll-behavior:none;}
           <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);cursor:pointer;white-space:nowrap;">
             <input type="checkbox" id="food-cogs-show-hidden" onchange="renderInvCogCards('food')"> Show hidden
           </label>
-          <button class="btn btn-outline" onclick="syncFoodCostFromPars()" id="food-pars-sync-btn" style="font-size:12px;padding:6px 14px;">🥐 Sync Cost from Inventory</button>
+          <button class="btn btn-outline btn-md" onclick="syncFoodCostFromPars()" id="food-pars-sync-btn">🥐 Sync Cost from Inventory</button>
         </div>
         <div id="food-pars-sync-log" style="display:none;background:var(--cream);border-radius:8px;padding:10px 14px;font-size:12px;font-family:monospace;margin-bottom:14px;white-space:pre-wrap;max-height:160px;overflow-y:auto;"></div>
         <div id="food-cogs-empty" style="display:none;text-align:center;padding:60px;color:var(--muted);">
@@ -1757,7 +1768,7 @@ html,body{overscroll-behavior:none;}
           <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);cursor:pointer;white-space:nowrap;">
             <input type="checkbox" id="grocery-cogs-show-hidden" onchange="renderInvCogCards('grocery')"> Show hidden
           </label>
-          <button class="btn btn-outline" onclick="syncGroceryCostFromInventory()" id="grocery-inv-sync-btn" style="font-size:12px;padding:6px 14px;">📦 Sync Cost from Inventory</button>
+          <button class="btn btn-outline btn-md" onclick="syncGroceryCostFromInventory()" id="grocery-inv-sync-btn">📦 Sync Cost from Inventory</button>
         </div>
         <div id="grocery-inv-sync-log" style="display:none;background:var(--cream);border-radius:8px;padding:10px 14px;font-size:12px;font-family:monospace;margin-bottom:14px;white-space:pre-wrap;max-height:160px;overflow-y:auto;"></div>
         <div id="grocery-cogs-empty" style="display:none;text-align:center;padding:60px;color:var(--muted);">
@@ -1910,13 +1921,13 @@ html,body{overscroll-behavior:none;}
         <div style="font-weight:700;font-size:13px;color:var(--dark-blue);margin-bottom:6px;">Competitors</div>
         <div style="display:flex;gap:8px;margin-bottom:10px;">
           <input id="mm-new-competitor" class="field-input" placeholder="Add a competitor (e.g. Starbucks)" style="flex:1;font-size:13px;">
-          <button class="btn btn-primary" onclick="addMarketCompetitor()" style="padding:6px 14px;font-size:12px;">+ Add</button>
+          <button class="btn btn-primary btn-md" onclick="addMarketCompetitor()">+ Add</button>
         </div>
         <div id="mm-competitors-list" style="margin-bottom:18px;"></div>
 
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
           <div style="font-weight:700;font-size:13px;color:var(--dark-blue);">Tracked Items</div>
-          <button class="btn btn-primary" onclick="openMarketItemEdit('')" style="padding:6px 14px;font-size:12px;">+ Add Item</button>
+          <button class="btn btn-primary btn-md" onclick="openMarketItemEdit('')">+ Add Item</button>
         </div>
         <div id="mm-items-list"></div>
       </div>
@@ -2362,9 +2373,9 @@ html,body{overscroll-behavior:none;}
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
           <span style="font-size:13px;font-weight:600">Notification Rules</span>
           <div style="display:flex;gap:8px">
-            <button class="btn btn-outline" style="font-size:12px;padding:6px 12px" onclick="pauseAllNotifs()">⏸ Pause All</button>
-            <button class="btn btn-outline" style="font-size:12px;padding:6px 12px" onclick="resumeAllNotifs()">▶ Resume All</button>
-            <button class="btn btn-primary" style="font-size:12px;padding:6px 12px" onclick="openAddNotifForm()">+ Add</button>
+            <button class="btn btn-outline btn-md" onclick="pauseAllNotifs()">⏸ Pause All</button>
+            <button class="btn btn-outline btn-md" onclick="resumeAllNotifs()">▶ Resume All</button>
+            <button class="btn btn-primary btn-md" onclick="openAddNotifForm()">+ Add</button>
           </div>
         </div>
 
@@ -2826,40 +2837,40 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-05-06c" defer></script>
-<script src="/js/utils.js?v=2026-05-06c" defer></script>
-<script src="/js/state.js?v=2026-05-06c" defer></script>
-<script src="/js/auth.js?v=2026-05-06c" defer></script>
-<script src="/js/graph.js?v=2026-05-06c" defer></script>
-<script src="/js/signalr.js?v=2026-05-06c" defer></script>
-<script src="/js/tags.js?v=2026-05-06c" defer></script>
-<script src="/js/nav.js?v=2026-05-06c" defer></script>
-<script src="/js/settings.js?v=2026-05-06c" defer></script>
-<script src="/js/dashboard.js?v=2026-05-06c" defer></script>
-<script src="/js/inventory.js?v=2026-05-06c" defer></script>
-<script src="/js/inventory-form.js?v=2026-05-06c" defer></script>
-<script src="/js/counts.js?v=2026-05-06c" defer></script>
-<script src="/js/foodpars.js?v=2026-05-06c" defer></script>
-<script src="/js/labels.js?v=2026-05-06c" defer></script>
-<script src="/js/bags.js?v=2026-05-06c" defer></script>
-<script src="/js/bag-labels-5lb.js?v=2026-05-06c" defer></script>
-<script src="/js/pastry-sync.js?v=2026-05-06c" defer></script>
-<script src="/js/recipes.js?v=2026-05-06c" defer></script>
-<script src="/js/cogs.js?v=2026-05-06c" defer></script>
-<script src="/js/vendors.js?v=2026-05-06c" defer></script>
-<script src="/js/contacts.js?v=2026-05-06c" defer></script>
-<script src="/js/maintenance.js?v=2026-05-06c" defer></script>
-<script src="/js/checklists.js?v=2026-05-06c" defer></script>
-<script src="/js/ordering.js?v=2026-05-06c" defer></script>
-<script src="/js/ordering-build.js?v=2026-05-06c" defer></script>
-<script src="/js/market-analysis.js?v=2026-05-06c" defer></script>
-<script src="/js/projects.js?v=2026-05-06c" defer></script>
-<script src="/js/parking.js?v=2026-05-06c" defer></script>
-<script src="/js/prepItems.js?v=2026-05-06c" defer></script>
-<script src="/js/square.js?v=2026-05-06c" defer></script>
-<script src="/js/timeclock.js?v=2026-05-06c" defer></script>
-<script src="/js/slack.js?v=2026-05-06c" defer></script>
-<script src="/js/auto-sync.js?v=2026-05-06c" defer></script>
+<script src="/js/constants.js?v=2026-05-06d" defer></script>
+<script src="/js/utils.js?v=2026-05-06d" defer></script>
+<script src="/js/state.js?v=2026-05-06d" defer></script>
+<script src="/js/auth.js?v=2026-05-06d" defer></script>
+<script src="/js/graph.js?v=2026-05-06d" defer></script>
+<script src="/js/signalr.js?v=2026-05-06d" defer></script>
+<script src="/js/tags.js?v=2026-05-06d" defer></script>
+<script src="/js/nav.js?v=2026-05-06d" defer></script>
+<script src="/js/settings.js?v=2026-05-06d" defer></script>
+<script src="/js/dashboard.js?v=2026-05-06d" defer></script>
+<script src="/js/inventory.js?v=2026-05-06d" defer></script>
+<script src="/js/inventory-form.js?v=2026-05-06d" defer></script>
+<script src="/js/counts.js?v=2026-05-06d" defer></script>
+<script src="/js/foodpars.js?v=2026-05-06d" defer></script>
+<script src="/js/labels.js?v=2026-05-06d" defer></script>
+<script src="/js/bags.js?v=2026-05-06d" defer></script>
+<script src="/js/bag-labels-5lb.js?v=2026-05-06d" defer></script>
+<script src="/js/pastry-sync.js?v=2026-05-06d" defer></script>
+<script src="/js/recipes.js?v=2026-05-06d" defer></script>
+<script src="/js/cogs.js?v=2026-05-06d" defer></script>
+<script src="/js/vendors.js?v=2026-05-06d" defer></script>
+<script src="/js/contacts.js?v=2026-05-06d" defer></script>
+<script src="/js/maintenance.js?v=2026-05-06d" defer></script>
+<script src="/js/checklists.js?v=2026-05-06d" defer></script>
+<script src="/js/ordering.js?v=2026-05-06d" defer></script>
+<script src="/js/ordering-build.js?v=2026-05-06d" defer></script>
+<script src="/js/market-analysis.js?v=2026-05-06d" defer></script>
+<script src="/js/projects.js?v=2026-05-06d" defer></script>
+<script src="/js/parking.js?v=2026-05-06d" defer></script>
+<script src="/js/prepItems.js?v=2026-05-06d" defer></script>
+<script src="/js/square.js?v=2026-05-06d" defer></script>
+<script src="/js/timeclock.js?v=2026-05-06d" defer></script>
+<script src="/js/slack.js?v=2026-05-06d" defer></script>
+<script src="/js/auto-sync.js?v=2026-05-06d" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
@@ -3614,7 +3625,7 @@ function renderInventoryAnalytics() {
   el.innerHTML = `
     <div class="analytics-summary">
       <div class="analytics-stat"><div class="val" style="color:var(--red)">${urgent}</div><div class="lbl">Need Order Now<br><span style="font-size:10px">&lt;7 days supply</span></div></div>
-      <div class="analytics-stat"><div class="val" style="color:#9a7200">${warn}</div><div class="lbl">Order Soon<br><span style="font-size:10px">7–14 days supply</span></div></div>
+      <div class="analytics-stat"><div class="val" style="color:var(--warn-text)">${warn}</div><div class="lbl">Order Soon<br><span style="font-size:10px">7–14 days supply</span></div></div>
       <div class="analytics-stat"><div class="val">${rows.length - urgent - warn - noData}</div><div class="lbl">Well Stocked<br><span style="font-size:10px">&gt;14 days supply</span></div></div>
       <div class="analytics-stat"><div class="val">$${Math.round(totalValue).toLocaleString()}</div><div class="lbl">Est. Inventory Value</div></div>
     </div>
@@ -4360,7 +4371,7 @@ async function loadColMgrColumns() {
       </table>`;
   } catch(e) {
     status.textContent = '';
-    body.innerHTML = `<div style="font-size:13px;color:#dc2626;">Error: ${escHtml(e.message)}</div>`;
+    body.innerHTML = `<div style="font-size:13px;color:var(--bad);">Error: ${escHtml(e.message)}</div>`;
   }
 }
 
@@ -5269,7 +5280,7 @@ function renderMenu(query='', catFilter='') {
     const stockDisplay = stock != null ? stock : '—';
     const vars = (i.Variations||'').split('\n').filter(Boolean);
     return `<tr data-gs-id="${escHtml(i.id)}" style="${isHidden?'opacity:0.45;':''}">
-      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-06c" alt="" title="Synced with Square">':''}</td>
+      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-06d" alt="" title="Synced with Square">':''}</td>
       <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${escHtml(i.Category||'—')}</span></td>
       <td style="font-size:12px;color:var(--muted);max-width:220px">${escHtml(i.Description||'')}</td>
       <td>${i.Price != null ? '$'+Number(i.Price).toFixed(2) : '—'}</td>

@@ -224,9 +224,9 @@ function _projectCardHtml(p) {
   const archived = _projIsArchived(p);
 
   // Border color: red if blocked, then health-driven, then status
-  const borderColor = blocker ? '#dc2626'
-    : health === 'Red'    ? '#dc2626'
-    : health === 'Yellow' ? '#f59e0b'
+  const borderColor = blocker ? 'var(--bad)'
+    : health === 'Red'    ? 'var(--bad)'
+    : health === 'Yellow' ? 'var(--warn)'
     : PROJECT_STATUS_BG[status] || 'var(--border)';
 
   const dueD = _projParseDate(p.DueDate);
@@ -266,7 +266,7 @@ function _projectCardHtml(p) {
             </div>
           </div>
         </div>
-        ${blocker ? `<div style="margin-top:8px;padding:5px 10px;background:#fee2e2;color:#991b1b;border-radius:6px;font-size:11px;line-height:1.3;">⚠️ <b>Blocked:</b> ${escHtml(blocker.length>120 ? blocker.slice(0,120)+'…' : blocker)}</div>` : ''}
+        ${blocker ? `<div style="margin-top:8px;padding:5px 10px;background:var(--bad-bg);color:var(--bad);border-radius:6px;font-size:11px;line-height:1.3;">⚠️ <b>Blocked:</b> ${escHtml(blocker.length>120 ? blocker.slice(0,120)+'…' : blocker)}</div>` : ''}
         ${total ? `
         <div style="margin-top:10px;">
           <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:3px;">
@@ -284,7 +284,7 @@ function _projectCardHtml(p) {
           ${linksChip}
           ${updateChip}
         </div>
-        <div style="font-weight:600;${dueLabel.startsWith('🔴')?'color:#dc2626;':dueLabel.startsWith('🟡')?'color:#b45309;':''}">${escHtml(dueLabel)}</div>
+        <div style="font-weight:600;${dueLabel.startsWith('🔴')?'color:var(--bad);':dueLabel.startsWith('🟡')?'color:var(--warn-text);':''}">${escHtml(dueLabel)}</div>
       </div>
     </div>`;
 }
@@ -356,7 +356,7 @@ function renderProjectDetail() {
     const today    = _projTaskDueToday(t);
     const dD       = _projParseDate(t.DueDate);
     const dateChip = dD
-      ? `<span style="font-size:11px;color:${overdue?'#dc2626':today?'#b45309':'var(--muted)'};${overdue||today?'font-weight:600;':''}">${_projFmtDate(dD)}</span>`
+      ? `<span style="font-size:11px;color:${overdue?'var(--bad)':today?'var(--warn-text)':'var(--muted)'};${overdue||today?'font-weight:600;':''}">${_projFmtDate(dD)}</span>`
       : `<span style="font-size:11px;color:var(--muted);">—</span>`;
     const dateBtn = userIsMgr
       ? `<button onclick="event.stopPropagation();editProjectTaskDate('${escHtml(t.id)}')" title="Set due date" style="background:none;border:1px dashed var(--border);border-radius:8px;padding:2px 8px;cursor:pointer;">${dateChip}</button>`
@@ -448,7 +448,7 @@ function renderProjectDetail() {
         </div>
       </div>
       ${blocker ? `
-      <div style="margin-top:14px;padding:10px 14px;background:#fee2e2;color:#991b1b;border-radius:8px;border-left:4px solid #dc2626;font-size:13px;line-height:1.4;">
+      <div style="margin-top:14px;padding:10px 14px;background:var(--bad-bg);color:var(--bad);border-radius:8px;border-left:4px solid var(--bad);font-size:13px;line-height:1.4;">
         <div style="font-weight:700;margin-bottom:4px;">⚠️ Blocked</div>
         <div style="white-space:pre-wrap;">${escHtml(blocker)}</div>
       </div>` : ''}

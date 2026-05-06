@@ -55,17 +55,17 @@ function getTaskDueStatus(task) {
   const isDone = !!cache.clProgress[task.id];
   const due    = _parseDateOnly(task.DueDate);
   if (isDone) {
-    return { status:'done', badge:`<span style="font-size:11px;background:#dcfce7;color:#16a34a;padding:2px 8px;border-radius:10px;">✓ Done</span>` };
+    return { status:'done', badge:`<span style="font-size:11px;background:var(--good-bg);color:var(--good);padding:2px 8px;border-radius:10px;">✓ Done</span>` };
   }
   if (!due) {
     return { status:'undated', badge:`<span style="font-size:11px;background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:10px;">Undated</span>` };
   }
   const today = _todayMidnight();
   const diff  = Math.round((due - today) / 86400000);
-  if (diff < 0)  return { status:'overdue', badge:`<span style="font-size:11px;background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:10px;">Overdue ${Math.abs(diff)}d</span>` };
-  if (diff === 0) return { status:'due',     badge:`<span style="font-size:11px;background:#fef9c3;color:#b45309;padding:2px 8px;border-radius:10px;">Due Today</span>` };
-  if (diff <= 3)  return { status:'soon',    badge:`<span style="font-size:11px;background:#fef9c3;color:#b45309;padding:2px 8px;border-radius:10px;">Due in ${diff}d</span>` };
-  return { status:'ok', badge:`<span style="font-size:11px;background:#dcfce7;color:#16a34a;padding:2px 8px;border-radius:10px;">Due in ${diff}d</span>` };
+  if (diff < 0)  return { status:'overdue', badge:`<span style="font-size:11px;background:var(--bad-bg);color:var(--bad);padding:2px 8px;border-radius:10px;">Overdue ${Math.abs(diff)}d</span>` };
+  if (diff === 0) return { status:'due',     badge:`<span style="font-size:11px;background:var(--warn-bg);color:var(--warn-text);padding:2px 8px;border-radius:10px;">Due Today</span>` };
+  if (diff <= 3)  return { status:'soon',    badge:`<span style="font-size:11px;background:var(--warn-bg);color:var(--warn-text);padding:2px 8px;border-radius:10px;">Due in ${diff}d</span>` };
+  return { status:'ok', badge:`<span style="font-size:11px;background:var(--good-bg);color:var(--good);padding:2px 8px;border-radius:10px;">Due in ${diff}d</span>` };
 }
 // Group-level summary for multi-day plans.
 function getPlanSummary(group, tasks) {
@@ -77,9 +77,9 @@ function getPlanSummary(group, tasks) {
     if (s.status === 'done') done++;
     else if (s.status === 'overdue') overdue++;
   }
-  if (done === total) return { status:'ok', badge:`<span style="font-size:11px;background:#dcfce7;color:#16a34a;padding:2px 8px;border-radius:10px;">All done!</span>` };
-  if (overdue) return { status:'overdue', badge:`<span style="font-size:11px;background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:10px;">${overdue} overdue · ${done}/${total} done</span>` };
-  return { status:'ok', badge:`<span style="font-size:11px;background:#fef9c3;color:#b45309;padding:2px 8px;border-radius:10px;">${done}/${total} done</span>` };
+  if (done === total) return { status:'ok', badge:`<span style="font-size:11px;background:var(--good-bg);color:var(--good);padding:2px 8px;border-radius:10px;">All done!</span>` };
+  if (overdue) return { status:'overdue', badge:`<span style="font-size:11px;background:var(--bad-bg);color:var(--bad);padding:2px 8px;border-radius:10px;">${overdue} overdue · ${done}/${total} done</span>` };
+  return { status:'ok', badge:`<span style="font-size:11px;background:var(--warn-bg);color:var(--warn-text);padding:2px 8px;border-radius:10px;">${done}/${total} done</span>` };
 }
 // Sort comparator for multi-day plan tasks: DueDate ASC (undated last),
 // then SortOrder, then alphabetical.
@@ -104,13 +104,13 @@ function getGroupDueStatus(group) {
     .filter(c => c.GroupId === group.id && (!loc || !c.Location || c.Location === 'All' || c.Location === loc))
     .sort((a,b) => new Date(b.CompletedDate||0) - new Date(a.CompletedDate||0));
   if (!completions.length) {
-    return { status:'overdue', badge:`<span style="font-size:11px;background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:10px;">Never done</span>` };
+    return { status:'overdue', badge:`<span style="font-size:11px;background:var(--bad-bg);color:var(--bad);padding:2px 8px;border-radius:10px;">Never done</span>` };
   }
   const daysSince = Math.floor((Date.now() - new Date(completions[0].CompletedDate)) / 86400000);
   const rem = days - daysSince;
-  if (rem < 0)      return { status:'overdue', badge:`<span style="font-size:11px;background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:10px;">Overdue ${Math.abs(rem)}d</span>` };
-  if (rem === 0)    return { status:'due',     badge:`<span style="font-size:11px;background:#fef9c3;color:#b45309;padding:2px 8px;border-radius:10px;">Due Today</span>` };
-  return { status:'ok', badge:`<span style="font-size:11px;background:#dcfce7;color:#16a34a;padding:2px 8px;border-radius:10px;">Due in ${rem}d</span>` };
+  if (rem < 0)      return { status:'overdue', badge:`<span style="font-size:11px;background:var(--bad-bg);color:var(--bad);padding:2px 8px;border-radius:10px;">Overdue ${Math.abs(rem)}d</span>` };
+  if (rem === 0)    return { status:'due',     badge:`<span style="font-size:11px;background:var(--warn-bg);color:var(--warn-text);padding:2px 8px;border-radius:10px;">Due Today</span>` };
+  return { status:'ok', badge:`<span style="font-size:11px;background:var(--good-bg);color:var(--good);padding:2px 8px;border-radius:10px;">Due in ${rem}d</span>` };
 }
 
 // ── Render all groups ─────────────────────────────────────────────
@@ -187,7 +187,7 @@ function renderChecklistCard(group, userIsMgr) {
   const pct   = tasks.length ? Math.round(done / tasks.length * 100) : 0;
   const due   = isMultiday ? getPlanSummary(group, tasks) : getGroupDueStatus(group);
 
-  const borderColor = due.status === 'overdue' ? '#dc2626' : due.status === 'due' ? '#f59e0b' : 'var(--border)';
+  const borderColor = due.status === 'overdue' ? 'var(--bad)' : due.status === 'due' ? 'var(--warn)' : 'var(--border)';
   const roleBadge   = group.Role === 'Manager' ? '#3b82f6' : group.Role === 'Barista' ? 'var(--teal)' : '#9ca3af';
 
   let cadenceLabel;
@@ -241,7 +241,7 @@ function renderChecklistCard(group, userIsMgr) {
 
   const completeBtn = (!isMultiday && tasks.length)
     ? `<button onclick="markGroupComplete('${gid}','${escHtml(group.Title||'')}')"
-        style="padding:5px 12px;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;white-space:nowrap;">✅ Mark All Done</button>`
+        style="padding:5px 12px;background:var(--good);color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;white-space:nowrap;">✅ Mark All Done</button>`
     : '';
 
   return `
@@ -665,12 +665,12 @@ function renderSuggestions() {
       <div style="flex:1;min-width:160px;">
         <div style="font-weight:600;font-size:13px;">${escHtml(t.TaskName||'')}</div>
         <div style="font-size:11px;color:var(--muted);">In: ${escHtml(grp?.Title||t.GroupId||'Unknown')} · By: ${escHtml(t.SuggestedBy||'')}</div>
-        ${t.Notes ? `<div style="font-size:11px;color:#b45309;margin-top:2px;">"${escHtml(t.Notes)}"</div>` : ''}
+        ${t.Notes ? `<div style="font-size:11px;color:var(--warn-text);margin-top:2px;">"${escHtml(t.Notes)}"</div>` : ''}
       </div>
       <button onclick="approveTask('${t.id}')"
-        style="padding:4px 12px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;">✓ Approve</button>
+        style="padding:4px 12px;background:var(--good);color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;">✓ Approve</button>
       <button onclick="dismissSuggestedTask('${t.id}')"
-        style="padding:4px 12px;background:none;border:1.5px solid #dc2626;color:#dc2626;border-radius:8px;font-size:12px;cursor:pointer;">✗ Dismiss</button>
+        style="padding:4px 12px;background:none;border:1.5px solid var(--bad);color:var(--bad);border-radius:8px;font-size:12px;cursor:pointer;">✗ Dismiss</button>
     </div>`;
   }).join('');
 }
