@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-06v">
-<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-06v">
-<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-06v">
-<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-06v">
-<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-06v">
+<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-06w">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-06w">
+<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-06w">
+<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-06w">
+<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-06w">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="BSC Ops">
@@ -824,6 +824,60 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
 }
 .inv-breadcrumb b{color:var(--ink);font-weight:700;}
 
+/* Checklists Phase 2 components (PRs 16-24) — building blocks for the
+   future lane-based checklist UI. Not used by the existing checklists
+   page; available for the next phase of work to consume. */
+.lane-card{
+  background:linear-gradient(180deg,#ffffff 0%,var(--bg-card-soft) 100%);
+  border:1px solid var(--border);border-radius:10px;
+  box-shadow:var(--sh-card);
+  padding:0;overflow:hidden;
+  display:flex;flex-direction:column;
+}
+.lane-head{
+  display:flex;align-items:center;gap:12px;
+  padding:14px 18px;
+  border-bottom:1px solid var(--border);
+  background:linear-gradient(180deg,#ffffff 0%,var(--bg-card-soft) 100%);
+}
+.lane-marker{width:6px;height:32px;border-radius:3px;flex-shrink:0;background:var(--bsc-light-blue-deep);}
+.lane-marker.shift-open{background:linear-gradient(180deg,#f6ecd6,#d8be7f);}
+.lane-marker.shift-mid{background:linear-gradient(180deg,#d4ecf0,var(--bsc-light-blue-deep));}
+.lane-marker.shift-close{background:linear-gradient(180deg,#1d4753,var(--navy));}
+.lane-title{flex:1;}
+.lane-title h3{font-family:var(--font-display);font-style:normal;font-weight:300;font-size:18px;color:var(--ink);line-height:1.15;letter-spacing:-.005em;margin:0;}
+.lane-title .sub{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-top:3px;}
+.lane-progress{display:flex;align-items:center;gap:8px;}
+.lane-progress .frac{font-family:var(--mono);font-weight:600;font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums;}
+.lane-progress .bar{width:80px;height:6px;border-radius:999px;background:linear-gradient(180deg,#e1ebed,var(--light-blue-50));overflow:hidden;border:1px solid var(--border);}
+.lane-progress .bar-fill{height:100%;background:linear-gradient(180deg,#1d4753,var(--navy));border-radius:999px;transition:width 420ms cubic-bezier(.4,0,.2,1);}
+
+/* Day ribbon — Open / Mid / Close at-a-glance */
+.day-ribbon{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:10px;
+  margin-bottom:18px;
+}
+.day-ribbon-cell{
+  background:linear-gradient(180deg,#ffffff 0%,var(--bg-card-soft) 100%);
+  border:1px solid var(--border);border-radius:9px;
+  padding:10px 12px;box-shadow:var(--sh-card);
+  display:flex;flex-direction:column;gap:4px;
+}
+.day-ribbon-cell .dr-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:600;}
+.day-ribbon-cell .dr-stat{font-family:var(--mono);font-size:18px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;}
+
+/* Sign-off confirmation card — shown after manager signs the day */
+.signoff-card{
+  background:linear-gradient(180deg,var(--light-blue-25),var(--light-blue-50));
+  border:1px solid var(--light-blue-deep);border-radius:10px;
+  padding:14px 18px;margin-top:14px;
+  display:flex;align-items:center;gap:12px;
+  color:var(--ink);font-size:13px;font-weight:600;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.7);
+}
+.signoff-card .sig-icon{width:28px;height:28px;border-radius:50%;background:linear-gradient(180deg,#1d4753,var(--navy));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;}
+.signoff-card .meta{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:500;}
+
 /* Counter role lock-downs (PR 12) — toggled by body.is-counter via
    applyModulePermissions(). Hides bulk select on inventory + restyles
    the inventory edit drawer to read-only for cost/par/vendor fields. */
@@ -1084,11 +1138,11 @@ html,body{overscroll-behavior:none;}
 </style>
 <!-- Design tokens (PR 1 of refresh) — loaded after inline <style> so legacy
      aliases at the bottom of :root override the older brand values. -->
-<link rel="stylesheet" href="/css/tokens.css?v=2026-05-06v">
+<link rel="stylesheet" href="/css/tokens.css?v=2026-05-06w">
 <!-- Shared primitives (PR 4) — loaded after tokens.css and after the
      inline <style> so it overrides legacy .btn-primary / .badge-* /
      .card / .alert-item rules with the new gradient + metallic look. -->
-<link rel="stylesheet" href="/css/primitives.css?v=2026-05-06v">
+<link rel="stylesheet" href="/css/primitives.css?v=2026-05-06w">
 </head>
 <body>
 
@@ -1104,7 +1158,7 @@ html,body{overscroll-behavior:none;}
 <div id="topbar">
   <button id="nav-toggle" onclick="toggleNav()" aria-label="Menu">☰</button>
   <div class="topbar-logo">
-    <img src="/images/feather-light.png?v=2026-05-06v" alt="" aria-hidden="true">
+    <img src="/images/feather-light.png?v=2026-05-06w" alt="" aria-hidden="true">
     <div>
       <div class="brand">Blue Sparrow</div>
       <small>Operations</small>
@@ -3525,41 +3579,42 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-05-06v" defer></script>
-<script src="/js/utils.js?v=2026-05-06v" defer></script>
-<script src="/js/state.js?v=2026-05-06v" defer></script>
-<script src="/js/auth.js?v=2026-05-06v" defer></script>
-<script src="/js/graph.js?v=2026-05-06v" defer></script>
-<script src="/js/sync-queue.js?v=2026-05-06v" defer></script>
-<script src="/js/signalr.js?v=2026-05-06v" defer></script>
-<script src="/js/tags.js?v=2026-05-06v" defer></script>
-<script src="/js/nav.js?v=2026-05-06v" defer></script>
-<script src="/js/settings.js?v=2026-05-06v" defer></script>
-<script src="/js/dashboard.js?v=2026-05-06v" defer></script>
-<script src="/js/inventory.js?v=2026-05-06v" defer></script>
-<script src="/js/inventory-form.js?v=2026-05-06v" defer></script>
-<script src="/js/counts.js?v=2026-05-06v" defer></script>
-<script src="/js/foodpars.js?v=2026-05-06v" defer></script>
-<script src="/js/labels.js?v=2026-05-06v" defer></script>
-<script src="/js/bags.js?v=2026-05-06v" defer></script>
-<script src="/js/bag-labels-5lb.js?v=2026-05-06v" defer></script>
-<script src="/js/pastry-sync.js?v=2026-05-06v" defer></script>
-<script src="/js/recipes.js?v=2026-05-06v" defer></script>
-<script src="/js/cogs.js?v=2026-05-06v" defer></script>
-<script src="/js/vendors.js?v=2026-05-06v" defer></script>
-<script src="/js/contacts.js?v=2026-05-06v" defer></script>
-<script src="/js/maintenance.js?v=2026-05-06v" defer></script>
-<script src="/js/checklists.js?v=2026-05-06v" defer></script>
-<script src="/js/ordering.js?v=2026-05-06v" defer></script>
-<script src="/js/ordering-build.js?v=2026-05-06v" defer></script>
-<script src="/js/market-analysis.js?v=2026-05-06v" defer></script>
-<script src="/js/projects.js?v=2026-05-06v" defer></script>
-<script src="/js/parking.js?v=2026-05-06v" defer></script>
-<script src="/js/prepItems.js?v=2026-05-06v" defer></script>
-<script src="/js/square.js?v=2026-05-06v" defer></script>
-<script src="/js/timeclock.js?v=2026-05-06v" defer></script>
-<script src="/js/slack.js?v=2026-05-06v" defer></script>
-<script src="/js/auto-sync.js?v=2026-05-06v" defer></script>
+<script src="/js/constants.js?v=2026-05-06w" defer></script>
+<script src="/js/utils.js?v=2026-05-06w" defer></script>
+<script src="/js/state.js?v=2026-05-06w" defer></script>
+<script src="/js/auth.js?v=2026-05-06w" defer></script>
+<script src="/js/graph.js?v=2026-05-06w" defer></script>
+<script src="/js/sync-queue.js?v=2026-05-06w" defer></script>
+<script src="/js/signalr.js?v=2026-05-06w" defer></script>
+<script src="/js/tags.js?v=2026-05-06w" defer></script>
+<script src="/js/nav.js?v=2026-05-06w" defer></script>
+<script src="/js/settings.js?v=2026-05-06w" defer></script>
+<script src="/js/dashboard.js?v=2026-05-06w" defer></script>
+<script src="/js/inventory.js?v=2026-05-06w" defer></script>
+<script src="/js/inventory-form.js?v=2026-05-06w" defer></script>
+<script src="/js/counts.js?v=2026-05-06w" defer></script>
+<script src="/js/foodpars.js?v=2026-05-06w" defer></script>
+<script src="/js/labels.js?v=2026-05-06w" defer></script>
+<script src="/js/bags.js?v=2026-05-06w" defer></script>
+<script src="/js/bag-labels-5lb.js?v=2026-05-06w" defer></script>
+<script src="/js/pastry-sync.js?v=2026-05-06w" defer></script>
+<script src="/js/recipes.js?v=2026-05-06w" defer></script>
+<script src="/js/cogs.js?v=2026-05-06w" defer></script>
+<script src="/js/vendors.js?v=2026-05-06w" defer></script>
+<script src="/js/contacts.js?v=2026-05-06w" defer></script>
+<script src="/js/maintenance.js?v=2026-05-06w" defer></script>
+<script src="/js/checklists.js?v=2026-05-06w" defer></script>
+<script src="/js/checklists-phase2.js?v=2026-05-06w" defer></script>
+<script src="/js/ordering.js?v=2026-05-06w" defer></script>
+<script src="/js/ordering-build.js?v=2026-05-06w" defer></script>
+<script src="/js/market-analysis.js?v=2026-05-06w" defer></script>
+<script src="/js/projects.js?v=2026-05-06w" defer></script>
+<script src="/js/parking.js?v=2026-05-06w" defer></script>
+<script src="/js/prepItems.js?v=2026-05-06w" defer></script>
+<script src="/js/square.js?v=2026-05-06w" defer></script>
+<script src="/js/timeclock.js?v=2026-05-06w" defer></script>
+<script src="/js/slack.js?v=2026-05-06w" defer></script>
+<script src="/js/auto-sync.js?v=2026-05-06w" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
@@ -6008,7 +6063,7 @@ function renderMenu(query='', catFilter='') {
     const stockDisplay = stock != null ? stock : '—';
     const vars = (i.Variations||'').split('\n').filter(Boolean);
     return `<tr data-gs-id="${escHtml(i.id)}" style="${isHidden?'opacity:0.45;':''}">
-      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-06v" alt="" title="Synced with Square">':''}</td>
+      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-06w" alt="" title="Synced with Square">':''}</td>
       <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${escHtml(i.Category||'—')}</span></td>
       <td style="font-size:12px;color:var(--muted);max-width:220px">${escHtml(i.Description||'')}</td>
       <td>${i.Price != null ? '$'+Number(i.Price).toFixed(2) : '—'}</td>
