@@ -282,6 +282,72 @@ function renderInvTableHeader() {
   }
 }
 
+// ── Empty / no-results states (PR 11) ───────────────────────────
+// renderInvEmptyState fills #inv-empty with one of three layouts:
+//   - hidden when there are visible items
+//   - "no results" card when filters are active but matched nothing
+//   - "empty" card (3 onboarding CTAs) when the inventory list itself
+//     has no items at this location for the active inv type
+function renderInvEmptyState(visibleCount, query, catFilter, statusFilter, supplierFilter) {
+  const el = document.getElementById('inv-empty');
+  if (!el) return;
+  if (visibleCount > 0) { el.style.display = 'none'; el.innerHTML = ''; return; }
+
+  const cfg = invCfg();
+  const allItems = cfg ? (cache[cfg.cacheKey] || []) : [];
+  const showArchived = document.getElementById('inv-show-archived')?.checked || false;
+  const baseCount = showArchived ? allItems.length : allItems.filter(i => !i.Archived).length;
+  const filtersActive = !!(query || catFilter || statusFilter || supplierFilter);
+
+  // No-results: inventory has items but the active filters excluded them all.
+  if (baseCount > 0 && filtersActive) {
+    el.style.display = 'block';
+    el.innerHTML = `
+      <div class="inv-empty-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      </div>
+      <div class="inv-empty-title">No items match these filters</div>
+      <div class="inv-empty-sub">${baseCount} item${baseCount === 1 ? '' : 's'} in this view — try clearing filters or searching for a different term.</div>
+      <div class="inv-empty-actions">
+        <button class="btn primary" onclick="clearInvFilters()">Clear filters</button>
+      </div>`;
+    return;
+  }
+
+  // Truly empty — onboarding CTAs.
+  const isMerch = !!(cfg?.isMerch);
+  const addLabel = isMerch ? 'Add merch item' : 'Add inventory item';
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div class="inv-empty-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+    </div>
+    <div class="inv-empty-title">No items here yet</div>
+    <div class="inv-empty-sub">Add items one at a time, copy them from another location, or import a CSV.</div>
+    <div class="inv-empty-actions">
+      <button class="btn primary" onclick="openAddInvForm()">${escHtml(addLabel)}</button>
+      <button class="btn" onclick="toast('ok','Copy-from-location coming soon')" title="Copy items from another location (coming soon)">Copy from location</button>
+      <button class="btn" onclick="toast('ok','CSV import coming soon')" title="Import items from CSV (coming soon)">Import CSV</button>
+    </div>`;
+}
+
+// Reset every filter back to its default + re-render. Called by the
+// no-results card's "Clear filters" CTA.
+function clearInvFilters() {
+  const search = document.getElementById('inv-search-input');
+  if (search) search.value = '';
+  const cat = document.getElementById('inv-cat-filter');
+  if (cat) cat.value = '';
+  const sup = document.getElementById('inv-supplier-filter');
+  if (sup) sup.value = '';
+  if (typeof setInvStatusFilter === 'function') setInvStatusFilter('');
+  else {
+    const status = document.getElementById('inv-status-filter');
+    if (status) status.value = '';
+    if (typeof filterInventory === 'function') filterInventory('');
+  }
+}
+
 // ── Bulk select (PR 10) ─────────────────────────────────────────
 // Module-level Set persists selection across re-renders + filter
 // changes. Consumable items only — merch doesn't have a Build Order
@@ -653,7 +719,7 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
     tbody.innerHTML = items.map(_row).join('');
   }
 
-  document.getElementById('inv-empty').style.display = items.length?'none':'block';
+  renderInvEmptyState(items.length, query, catFilter, statusFilter, supplierFilter);
 
   // Refresh bulk-bar + select-all checkbox after each render so the
   // selection survives filter/sort changes (the Set is the source of truth).
@@ -732,7 +798,7 @@ function renderMerchInventoryItems(query='') {
     </tr>`;
   }).join('');
 
-  document.getElementById('inv-empty').style.display = items.length?'none':'block';
+  renderInvEmptyState(items.length, query, '', '', '');
 
   const allItems = cache[cfg.cacheKey] || [];
   const catSel = document.getElementById('inv-cat-filter');
