@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-06j">
-<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-06j">
-<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-06j">
-<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-06j">
-<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-06j">
+<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-06k">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-06k">
+<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-06k">
+<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-06k">
+<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-06k">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="BSC Ops">
@@ -378,32 +378,62 @@ select.filter:focus{
 /* ── TABLE ── */
 .table-wrap{background:#fff;border-radius:12px;border:1.5px solid var(--border);overflow:auto;box-shadow:var(--shadow);}
 table{width:100%;border-collapse:collapse;min-width:500px;}
-thead{background:var(--dark-blue);position:sticky;top:0;z-index:5;}
-thead th{padding:11px 14px;text-align:left;font-size:10px;font-weight:600;color:#fff;text-transform:uppercase;letter-spacing:.7px;white-space:nowrap;cursor:pointer;user-select:none;}
-thead th:hover{color:var(--gold);}
-thead th.sort-asc::after{content:' ▲';font-size:9px;opacity:.8;}
-thead th.sort-desc::after{content:' ▼';font-size:9px;opacity:.8;}
-tbody tr{border-bottom:1px solid var(--opal);transition:background .1s;}
+thead{background:linear-gradient(180deg,var(--bg-card-soft) 0%,#f1ebdc 100%);position:sticky;top:0;z-index:5;}
+thead th{padding:9px 14px;text-align:left;font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;cursor:pointer;user-select:none;border-bottom:1px solid var(--border);transition:color 100ms ease;}
+thead th:hover{color:var(--ink);}
+thead th.sort-asc,thead th.sort-desc{color:var(--ink);}
+thead th.sort-asc::after{content:' ▲';font-size:9px;color:var(--bsc-light-blue-deep);}
+thead th.sort-desc::after{content:' ▼';font-size:9px;color:var(--bsc-light-blue-deep);}
+tbody tr{border-bottom:1px solid var(--border);transition:background .1s;}
 tbody tr:last-child{border-bottom:none;}
-tbody tr:hover{background:var(--milk);}
-tbody tr:nth-child(even){background:#f0f8f9;}
-tbody tr:nth-child(even):hover{background:var(--milk);}
+tbody tr:hover{background:var(--bg-row-hover);}
+tbody tr:nth-child(even){background:var(--bg-stripe);}
+tbody tr:nth-child(even):hover{background:var(--bg-row-hover);}
+
+/* In-table vendor section header (PR 7) — emitted before each vendor group
+   in #inv-body. Spans all columns; subtle stripe-y bg with caps label. */
+tbody tr.table-section-head,
+tbody tr.table-section-head:hover,
+tbody tr.table-section-head:nth-child(even){
+  background:linear-gradient(180deg,var(--bg-card-soft) 0%,#f1ebdc 100%);
+  border-top:1px solid var(--border-2);
+  border-bottom:1px solid var(--border);
+  cursor:default;
+}
+.table-section-head td{
+  padding:9px 14px;
+  font-size:10px;font-weight:700;color:var(--ink);
+  text-transform:uppercase;letter-spacing:.08em;
+  font-family:inherit;
+}
+.table-section-head .ts-label{color:var(--ink);}
+.table-section-head .ts-count{
+  margin-left:8px;
+  font-family:var(--mono);font-weight:600;font-size:10px;letter-spacing:0;
+  background:var(--light-blue-50);
+  border:1px solid var(--light-blue);
+  color:var(--ink);
+  padding:1px 7px;border-radius:999px;
+}
 td{padding:10px 14px;font-size:13px;vertical-align:middle;}
 /* ── Inventory table frozen first column ── */
 #inv-thead-row th:first-child,
-#inv-body td:first-child{position:sticky;left:0;z-index:4;background:var(--dark-blue);}
-#inv-body td:first-child{background:#fff;font-weight:600;}
-#inv-body tr:nth-child(even) td:first-child{background:#f0f8f9;}
-#inv-body tr:hover td:first-child{background:var(--milk);}
+#inv-body td:first-child{position:sticky;left:0;z-index:4;}
+#inv-thead-row th:first-child{background:linear-gradient(180deg,var(--bg-card-soft) 0%,#f1ebdc 100%);}
+#inv-body td:first-child{background:var(--bg-card);font-weight:600;}
+#inv-body tr:nth-child(even) td:first-child{background:var(--bg-stripe);}
+#inv-body tr:hover td:first-child{background:var(--bg-row-hover);}
+#inv-body tr.table-section-head td:first-child{background:transparent;}
 #inv-thead-row th:first-child::after,
-#inv-body td:first-child::after{content:'';position:absolute;top:0;right:-6px;bottom:0;width:6px;background:linear-gradient(to right,rgba(0,0,0,.08),transparent);pointer-events:none;}
+#inv-body td:first-child::after{content:'';position:absolute;top:0;right:-6px;bottom:0;width:6px;background:linear-gradient(to right,rgba(2,61,74,.06),transparent);pointer-events:none;}
 /* ── Vendor table frozen first column ── */
 #vendor-thead th:first-child,
-#vendor-body td:first-child{position:sticky;left:0;z-index:4;background:var(--dark-blue);}
-#vendor-body td:first-child{background:#fff;font-weight:600;}
+#vendor-body td:first-child{position:sticky;left:0;z-index:4;}
+#vendor-thead th:first-child{background:linear-gradient(180deg,var(--bg-card-soft) 0%,#f1ebdc 100%);}
+#vendor-body td:first-child{background:var(--bg-card);font-weight:600;}
 tbody tr:nth-child(even) #vendor-body td:first-child,
-#vendor-body tr:nth-child(even) td:first-child{background:#f0f8f9;}
-#vendor-body tr:hover td:first-child{background:var(--milk);}
+#vendor-body tr:nth-child(even) td:first-child{background:var(--bg-stripe);}
+#vendor-body tr:hover td:first-child{background:var(--bg-row-hover);}
 #vendor-thead th:first-child::after,
 #vendor-body td:first-child::after{content:'';position:absolute;top:0;right:-6px;bottom:0;width:6px;background:linear-gradient(to right,rgba(0,0,0,.08),transparent);pointer-events:none;}
 td.fw{font-weight:600;}
@@ -793,11 +823,11 @@ html,body{overscroll-behavior:none;}
 </style>
 <!-- Design tokens (PR 1 of refresh) — loaded after inline <style> so legacy
      aliases at the bottom of :root override the older brand values. -->
-<link rel="stylesheet" href="/css/tokens.css?v=2026-05-06j">
+<link rel="stylesheet" href="/css/tokens.css?v=2026-05-06k">
 <!-- Shared primitives (PR 4) — loaded after tokens.css and after the
      inline <style> so it overrides legacy .btn-primary / .badge-* /
      .card / .alert-item rules with the new gradient + metallic look. -->
-<link rel="stylesheet" href="/css/primitives.css?v=2026-05-06j">
+<link rel="stylesheet" href="/css/primitives.css?v=2026-05-06k">
 </head>
 <body>
 
@@ -813,7 +843,7 @@ html,body{overscroll-behavior:none;}
 <div id="topbar">
   <button id="nav-toggle" onclick="toggleNav()" aria-label="Menu">☰</button>
   <div class="topbar-logo">
-    <img src="/images/feather-light.png?v=2026-05-06j" alt="" aria-hidden="true">
+    <img src="/images/feather-light.png?v=2026-05-06k" alt="" aria-hidden="true">
     <div>
       <div class="brand">Blue Sparrow</div>
       <small>Operations</small>
@@ -3194,40 +3224,40 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-05-06j" defer></script>
-<script src="/js/utils.js?v=2026-05-06j" defer></script>
-<script src="/js/state.js?v=2026-05-06j" defer></script>
-<script src="/js/auth.js?v=2026-05-06j" defer></script>
-<script src="/js/graph.js?v=2026-05-06j" defer></script>
-<script src="/js/signalr.js?v=2026-05-06j" defer></script>
-<script src="/js/tags.js?v=2026-05-06j" defer></script>
-<script src="/js/nav.js?v=2026-05-06j" defer></script>
-<script src="/js/settings.js?v=2026-05-06j" defer></script>
-<script src="/js/dashboard.js?v=2026-05-06j" defer></script>
-<script src="/js/inventory.js?v=2026-05-06j" defer></script>
-<script src="/js/inventory-form.js?v=2026-05-06j" defer></script>
-<script src="/js/counts.js?v=2026-05-06j" defer></script>
-<script src="/js/foodpars.js?v=2026-05-06j" defer></script>
-<script src="/js/labels.js?v=2026-05-06j" defer></script>
-<script src="/js/bags.js?v=2026-05-06j" defer></script>
-<script src="/js/bag-labels-5lb.js?v=2026-05-06j" defer></script>
-<script src="/js/pastry-sync.js?v=2026-05-06j" defer></script>
-<script src="/js/recipes.js?v=2026-05-06j" defer></script>
-<script src="/js/cogs.js?v=2026-05-06j" defer></script>
-<script src="/js/vendors.js?v=2026-05-06j" defer></script>
-<script src="/js/contacts.js?v=2026-05-06j" defer></script>
-<script src="/js/maintenance.js?v=2026-05-06j" defer></script>
-<script src="/js/checklists.js?v=2026-05-06j" defer></script>
-<script src="/js/ordering.js?v=2026-05-06j" defer></script>
-<script src="/js/ordering-build.js?v=2026-05-06j" defer></script>
-<script src="/js/market-analysis.js?v=2026-05-06j" defer></script>
-<script src="/js/projects.js?v=2026-05-06j" defer></script>
-<script src="/js/parking.js?v=2026-05-06j" defer></script>
-<script src="/js/prepItems.js?v=2026-05-06j" defer></script>
-<script src="/js/square.js?v=2026-05-06j" defer></script>
-<script src="/js/timeclock.js?v=2026-05-06j" defer></script>
-<script src="/js/slack.js?v=2026-05-06j" defer></script>
-<script src="/js/auto-sync.js?v=2026-05-06j" defer></script>
+<script src="/js/constants.js?v=2026-05-06k" defer></script>
+<script src="/js/utils.js?v=2026-05-06k" defer></script>
+<script src="/js/state.js?v=2026-05-06k" defer></script>
+<script src="/js/auth.js?v=2026-05-06k" defer></script>
+<script src="/js/graph.js?v=2026-05-06k" defer></script>
+<script src="/js/signalr.js?v=2026-05-06k" defer></script>
+<script src="/js/tags.js?v=2026-05-06k" defer></script>
+<script src="/js/nav.js?v=2026-05-06k" defer></script>
+<script src="/js/settings.js?v=2026-05-06k" defer></script>
+<script src="/js/dashboard.js?v=2026-05-06k" defer></script>
+<script src="/js/inventory.js?v=2026-05-06k" defer></script>
+<script src="/js/inventory-form.js?v=2026-05-06k" defer></script>
+<script src="/js/counts.js?v=2026-05-06k" defer></script>
+<script src="/js/foodpars.js?v=2026-05-06k" defer></script>
+<script src="/js/labels.js?v=2026-05-06k" defer></script>
+<script src="/js/bags.js?v=2026-05-06k" defer></script>
+<script src="/js/bag-labels-5lb.js?v=2026-05-06k" defer></script>
+<script src="/js/pastry-sync.js?v=2026-05-06k" defer></script>
+<script src="/js/recipes.js?v=2026-05-06k" defer></script>
+<script src="/js/cogs.js?v=2026-05-06k" defer></script>
+<script src="/js/vendors.js?v=2026-05-06k" defer></script>
+<script src="/js/contacts.js?v=2026-05-06k" defer></script>
+<script src="/js/maintenance.js?v=2026-05-06k" defer></script>
+<script src="/js/checklists.js?v=2026-05-06k" defer></script>
+<script src="/js/ordering.js?v=2026-05-06k" defer></script>
+<script src="/js/ordering-build.js?v=2026-05-06k" defer></script>
+<script src="/js/market-analysis.js?v=2026-05-06k" defer></script>
+<script src="/js/projects.js?v=2026-05-06k" defer></script>
+<script src="/js/parking.js?v=2026-05-06k" defer></script>
+<script src="/js/prepItems.js?v=2026-05-06k" defer></script>
+<script src="/js/square.js?v=2026-05-06k" defer></script>
+<script src="/js/timeclock.js?v=2026-05-06k" defer></script>
+<script src="/js/slack.js?v=2026-05-06k" defer></script>
+<script src="/js/auto-sync.js?v=2026-05-06k" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
@@ -5636,7 +5666,7 @@ function renderMenu(query='', catFilter='') {
     const stockDisplay = stock != null ? stock : '—';
     const vars = (i.Variations||'').split('\n').filter(Boolean);
     return `<tr data-gs-id="${escHtml(i.id)}" style="${isHidden?'opacity:0.45;':''}">
-      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-06j" alt="" title="Synced with Square">':''}</td>
+      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-06k" alt="" title="Synced with Square">':''}</td>
       <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${escHtml(i.Category||'—')}</span></td>
       <td style="font-size:12px;color:var(--muted);max-width:220px">${escHtml(i.Description||'')}</td>
       <td>${i.Price != null ? '$'+Number(i.Price).toFixed(2) : '—'}</td>

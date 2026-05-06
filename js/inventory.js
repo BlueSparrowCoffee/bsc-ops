@@ -505,7 +505,20 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
 
   const tbody = document.getElementById('inv-body');
   const isAll = (currentLocation === 'all');
-  tbody.innerHTML = items.map(i => {
+
+  // Vendor grouping (PR 7) — emit a .table-section-head row before each
+  // vendor group. Items keep the user's active sort ordering inside each
+  // section. Skipped when the user is sorting by Status / Suggested /
+  // ParLevel — those sorts span vendors so grouping would obscure intent.
+  const sortColIsCrossVendor = ['Status','SuggestedOrder','ParLevel','TotalCount','CostPerCase','CostPerServing'].includes(_invSort.col);
+  const groupByVendor = !sortColIsCrossVendor;
+
+  // Compute the colspan that .table-section-head spans. Matches the thead
+  // built in renderInventoryHeader (see lines ~258-272 above): always-on
+  // base columns + the conditional Category column.
+  const colspan = invHasCategory() ? 12 : 11;
+
+  const _row = (i) => {
     const store   = (countsMap[i.ItemName||'']?.store??'—');
     const storage = (countsMap[i.ItemName||'']?.storage??'—');
     const total   = (countsMap[i.ItemName||'']?.total??'—');
@@ -525,18 +538,42 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
     return `<tr data-inv-id="${escHtml(i.id)}" onclick="openEditInvItem('${escHtml(i.id)}')" style="cursor:pointer;${i.Archived?'opacity:.45;':''}">
       <td class="fw">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-04-28h" alt="" title="Synced with Square">':''}${i.Archived?'<span style="font-size:10px;background:var(--muted);color:#fff;padding:1px 5px;border-radius:8px;margin-left:4px;">archived</span>':''}${i.Tags?renderTagPills(i.Tags):''}</td>
       ${invHasCategory() ? `<td><span class="badge badge-teal">${escHtml(i.Category||'—')}</span></td>` : ''}
-      <td style="font-size:12px">${i.Supplier ? `<a href="#" data-supplier="${escHtml(i.Supplier||'')}" onclick="event.stopPropagation();nav('vendors');setTimeout(()=>{const s=document.querySelector('#page-vendors .search-input');if(s){s.value=this.dataset.supplier;filterVendors(s.value);}},300);return false;" style="color:var(--gold);text-decoration:none;">${escHtml(i.Supplier)}</a>` : '<span style="color:var(--muted)">—</span>'}</td>
+      <td style="font-size:12px">${i.Supplier ? `<a href="#" data-supplier="${escHtml(i.Supplier||'')}" onclick="event.stopPropagation();nav('vendors');setTimeout(()=>{const s=document.querySelector('#page-vendors .search-input');if(s){s.value=this.dataset.supplier;filterVendors(s.value);}},300);return false;" style="color:var(--gold-deep);text-decoration:none;font-weight:600;">${escHtml(i.Supplier)}</a>` : '<span style="color:var(--muted)">—</span>'}</td>
       <td>${store}</td>
       <td>${storage}</td>
       <td style="font-weight:600">${total}</td>
       <td><div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;"><span style="text-align:right;">${parCell}</span><span style="font-size:11px;color:var(--muted);width:44px;text-align:left;">${unit}</span></div></td>
-      <td style="font-weight:600;${suggCell==='—'?'color:var(--muted)':'color:var(--gold)'}">${suggCell}</td>
+      <td style="font-weight:600;${suggCell==='—'?'color:var(--muted)':'color:var(--gold-deep)'}">${suggCell}</td>
       <td><span class="badge ${badge}">${status}</span></td>
       <td>${costCase}</td>
       <td style="font-size:12px">${costServing}</td>
       <td style="font-size:12px;color:var(--muted)">${servings}</td>
     </tr>`;
-  }).join('');
+  };
+
+  if (groupByVendor) {
+    // Bucket items by vendor (kept in their already-sorted order). Empty
+    // vendor strings are grouped under "No vendor" at the end.
+    const byVendor = new Map();
+    for (const i of items) {
+      const v = (i.Supplier || '').trim() || '— No vendor —';
+      if (!byVendor.has(v)) byVendor.set(v, []);
+      byVendor.get(v).push(i);
+    }
+    const vendorNames = [...byVendor.keys()].sort((a,b) => {
+      // Trailing "no vendor" bucket comes last
+      if (a.startsWith('—')) return 1;
+      if (b.startsWith('—')) return -1;
+      return a.localeCompare(b);
+    });
+    tbody.innerHTML = vendorNames.map(v => {
+      const list = byVendor.get(v);
+      const head = `<tr class="table-section-head"><td colspan="${colspan}"><span class="ts-label">${escHtml(v)}</span><span class="ts-count">${list.length}</span></td></tr>`;
+      return head + list.map(_row).join('');
+    }).join('');
+  } else {
+    tbody.innerHTML = items.map(_row).join('');
+  }
 
   document.getElementById('inv-empty').style.display = items.length?'none':'block';
 
