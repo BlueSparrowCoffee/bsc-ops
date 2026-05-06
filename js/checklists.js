@@ -113,6 +113,130 @@ function getGroupDueStatus(group) {
   return { status:'ok', badge:`<span style="font-size:11px;background:var(--good-bg);color:var(--good);padding:2px 8px;border-radius:10px;">Due in ${rem}d</span>` };
 }
 
+// ── Phase 2 view toggle (PR 16a) ─────────────────────────────────
+// Read-only lane preview rendered into #cl-lanes-container; existing
+// card grid stays in #cl-groups-container. Toggle persists per-user
+// in localStorage so the choice survives reloads.
+const _CL_VIEW_KEY = 'bsc_cl_view';
+let _clView = (() => { try { return localStorage.getItem(_CL_VIEW_KEY) || 'cards'; } catch { return 'cards'; } })();
+
+function toggleChecklistsView() {
+  _clView = _clView === 'lanes' ? 'cards' : 'lanes';
+  try { localStorage.setItem(_CL_VIEW_KEY, _clView); } catch {}
+  renderChecklists();
+}
+
+function _applyChecklistsViewMode() {
+  const cards = document.getElementById('cl-groups-container');
+  const lanes = document.getElementById('cl-lanes-container');
+  const empty = document.getElementById('cl-groups-empty');
+  const label = document.getElementById('cl-view-toggle-label');
+  if (label) label.textContent = _clView === 'lanes' ? 'Card view' : 'Phase 2 preview';
+  if (cards) cards.style.display = _clView === 'lanes' ? 'none' : '';
+  if (lanes) lanes.style.display = _clView === 'lanes' ? '' : 'none';
+  if (empty) empty.style.display = 'none';
+}
+
+// Bucket existing checklist groups into Open / Mid / Close / Weekly /
+// Monthly lanes. Heuristic until BSC_ChecklistGroups gains a Shift
+// column: tasks with RecurEveryDays<=1 default to Open, weekly to
+// Weekly, monthly to Monthly. AssignedRole='Manager' bumps to Close.
+function _laneFor(group) {
+  const recur = Number(group.RecurEveryDays || 0);
+  const role = (group.Role || '').toLowerCase();
+  if (recur >= 28) return 'monthly';
+  if (recur >= 7)  return 'weekly';
+  if (role.includes('manager')) return 'close';
+  // Manager-time-of-day heuristic: Title containing "close" / "evening" → close
+  const t = (group.Title || '').toLowerCase();
+  if (/(close|evening|end of day|eod|p\.?m\.?)/.test(t)) return 'close';
+  if (/(mid|noon|lunch)/.test(t)) return 'mid';
+  return 'open';
+}
+
+const LANE_META = {
+  open:    { label:'Open shift',  marker:'shift-open',  sub:'Start of day' },
+  mid:     { label:'Mid shift',   marker:'shift-mid',   sub:'Lunch / handoff' },
+  close:   { label:'Close shift', marker:'shift-close', sub:'End of day' },
+  weekly:  { label:'Weekly',      marker:'',            sub:'Recurring weekly tasks' },
+  monthly: { label:'Monthly',     marker:'',            sub:'Recurring monthly tasks' }
+};
+const LANE_ORDER = ['open','mid','close','weekly','monthly'];
+
+function renderChecklistsLanes(filteredGroups) {
+  const host = document.getElementById('cl-lanes-container');
+  if (!host) return;
+
+  // Bucket groups + count tasks per lane.
+  const byLane = {};
+  for (const lane of LANE_ORDER) byLane[lane] = [];
+  for (const g of filteredGroups) byLane[_laneFor(g)].push(g);
+
+  // Day ribbon — Open / Mid / Close / Weekly progress at a glance
+  const ribbon = ['open','mid','close','weekly'].map(lane => {
+    const groupsInLane = byLane[lane] || [];
+    const totalTasks = groupsInLane.reduce((sum, g) => sum + cache.checklists.filter(t => t.GroupId === g.id && t.Status !== 'Suggested').length, 0);
+    const doneTasks = groupsInLane.reduce((sum, g) => sum + cache.checklists.filter(t => t.GroupId === g.id && t.Status !== 'Suggested' && cache.clProgress[t.id]).length, 0);
+    return `
+      <div class="day-ribbon-cell">
+        <div class="dr-label">${LANE_META[lane].label}</div>
+        <div class="dr-stat">${doneTasks} <span style="font-size:11px;color:var(--muted);font-weight:500;">/ ${totalTasks}</span></div>
+      </div>`;
+  }).join('');
+
+  // Render each lane that has groups.
+  const lanesHtml = LANE_ORDER.filter(lane => byLane[lane].length).map(lane => {
+    const meta = LANE_META[lane];
+    const groups = byLane[lane];
+    const allTasks   = groups.flatMap(g => cache.checklists.filter(t => t.GroupId === g.id && t.Status !== 'Suggested'));
+    const doneTasks  = allTasks.filter(t => cache.clProgress[t.id]);
+    const pct = allTasks.length ? Math.round(doneTasks.length / allTasks.length * 100) : 0;
+
+    const sectionsHtml = groups.map(g => {
+      const tasks = cache.checklists.filter(t => t.GroupId === g.id && t.Status !== 'Suggested')
+                                     .sort((a,b) => (Number(a.SortOrder)||0) - (Number(b.SortOrder)||0));
+      const taskRowsHtml = tasks.map(t => {
+        const done = !!cache.clProgress[t.id];
+        return `
+          <div class="cl-row${done?' done':''}" style="display:flex;align-items:center;gap:10px;padding:6px 0;font-size:13px;">
+            <div class="cl-check" style="width:16px;height:16px;border-radius:4px;border:1px solid var(--border-2);display:flex;align-items:center;justify-content:center;flex-shrink:0;background:${done ? 'linear-gradient(180deg,#1d4753,var(--navy))' : 'linear-gradient(180deg,#ffffff,#f5f0e2)'};color:#fff;font-size:10px;">${done ? '✓' : ''}</div>
+            <span style="${done?'text-decoration:line-through;color:var(--muted);':''}">${escHtml(t.TaskName||t.Title||'—')}</span>
+            ${t.AssignedRole && t.AssignedRole !== 'All' ? `<span class="badge badge-blue" style="margin-left:auto;font-size:10px;">${escHtml(t.AssignedRole)}</span>` : ''}
+          </div>`;
+      }).join('');
+      return `
+        <div style="padding:0 18px 14px;">
+          <div style="font-size:10px;font-weight:700;color:var(--ink);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 6px;display:flex;align-items:center;gap:8px;">
+            ${escHtml(g.Title || 'Group')}
+            <span style="margin-left:auto;color:var(--muted);font-weight:600;font-family:var(--mono);">${tasks.length}</span>
+          </div>
+          ${tasks.length ? taskRowsHtml : `<div style="font-size:12px;color:var(--muted);padding:6px 0;">No tasks in this group.</div>`}
+        </div>`;
+    }).join('');
+
+    return `
+      <div class="lane-card" style="margin-bottom:16px;">
+        <div class="lane-head">
+          <div class="lane-marker ${meta.marker}"></div>
+          <div class="lane-title">
+            <h3>${escHtml(meta.label)}</h3>
+            <div class="sub">${escHtml(meta.sub)}</div>
+          </div>
+          <div class="lane-progress">
+            <span class="frac">${doneTasks.length} / ${allTasks.length}</span>
+            <div class="bar"><div class="bar-fill" style="width:${pct}%"></div></div>
+          </div>
+        </div>
+        ${sectionsHtml || '<div style="padding:14px 18px;font-size:12px;color:var(--muted);">No groups in this lane.</div>'}
+      </div>`;
+  }).join('');
+
+  host.innerHTML = `
+    <div class="day-ribbon">${ribbon}</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;font-style:italic;">Phase 2 preview — read-only. Use the toggle to return to the card view for editing.</div>
+    ${lanesHtml || '<div class="no-data" style="padding:40px;text-align:center;">No checklist groups visible at this location.</div>'}`;
+}
+
 // ── Render all groups ─────────────────────────────────────────────
 function renderChecklists() {
   const userIsMgr = isManagerOrOwner();
@@ -172,6 +296,11 @@ function renderChecklists() {
       container.innerHTML += renderLegacyTasksCard(ungrouped);
     }
   }
+
+  // PR 16a — Phase 2 lane view (opt-in, read-only). Always rendered
+  // alongside the cards so the toggle just swaps display modes.
+  renderChecklistsLanes(groups);
+  _applyChecklistsViewMode();
 
   updateDashChecklist();
   if (userIsMgr) renderSuggestions();
