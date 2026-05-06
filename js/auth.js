@@ -196,6 +196,18 @@ function isOwnerOrAccounting() {
 // True only for accounting-role users (NOT owner/admin). Drives the
 // accounting-specific dashboard view: financial cards only, operational
 // cards hidden. Owners always see the full owner dashboard.
+// PR 12 — Counter role. Lowest-privilege inventory role: read-only par,
+// vendor, cost; can enter counts but submits to Lead/Manager for approval
+// (approval inbox is OOS per design handoff — currently a stub).
+// Owner/Manager are NOT considered Counter even if they simulate.
+function isCounter() {
+  if (!currentUser) return false;
+  if (!currentStaffMember && !_roleOverride) return false;
+  const role = _effectiveRole();
+  if (role.includes('owner') || role.includes('admin') || role.includes('manager')) return false;
+  return role.includes('counter');
+}
+
 function isAccountingOnly() {
   if (!currentUser) return false;
   if (!currentStaffMember && !_roleOverride) return false;
@@ -233,7 +245,7 @@ function openRoleSwitcher() {
   const dynamicRoles = (cache.roles || [])
     .map(r => (r.RoleName || '').trim())
     .filter(Boolean);
-  const defaults = ['Owner', 'Manager', 'Accounting', 'Staff'];
+  const defaults = ['Owner', 'Manager', 'Accounting', 'Counter', 'Staff'];
   const seen = new Set();
   const roles = [...defaults, ...dynamicRoles].filter(r => {
     const k = r.toLowerCase();

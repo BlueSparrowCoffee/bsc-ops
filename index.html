@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-06s">
-<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-06s">
-<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-06s">
-<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-06s">
-<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-06s">
+<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-06t">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-06t">
+<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-06t">
+<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-06t">
+<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-06t">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="BSC Ops">
@@ -824,6 +824,30 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
 }
 .inv-breadcrumb b{color:var(--ink);font-weight:700;}
 
+/* Counter role lock-downs (PR 12) — toggled by body.is-counter via
+   applyModulePermissions(). Hides bulk select on inventory + restyles
+   the inventory edit drawer to read-only for cost/par/vendor fields. */
+body.is-counter #inv-bulk-bar,
+body.is-counter .inv-bulk-col { display:none; }
+body.is-counter #modal-add-item .form-group input,
+body.is-counter #modal-add-item .form-group select,
+body.is-counter #modal-add-item .form-group textarea {
+  pointer-events:none; opacity:.55; background:var(--bg-card-soft) !important;
+}
+body.is-counter #modal-add-item .form-actions { display:none; }
+body.is-counter .counter-banner { display:flex; }
+.counter-banner {
+  display:none;
+  align-items:center;gap:10px;
+  margin:0 0 14px;padding:9px 14px;
+  background:linear-gradient(180deg,var(--light-blue-25),var(--light-blue-50));
+  border:1px solid var(--light-blue-deep);border-radius:8px;
+  color:var(--ink);font-size:12px;font-weight:600;
+}
+.counter-banner svg { width:14px;height:14px;flex-shrink:0; }
+.counter-banner .meta { margin-left:auto;font-weight:500;color:var(--ink-2); }
+.counter-banner a { color:var(--gold-deep);font-weight:700;text-decoration:underline; }
+
 /* Inventory empty-state cards (PR 11) — filled by renderInvEmptyState */
 .inv-empty-card{
   margin:24px auto;max-width:520px;
@@ -1060,11 +1084,11 @@ html,body{overscroll-behavior:none;}
 </style>
 <!-- Design tokens (PR 1 of refresh) — loaded after inline <style> so legacy
      aliases at the bottom of :root override the older brand values. -->
-<link rel="stylesheet" href="/css/tokens.css?v=2026-05-06s">
+<link rel="stylesheet" href="/css/tokens.css?v=2026-05-06t">
 <!-- Shared primitives (PR 4) — loaded after tokens.css and after the
      inline <style> so it overrides legacy .btn-primary / .badge-* /
      .card / .alert-item rules with the new gradient + metallic look. -->
-<link rel="stylesheet" href="/css/primitives.css?v=2026-05-06s">
+<link rel="stylesheet" href="/css/primitives.css?v=2026-05-06t">
 </head>
 <body>
 
@@ -1080,7 +1104,7 @@ html,body{overscroll-behavior:none;}
 <div id="topbar">
   <button id="nav-toggle" onclick="toggleNav()" aria-label="Menu">☰</button>
   <div class="topbar-logo">
-    <img src="/images/feather-light.png?v=2026-05-06s" alt="" aria-hidden="true">
+    <img src="/images/feather-light.png?v=2026-05-06t" alt="" aria-hidden="true">
     <div>
       <div class="brand">Blue Sparrow</div>
       <small>Operations</small>
@@ -1296,6 +1320,12 @@ html,body{overscroll-behavior:none;}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
       <span>Working offline — count drafts auto-save locally and sync when you're back online.</span>
       <span class="meta" id="inv-offline-meta"></span>
+    </div>
+    <!-- Counter role banner (PR 12) — shown when body.is-counter is set. Read-only par/vendor; submit goes to Lead for review. -->
+    <div class="counter-banner" id="inv-counter-banner" role="status">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      <span>Counter view — par, vendor, and cost are read-only. Counts you submit go to a Lead for review before posting.</span>
+      <span class="meta"><a href="#" onclick="event.preventDefault();toast('ok','Issue flagged — Lead notified')">Flag an issue</a></span>
     </div>
     <!-- Inventory type switcher -->
     <div id="inv-type-tabs" class="inv-type-chips">
@@ -3486,40 +3516,40 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-05-06s" defer></script>
-<script src="/js/utils.js?v=2026-05-06s" defer></script>
-<script src="/js/state.js?v=2026-05-06s" defer></script>
-<script src="/js/auth.js?v=2026-05-06s" defer></script>
-<script src="/js/graph.js?v=2026-05-06s" defer></script>
-<script src="/js/signalr.js?v=2026-05-06s" defer></script>
-<script src="/js/tags.js?v=2026-05-06s" defer></script>
-<script src="/js/nav.js?v=2026-05-06s" defer></script>
-<script src="/js/settings.js?v=2026-05-06s" defer></script>
-<script src="/js/dashboard.js?v=2026-05-06s" defer></script>
-<script src="/js/inventory.js?v=2026-05-06s" defer></script>
-<script src="/js/inventory-form.js?v=2026-05-06s" defer></script>
-<script src="/js/counts.js?v=2026-05-06s" defer></script>
-<script src="/js/foodpars.js?v=2026-05-06s" defer></script>
-<script src="/js/labels.js?v=2026-05-06s" defer></script>
-<script src="/js/bags.js?v=2026-05-06s" defer></script>
-<script src="/js/bag-labels-5lb.js?v=2026-05-06s" defer></script>
-<script src="/js/pastry-sync.js?v=2026-05-06s" defer></script>
-<script src="/js/recipes.js?v=2026-05-06s" defer></script>
-<script src="/js/cogs.js?v=2026-05-06s" defer></script>
-<script src="/js/vendors.js?v=2026-05-06s" defer></script>
-<script src="/js/contacts.js?v=2026-05-06s" defer></script>
-<script src="/js/maintenance.js?v=2026-05-06s" defer></script>
-<script src="/js/checklists.js?v=2026-05-06s" defer></script>
-<script src="/js/ordering.js?v=2026-05-06s" defer></script>
-<script src="/js/ordering-build.js?v=2026-05-06s" defer></script>
-<script src="/js/market-analysis.js?v=2026-05-06s" defer></script>
-<script src="/js/projects.js?v=2026-05-06s" defer></script>
-<script src="/js/parking.js?v=2026-05-06s" defer></script>
-<script src="/js/prepItems.js?v=2026-05-06s" defer></script>
-<script src="/js/square.js?v=2026-05-06s" defer></script>
-<script src="/js/timeclock.js?v=2026-05-06s" defer></script>
-<script src="/js/slack.js?v=2026-05-06s" defer></script>
-<script src="/js/auto-sync.js?v=2026-05-06s" defer></script>
+<script src="/js/constants.js?v=2026-05-06t" defer></script>
+<script src="/js/utils.js?v=2026-05-06t" defer></script>
+<script src="/js/state.js?v=2026-05-06t" defer></script>
+<script src="/js/auth.js?v=2026-05-06t" defer></script>
+<script src="/js/graph.js?v=2026-05-06t" defer></script>
+<script src="/js/signalr.js?v=2026-05-06t" defer></script>
+<script src="/js/tags.js?v=2026-05-06t" defer></script>
+<script src="/js/nav.js?v=2026-05-06t" defer></script>
+<script src="/js/settings.js?v=2026-05-06t" defer></script>
+<script src="/js/dashboard.js?v=2026-05-06t" defer></script>
+<script src="/js/inventory.js?v=2026-05-06t" defer></script>
+<script src="/js/inventory-form.js?v=2026-05-06t" defer></script>
+<script src="/js/counts.js?v=2026-05-06t" defer></script>
+<script src="/js/foodpars.js?v=2026-05-06t" defer></script>
+<script src="/js/labels.js?v=2026-05-06t" defer></script>
+<script src="/js/bags.js?v=2026-05-06t" defer></script>
+<script src="/js/bag-labels-5lb.js?v=2026-05-06t" defer></script>
+<script src="/js/pastry-sync.js?v=2026-05-06t" defer></script>
+<script src="/js/recipes.js?v=2026-05-06t" defer></script>
+<script src="/js/cogs.js?v=2026-05-06t" defer></script>
+<script src="/js/vendors.js?v=2026-05-06t" defer></script>
+<script src="/js/contacts.js?v=2026-05-06t" defer></script>
+<script src="/js/maintenance.js?v=2026-05-06t" defer></script>
+<script src="/js/checklists.js?v=2026-05-06t" defer></script>
+<script src="/js/ordering.js?v=2026-05-06t" defer></script>
+<script src="/js/ordering-build.js?v=2026-05-06t" defer></script>
+<script src="/js/market-analysis.js?v=2026-05-06t" defer></script>
+<script src="/js/projects.js?v=2026-05-06t" defer></script>
+<script src="/js/parking.js?v=2026-05-06t" defer></script>
+<script src="/js/prepItems.js?v=2026-05-06t" defer></script>
+<script src="/js/square.js?v=2026-05-06t" defer></script>
+<script src="/js/timeclock.js?v=2026-05-06t" defer></script>
+<script src="/js/slack.js?v=2026-05-06t" defer></script>
+<script src="/js/auto-sync.js?v=2026-05-06t" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
@@ -5147,6 +5177,17 @@ function applyModulePermissions() {
   // Bag Labels inventory tab: owner/accounting only
   const labelsTabBtn = document.getElementById('inv-tab-labels-btn');
   if (labelsTabBtn) labelsTabBtn.style.display = isOwnerOrAccounting() ? '' : 'none';
+  // PR 12 — Counter role: lock down inventory edit drawer + bulk + retitle submit.
+  // body.is-counter drives the CSS that hides bulk-bar, locks par/vendor cells,
+  // and shows the role banner. Stays in sync with role-test override too.
+  document.body.classList.toggle('is-counter', typeof isCounter === 'function' && isCounter());
+  // Submit Count → Submit count to Lead when counter
+  const submitBtn = document.getElementById('count-submit-btn');
+  if (submitBtn) {
+    submitBtn.textContent = (typeof isCounter === 'function' && isCounter())
+      ? 'Submit count to Lead'
+      : 'Submit Count';
+  }
 }
 
 // renderLocations, addLocation, removeLocation moved to js/settings.js
@@ -5928,7 +5969,7 @@ function renderMenu(query='', catFilter='') {
     const stockDisplay = stock != null ? stock : '—';
     const vars = (i.Variations||'').split('\n').filter(Boolean);
     return `<tr data-gs-id="${escHtml(i.id)}" style="${isHidden?'opacity:0.45;':''}">
-      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-06s" alt="" title="Synced with Square">':''}</td>
+      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-06t" alt="" title="Synced with Square">':''}</td>
       <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${escHtml(i.Category||'—')}</span></td>
       <td style="font-size:12px;color:var(--muted);max-width:220px">${escHtml(i.Description||'')}</td>
       <td>${i.Price != null ? '$'+Number(i.Price).toFixed(2) : '—'}</td>
