@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-06q">
-<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-06q">
-<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-06q">
-<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-06q">
-<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-06q">
+<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-06r">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-06r">
+<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-06r">
+<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-06r">
+<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-06r">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="BSC Ops">
@@ -111,6 +111,37 @@ h1,h2,h3,.stat-value{font-family:'IvyPresto Display','Hoefler Text',Georgia,seri
   white-space:nowrap;
 }
 .sync-dot{width:6px;height:6px;border-radius:50%;background:var(--light-blue);box-shadow:0 0 6px rgba(185,223,227,0.6);flex-shrink:0;}
+/* Sync pill — offline variant (PR 14a). Soft-red dot with a slow pulse
+   + amber-tinted text so the topbar reads as "we're working offline". */
+.sync-pill.offline{
+  background:rgba(176,49,66,0.22);
+  border-color:rgba(176,49,66,0.45);
+  color:#fbe6ea;
+}
+.sync-pill.offline .sync-dot{
+  background:#ef6479;
+  box-shadow:0 0 8px rgba(239,100,121,0.65);
+  animation:sync-pulse 1.4s ease-in-out infinite;
+}
+@keyframes sync-pulse{
+  0%,100%{opacity:1;}
+  50%{opacity:.55;}
+}
+
+/* Offline banner — shown on inventory + checklists when navigator.onLine
+   flips false. Informational only (drafts auto-save to localStorage). */
+.offline-banner{
+  display:none;
+  align-items:center;gap:10px;
+  margin:0 0 14px;padding:9px 14px;
+  background:linear-gradient(180deg,#fde7ea,#f9d4d8);
+  border:1px solid #f0b9bf;border-radius:8px;
+  color:var(--red);font-size:12px;font-weight:600;
+  font-family:inherit;
+}
+.offline-banner.show{display:flex;}
+.offline-banner svg{width:14px;height:14px;flex-shrink:0;}
+.offline-banner .meta{margin-left:auto;font-weight:500;color:var(--ink-2);font-family:var(--mono);font-size:11px;}
 /* Role meta + avatar */
 .role-meta{text-align:right;line-height:1.2;}
 .role-meta .name{font-size:12px;font-weight:600;color:#fff;}
@@ -1029,11 +1060,11 @@ html,body{overscroll-behavior:none;}
 </style>
 <!-- Design tokens (PR 1 of refresh) — loaded after inline <style> so legacy
      aliases at the bottom of :root override the older brand values. -->
-<link rel="stylesheet" href="/css/tokens.css?v=2026-05-06q">
+<link rel="stylesheet" href="/css/tokens.css?v=2026-05-06r">
 <!-- Shared primitives (PR 4) — loaded after tokens.css and after the
      inline <style> so it overrides legacy .btn-primary / .badge-* /
      .card / .alert-item rules with the new gradient + metallic look. -->
-<link rel="stylesheet" href="/css/primitives.css?v=2026-05-06q">
+<link rel="stylesheet" href="/css/primitives.css?v=2026-05-06r">
 </head>
 <body>
 
@@ -1049,7 +1080,7 @@ html,body{overscroll-behavior:none;}
 <div id="topbar">
   <button id="nav-toggle" onclick="toggleNav()" aria-label="Menu">☰</button>
   <div class="topbar-logo">
-    <img src="/images/feather-light.png?v=2026-05-06q" alt="" aria-hidden="true">
+    <img src="/images/feather-light.png?v=2026-05-06r" alt="" aria-hidden="true">
     <div>
       <div class="brand">Blue Sparrow</div>
       <small>Operations</small>
@@ -1063,7 +1094,7 @@ html,body{overscroll-behavior:none;}
     <button class="loc-btn" onclick="setLocation('17th',this)">17th</button>
   </div>
   <div class="topbar-right">
-    <div class="sync-pill" title="Sync status"><span class="sync-dot"></span><span id="sync-label">Connected</span></div>
+    <div class="sync-pill" id="sync-pill" title="Sync status"><span class="sync-dot"></span><span id="sync-label">Connected</span></div>
     <div id="user-info" style="position:relative;display:flex;align-items:center;gap:14px;">
       <div class="role-meta">
         <div class="name" id="user-label"></div>
@@ -1260,6 +1291,12 @@ html,body{overscroll-behavior:none;}
         <div class="page-sub inv-breadcrumb" id="inv-breadcrumb"></div>
       </div>
     </div>
+    <!-- Offline banner (PR 14a) — toggled by syncOfflineState() in bootstrap. -->
+    <div class="offline-banner" id="inv-offline-banner" role="status">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+      <span>Working offline — count drafts auto-save locally and sync when you're back online.</span>
+      <span class="meta" id="inv-offline-meta"></span>
+    </div>
     <!-- Inventory type switcher -->
     <div id="inv-type-tabs" class="inv-type-chips">
       <button class="inv-type-tab active" data-type="consumable" onclick="switchInvType('consumable')">Consumable</button>
@@ -1451,6 +1488,12 @@ html,body{overscroll-behavior:none;}
     <div class="page-header">
       <div class="page-title">✅ Checklists</div>
       <div class="page-sub">Task lists for managers and baristas — per location with automatic recurrence</div>
+    </div>
+    <!-- Offline banner (PR 14a) -->
+    <div class="offline-banner" id="cl-offline-banner" role="status">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+      <span>Working offline — task completions will sync when you're back online.</span>
+      <span class="meta" id="cl-offline-meta"></span>
     </div>
     <div class="toolbar">
       <select class="filter" id="cl-role-filter" onchange="renderChecklists()">
@@ -3443,40 +3486,40 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-05-06q" defer></script>
-<script src="/js/utils.js?v=2026-05-06q" defer></script>
-<script src="/js/state.js?v=2026-05-06q" defer></script>
-<script src="/js/auth.js?v=2026-05-06q" defer></script>
-<script src="/js/graph.js?v=2026-05-06q" defer></script>
-<script src="/js/signalr.js?v=2026-05-06q" defer></script>
-<script src="/js/tags.js?v=2026-05-06q" defer></script>
-<script src="/js/nav.js?v=2026-05-06q" defer></script>
-<script src="/js/settings.js?v=2026-05-06q" defer></script>
-<script src="/js/dashboard.js?v=2026-05-06q" defer></script>
-<script src="/js/inventory.js?v=2026-05-06q" defer></script>
-<script src="/js/inventory-form.js?v=2026-05-06q" defer></script>
-<script src="/js/counts.js?v=2026-05-06q" defer></script>
-<script src="/js/foodpars.js?v=2026-05-06q" defer></script>
-<script src="/js/labels.js?v=2026-05-06q" defer></script>
-<script src="/js/bags.js?v=2026-05-06q" defer></script>
-<script src="/js/bag-labels-5lb.js?v=2026-05-06q" defer></script>
-<script src="/js/pastry-sync.js?v=2026-05-06q" defer></script>
-<script src="/js/recipes.js?v=2026-05-06q" defer></script>
-<script src="/js/cogs.js?v=2026-05-06q" defer></script>
-<script src="/js/vendors.js?v=2026-05-06q" defer></script>
-<script src="/js/contacts.js?v=2026-05-06q" defer></script>
-<script src="/js/maintenance.js?v=2026-05-06q" defer></script>
-<script src="/js/checklists.js?v=2026-05-06q" defer></script>
-<script src="/js/ordering.js?v=2026-05-06q" defer></script>
-<script src="/js/ordering-build.js?v=2026-05-06q" defer></script>
-<script src="/js/market-analysis.js?v=2026-05-06q" defer></script>
-<script src="/js/projects.js?v=2026-05-06q" defer></script>
-<script src="/js/parking.js?v=2026-05-06q" defer></script>
-<script src="/js/prepItems.js?v=2026-05-06q" defer></script>
-<script src="/js/square.js?v=2026-05-06q" defer></script>
-<script src="/js/timeclock.js?v=2026-05-06q" defer></script>
-<script src="/js/slack.js?v=2026-05-06q" defer></script>
-<script src="/js/auto-sync.js?v=2026-05-06q" defer></script>
+<script src="/js/constants.js?v=2026-05-06r" defer></script>
+<script src="/js/utils.js?v=2026-05-06r" defer></script>
+<script src="/js/state.js?v=2026-05-06r" defer></script>
+<script src="/js/auth.js?v=2026-05-06r" defer></script>
+<script src="/js/graph.js?v=2026-05-06r" defer></script>
+<script src="/js/signalr.js?v=2026-05-06r" defer></script>
+<script src="/js/tags.js?v=2026-05-06r" defer></script>
+<script src="/js/nav.js?v=2026-05-06r" defer></script>
+<script src="/js/settings.js?v=2026-05-06r" defer></script>
+<script src="/js/dashboard.js?v=2026-05-06r" defer></script>
+<script src="/js/inventory.js?v=2026-05-06r" defer></script>
+<script src="/js/inventory-form.js?v=2026-05-06r" defer></script>
+<script src="/js/counts.js?v=2026-05-06r" defer></script>
+<script src="/js/foodpars.js?v=2026-05-06r" defer></script>
+<script src="/js/labels.js?v=2026-05-06r" defer></script>
+<script src="/js/bags.js?v=2026-05-06r" defer></script>
+<script src="/js/bag-labels-5lb.js?v=2026-05-06r" defer></script>
+<script src="/js/pastry-sync.js?v=2026-05-06r" defer></script>
+<script src="/js/recipes.js?v=2026-05-06r" defer></script>
+<script src="/js/cogs.js?v=2026-05-06r" defer></script>
+<script src="/js/vendors.js?v=2026-05-06r" defer></script>
+<script src="/js/contacts.js?v=2026-05-06r" defer></script>
+<script src="/js/maintenance.js?v=2026-05-06r" defer></script>
+<script src="/js/checklists.js?v=2026-05-06r" defer></script>
+<script src="/js/ordering.js?v=2026-05-06r" defer></script>
+<script src="/js/ordering-build.js?v=2026-05-06r" defer></script>
+<script src="/js/market-analysis.js?v=2026-05-06r" defer></script>
+<script src="/js/projects.js?v=2026-05-06r" defer></script>
+<script src="/js/parking.js?v=2026-05-06r" defer></script>
+<script src="/js/prepItems.js?v=2026-05-06r" defer></script>
+<script src="/js/square.js?v=2026-05-06r" defer></script>
+<script src="/js/timeclock.js?v=2026-05-06r" defer></script>
+<script src="/js/slack.js?v=2026-05-06r" defer></script>
+<script src="/js/auto-sync.js?v=2026-05-06r" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
@@ -5885,7 +5928,7 @@ function renderMenu(query='', catFilter='') {
     const stockDisplay = stock != null ? stock : '—';
     const vars = (i.Variations||'').split('\n').filter(Boolean);
     return `<tr data-gs-id="${escHtml(i.id)}" style="${isHidden?'opacity:0.45;':''}">
-      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-06q" alt="" title="Synced with Square">':''}</td>
+      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-06r" alt="" title="Synced with Square">':''}</td>
       <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${escHtml(i.Category||'—')}</span></td>
       <td style="font-size:12px;color:var(--muted);max-width:220px">${escHtml(i.Description||'')}</td>
       <td>${i.Price != null ? '$'+Number(i.Price).toFixed(2) : '—'}</td>

@@ -162,3 +162,69 @@ function _resetPageFilters(page) {
       break;
   }
 }
+
+// ── Offline detection (PR 14a) ──────────────────────────────────
+// Browser online/offline events flip:
+//   - the topbar .sync-pill (cream "Connected" → red pulse "Offline · 2m ago")
+//   - the per-page .offline-banner on Inventory + Checklists
+// Last-online timestamp persists in localStorage so the relative time
+// survives reloads and reflects the true time-since-online window.
+const _SYNC_LAST_ONLINE_KEY = 'bsc_last_online_at';
+
+function _markOnlineNow() {
+  try { localStorage.setItem(_SYNC_LAST_ONLINE_KEY, String(Date.now())); } catch {}
+}
+
+function _relativeTimeSince(ts) {
+  if (!ts) return '';
+  const secs = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+  if (secs < 60) return 'just now';
+  const mins = Math.floor(secs / 60);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+function applyOfflineState() {
+  const online = navigator.onLine;
+  const pill = document.getElementById('sync-pill');
+  const label = document.getElementById('sync-label');
+  const banners = [
+    { banner: document.getElementById('inv-offline-banner'), meta: document.getElementById('inv-offline-meta') },
+    { banner: document.getElementById('cl-offline-banner'),  meta: document.getElementById('cl-offline-meta') }
+  ];
+
+  if (online) {
+    _markOnlineNow();
+    if (pill) pill.classList.remove('offline');
+    // Don't override the auto-sync.js "🔄 Auto-syncing…" status mid-run.
+    if (label && !label.textContent.startsWith('🔄')) label.textContent = 'Connected';
+    banners.forEach(b => {
+      if (b.banner) b.banner.classList.remove('show');
+      if (b.meta) b.meta.textContent = '';
+    });
+    return;
+  }
+
+  // Offline.
+  let lastTs = 0;
+  try { lastTs = parseInt(localStorage.getItem(_SYNC_LAST_ONLINE_KEY) || '0', 10); } catch {}
+  const rel = lastTs ? _relativeTimeSince(lastTs) : '';
+  if (pill) pill.classList.add('offline');
+  if (label) label.textContent = rel ? `Offline · ${rel}` : 'Offline';
+  banners.forEach(b => {
+    if (b.banner) b.banner.classList.add('show');
+    if (b.meta) b.meta.textContent = rel ? `Last synced ${rel}` : '';
+  });
+}
+
+window.addEventListener('online',  applyOfflineState);
+window.addEventListener('offline', applyOfflineState);
+// Initial paint + a 30 s tick so the relative timestamp keeps updating
+// while offline ("Offline · 2m ago" → "Offline · 3m ago" without reload).
+window.addEventListener('DOMContentLoaded', () => {
+  if (navigator.onLine) _markOnlineNow();
+  applyOfflineState();
+  setInterval(() => { if (!navigator.onLine) applyOfflineState(); }, 30_000);
+});
