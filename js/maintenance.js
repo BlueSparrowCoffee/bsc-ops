@@ -239,7 +239,9 @@ async function saveCompleteTask() {
     Notes:document.getElementById('mc-notes').value,PhotoName:''};
   setLoading(true,'Saving completion…');
   try {
-    const logItem=await addListItem(LISTS.maintLog,logData);
+    // PR 14e — route through safeAddListItem so offline maintenance-log writes queue.
+    const _writer = (typeof safeAddListItem === 'function') ? safeAddListItem : addListItem;
+    const logItem=await _writer(LISTS.maintLog,logData,{ kind:'maintLog', label:`${logData.Service||'log'} @ ${logData.Location||''}` });
     cache.maintLog.push(logItem);
     const photoFile=document.getElementById('mc-photo').files[0];
     if(photoFile){

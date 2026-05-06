@@ -481,7 +481,9 @@ async function createOrderFromBuilder(vendor) {
       // Items left blank for new orders — LineItems is the source of truth.
       // Notes left for the user to fill in via Order Detail modal.
     };
-    const order = await addListItem(LISTS.orders, fields);
+    // PR 14e — route through safeAddListItem so an offline order build queues to IndexedDB.
+    const _writer = (typeof safeAddListItem === 'function') ? safeAddListItem : addListItem;
+    const order = await _writer(LISTS.orders, fields, { kind: 'order', label: `${vendor} → ${loc}` });
     cache.orders.push(order);
     // Remove these items from the model so they don't get re-ordered into another vendor's PO
     delete _buildOrderModel.byVendor[vendor];
