@@ -245,6 +245,12 @@ function renderInvTableHeader() {
   if (!tr) return;
   const cfg = invCfg();
   const isMerch = !!(cfg?.isMerch);
+  // Bulk-select column (PR 10) — consumable only for now.
+  const bulkTh = isMerch
+    ? ''
+    : `<th class="inv-bulk-col" onclick="event.stopPropagation()" title="Select all visible">
+         <input type="checkbox" id="inv-bulk-all" class="inv-bulk-cb" onchange="toggleAllInvVisible(this)">
+       </th>`;
   if (isMerch) {
     tr.innerHTML = `
       <th onclick="sortInvBy('ItemName')">Name</th>
@@ -256,6 +262,7 @@ function renderInvTableHeader() {
       <th onclick="sortInvBy('TotalValue')">Value</th>`;
   } else {
     tr.innerHTML = `
+      ${bulkTh}
       <th onclick="sortInvBy('ItemName')">Item</th>
       <th id="inv-th-category" onclick="sortInvBy('Category')">Category</th>
       <th onclick="sortInvBy('Supplier')">Vendor</th>
@@ -273,6 +280,75 @@ function renderInvTableHeader() {
     const th = document.getElementById('inv-th-category');
     if (th) th.style.display = invHasCategory() ? '' : 'none';
   }
+}
+
+// ── Bulk select (PR 10) ─────────────────────────────────────────
+// Module-level Set persists selection across re-renders + filter
+// changes. Consumable items only — merch doesn't have a Build Order
+// flow to feed.
+const _invSelectedIds = new Set();
+
+function toggleInvSelected(id, cb) {
+  if (cb.checked) _invSelectedIds.add(id);
+  else _invSelectedIds.delete(id);
+  _renderInvBulkBar();
+  _syncInvBulkAllCheckbox();
+}
+
+function toggleAllInvVisible(cb) {
+  // Operates on currently visible (post-filter) rows only.
+  const rows = document.querySelectorAll('#inv-body tr[data-inv-id]');
+  rows.forEach(r => {
+    const id = r.dataset.invId;
+    if (!id) return;
+    const rowCb = r.querySelector('.inv-bulk-cb');
+    if (rowCb) rowCb.checked = cb.checked;
+    if (cb.checked) _invSelectedIds.add(id);
+    else _invSelectedIds.delete(id);
+  });
+  _renderInvBulkBar();
+}
+
+function clearInvSelected() {
+  _invSelectedIds.clear();
+  document.querySelectorAll('#inv-body .inv-bulk-cb').forEach(cb => { cb.checked = false; });
+  const all = document.getElementById('inv-bulk-all');
+  if (all) { all.checked = false; all.indeterminate = false; }
+  _renderInvBulkBar();
+}
+
+// Open Build Order modal seeded with the currently selected items.
+// Falls through to ordering-build.js's helper.
+function reorderInvSelected() {
+  if (!_invSelectedIds.size) return;
+  if (typeof openBuildOrderModalForIds === 'function') {
+    openBuildOrderModalForIds([..._invSelectedIds]);
+  } else if (typeof toast === 'function') {
+    toast('err', 'Bulk reorder is unavailable in this build.');
+  }
+}
+
+function _renderInvBulkBar() {
+  const bar = document.getElementById('inv-bulk-bar');
+  const countEl = document.getElementById('inv-bulk-count');
+  if (!bar) return;
+  const n = _invSelectedIds.size;
+  if (n === 0) { bar.classList.remove('show'); return; }
+  bar.classList.add('show');
+  if (countEl) countEl.textContent = `${n} selected`;
+}
+
+function _syncInvBulkAllCheckbox() {
+  const all = document.getElementById('inv-bulk-all');
+  if (!all) return;
+  const rows = document.querySelectorAll('#inv-body tr[data-inv-id]');
+  if (!rows.length) { all.checked = false; all.indeterminate = false; return; }
+  let checkedCount = 0;
+  rows.forEach(r => {
+    if (_invSelectedIds.has(r.dataset.invId)) checkedCount++;
+  });
+  all.checked = checkedCount === rows.length;
+  all.indeterminate = checkedCount > 0 && checkedCount < rows.length;
 }
 
 // ── Top-level type switch (consumable/merch/equipment/special) ──
@@ -513,10 +589,10 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
   const sortColIsCrossVendor = ['Status','SuggestedOrder','ParLevel','TotalCount','CostPerCase','CostPerServing'].includes(_invSort.col);
   const groupByVendor = !sortColIsCrossVendor;
 
-  // Compute the colspan that .table-section-head spans. Matches the thead
-  // built in renderInventoryHeader (see lines ~258-272 above): always-on
-  // base columns + the conditional Category column.
-  const colspan = invHasCategory() ? 12 : 11;
+  // Bulk-select column is always present on consumable; absent on merch
+  // (renderMerchInventoryItems is a separate path). Adjust colspan accordingly.
+  const bulkColCount = 1; // consumable path always renders the bulk col
+  const colspan = (invHasCategory() ? 12 : 11) + bulkColCount;
 
   const _row = (i) => {
     const store   = (countsMap[i.ItemName||'']?.store??'—');
@@ -535,7 +611,9 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
     const costCase    = i.CostPerCase    != null ? '$'+Number(i.CostPerCase).toFixed(2)    : '—';
     const costServing = i.CostPerServing != null ? '$'+Number(i.CostPerServing).toFixed(4) : '—';
     const servings    = i.ServingsPerUnit!= null ? Number(i.ServingsPerUnit).toLocaleString()+' '+escHtml(i.ServingUnit||'')  : '—';
+    const checked = _invSelectedIds.has(i.id) ? 'checked' : '';
     return `<tr data-inv-id="${escHtml(i.id)}" onclick="openEditInvItem('${escHtml(i.id)}')" style="cursor:pointer;${i.Archived?'opacity:.45;':''}">
+      <td class="inv-bulk-col" onclick="event.stopPropagation()"><input type="checkbox" class="inv-bulk-cb" ${checked} data-inv-id="${escHtml(i.id)}" onchange="toggleInvSelected('${escHtml(i.id)}', this)"></td>
       <td class="fw">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-04-28h" alt="" title="Synced with Square">':''}${i.Archived?'<span style="font-size:10px;background:var(--muted);color:#fff;padding:1px 5px;border-radius:8px;margin-left:4px;">archived</span>':''}${i.Tags?renderTagPills(i.Tags):''}</td>
       ${invHasCategory() ? `<td><span class="badge badge-teal">${escHtml(i.Category||'—')}</span></td>` : ''}
       <td style="font-size:12px">${i.Supplier ? `<a href="#" data-supplier="${escHtml(i.Supplier||'')}" onclick="event.stopPropagation();nav('vendors');setTimeout(()=>{const s=document.querySelector('#page-vendors .search-input');if(s){s.value=this.dataset.supplier;filterVendors(s.value);}},300);return false;" style="color:var(--gold-deep);text-decoration:none;font-weight:600;">${escHtml(i.Supplier)}</a>` : '<span style="color:var(--muted)">—</span>'}</td>
@@ -576,6 +654,11 @@ function renderInventoryItems(query='', catFilter='', statusFilter='', supplierF
   }
 
   document.getElementById('inv-empty').style.display = items.length?'none':'block';
+
+  // Refresh bulk-bar + select-all checkbox after each render so the
+  // selection survives filter/sort changes (the Set is the source of truth).
+  _renderInvBulkBar();
+  _syncInvBulkAllCheckbox();
 
   const allItems = cache[cfg.cacheKey] || [];
   const catSel = document.getElementById('inv-cat-filter');

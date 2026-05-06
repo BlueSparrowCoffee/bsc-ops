@@ -258,6 +258,59 @@ function openBuildOrderModal() {
   openModal('modal-build-order');
 }
 
+// PR 10 — open Build Order seeded with a manually selected list of items
+// (bypasses the suggestedOrderQty filter so user can include any item).
+// Items without a suggested qty default to 1; cost/unit + vendor still
+// pulled from the item record. Called by inventory bulk-bar Reorder action.
+function openBuildOrderModalForIds(ids) {
+  if (currentLocation === 'all') { toast('err','Select a location first'); return; }
+  const loc = currentLocation;
+  const counts = _consumableCountsForLoc(loc);
+  const idSet = new Set(ids || []);
+  if (!idSet.size) { toast('warn','No items selected'); return; }
+
+  const rows = [];
+  for (const item of (cache.inventory || [])) {
+    if (!idSet.has(item.id)) continue;
+    if (item.Archived) continue;
+    const total = counts[item.ItemName||'']?.total ?? null;
+    const suggested = (typeof suggestedOrderQty === 'function')
+      ? suggestedOrderQty(item, loc, total)
+      : null;
+    const qty = (suggested != null && suggested > 0) ? suggested : 1;
+    const unitCost = (() => {
+      const cpc = parseFloat(item.CostPerCase) || 0;
+      const size = parseFloat(item.OrderSize)  || 1;
+      return size > 0 ? cpc / size : cpc;
+    })();
+    rows.push({
+      itemId:    item.id,
+      name:      item.ItemName || '',
+      vendor:    (item.Supplier || '').trim() || 'No Vendor',
+      suggested: suggested ?? 0,
+      qty,
+      unitCost,
+      unit:      item.OrderUnit || item.Unit || '',
+      checked:   true
+    });
+  }
+
+  if (!rows.length) { toast('warn','None of the selected items are orderable'); return; }
+
+  const byVendor = {};
+  for (const r of rows) {
+    if (!byVendor[r.vendor]) byVendor[r.vendor] = [];
+    byVendor[r.vendor].push(r);
+  }
+  for (const v of Object.keys(byVendor)) {
+    byVendor[v].sort((a,b) => (a.name||'').localeCompare(b.name||''));
+  }
+
+  _buildOrderModel = { loc, byVendor };
+  _renderBuildOrderModal();
+  openModal('modal-build-order');
+}
+
 function _renderBuildOrderModal() {
   const body = document.getElementById('build-order-body');
   if (!body || !_buildOrderModel) return;
