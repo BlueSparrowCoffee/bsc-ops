@@ -276,6 +276,19 @@ function renderInvTableHeader() {
 }
 
 // ── Top-level type switch (consumable/merch/equipment/special) ──
+// Updates the #inv-breadcrumb element under the H1 with the current
+// location + the given inv-type label. Called from switchInvType (where
+// we know the label) and from renderInventory (so the location updates
+// when the user clicks topbar location chips on the inventory page).
+let _invBreadcrumbLabel = '';
+function _renderInvBreadcrumb(label) {
+  if (label) _invBreadcrumbLabel = label;
+  const el = document.getElementById('inv-breadcrumb');
+  if (!el) return;
+  const loc = (currentLocation === 'all' || !currentLocation) ? 'All locations' : currentLocation;
+  el.innerHTML = `<b>${escHtml(loc)}</b> · ${escHtml(_invBreadcrumbLabel || 'Consumable')}`;
+}
+
 function switchInvType(type) {
   _invType = type;
   document.querySelectorAll('#inv-type-tabs .inv-type-tab').forEach(b => {
@@ -285,7 +298,7 @@ function switchInvType(type) {
   const tabBar    = document.querySelector('#page-inventory .tab-bar');
   const labelsEl  = document.getElementById('inv-tab-labels');
   const foodParsEl = document.getElementById('inv-tab-foodpars');
-  const titleEl   = document.querySelector('#page-inventory .page-title');
+  const _setBreadcrumb = label => _renderInvBreadcrumb(label);
 
   const transfersEl    = document.getElementById('inv-tab-transfers');
   const monthlyTabBtn  = document.getElementById('inv-monthly-tab-btn');
@@ -307,7 +320,7 @@ function switchInvType(type) {
     });
     hideAllSpecial();
     if (labelsEl) labelsEl.style.display = '';
-    if (titleEl) titleEl.textContent = '☕ Coffee Bags';
+    _setBreadcrumb('Coffee Bags');
     renderLabelsInTab();
   } else if (type === 'transfers') {
     if (tabBar) tabBar.style.display = 'none';
@@ -317,7 +330,7 @@ function switchInvType(type) {
     });
     hideAllSpecial();
     document.getElementById('inv-tab-transfers').style.display = '';
-    if (titleEl) titleEl.textContent = '🔄 Transfers';
+    _setBreadcrumb('Transfers');
     populateTransferItemSelect();
     renderTransfers();
   } else if (type === 'pastries' || type === 'sandwiches') {
@@ -328,14 +341,14 @@ function switchInvType(type) {
     });
     hideAllSpecial();
     if (foodParsEl) foodParsEl.style.display = '';
-    if (titleEl) titleEl.textContent = type === 'pastries' ? '🥐 Pastry Pars' : '🥪 Sandwich Pars';
+    _setBreadcrumb(type === 'pastries' ? 'Pastry Pars' : 'Sandwich Pars');
     renderFoodParsInTab(type);
   } else {
     // Standard inventory type — show tab bar, hide special panels
     if (tabBar) tabBar.style.display = '';
     hideAllSpecial();
     const cfg = INV_TYPE_CFG[type];
-    if (titleEl && cfg) titleEl.textContent = cfg.icon + ' ' + cfg.label;
+    if (cfg) _setBreadcrumb(cfg.label);
     // Remove analytics tab for merch; restore it for other types
     const tabBarEl = document.querySelector('#page-inventory .tab-bar');
     const analyticsBtn = tabBarEl?.querySelector('.tab-btn[onclick*="analytics"]');
@@ -381,6 +394,10 @@ function switchInvTab(tab, btn) {
 
 // ── Main render + sort + filter ─────────────────────────────────
 function renderInventory() {
+  // Keep the page-header breadcrumb in sync with currentLocation —
+  // setLocation calls renderInventory after switching loc, so this
+  // catches the change without needing to re-fire switchInvType.
+  _renderInvBreadcrumb();
   renderInventoryItems(
     document.getElementById('inv-search-input')?.value||'',
     document.getElementById('inv-cat-filter')?.value||'',
@@ -642,16 +659,34 @@ function getLatestCountsMap(loc) {
   return map;
 }
 
+// ── Status-filter chip wiring (PR 6) ────────────────────────────
+// The visible status chips drive a hidden <select id="inv-status-filter">
+// so existing filterInventory() / sort handlers / shortcut helpers keep
+// reading from the same source of truth. Public — also called by the
+// chip onclick attributes in the inventory toolbar markup.
+function setInvStatusFilter(status, btn) {
+  const sel = document.getElementById('inv-status-filter');
+  if (sel) sel.value = status || '';
+  // Highlight the active chip (use the clicked button when supplied,
+  // otherwise look it up by data-status — needed when callers like
+  // navLowStock set the filter programmatically).
+  const chips = document.querySelectorAll('#page-inventory .inv-status-chip');
+  if (chips.length) {
+    const target = btn || Array.from(chips).find(c => (c.dataset.status || '') === (status || ''));
+    chips.forEach(c => c.classList.toggle('active', c === target));
+  }
+  if (typeof filterInventory === 'function') {
+    filterInventory(document.getElementById('inv-search-input')?.value || '');
+  }
+}
+
 // ── Nav-into-inventory helpers ──────────────────────────────────
 function navLowStock() {
   nav('inventory');
   // Force the consumable type — the Status filter is consumable-only and the
   // Low/Out concept doesn't apply to merch/equipment headers
   if (typeof switchInvType === 'function') switchInvType('consumable');
-  setTimeout(() => {
-    const sel = document.getElementById('inv-status-filter');
-    if (sel) { sel.value = 'low'; filterInventory(''); }
-  }, NAV_SETTLE_MS);
+  setTimeout(() => setInvStatusFilter('low'), NAV_SETTLE_MS);
 }
 
 // Same as navLowStock but first switches to the named location. Used by

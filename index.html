@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-06i">
-<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-06i">
-<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-06i">
-<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-06i">
-<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-06i">
+<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-06j">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-06j">
+<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-06j">
+<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-06j">
+<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-06j">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="BSC Ops">
@@ -329,12 +329,35 @@ h1,h2,h3,.stat-value{font-family:'IvyPresto Display','Hoefler Text',Georgia,seri
 
 /* ── TOOLBAR ── */
 .toolbar{display:flex;gap:10px;margin-bottom:16px;align-items:center;flex-wrap:wrap;}
-.search-wrap{position:relative;flex:1;min-width:200px;max-width:380px;}
+.search-wrap{position:relative;flex:0 0 280px;max-width:320px;min-width:200px;}
 .search-wrap svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none;}
-.search-input{width:100%;padding:8px 12px 8px 36px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:#fff;color:var(--text);outline:none;font-family:inherit;}
-.search-input:focus{border-color:var(--gold);}
-select.filter{padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:#fff;color:var(--text);outline:none;font-family:inherit;cursor:pointer;}
-select.filter:focus{border-color:var(--gold);}
+.search-input{
+  width:100%;padding:7px 10px 7px 34px;
+  background:linear-gradient(180deg,#ffffff,#fbf8f1);
+  border:1px solid var(--border-2);border-radius:7px;
+  font-family:inherit;font-size:12px;color:var(--ink);outline:none;
+  box-shadow:inset 0 1px 1px rgba(2,61,74,0.05);
+}
+.search-input::placeholder{color:var(--muted);}
+.search-input:focus{
+  border-color:var(--light-blue-deep);
+  box-shadow:inset 0 1px 1px rgba(2,61,74,0.05),0 0 0 3px rgba(185,223,227,0.40);
+}
+select.filter{
+  padding:6px 24px 6px 10px;font-family:inherit;font-size:12px;
+  color:var(--ink);background:linear-gradient(180deg,#ffffff,#f5f0e2);
+  border:1px solid var(--border-2);border-radius:6px;outline:none;cursor:pointer;
+  box-shadow:var(--sh-btn);
+  appearance:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='none' stroke='%236b8a92' stroke-width='2' viewBox='0 0 24 24'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat:no-repeat;
+  background-position:right 8px center;
+}
+select.filter:hover{border-color:var(--border-3);}
+select.filter:focus{
+  border-color:var(--light-blue-deep);
+  box-shadow:0 0 0 3px rgba(185,223,227,0.40);
+}
 .loc-chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
 .loc-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1.5px solid var(--border);border-radius:20px;font-size:13px;background:#fff;color:var(--text);cursor:pointer;user-select:none;transition:all .12s;}
 .loc-chip:hover{border-color:var(--gold);}
@@ -593,14 +616,65 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
 .recipe-ing-row-edit input{border:1.5px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;font-family:inherit;}
 .recipe-ing-row-edit input:focus{outline:none;border-color:var(--gold);}
 
-/* ── TABS ── */
-.tab-bar{display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid var(--border);}
-.tab-btn{padding:9px 18px;border:none;background:none;font-family:inherit;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;}
-.tab-btn.active{color:var(--gold);border-bottom-color:var(--gold);}
+/* ── TABS (PR 6 of design refresh) ── */
+.tab-bar{display:flex;gap:0;margin-bottom:18px;border-bottom:1px solid var(--border-2);}
+.tab-btn{
+  padding:9px 16px;border:none;background:none;
+  font-family:inherit;font-size:12px;font-weight:600;
+  color:var(--muted);cursor:pointer;
+  border-bottom:2px solid transparent;margin-bottom:-1px;
+  transition:all 100ms ease;
+  letter-spacing:.02em;
+}
+.tab-btn.active{color:var(--ink);border-bottom-color:var(--bsc-light-blue-deep);}
 .tab-btn:hover:not(.active){color:var(--ink);}
-.inv-type-tab{padding:7px 18px;border-radius:20px;border:1.5px solid var(--border);background:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;}
-.inv-type-tab.active{background:var(--gold)!important;border-color:var(--gold)!important;color:#fff!important;}
-.inv-type-tab:hover:not(.active){border-color:var(--gold);color:var(--gold);}
+
+/* Inventory type chips — replaces gold pill row */
+.inv-type-chips{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
+.inv-type-tab{
+  padding:6px 12px;
+  font-family:inherit;font-size:12px;font-weight:600;color:var(--ink-2);
+  background:linear-gradient(180deg,#ffffff,#f5f0e2);
+  border:1px solid var(--border-2);border-radius:6px;
+  cursor:pointer;
+  box-shadow:var(--sh-btn);
+  transition:all 100ms ease;
+}
+.inv-type-tab:hover{color:var(--ink);border-color:var(--border-3);}
+.inv-type-tab.active{
+  color:var(--ink);font-weight:700;
+  background:linear-gradient(180deg,var(--light-blue-25),var(--light-blue-50));
+  border-color:var(--light-blue-deep);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.7),inset 0 -1px 0 rgba(14,53,64,0.08),0 1px 2px rgba(14,53,64,0.10);
+}
+
+/* Inventory page header — title + breadcrumb */
+.inv-page-header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px;}
+.inv-breadcrumb{
+  font-size:11px;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.06em;font-weight:600;
+  margin-top:6px;font-family:inherit;
+}
+.inv-breadcrumb b{color:var(--ink);font-weight:700;}
+
+/* Inventory toolbar — status filter chip group */
+.inv-status-chips{display:inline-flex;gap:4px;}
+.inv-status-chip{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:6px 10px;font-size:11px;font-weight:600;color:var(--ink-2);
+  background:linear-gradient(180deg,#ffffff,#f5f0e2);
+  border:1px solid var(--border-2);border-radius:6px;
+  box-shadow:var(--sh-btn);cursor:pointer;
+  font-family:inherit;
+  transition:all 100ms ease;
+  white-space:nowrap;
+}
+.inv-status-chip:hover{color:var(--ink);border-color:var(--border-3);}
+.inv-status-chip.active{
+  color:var(--ink);font-weight:700;
+  background:linear-gradient(180deg,var(--light-blue-25),var(--light-blue-50));
+  border-color:var(--light-blue-deep);
+}
 .text-hint{font-size:11px;color:var(--muted);}
 
 /* ── MAINTENANCE STATUS BADGES ── */
@@ -719,11 +793,11 @@ html,body{overscroll-behavior:none;}
 </style>
 <!-- Design tokens (PR 1 of refresh) — loaded after inline <style> so legacy
      aliases at the bottom of :root override the older brand values. -->
-<link rel="stylesheet" href="/css/tokens.css?v=2026-05-06i">
+<link rel="stylesheet" href="/css/tokens.css?v=2026-05-06j">
 <!-- Shared primitives (PR 4) — loaded after tokens.css and after the
      inline <style> so it overrides legacy .btn-primary / .badge-* /
      .card / .alert-item rules with the new gradient + metallic look. -->
-<link rel="stylesheet" href="/css/primitives.css?v=2026-05-06i">
+<link rel="stylesheet" href="/css/primitives.css?v=2026-05-06j">
 </head>
 <body>
 
@@ -739,7 +813,7 @@ html,body{overscroll-behavior:none;}
 <div id="topbar">
   <button id="nav-toggle" onclick="toggleNav()" aria-label="Menu">☰</button>
   <div class="topbar-logo">
-    <img src="/images/feather-light.png?v=2026-05-06i" alt="" aria-hidden="true">
+    <img src="/images/feather-light.png?v=2026-05-06j" alt="" aria-hidden="true">
     <div>
       <div class="brand">Blue Sparrow</div>
       <small>Operations</small>
@@ -944,26 +1018,21 @@ html,body{overscroll-behavior:none;}
 
   <!-- INVENTORY -->
   <div class="page" id="page-inventory">
-    <div class="page-header">
-      <div class="page-title">📦 Consumable Inventory</div>
-      <div class="page-sub">Item master, weekly counts &amp; analytics</div>
+    <div class="page-header inv-page-header">
+      <div>
+        <h1 class="page-title">Inventory</h1>
+        <div class="page-sub inv-breadcrumb" id="inv-breadcrumb"></div>
+      </div>
     </div>
     <!-- Inventory type switcher -->
-    <div id="inv-type-tabs" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
-      <button class="inv-type-tab active" data-type="consumable" onclick="switchInvType('consumable')"
->📦 Consumable</button>
-      <button class="inv-type-tab" data-type="merch" onclick="switchInvType('merch')"
->🛍️ Merch</button>
-      <button class="inv-type-tab" data-type="equipment" onclick="switchInvType('equipment')"
->🔧 Equipment &amp; Smallwares</button>
-      <button id="inv-tab-labels-btn" class="inv-type-tab" data-type="labels" onclick="switchInvType('labels')"
->🏷️ Bags &amp; Labels</button>
-      <button class="inv-type-tab" data-type="pastries" onclick="switchInvType('pastries')"
->🥐 Pastries</button>
-      <button class="inv-type-tab" data-type="sandwiches" onclick="switchInvType('sandwiches')"
->🥪 Sandwiches</button>
-      <button class="inv-type-tab" data-type="transfers" onclick="switchInvType('transfers')"
->🔄 Transfers</button>
+    <div id="inv-type-tabs" class="inv-type-chips">
+      <button class="inv-type-tab active" data-type="consumable" onclick="switchInvType('consumable')">Consumable</button>
+      <button class="inv-type-tab" data-type="merch" onclick="switchInvType('merch')">Merch</button>
+      <button class="inv-type-tab" data-type="equipment" onclick="switchInvType('equipment')">Equipment &amp; Smallwares</button>
+      <button id="inv-tab-labels-btn" class="inv-type-tab" data-type="labels" onclick="switchInvType('labels')">Bags &amp; Labels</button>
+      <button class="inv-type-tab" data-type="pastries" onclick="switchInvType('pastries')">Pastries</button>
+      <button class="inv-type-tab" data-type="sandwiches" onclick="switchInvType('sandwiches')">Sandwiches</button>
+      <button class="inv-type-tab" data-type="transfers" onclick="switchInvType('transfers')">Transfers</button>
     </div>
     <div class="tab-bar">
       <button class="tab-btn active" onclick="switchInvTab('items',this)">📋 Items</button>
@@ -982,7 +1051,14 @@ html,body{overscroll-behavior:none;}
         <select class="filter" id="inv-cat-filter" onchange="filterInventory(document.getElementById('inv-search-input')?.value||'')">
           <option value="">All Categories</option>
         </select>
-        <select class="filter" id="inv-status-filter" onchange="filterInventory(document.getElementById('inv-search-input')?.value||'')">
+        <!-- Status filter as chips (PR 6) — clicks update the hidden select so
+             existing filterInventory() / sort handlers keep reading from it. -->
+        <div class="inv-status-chips" role="tablist" aria-label="Status filter">
+          <button type="button" class="inv-status-chip active" data-status="" onclick="setInvStatusFilter('',this)">All</button>
+          <button type="button" class="inv-status-chip" data-status="low" onclick="setInvStatusFilter('low',this)">Low / Out</button>
+          <button type="button" class="inv-status-chip" data-status="ok" onclick="setInvStatusFilter('ok',this)">In Stock</button>
+        </div>
+        <select class="filter" id="inv-status-filter" hidden aria-hidden="true" onchange="filterInventory(document.getElementById('inv-search-input')?.value||'')">
           <option value="">All Status</option>
           <option value="low">Low / Out</option>
           <option value="ok">In Stock</option>
@@ -3118,40 +3194,40 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-05-06i" defer></script>
-<script src="/js/utils.js?v=2026-05-06i" defer></script>
-<script src="/js/state.js?v=2026-05-06i" defer></script>
-<script src="/js/auth.js?v=2026-05-06i" defer></script>
-<script src="/js/graph.js?v=2026-05-06i" defer></script>
-<script src="/js/signalr.js?v=2026-05-06i" defer></script>
-<script src="/js/tags.js?v=2026-05-06i" defer></script>
-<script src="/js/nav.js?v=2026-05-06i" defer></script>
-<script src="/js/settings.js?v=2026-05-06i" defer></script>
-<script src="/js/dashboard.js?v=2026-05-06i" defer></script>
-<script src="/js/inventory.js?v=2026-05-06i" defer></script>
-<script src="/js/inventory-form.js?v=2026-05-06i" defer></script>
-<script src="/js/counts.js?v=2026-05-06i" defer></script>
-<script src="/js/foodpars.js?v=2026-05-06i" defer></script>
-<script src="/js/labels.js?v=2026-05-06i" defer></script>
-<script src="/js/bags.js?v=2026-05-06i" defer></script>
-<script src="/js/bag-labels-5lb.js?v=2026-05-06i" defer></script>
-<script src="/js/pastry-sync.js?v=2026-05-06i" defer></script>
-<script src="/js/recipes.js?v=2026-05-06i" defer></script>
-<script src="/js/cogs.js?v=2026-05-06i" defer></script>
-<script src="/js/vendors.js?v=2026-05-06i" defer></script>
-<script src="/js/contacts.js?v=2026-05-06i" defer></script>
-<script src="/js/maintenance.js?v=2026-05-06i" defer></script>
-<script src="/js/checklists.js?v=2026-05-06i" defer></script>
-<script src="/js/ordering.js?v=2026-05-06i" defer></script>
-<script src="/js/ordering-build.js?v=2026-05-06i" defer></script>
-<script src="/js/market-analysis.js?v=2026-05-06i" defer></script>
-<script src="/js/projects.js?v=2026-05-06i" defer></script>
-<script src="/js/parking.js?v=2026-05-06i" defer></script>
-<script src="/js/prepItems.js?v=2026-05-06i" defer></script>
-<script src="/js/square.js?v=2026-05-06i" defer></script>
-<script src="/js/timeclock.js?v=2026-05-06i" defer></script>
-<script src="/js/slack.js?v=2026-05-06i" defer></script>
-<script src="/js/auto-sync.js?v=2026-05-06i" defer></script>
+<script src="/js/constants.js?v=2026-05-06j" defer></script>
+<script src="/js/utils.js?v=2026-05-06j" defer></script>
+<script src="/js/state.js?v=2026-05-06j" defer></script>
+<script src="/js/auth.js?v=2026-05-06j" defer></script>
+<script src="/js/graph.js?v=2026-05-06j" defer></script>
+<script src="/js/signalr.js?v=2026-05-06j" defer></script>
+<script src="/js/tags.js?v=2026-05-06j" defer></script>
+<script src="/js/nav.js?v=2026-05-06j" defer></script>
+<script src="/js/settings.js?v=2026-05-06j" defer></script>
+<script src="/js/dashboard.js?v=2026-05-06j" defer></script>
+<script src="/js/inventory.js?v=2026-05-06j" defer></script>
+<script src="/js/inventory-form.js?v=2026-05-06j" defer></script>
+<script src="/js/counts.js?v=2026-05-06j" defer></script>
+<script src="/js/foodpars.js?v=2026-05-06j" defer></script>
+<script src="/js/labels.js?v=2026-05-06j" defer></script>
+<script src="/js/bags.js?v=2026-05-06j" defer></script>
+<script src="/js/bag-labels-5lb.js?v=2026-05-06j" defer></script>
+<script src="/js/pastry-sync.js?v=2026-05-06j" defer></script>
+<script src="/js/recipes.js?v=2026-05-06j" defer></script>
+<script src="/js/cogs.js?v=2026-05-06j" defer></script>
+<script src="/js/vendors.js?v=2026-05-06j" defer></script>
+<script src="/js/contacts.js?v=2026-05-06j" defer></script>
+<script src="/js/maintenance.js?v=2026-05-06j" defer></script>
+<script src="/js/checklists.js?v=2026-05-06j" defer></script>
+<script src="/js/ordering.js?v=2026-05-06j" defer></script>
+<script src="/js/ordering-build.js?v=2026-05-06j" defer></script>
+<script src="/js/market-analysis.js?v=2026-05-06j" defer></script>
+<script src="/js/projects.js?v=2026-05-06j" defer></script>
+<script src="/js/parking.js?v=2026-05-06j" defer></script>
+<script src="/js/prepItems.js?v=2026-05-06j" defer></script>
+<script src="/js/square.js?v=2026-05-06j" defer></script>
+<script src="/js/timeclock.js?v=2026-05-06j" defer></script>
+<script src="/js/slack.js?v=2026-05-06j" defer></script>
+<script src="/js/auto-sync.js?v=2026-05-06j" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
@@ -5560,7 +5636,7 @@ function renderMenu(query='', catFilter='') {
     const stockDisplay = stock != null ? stock : '—';
     const vars = (i.Variations||'').split('\n').filter(Boolean);
     return `<tr data-gs-id="${escHtml(i.id)}" style="${isHidden?'opacity:0.45;':''}">
-      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-06i" alt="" title="Synced with Square">':''}</td>
+      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-06j" alt="" title="Synced with Square">':''}</td>
       <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${escHtml(i.Category||'—')}</span></td>
       <td style="font-size:12px;color:var(--muted);max-width:220px">${escHtml(i.Description||'')}</td>
       <td>${i.Price != null ? '$'+Number(i.Price).toFixed(2) : '—'}</td>
