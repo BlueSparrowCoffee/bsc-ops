@@ -211,13 +211,22 @@ function mountPhotoGrid(host, opts = {}) {
     // store something.
     async uploadAll(runId, taskId) {
       const urls = [];
+      // Pull a Graph token so the Function (which validates AAD bearer)
+      // accepts the request. Falls back to anonymous if getToken isn't
+      // available — Function will respond 401 in that case and the
+      // catch below stores the data URL fallback.
+      let token = null;
+      if (typeof getToken === 'function') {
+        try { token = await getToken(); } catch {}
+      }
       for (const f of files) {
         try {
           const fd = new FormData();
           fd.append('file', f.file);
           fd.append('runId', runId || '');
           fd.append('taskId', taskId || '');
-          const resp = await fetch('/api/upload-photo', { method: 'POST', body: fd });
+          const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
+          const resp = await fetch('/api/upload-photo', { method: 'POST', headers, body: fd });
           if (!resp.ok) throw new Error('upload failed: ' + resp.status);
           const { url } = await resp.json();
           urls.push(url);
