@@ -580,7 +580,7 @@ async function deleteProject() {
   if (!_projectEditId) return;
   const p = (cache.projects || []).find(x => x.id === _projectEditId);
   if (!p) return;
-  if (!confirm(`Delete the project "${p.Title}" and all its tasks, updates, and links? This cannot be undone.`)) return;
+  if (!await confirmModal({ title: `Delete "${p.Title}"?`, body: 'All tasks, updates, and links for this project will also be deleted.\n\nThis cannot be undone.', confirmLabel: 'Delete', danger: true })) return;
   try {
     const siteId = await getSiteId();
     // Cascade-delete children
@@ -734,7 +734,7 @@ async function editProjectTaskAssignee(taskId) {
 
 async function deleteProjectTask(taskId) {
   if (!_projCanEdit()) return;
-  if (!confirm('Delete this task?')) return;
+  if (!await confirmModal({ title: 'Delete this task?', confirmLabel: 'Delete', danger: true })) return;
   try {
     const siteId = await getSiteId();
     await graph('DELETE', `/sites/${siteId}/lists/${LISTS.projectTasks}/items/${taskId}`);
@@ -765,7 +765,7 @@ async function addProjectUpdate(projectId) {
 
 async function deleteProjectUpdate(updateId) {
   if (!_projCanEdit()) return;
-  if (!confirm('Delete this update?')) return;
+  if (!await confirmModal({ title: 'Delete this update?', confirmLabel: 'Delete', danger: true })) return;
   try {
     const siteId = await getSiteId();
     await graph('DELETE', `/sites/${siteId}/lists/${LISTS.projectUpdates}/items/${updateId}`);
@@ -793,7 +793,7 @@ async function saveProjectLink() {
   if (!label || !url) { toast('err','Label and URL required'); return; }
   // Lightweight URL validation
   if (!/^https?:\/\//i.test(url) && !/^mailto:/i.test(url) && !url.startsWith('/')) {
-    if (!confirm('That doesn\'t look like a URL. Save anyway?')) return;
+    if (!await confirmModal({ title: 'Save anyway?', body: 'That doesn\'t look like a URL.', confirmLabel: 'Save' })) return;
   }
   const fields = {
     Title:     label,
@@ -839,7 +839,7 @@ async function moveProjectLink(linkId, dir) {
 
 async function deleteProjectLink(linkId) {
   if (!_projCanEdit()) return;
-  if (!confirm('Remove this link?')) return;
+  if (!await confirmModal({ title: 'Remove this link?', confirmLabel: 'Remove', danger: true })) return;
   try {
     const siteId = await getSiteId();
     await graph('DELETE', `/sites/${siteId}/lists/${LISTS.projectLinks}/items/${linkId}`);

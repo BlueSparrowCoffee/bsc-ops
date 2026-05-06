@@ -257,7 +257,7 @@ async function saveRecipeForm() {
 
 async function deleteRecipe() {
   if (!_recipeEditId) return;
-  if (!confirm('Delete this recipe? This cannot be undone.')) return;
+  if (!await confirmModal({ title: 'Delete this recipe?', body: 'This cannot be undone.', confirmLabel: 'Delete', danger: true })) return;
   setLoading(true,'Deleting recipe…');
   try {
     await deleteListItem(LISTS.recipes, _recipeEditId);
@@ -311,7 +311,7 @@ async function loadRecipeHistory(id) {
 }
 
 async function restoreRecipeVersion(itemId, versionId) {
-  if (!confirm('Restore this version? The current content will be overwritten.')) return;
+  if (!await confirmModal({ title: 'Restore this version?', body: 'The current content will be overwritten.', confirmLabel: 'Restore' })) return;
   setLoading(true,'Restoring version…');
   try {
     const siteId = await getSiteId();

@@ -85,7 +85,7 @@ function getVariationNames(menuItem) {
 // -- Snapshot ----------------------------------------------------------------
 
 async function snapshotCogs() {
-  if (!confirm('Save a cost snapshot of all current recipes? This records today\'s COG and margin per item/variation.')) return;
+  if (!await confirmModal({ title: 'Save a cost snapshot?', body: 'This records today\'s COG and margin for all current recipes.', confirmLabel: 'Save Snapshot' })) return;
   try {
     const siteId = await getSiteId();
     const cogMap = buildCogMap();

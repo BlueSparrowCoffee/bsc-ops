@@ -386,7 +386,7 @@ async function resetCountOrder() {
   if (!cfg) return;
   const view = _activeCountView(cfg);
   const viewLabel = view ? ` ${view}` : '';
-  if (!confirm(`Reset to alphabetical order for ${currentLocation}${viewLabel} (${cfg.label || cfg.cacheKey})?`)) return;
+  if (!await confirmModal({ title: 'Reset sort order?', body: `Reset to alphabetical order for ${currentLocation}${viewLabel} (${cfg.label || cfg.cacheKey}).`, confirmLabel: 'Reset' })) return;
   try {
     await saveSetting(_countOrderKey(cfg.cacheKey, currentLocation, view), '');
     toast('ok','✓ Reset to alphabetical');
@@ -977,7 +977,7 @@ async function submitMerchCount() {
   // to "May" via a SignalR-triggered re-render, so make the target explicit
   // before we write.
   if (_merchCountMonth < 0) {
-    if (!confirm(`You're about to submit a count for ${monthLabel} (a past month). Continue?`)) return;
+    if (!await confirmModal({ title: 'Submit a past-month count?', body: `You're about to submit a count for ${monthLabel} (a past month).`, confirmLabel: 'Submit' })) return;
   }
 
   // Split-view: the inactive column's input isn't in the DOM. Pull
@@ -1140,7 +1140,7 @@ async function deleteMerchCountBatch(loc, month, btn) {
   );
   if (!targets.length) { toast('err','Nothing to delete'); return; }
   const niceMonth = new Date(month + '-01T00:00:00').toLocaleDateString('en-US', {month:'long', year:'numeric'});
-  if (!confirm(`Delete all ${targets.length} count record${targets.length!==1?'s':''} for ${loc} — ${niceMonth}?\n\nThis cannot be undone.`)) return;
+  if (!await confirmModal({ title: `Delete ${targets.length} count record${targets.length!==1?'s':''}?`, body: `For ${loc} — ${niceMonth}.\n\nThis cannot be undone.`, confirmLabel: 'Delete', danger: true })) return;
   const listName = cfg.countsPrefix.replace('{loc}', loc.replace(/[\s\/\\]/g,'_'));
   if (btn) { btn.disabled = true; btn.textContent = 'Deleting…'; }
   setLoading(true, `Deleting ${targets.length} records…`);

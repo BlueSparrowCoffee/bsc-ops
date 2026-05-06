@@ -134,7 +134,7 @@ async function saveParkingEntry() {
 async function deleteParkingEntry(id) {
   const item = cache.parking.find(r=>r.id===id);
   if (!item) return;
-  if (!confirm(`Remove "${item.FirstName} ${item.LastName||''}" from the parking list?`)) return;
+  if (!await confirmModal({ title: `Remove "${item.FirstName} ${item.LastName||''}"?`, body: 'They will be removed from the parking list.', confirmLabel: 'Remove', danger: true })) return;
   setLoading(true,'Deleting…');
   try {
     await deleteListItem(LISTS.parking, id);

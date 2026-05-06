@@ -308,7 +308,7 @@ async function deleteFoodPar() {
   const locId  = document.getElementById('fp-loc-id').value;
   const cat    = document.getElementById('fp-category').value;
   if (!editId) return;
-  if (!confirm('Delete this item and all its pars?')) return;
+  if (!await confirmModal({ title: 'Delete this item?', body: 'All pars for this item will also be deleted.', confirmLabel: 'Delete', danger: true })) return;
   setLoading(true, 'Deleting…');
   try {
     await deleteListItem(LISTS.foodPars, editId);

@@ -499,7 +499,7 @@ async function restoreVendor(id) {
 }
 
 async function deleteVendor(id, name) {
-  if (!confirm(`Permanently delete "${name}"? This cannot be undone.`)) return;
+  if (!await confirmModal({ title: `Permanently delete "${name}"?`, body: 'This cannot be undone.', confirmLabel: 'Delete', danger: true })) return;
   setLoading(true,'Deleting…');
   try {
     await deleteListItem(LISTS.vendors, id);

@@ -271,7 +271,7 @@ function onMaintLocChange() {
 async function deleteMaintContact() {
   if (!_maintEditId) return;
   const m = cache.maintContacts.find(x=>x.id===_maintEditId);
-  if (!confirm(`Delete "${m?.Title}"?`)) return;
+  if (!await confirmModal({ title: `Delete "${m?.Title}"?`, confirmLabel: 'Delete', danger: true })) return;
   setLoading(true,'Deleting…');
   try {
     await deleteListItem(LISTS.maintContacts, _maintEditId);

@@ -597,7 +597,7 @@ async function saveMarketPriceEdit() {
 async function deleteMarketPriceEdit() {
   const id = document.getElementById('mpe-existing-id').value;
   if (!id) return;
-  if (!confirm('Delete this price record?')) return;
+  if (!await confirmModal({ title: 'Delete this price record?', confirmLabel: 'Delete', danger: true })) return;
   try {
     await deleteListItem(LISTS.marketPrices, id);
     cache.marketPrices = cache.marketPrices.filter(r => r.id !== id);
@@ -647,7 +647,7 @@ async function addMarketCompetitor() {
   } catch (e) { toast('err','Add failed: '+e.message); }
 }
 async function deleteMarketCompetitor(id, name) {
-  if (!confirm(`Delete "${name}" and ALL price rows for it? This cannot be undone.`)) return;
+  if (!await confirmModal({ title: `Delete "${name}"?`, body: 'All price rows for this competitor will also be deleted.\n\nThis cannot be undone.', confirmLabel: 'Delete', danger: true })) return;
   try {
     await deleteListItem(LISTS.marketCompetitors, id);
     cache.marketCompetitors = cache.marketCompetitors.filter(c => c.id !== id);
@@ -797,7 +797,7 @@ async function saveMarketItemEdit() {
 }
 
 async function deleteMarketItem(id, name) {
-  if (!confirm(`Delete "${name}" and ALL price rows for it?`)) return;
+  if (!await confirmModal({ title: `Delete "${name}"?`, body: 'All price rows for this item will also be deleted.', confirmLabel: 'Delete', danger: true })) return;
   const it = (cache.marketItems || []).find(x => x.id === id);
   if (!it) return;
   const key = _maItemKey(it);
@@ -1238,7 +1238,7 @@ async function deleteCurrentSurvey() {
   const competitor = btn?.dataset.competitor;
   const date = btn?.dataset.date;
   if (!competitor || !date) return;
-  if (!confirm(`Delete the entire survey for ${competitor} on ${date}? This removes every price row in that survey.`)) return;
+  if (!await confirmModal({ title: 'Delete this survey?', body: `Survey for ${competitor} on ${date}. Every price row in it will be deleted.`, confirmLabel: 'Delete', danger: true })) return;
   const orphans = (cache.marketPrices || []).filter(p =>
     p.Competitor === competitor &&
     (p.SurveyDate||'').slice(0,10) === date

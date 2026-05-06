@@ -137,8 +137,8 @@ function addLocation() {
   toast('ok',`✓ ${name} added`);
 }
 
-function removeLocation(name) {
-  if (!confirm(`Remove "${name}" from locations?`)) return;
+async function removeLocation(name) {
+  if (!await confirmModal({ title: `Remove "${name}"?`, body: 'It will be removed from the locations list.', confirmLabel: 'Remove', danger: true })) return;
   const locs = getLocations().filter(l=>l!==name);
   saveLocations(locs);
   renderLocations();
@@ -486,7 +486,7 @@ async function saveOrderEmailTemplate() {
 
 async function resetOrderEmailTemplate() {
   if (!isOwner()) { toast('err','Owner access required'); return; }
-  if (!confirm('Reset subject, intro, and signature to defaults?')) return;
+  if (!await confirmModal({ title: 'Reset email template?', body: 'Subject, intro, and signature will be reset to defaults.', confirmLabel: 'Reset' })) return;
   try {
     await Promise.all([
       saveSetting('order_email_subject',   ''),

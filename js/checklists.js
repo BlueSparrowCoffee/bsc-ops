@@ -474,7 +474,7 @@ async function addTaskInline(groupId) {
       const ed = _parseDateOnly(grp?.EndDate);
       const d  = _parseDateOnly(dueRaw);
       if (d && ((sd && d < sd) || (ed && d > ed))) {
-        if (!confirm('Due date is outside the plan range. Save anyway?')) return;
+        if (!await confirmModal({ title: 'Save anyway?', body: 'Due date is outside the plan range.', confirmLabel: 'Save' })) return;
       }
     }
     const item = await addListItem(LISTS.checklists, fields);
@@ -504,7 +504,7 @@ async function editTaskDueDate(taskId) {
     const ed = _parseDateOnly(grp?.EndDate);
     const d  = _parseDateOnly(trimmed);
     if (d && ((sd && d < sd) || (ed && d > ed))) {
-      if (!confirm('Due date is outside the plan range. Save anyway?')) return;
+      if (!await confirmModal({ title: 'Save anyway?', body: 'Due date is outside the plan range.', confirmLabel: 'Save' })) return;
     }
   }
   try {
@@ -517,7 +517,7 @@ async function editTaskDueDate(taskId) {
 
 // ── Delete a task ────────────────────────────────────────────────
 async function deleteChecklistTask(taskId, groupId) {
-  if (!confirm('Delete this task?')) return;
+  if (!await confirmModal({ title: 'Delete this task?', confirmLabel: 'Delete', danger: true })) return;
   try {
     const siteId = await getSiteId();
     await graph('DELETE', `/sites/${siteId}/lists/${LISTS.checklists}/items/${taskId}`);
@@ -600,7 +600,7 @@ async function saveChecklistGroup() {
 async function deleteChecklistGroup() {
   const grp = cache.clGroups.find(g => g.id === _clGroupEditId);
   if (!grp) return;
-  if (!confirm(`Delete the checklist "${grp.Title}" and all its tasks? This cannot be undone.`)) return;
+  if (!await confirmModal({ title: `Delete "${grp.Title}"?`, body: 'This deletes the checklist and all its tasks.\n\nThis cannot be undone.', confirmLabel: 'Delete', danger: true })) return;
   try {
     const siteId = await getSiteId();
     // Delete all tasks in the group
@@ -687,7 +687,7 @@ async function approveTask(taskId) {
 }
 
 async function dismissSuggestedTask(taskId) {
-  if (!confirm('Dismiss this suggestion?')) return;
+  if (!await confirmModal({ title: 'Dismiss this suggestion?', confirmLabel: 'Dismiss' })) return;
   try {
     const siteId = await getSiteId();
     await graph('DELETE', `/sites/${siteId}/lists/${LISTS.checklists}/items/${taskId}`);

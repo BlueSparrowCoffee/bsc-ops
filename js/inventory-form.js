@@ -228,7 +228,7 @@ async function deleteInvItem(id) {
   if (!cfg) return;
   const item = cache[cfg.cacheKey].find(i => i.id === id);
   if (!item) return;
-  if (!confirm(`Delete "${item.ItemName}" from inventory? This cannot be undone.`)) return;
+  if (!await confirmModal({ title: `Delete "${item.ItemName}"?`, body: 'This will remove the item from inventory.\n\nThis cannot be undone.', confirmLabel: 'Delete', danger: true })) return;
   setLoading(true, 'Deleting…');
   try {
     const siteId = await getSiteId();

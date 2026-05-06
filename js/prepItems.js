@@ -247,7 +247,7 @@ async function loadPrepItemHistory(id) {
 }
 
 async function restorePrepItemVersion(itemId, versionId) {
-  if (!confirm('Restore this version? Master fields (name, category, yield, notes) will be overwritten. Ingredient rows are not affected.')) return;
+  if (!await confirmModal({ title: 'Restore this version?', body: 'Master fields (name, category, yield, notes) will be overwritten. Ingredient rows are not affected.', confirmLabel: 'Restore' })) return;
   setLoading(true, 'Restoring version…');
   try {
     const siteId = await getSiteId();
@@ -524,7 +524,7 @@ async function savePrepItemForm() {
 }
 
 async function deletePrepItem(id) {
-  if (!confirm('Delete this prep item? It will no longer be available as an ingredient in cost calculations.')) return;
+  if (!await confirmModal({ title: 'Delete this prep item?', body: 'It will no longer be available as an ingredient in cost calculations.', confirmLabel: 'Delete', danger: true })) return;
   setLoading(true, 'Deleting…');
   try {
     await deleteListItem(LISTS.prepItems, id);

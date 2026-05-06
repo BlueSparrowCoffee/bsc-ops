@@ -191,7 +191,7 @@ async function saveMaintTaskForm() {
 async function deleteMaintTask() {
   if(!_maintTaskEditId) return;
   const t=cache.maintSchedule.find(x=>x.id===_maintTaskEditId);
-  if(!confirm(`Delete "${t?.Title}"?`)) return;
+  if (!await confirmModal({ title: `Delete "${t?.Title}"?`, confirmLabel: 'Delete', danger: true })) return;
   setLoading(true,'Deleting…');
   try {
     await deleteListItem(LISTS.maintSchedule,_maintTaskEditId);

@@ -299,6 +299,65 @@ function pickText(currentValue, label = 'Enter value', placeholder = '') {
   });
 }
 
+// ── Confirm modal (replaces native confirm()) ─────────────────────
+// Promise<boolean>. Resolves true on confirm, false on cancel / ESC /
+// backdrop / close-button. Body preserves \n via white-space:pre-line.
+//   confirmModal({ title, body, confirmLabel, cancelLabel, danger })
+function confirmModal({ title = 'Are you sure?', body = '', confirmLabel = 'Confirm', cancelLabel = 'Cancel', danger = false } = {}) {
+  return new Promise(resolve => {
+    let modal = document.getElementById('modal-confirm');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.className = 'modal-overlay';
+      modal.id = 'modal-confirm';
+      modal.innerHTML = `
+        <div class="modal" style="max-width:420px">
+          <div class="modal-header">
+            <div class="modal-title" id="cf-title">Are you sure?</div>
+            <button class="modal-close" aria-label="Close" id="cf-close">×</button>
+          </div>
+          <div class="modal-body" style="display:flex;flex-direction:column;gap:16px">
+            <div id="cf-body" style="font-size:14px;color:var(--text);line-height:1.5;white-space:pre-line"></div>
+            <div style="display:flex;gap:8px;justify-content:flex-end">
+              <button class="btn btn-outline" id="cf-cancel">Cancel</button>
+              <button class="btn btn-primary" id="cf-ok">Confirm</button>
+            </div>
+          </div>
+        </div>`;
+      document.body.appendChild(modal);
+    }
+    const titleEl  = modal.querySelector('#cf-title');
+    const bodyEl   = modal.querySelector('#cf-body');
+    const okBtn    = modal.querySelector('#cf-ok');
+    const cancelBtn= modal.querySelector('#cf-cancel');
+    const closeBtn = modal.querySelector('#cf-close');
+    titleEl.textContent  = title;
+    bodyEl.textContent   = body;
+    bodyEl.style.display = body ? '' : 'none';
+    okBtn.textContent    = confirmLabel;
+    cancelBtn.textContent= cancelLabel;
+    okBtn.className      = danger ? 'btn btn-danger' : 'btn btn-primary';
+    let done = false;
+    const finish = (out) => {
+      if (done) return; done = true;
+      observer.disconnect();
+      okBtn.onclick = cancelBtn.onclick = closeBtn.onclick = null;
+      closeModal('modal-confirm');
+      resolve(out);
+    };
+    // Catches ESC + backdrop dismissals (global handlers strip .show)
+    const observer = new MutationObserver(() => {
+      if (!modal.classList.contains('show')) finish(false);
+    });
+    observer.observe(modal, { attributes: true, attributeFilter: ['class'] });
+    okBtn.onclick     = () => finish(true);
+    cancelBtn.onclick = () => finish(false);
+    closeBtn.onclick  = () => finish(false);
+    openModal('modal-confirm');
+    setTimeout(() => okBtn.focus(), MODAL_FOCUS_DELAY_MS);
+  });
+}
+
 async function reportClientError(payload) {
   try {
     if (!payload || !payload.message) return;

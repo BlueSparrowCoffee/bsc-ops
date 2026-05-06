@@ -557,7 +557,7 @@ async function _saveOrderNotes(orderId) {
 async function cancelOrder(orderId) {
   const order = cache.orders.find(o => String(o.id) === String(orderId));
   if (!order) return;
-  if (!confirm(`Cancel this order to ${order.Vendor}?`)) return;
+  if (!await confirmModal({ title: 'Cancel this order?', body: `Order to ${order.Vendor} will be cancelled.`, confirmLabel: 'Cancel Order', danger: true })) return;
   setLoading(true,'Cancelling…');
   try {
     await _saveOrderNotes(orderId);
