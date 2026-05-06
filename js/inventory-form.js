@@ -71,8 +71,8 @@ function openAddInvForm() {
     }
   }
   calcCostPerServing();
-  // Hide archive/delete/hide/transfer — add mode only
-  ['inv-modal-archive-btn','inv-modal-delete-btn','inv-modal-hide-btn','inv-modal-transfer-btn'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+  // Hide archive/delete/hide/transfer/history — add mode only
+  ['inv-modal-archive-btn','inv-modal-delete-btn','inv-modal-hide-btn','inv-modal-transfer-btn','inv-modal-history-btn'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
   openModal('modal-add-item');
 }
 
@@ -149,7 +149,22 @@ function openEditInvItem(id) {
       hideBtn.style.display = 'none';
     }
   }
+  // PR 28 — price history button. Consumable inventory only (only list
+  // with CostPerCase). Visible whenever the user is editing an existing
+  // consumable item, even if no history rows exist yet (modal shows
+  // empty-state).
+  const histBtn = document.getElementById('inv-modal-history-btn');
+  if (histBtn) histBtn.style.display = (cfg.cacheKey === 'inventory') ? '' : 'none';
   openModal('modal-add-item');
+}
+
+// PR 28 — Inventory edit modal "📈 Price History" handler. Reads the
+// id stashed by openEditInvItem and hands off to prices.js. Captured
+// to a local before closeModal nulls the global.
+function modalOpenPriceHistory() {
+  const id = _editInvId;
+  if (!id) return;
+  if (typeof openPriceHistoryFor === 'function') openPriceHistoryFor(id);
 }
 
 function modalArchiveInvItem() {
@@ -360,6 +375,15 @@ async function saveInventoryItem() {
   setLoading(true,'Saving…');
   try {
     let savedItemId = _editInvId;
+    // PR 28 — capture prior CostPerCase BEFORE the SP write so we can
+    // record a price-history row after. Only consumable inventory has
+    // CostPerCase; merch/equipment paths are skipped.
+    const trackPrice = !cfg.isMerch && cfg.cacheKey === 'inventory';
+    let oldCostPerCase = null;
+    if (trackPrice && _editInvId) {
+      const existing = cache[cfg.cacheKey].find(i => i.id === _editInvId);
+      oldCostPerCase = existing ? existing.CostPerCase : null;
+    }
     if (_editInvId) {
       // Edit mode — capture old name BEFORE updating cache, for rename propagation
       const existing = cache[cfg.cacheKey].find(i => i.id === _editInvId);
@@ -379,6 +403,19 @@ async function saveInventoryItem() {
       cache[cfg.cacheKey].push(item);
       savedItemId = item.id;
       toast('ok','✓ Item added');
+    }
+    // Append a BSC_PriceHistory row if CostPerCase actually changed
+    // (or if this is a brand-new item with a price set). Helper soft-
+    // fails so a SP hiccup never breaks the primary save.
+    if (trackPrice && savedItemId && typeof recordPriceChange === 'function') {
+      const newCostPerCase = fields.CostPerCase;
+      if (newCostPerCase != null || oldCostPerCase != null) {
+        recordPriceChange({
+          itemId: savedItemId, itemName: name, listKey: 'inventory',
+          field: 'CostPerCase', oldVal: oldCostPerCase, newVal: newCostPerCase,
+          source: 'manual'
+        });
+      }
     }
     // Per-location par + reorder trigger: upsert BSC_InventoryPars rows for
     // any location whose input changed. Blank inputs are treated as "clear"

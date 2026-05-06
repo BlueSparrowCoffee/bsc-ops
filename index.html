@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-06ad">
-<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-06ad">
-<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-06ad">
-<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-06ad">
-<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-06ad">
+<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-06ae">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-06ae">
+<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-06ae">
+<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-06ae">
+<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-06ae">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="BSC Ops">
@@ -1138,11 +1138,11 @@ html,body{overscroll-behavior:none;}
 </style>
 <!-- Design tokens (PR 1 of refresh) — loaded after inline <style> so legacy
      aliases at the bottom of :root override the older brand values. -->
-<link rel="stylesheet" href="/css/tokens.css?v=2026-05-06ad">
+<link rel="stylesheet" href="/css/tokens.css?v=2026-05-06ae">
 <!-- Shared primitives (PR 4) — loaded after tokens.css and after the
      inline <style> so it overrides legacy .btn-primary / .badge-* /
      .card / .alert-item rules with the new gradient + metallic look. -->
-<link rel="stylesheet" href="/css/primitives.css?v=2026-05-06ad">
+<link rel="stylesheet" href="/css/primitives.css?v=2026-05-06ae">
 </head>
 <body>
 
@@ -1158,7 +1158,7 @@ html,body{overscroll-behavior:none;}
 <div id="topbar">
   <button id="nav-toggle" onclick="toggleNav()" aria-label="Menu">☰</button>
   <div class="topbar-logo">
-    <img src="/images/feather-light.png?v=2026-05-06ad" alt="" aria-hidden="true">
+    <img src="/images/feather-light.png?v=2026-05-06ae" alt="" aria-hidden="true">
     <div>
       <div class="brand">Blue Sparrow</div>
       <small>Operations</small>
@@ -1215,6 +1215,7 @@ html,body{overscroll-behavior:none;}
   <div class="nav-item" data-module="Vendors" onclick="nav('vendors')"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg> Vendors</div>
   <div class="nav-item" data-module="MarketAnalysis" onclick="nav('market-analysis')"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Market Analysis</div>
   <div class="nav-item" data-module="Projects" onclick="nav('projects')"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> Projects</div>
+  <div class="nav-item" data-module="Prices" onclick="nav('prices')"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg> Prices</div>
   <div class="nav-section">Admin</div>
   <div class="nav-item" onclick="nav('parking')" style="display:none"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 17V7h4a3 3 0 0 1 0 6H9"/></svg> Parking</div>
   <div class="nav-item" data-module="Square" onclick="nav('square')"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg> Square</div>
@@ -2802,6 +2803,18 @@ html,body{overscroll-behavior:none;}
     <div id="projects-detail-view" style="display:none;"></div>
   </div>
 
+  <!-- PR 28 — Prices roll-up page -->
+  <div class="page section-load-target" id="page-prices">
+    <div class="page-header">
+      <div class="page-title">📈 Prices</div>
+      <div class="page-sub">Track inventory cost-per-case over time. Click a row to see the full history chart for that item.</div>
+    </div>
+    <div class="toolbar" style="margin-bottom:12px;">
+      <input id="prices-search" class="search-input" placeholder="Search items or vendors…" oninput="renderPrices()">
+    </div>
+    <div id="prices-container"></div>
+  </div>
+
   <!-- Project — Create / Edit -->
   <div class="modal-overlay" id="modal-project">
     <div class="modal" style="max-width:620px;">
@@ -3372,6 +3385,7 @@ html,body{overscroll-behavior:none;}
     <div class="form-actions" style="justify-content:space-between;">
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button id="inv-modal-transfer-btn" class="btn btn-outline" onclick="modalTransferInvItem()" style="display:none;">🔄 Transfer</button>
+        <button id="inv-modal-history-btn" class="btn btn-outline" onclick="modalOpenPriceHistory()" style="display:none;">📈 Price History</button>
         <button id="inv-modal-hide-btn" class="btn btn-outline" onclick="modalToggleMerchInvHidden()" style="display:none;"></button>
         <button id="inv-modal-archive-btn" class="btn btn-outline" onclick="modalArchiveInvItem()" style="display:none;"></button>
         <button id="inv-modal-delete-btn" class="btn btn-outline" onclick="modalDeleteInvItem()" style="display:none;color:var(--red);">🗑️ Delete</button>
@@ -3649,42 +3663,43 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-05-06ad" defer></script>
-<script src="/js/utils.js?v=2026-05-06ad" defer></script>
-<script src="/js/state.js?v=2026-05-06ad" defer></script>
-<script src="/js/auth.js?v=2026-05-06ad" defer></script>
-<script src="/js/graph.js?v=2026-05-06ad" defer></script>
-<script src="/js/sync-queue.js?v=2026-05-06ad" defer></script>
-<script src="/js/signalr.js?v=2026-05-06ad" defer></script>
-<script src="/js/tags.js?v=2026-05-06ad" defer></script>
-<script src="/js/nav.js?v=2026-05-06ad" defer></script>
-<script src="/js/settings.js?v=2026-05-06ad" defer></script>
-<script src="/js/dashboard.js?v=2026-05-06ad" defer></script>
-<script src="/js/inventory.js?v=2026-05-06ad" defer></script>
-<script src="/js/inventory-form.js?v=2026-05-06ad" defer></script>
-<script src="/js/counts.js?v=2026-05-06ad" defer></script>
-<script src="/js/foodpars.js?v=2026-05-06ad" defer></script>
-<script src="/js/labels.js?v=2026-05-06ad" defer></script>
-<script src="/js/bags.js?v=2026-05-06ad" defer></script>
-<script src="/js/bag-labels-5lb.js?v=2026-05-06ad" defer></script>
-<script src="/js/pastry-sync.js?v=2026-05-06ad" defer></script>
-<script src="/js/recipes.js?v=2026-05-06ad" defer></script>
-<script src="/js/cogs.js?v=2026-05-06ad" defer></script>
-<script src="/js/vendors.js?v=2026-05-06ad" defer></script>
-<script src="/js/contacts.js?v=2026-05-06ad" defer></script>
-<script src="/js/maintenance.js?v=2026-05-06ad" defer></script>
-<script src="/js/checklists.js?v=2026-05-06ad" defer></script>
-<script src="/js/checklists-phase2.js?v=2026-05-06ad" defer></script>
-<script src="/js/ordering.js?v=2026-05-06ad" defer></script>
-<script src="/js/ordering-build.js?v=2026-05-06ad" defer></script>
-<script src="/js/market-analysis.js?v=2026-05-06ad" defer></script>
-<script src="/js/projects.js?v=2026-05-06ad" defer></script>
-<script src="/js/parking.js?v=2026-05-06ad" defer></script>
-<script src="/js/prepItems.js?v=2026-05-06ad" defer></script>
-<script src="/js/square.js?v=2026-05-06ad" defer></script>
-<script src="/js/timeclock.js?v=2026-05-06ad" defer></script>
-<script src="/js/slack.js?v=2026-05-06ad" defer></script>
-<script src="/js/auto-sync.js?v=2026-05-06ad" defer></script>
+<script src="/js/constants.js?v=2026-05-06ae" defer></script>
+<script src="/js/utils.js?v=2026-05-06ae" defer></script>
+<script src="/js/state.js?v=2026-05-06ae" defer></script>
+<script src="/js/auth.js?v=2026-05-06ae" defer></script>
+<script src="/js/graph.js?v=2026-05-06ae" defer></script>
+<script src="/js/sync-queue.js?v=2026-05-06ae" defer></script>
+<script src="/js/signalr.js?v=2026-05-06ae" defer></script>
+<script src="/js/tags.js?v=2026-05-06ae" defer></script>
+<script src="/js/nav.js?v=2026-05-06ae" defer></script>
+<script src="/js/settings.js?v=2026-05-06ae" defer></script>
+<script src="/js/dashboard.js?v=2026-05-06ae" defer></script>
+<script src="/js/inventory.js?v=2026-05-06ae" defer></script>
+<script src="/js/inventory-form.js?v=2026-05-06ae" defer></script>
+<script src="/js/counts.js?v=2026-05-06ae" defer></script>
+<script src="/js/foodpars.js?v=2026-05-06ae" defer></script>
+<script src="/js/labels.js?v=2026-05-06ae" defer></script>
+<script src="/js/bags.js?v=2026-05-06ae" defer></script>
+<script src="/js/bag-labels-5lb.js?v=2026-05-06ae" defer></script>
+<script src="/js/pastry-sync.js?v=2026-05-06ae" defer></script>
+<script src="/js/recipes.js?v=2026-05-06ae" defer></script>
+<script src="/js/cogs.js?v=2026-05-06ae" defer></script>
+<script src="/js/vendors.js?v=2026-05-06ae" defer></script>
+<script src="/js/contacts.js?v=2026-05-06ae" defer></script>
+<script src="/js/maintenance.js?v=2026-05-06ae" defer></script>
+<script src="/js/checklists.js?v=2026-05-06ae" defer></script>
+<script src="/js/checklists-phase2.js?v=2026-05-06ae" defer></script>
+<script src="/js/ordering.js?v=2026-05-06ae" defer></script>
+<script src="/js/ordering-build.js?v=2026-05-06ae" defer></script>
+<script src="/js/market-analysis.js?v=2026-05-06ae" defer></script>
+<script src="/js/projects.js?v=2026-05-06ae" defer></script>
+<script src="/js/prices.js?v=2026-05-06ae" defer></script>
+<script src="/js/parking.js?v=2026-05-06ae" defer></script>
+<script src="/js/prepItems.js?v=2026-05-06ae" defer></script>
+<script src="/js/square.js?v=2026-05-06ae" defer></script>
+<script src="/js/timeclock.js?v=2026-05-06ae" defer></script>
+<script src="/js/slack.js?v=2026-05-06ae" defer></script>
+<script src="/js/auto-sync.js?v=2026-05-06ae" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
@@ -3997,6 +4012,21 @@ async function ensureAllLists() {
     {name:'Notes',       text:{allowMultipleLines:true}},
     {name:'Reason',      text:{}}                               // skip reason if status='skipped'
   ]);
+  // PR 28 — Append-only inventory price-change log. Title is set to
+  // "{itemName} {ISO}" for human-readable browse in SP. Future PRs
+  // can extend ItemListKey beyond 'inventory' (merch/food/grocery)
+  // and Field beyond 'CostPerCase' without a schema bump.
+  await ensureList(LISTS.priceHistory, [
+    {name:'ItemId',     text:{}},
+    {name:'ItemName',   text:{}},
+    {name:'ItemListKey',text:{}},                                   // 'inventory' (extensible)
+    {name:'Field',      text:{}},                                   // 'CostPerCase' (extensible)
+    {name:'OldValue',   number:{decimalPlaces:'automatic'}},
+    {name:'NewValue',   number:{decimalPlaces:'automatic'}},
+    {name:'ChangedBy',  text:{}},
+    {name:'ChangedAt',  dateTime:{displayAs:'default',format:'dateTime'}},
+    {name:'Source',     text:{}}                                    // 'manual' | 'square-sync' | 'pars-sync'
+  ]);
   // PR 12b — Counter pending counts. Title is the composite key
   // "{itemName}@{loc}@{ISO}". Managers see them on the dashboard
   // and approve to commit into BSC_Counts_<loc>.
@@ -4237,11 +4267,12 @@ async function loadAllData() {
     getListItems(siteId, LISTS.projectLinks).catch(()=>[]),
     getListItems(siteId, LISTS.pendingCounts).catch(()=>[]),
     getListItems(siteId, LISTS.clRuns).catch(()=>[]),
-    getListItems(siteId, LISTS.clTaskLogs).catch(()=>[])
+    getListItems(siteId, LISTS.clTaskLogs).catch(()=>[]),
+    getListItems(siteId, LISTS.priceHistory).catch(()=>[])
   ];
   // Drive the loading-screen fade: bg alpha follows fetches/total.
   setLoadingTotal(firstBatch.length + 4); // +4 for cogs+history+inv+menu
-  const [xfers, orders, cls, roles, vendors,,recipes,,contacts,staff,sched,log,appSettings,clGroups,clCompletions,foodParRows,parkingRows,contactArchiveRows,prepItemsRows,prepItemIngsRows,tagsRows,merchReceivedRows,merchMonthsRows,lastCountRows,invParsRows,clProgressRows,projectRows,projectTaskRows,projectUpdateRows,projectLinkRows,pendingCountsRows,clRunsRows,clTaskLogsRows] = await Promise.all(firstBatch.map(trackLoad));
+  const [xfers, orders, cls, roles, vendors,,recipes,,contacts,staff,sched,log,appSettings,clGroups,clCompletions,foodParRows,parkingRows,contactArchiveRows,prepItemsRows,prepItemIngsRows,tagsRows,merchReceivedRows,merchMonthsRows,lastCountRows,invParsRows,clProgressRows,projectRows,projectTaskRows,projectUpdateRows,projectLinkRows,pendingCountsRows,clRunsRows,clTaskLogsRows,priceHistoryRows] = await Promise.all(firstBatch.map(trackLoad));
   cache.transfers=xfers; cache.orders=orders;
   cache.checklists=cls; cache.roles=roles; cache.vendors=vendors;
   cache.recipes=recipes; cache.maintContacts=contacts;
@@ -4266,6 +4297,7 @@ async function loadAllData() {
   cache.pendingCounts   = pendingCountsRows || [];
   cache.clRuns          = clRunsRows         || [];
   cache.clTaskLogs      = clTaskLogsRows     || [];
+  cache.priceHistory    = priceHistoryRows   || [];
   rebuildClProgressMap();
   migrateTagsToRegistry(); // fire-and-forget: seed BSC_Tags from existing vendor/contact tags
   migrateParLevelsToPerLocation(); // fire-and-forget: backfill legacy ParLevel/ReorderTrigger to per-location rows (one-time, guarded)
@@ -6162,7 +6194,7 @@ function renderMenu(query='', catFilter='') {
     const stockDisplay = stock != null ? stock : '—';
     const vars = (i.Variations||'').split('\n').filter(Boolean);
     return `<tr data-gs-id="${escHtml(i.id)}" style="${isHidden?'opacity:0.45;':''}">
-      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-06ad" alt="" title="Synced with Square">':''}</td>
+      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-06ae" alt="" title="Synced with Square">':''}</td>
       <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${escHtml(i.Category||'—')}</span></td>
       <td style="font-size:12px;color:var(--muted);max-width:220px">${escHtml(i.Description||'')}</td>
       <td>${i.Price != null ? '$'+Number(i.Price).toFixed(2) : '—'}</td>

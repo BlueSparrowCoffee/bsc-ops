@@ -23,7 +23,7 @@ const MS_PER_DAY  = 24 * MS_PER_HOUR;
 const PROJECT_AUTO_ARCHIVE_DAYS = 90; // Done > N days → hide from active grid (in-memory only)
 
 // ── App modules / navigation ─────────────────────────────────────
-const MODULES = ['Dashboard','Inventory','Transfers','Ordering','Checklists','Vendors','Recipes','Staff','Maintenance','Contacts','Menu','Prep','Square','COGs','MarketAnalysis','Projects','Settings'];
+const MODULES = ['Dashboard','Inventory','Transfers','Ordering','Checklists','Vendors','Recipes','Staff','Maintenance','Contacts','Menu','Prep','Square','COGs','MarketAnalysis','Projects','Prices','Settings'];
 
 const PAGE_MODULE = {
   'dashboard':      'Dashboard',
@@ -40,6 +40,7 @@ const PAGE_MODULE = {
   'cogs':           'COGs',
   'market-analysis':'MarketAnalysis',
   'projects':       'Projects',
+  'prices':         'Prices',
   'settings':       'Settings',
 };
 
@@ -72,6 +73,7 @@ const LIST_PAGE_MAP = {
   projectTasks:        ['projects','dashboard'],
   projectUpdates:      ['projects'],
   projectLinks:        ['projects'],
+  priceHistory:        ['prices'],
 };
 
 // ── Maintenance / equipment ──────────────────────────────────────
@@ -264,7 +266,11 @@ const LISTS = {
   // PR 12b — Counter role pending counts. Counters write here (not directly
   // to BSC_Counts_<loc>); Managers approve, which creates the real record
   // and removes the pending row.
-  pendingCounts:       'BSC_PendingCounts'
+  pendingCounts:       'BSC_PendingCounts',
+  // PR 28 — append-only history of inventory price changes. Written by
+  // recordPriceChange() in js/prices.js whenever a CostPerCase write
+  // lands. Read by the Prices page roll-up + per-item modal chart.
+  priceHistory:        'BSC_PriceHistory'
 };
 
 // ── Inventory type config — drives which list/cache key each inv type uses ──
@@ -308,7 +314,7 @@ const INV_COG_CFG = {
 // Bump APP_VERSION any time a deploy has breaking localStorage changes.
 // On version mismatch the entire localStorage is wiped so stale prefs never
 // cause weirdness after an update.
-const APP_VERSION = '2026-05-06ad';
+const APP_VERSION = '2026-05-06ae';
 (function() {
   try {
     if (localStorage.getItem('bsc_app_version') !== APP_VERSION) {
@@ -320,7 +326,7 @@ const APP_VERSION = '2026-05-06ad';
 
 // Bump when SharePoint schema changes. User must clear bsc_provision_v
 // from localStorage (or Settings → Clear Local Data) to trigger re-provisioning.
-const PROVISION_VERSION = '42';
+const PROVISION_VERSION = '43';
 
 // ── Market Analysis list schemas ─────────────────────────────────
 // Provisioned in ensureAllLists (index.html). Denormalized text columns
@@ -426,6 +432,8 @@ const PROVISIONED_COL_NAMES = new Set([
   'GroupName','CompletedBy','CompletedDate','TaskId','RecurEveryDays','RecurTime','Description','StartDate',
   // Phase 2 evidence types (PR 27)
   'EvidenceType','NumericMin','NumericMax','NumericUnit',
+  // Price history (PR 28) — written by recordPriceChange()
+  'ItemListKey','OldValue','NewValue','ChangedAt',
   // Roles
   'RoleName','Permissions','LocationAccess',
   // Vendors

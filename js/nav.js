@@ -81,6 +81,7 @@ function nav(page) {
   if (page==='prep-items')  renderPrepItems();
   if (page==='market-analysis' && typeof renderMarketAnalysis === 'function') renderMarketAnalysis();
   if (page==='projects' && typeof renderProjects === 'function') renderProjects();
+  if (page==='prices'   && typeof renderPrices   === 'function') renderPrices();
 }
 
 // ── Per-page filter reset ───────────────────────────────────────
@@ -160,6 +161,9 @@ function _resetPageFilters(page) {
       // Reset to grid view (in case user was on a detail page)
       if (typeof exitProjectDetail === 'function') exitProjectDetail();
       break;
+    case 'prices':
+      clearInp(byId('prices-search'));
+      break; // renderPrices is invoked by nav() dispatch above
   }
 }
 

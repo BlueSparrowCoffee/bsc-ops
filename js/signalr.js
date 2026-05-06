@@ -35,6 +35,7 @@ const PAGE_RENDER_FN = {
   settings:         () => { renderRoles(); renderTagsSettings(); initColMgr(); },
   parking:          () => renderParking(),
   projects:         () => { if (typeof renderProjects === 'function') renderProjects(); },
+  prices:           () => { if (typeof renderPrices === 'function') renderPrices(); },
   'market-analysis':() => { if (typeof renderMarketAnalysis === 'function') renderMarketAnalysis(); },
   square:           () => { if (typeof renderSquarePage === 'function') renderSquarePage(); },
 };
