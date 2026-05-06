@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BSC Operations</title>
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-06o">
-<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-06o">
-<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-06o">
-<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-06o">
-<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-06o">
+<link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png?v=2026-05-06p">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/images/icon-180.png?v=2026-05-06p">
+<link rel="icon" type="image/png" sizes="180x180" href="/images/icon-180.png?v=2026-05-06p">
+<link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png?v=2026-05-06p">
+<link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png?v=2026-05-06p">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="BSC Ops">
@@ -891,7 +891,24 @@ tr.fp-drag-over td{background:rgba(183,139,64,.08)!important;border-top:2px soli
 .alert-dot.gold{background:var(--gold);}
 
 /* ── COUNT SHEET ── */
-.count-header-bar{display:flex;justify-content:space-between;align-items:flex-end;padding:16px 0 20px;flex-wrap:wrap;gap:12px;}
+/* Count header bar — sticky to top of #inv-tab-count when scrolling
+   through the count sheet so Submit + draft progress stay reachable. */
+.count-header-bar{
+  display:flex;justify-content:space-between;align-items:flex-end;
+  padding:14px 16px;margin:0 -16px 18px;
+  flex-wrap:wrap;gap:12px;
+  position:sticky;top:54px;z-index:10;
+  background:linear-gradient(180deg,#ffffff 0%,var(--bg-card-soft) 100%);
+  border-bottom:1px solid var(--border);
+  box-shadow:0 8px 14px -10px rgba(14,53,64,0.14);
+}
+.count-header-bar .count-progress-stat{
+  font-family:var(--mono);font-weight:600;font-size:13px;color:var(--ink);
+  font-variant-numeric:tabular-nums;
+}
+.count-header-bar .count-progress-stat .muted{color:var(--muted);font-weight:500;}
+.count-header-bar .count-progress-stat .below-par{color:var(--orange);}
+.count-header-bar #count-draft-indicator{color:var(--gold-deep) !important;}
 .count-cat-section{margin-bottom:28px;}
 .count-cat-header{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);padding:8px 0 10px;border-bottom:2px solid var(--border);margin-bottom:2px;}
 .count-row{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--opal);flex-wrap:wrap;}
@@ -996,11 +1013,11 @@ html,body{overscroll-behavior:none;}
 </style>
 <!-- Design tokens (PR 1 of refresh) — loaded after inline <style> so legacy
      aliases at the bottom of :root override the older brand values. -->
-<link rel="stylesheet" href="/css/tokens.css?v=2026-05-06o">
+<link rel="stylesheet" href="/css/tokens.css?v=2026-05-06p">
 <!-- Shared primitives (PR 4) — loaded after tokens.css and after the
      inline <style> so it overrides legacy .btn-primary / .badge-* /
      .card / .alert-item rules with the new gradient + metallic look. -->
-<link rel="stylesheet" href="/css/primitives.css?v=2026-05-06o">
+<link rel="stylesheet" href="/css/primitives.css?v=2026-05-06p">
 </head>
 <body>
 
@@ -1016,7 +1033,7 @@ html,body{overscroll-behavior:none;}
 <div id="topbar">
   <button id="nav-toggle" onclick="toggleNav()" aria-label="Menu">☰</button>
   <div class="topbar-logo">
-    <img src="/images/feather-light.png?v=2026-05-06o" alt="" aria-hidden="true">
+    <img src="/images/feather-light.png?v=2026-05-06p" alt="" aria-hidden="true">
     <div>
       <div class="brand">Blue Sparrow</div>
       <small>Operations</small>
@@ -3410,40 +3427,40 @@ html,body{overscroll-behavior:none;}
 <div class="toast" id="toast-err"></div>
 
 <!-- App JS modules (classic scripts, loaded in dependency order) -->
-<script src="/js/constants.js?v=2026-05-06o" defer></script>
-<script src="/js/utils.js?v=2026-05-06o" defer></script>
-<script src="/js/state.js?v=2026-05-06o" defer></script>
-<script src="/js/auth.js?v=2026-05-06o" defer></script>
-<script src="/js/graph.js?v=2026-05-06o" defer></script>
-<script src="/js/signalr.js?v=2026-05-06o" defer></script>
-<script src="/js/tags.js?v=2026-05-06o" defer></script>
-<script src="/js/nav.js?v=2026-05-06o" defer></script>
-<script src="/js/settings.js?v=2026-05-06o" defer></script>
-<script src="/js/dashboard.js?v=2026-05-06o" defer></script>
-<script src="/js/inventory.js?v=2026-05-06o" defer></script>
-<script src="/js/inventory-form.js?v=2026-05-06o" defer></script>
-<script src="/js/counts.js?v=2026-05-06o" defer></script>
-<script src="/js/foodpars.js?v=2026-05-06o" defer></script>
-<script src="/js/labels.js?v=2026-05-06o" defer></script>
-<script src="/js/bags.js?v=2026-05-06o" defer></script>
-<script src="/js/bag-labels-5lb.js?v=2026-05-06o" defer></script>
-<script src="/js/pastry-sync.js?v=2026-05-06o" defer></script>
-<script src="/js/recipes.js?v=2026-05-06o" defer></script>
-<script src="/js/cogs.js?v=2026-05-06o" defer></script>
-<script src="/js/vendors.js?v=2026-05-06o" defer></script>
-<script src="/js/contacts.js?v=2026-05-06o" defer></script>
-<script src="/js/maintenance.js?v=2026-05-06o" defer></script>
-<script src="/js/checklists.js?v=2026-05-06o" defer></script>
-<script src="/js/ordering.js?v=2026-05-06o" defer></script>
-<script src="/js/ordering-build.js?v=2026-05-06o" defer></script>
-<script src="/js/market-analysis.js?v=2026-05-06o" defer></script>
-<script src="/js/projects.js?v=2026-05-06o" defer></script>
-<script src="/js/parking.js?v=2026-05-06o" defer></script>
-<script src="/js/prepItems.js?v=2026-05-06o" defer></script>
-<script src="/js/square.js?v=2026-05-06o" defer></script>
-<script src="/js/timeclock.js?v=2026-05-06o" defer></script>
-<script src="/js/slack.js?v=2026-05-06o" defer></script>
-<script src="/js/auto-sync.js?v=2026-05-06o" defer></script>
+<script src="/js/constants.js?v=2026-05-06p" defer></script>
+<script src="/js/utils.js?v=2026-05-06p" defer></script>
+<script src="/js/state.js?v=2026-05-06p" defer></script>
+<script src="/js/auth.js?v=2026-05-06p" defer></script>
+<script src="/js/graph.js?v=2026-05-06p" defer></script>
+<script src="/js/signalr.js?v=2026-05-06p" defer></script>
+<script src="/js/tags.js?v=2026-05-06p" defer></script>
+<script src="/js/nav.js?v=2026-05-06p" defer></script>
+<script src="/js/settings.js?v=2026-05-06p" defer></script>
+<script src="/js/dashboard.js?v=2026-05-06p" defer></script>
+<script src="/js/inventory.js?v=2026-05-06p" defer></script>
+<script src="/js/inventory-form.js?v=2026-05-06p" defer></script>
+<script src="/js/counts.js?v=2026-05-06p" defer></script>
+<script src="/js/foodpars.js?v=2026-05-06p" defer></script>
+<script src="/js/labels.js?v=2026-05-06p" defer></script>
+<script src="/js/bags.js?v=2026-05-06p" defer></script>
+<script src="/js/bag-labels-5lb.js?v=2026-05-06p" defer></script>
+<script src="/js/pastry-sync.js?v=2026-05-06p" defer></script>
+<script src="/js/recipes.js?v=2026-05-06p" defer></script>
+<script src="/js/cogs.js?v=2026-05-06p" defer></script>
+<script src="/js/vendors.js?v=2026-05-06p" defer></script>
+<script src="/js/contacts.js?v=2026-05-06p" defer></script>
+<script src="/js/maintenance.js?v=2026-05-06p" defer></script>
+<script src="/js/checklists.js?v=2026-05-06p" defer></script>
+<script src="/js/ordering.js?v=2026-05-06p" defer></script>
+<script src="/js/ordering-build.js?v=2026-05-06p" defer></script>
+<script src="/js/market-analysis.js?v=2026-05-06p" defer></script>
+<script src="/js/projects.js?v=2026-05-06p" defer></script>
+<script src="/js/parking.js?v=2026-05-06p" defer></script>
+<script src="/js/prepItems.js?v=2026-05-06p" defer></script>
+<script src="/js/square.js?v=2026-05-06p" defer></script>
+<script src="/js/timeclock.js?v=2026-05-06p" defer></script>
+<script src="/js/slack.js?v=2026-05-06p" defer></script>
+<script src="/js/auto-sync.js?v=2026-05-06p" defer></script>
 
 <script>
 // CFG, SCOPES, ADMIN_SCOPES moved to js/auth.js
@@ -5852,7 +5869,7 @@ function renderMenu(query='', catFilter='') {
     const stockDisplay = stock != null ? stock : '—';
     const vars = (i.Variations||'').split('\n').filter(Boolean);
     return `<tr data-gs-id="${escHtml(i.id)}" style="${isHidden?'opacity:0.45;':''}">
-      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-06o" alt="" title="Synced with Square">':''}</td>
+      <td style="font-weight:600">${escHtml(i.ItemName||'—')}${i.SquareId?'<img class="sq-badge" src="/images/Square%20Sync%20Icon.png?v=2026-05-06p" alt="" title="Synced with Square">':''}</td>
       <td><span style="background:var(--cream);padding:2px 8px;border-radius:10px;font-size:11px">${escHtml(i.Category||'—')}</span></td>
       <td style="font-size:12px;color:var(--muted);max-width:220px">${escHtml(i.Description||'')}</td>
       <td>${i.Price != null ? '$'+Number(i.Price).toFixed(2) : '—'}</td>

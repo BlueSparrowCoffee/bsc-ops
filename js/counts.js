@@ -525,6 +525,46 @@ function renderCountSheet() {
       _showDraftSaved();
     }
   }
+  _refreshCountProgress();
+}
+
+// Updates the live "X of Y counted · Z below par" stat in the sticky
+// count header. Called from updateCountTotal on every input. Cheap —
+// just reads existing DOM nodes.
+function _refreshCountProgress() {
+  const prog = document.getElementById('count-submit-progress');
+  if (!prog) return;
+  // Don't override the "Saving N records…" message during submit.
+  if (prog.dataset.busy === '1') return;
+  const rows = document.querySelectorAll('#inv-tab-count .count-row');
+  if (!rows.length) { prog.innerHTML = ''; return; }
+  let counted = 0, belowPar = 0;
+  const cfg = (typeof invCfg === 'function') ? invCfg() : null;
+  const loc = (typeof currentLocation !== 'undefined') ? currentLocation : null;
+  rows.forEach(row => {
+    const id = row.dataset.id;
+    const storeEl   = row.querySelector('.count-store');
+    const storageEl = row.querySelector('.count-storage');
+    const store   = storeEl   ? (parseFloat(storeEl.value)  ||0) : (parseFloat(row.dataset.store)  ||0);
+    const storage = storageEl ? (parseFloat(storageEl.value)||0) : (parseFloat(row.dataset.storage)||0);
+    const hasInput = (storeEl && storeEl.value !== '') || (storageEl && storageEl.value !== '')
+                     || row.dataset.store || row.dataset.storage;
+    if (!hasInput) return;
+    counted++;
+    // Below-par check requires the item record + invLowThreshold helper.
+    if (typeof invLowThreshold === 'function' && cfg && id) {
+      const item = (cache[cfg.cacheKey] || []).find(i => String(i.id) === String(id));
+      if (item) {
+        const thresh = invLowThreshold(item, loc);
+        if (thresh != null && thresh > 0 && (store + storage) <= thresh) belowPar++;
+      }
+    }
+  });
+  prog.innerHTML = `
+    <span class="count-progress-stat">
+      <b>${counted}</b><span class="muted"> / ${rows.length} counted</span>
+      ${belowPar > 0 ? `<span class="below-par"> · ${belowPar} below par</span>` : ''}
+    </span>`;
 }
 
 function updateCountTotal(input) {
@@ -541,6 +581,7 @@ function updateCountTotal(input) {
   const totalEl = document.getElementById('count-total-'+id);
   if (totalEl) totalEl.textContent = +(store+storage).toFixed(2);
   _flashCountRow(row);
+  _refreshCountProgress();
   // Autosave the whole sheet as a draft
   _autosaveCountDebounced(() => {
     const cfg = invCfg();
@@ -637,6 +678,10 @@ async function submitWeeklyCount() {
   const prog = document.getElementById('count-submit-progress');
   const btn = document.querySelector('#inv-tab-count .btn-primary');
   btn.disabled = true;
+  // Mark prog as busy so _refreshCountProgress (called by typing in
+  // any count input mid-submit) doesn't overwrite the "X/Y saving…"
+  // status. Cleared in finally.
+  if (prog) prog.dataset.busy = '1';
 
   try {
     setLoading(true, `Saving ${entries.length} count records…`);
@@ -700,7 +745,12 @@ async function submitWeeklyCount() {
     renderDashboard();
     prog.textContent = '';
   } catch(e) { toast('err','Submit failed: '+e.message); }
-  finally { setLoading(false); btn.disabled=false; }
+  finally {
+    setLoading(false);
+    btn.disabled = false;
+    if (prog) delete prog.dataset.busy;
+    _refreshCountProgress();
+  }
 }
 
 // ── Merch Count Sheet (monthly) ───────────────────────────────────
